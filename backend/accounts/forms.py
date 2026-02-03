@@ -1,0 +1,167 @@
+﻿from django import forms
+from django.contrib.auth import get_user_model
+from .models import Responsavel, Aventureiro
+from .utils import decode_signature
+
+User = get_user_model()
+
+
+class ResponsavelForm(forms.ModelForm):
+    username = forms.CharField(max_length=150, label='nome de usuário')
+    password = forms.CharField(widget=forms.PasswordInput, label='senha')
+    password_confirm = forms.CharField(widget=forms.PasswordInput, label='repita a senha')
+    signature_value = forms.CharField(widget=forms.HiddenInput, required=True)
+
+    class Meta:
+        model = Responsavel
+        exclude = ('user', 'signature', 'created_at')
+
+    def clean(self):
+        cleaned = super().clean()
+        senha = cleaned.get('password')
+        confirm = cleaned.get('password_confirm')
+        if senha and confirm and senha != confirm:
+            self.add_error('password_confirm', 'As senhas precisam coincidir.')
+        if not (cleaned.get('pai_nome') or cleaned.get('mae_nome') or cleaned.get('responsavel_nome')):
+            raise forms.ValidationError('Informe o pai, a mãe ou o responsável legal.')
+        return cleaned
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if username and User.objects.filter(username=username).exists():
+            raise forms.ValidationError('Este nome de usuário já está em uso.')
+        return username
+
+    def save(self, commit=True):
+        username = self.cleaned_data.pop('username')
+        password = self.cleaned_data.pop('password')
+        self.cleaned_data.pop('password_confirm', None)
+        signature_data = self.cleaned_data.pop('signature_value', None)
+        user = User.objects.create_user(username=username, password=password)
+        responsavel = super().save(commit=False)
+        responsavel.user = user
+        signature_file = decode_signature(signature_data, 'responsavel')
+        if signature_file:
+            responsavel.signature.save(signature_file.name, signature_file, save=False)
+        if commit:
+            responsavel.save()
+        return responsavel
+
+
+class AventureiroForm(forms.ModelForm):
+    signature_value_av = forms.CharField(widget=forms.HiddenInput, required=True)
+
+    class Meta:
+        model = Aventureiro
+        exclude = ('responsavel', 'assinatura', 'created_at')
+
+    def clean_doencas(self):
+        return self.data.getlist('doenca')
+
+    def clean_deficiencias(self):
+        return self.data.getlist('deficiencia')
+
+    def clean_condicoes(self):
+        condicoes = {}
+        for prefix in ('cardiaco', 'diabetico', 'renal', 'psicologico'):
+            condicoes[prefix] = {
+                'resposta': self.data.get(prefix),
+                'detalhe': self.data.get(f"{prefix}_detalhe"),
+                'medicamento': self.data.get(f"{prefix}_medicamento"),
+                'remedio': self.data.get(f"{prefix}_remedio"),
+            }
+        return condicoes
+
+    def clean_alergias(self):
+        alergias = {}
+        pairs = [
+            ('alergia_pele', 'alergia_pele_descricao'),
+            ('alergia_alimento', 'alergia_alimento_descricao'),
+            ('alergia_medicamento', 'alergia_medicamento_descricao'),
+        ]
+        for field, detail in pairs:
+            alergias[field] = {
+                'resposta': self.data.get(field),
+                'descricao': self.data.get(detail),
+            }
+        return alergias
+
+    def clean(self):
+        cleaned = super().clean()
+        if not cleaned.get('nome'):
+            self.add_error('nome', 'Informe o nome do aventureiro.')
+        if not cleaned.get('signature_value_av') or not cleaned['signature_value_av'].strip():
+            self.add_error('signature_value_av', 'Assine a ficha antes de enviar.')
+        self._validate_doc_requirements(cleaned)
+        self._validate_plano(cleaned)
+        self._validate_camiseta(cleaned)
+        self._validate_tipo_sangue(cleaned)
+        self._validate_condicoes()
+        self._validate_alergias()
+        self._validate_declaracoes(cleaned)
+        return cleaned
+
+    def _validate_doc_requirements(self, cleaned):
+        certidao = cleaned.get('certidao')
+        rg = cleaned.get('rg')
+        orgao = cleaned.get('orgao')
+        cpf = cleaned.get('cpf')
+
+        has_rg_with_orgao = bool(rg and orgao)
+        has_certidao = bool(certidao)
+        has_cpf = bool(cpf)
+
+        if not (has_certidao or has_rg_with_orgao or has_cpf):
+            raise forms.ValidationError('Informe pelo menos uma documentação válida: certidão, RG (com órgão) ou CPF.')
+        if rg and not orgao:
+            self.add_error('orgao', 'Informe o órgão expedidor junto com o RG.')
+        if orgao and not rg:
+            self.add_error('rg', 'Informe o número do RG que pertence ao órgão expedidor.')
+
+    def _validate_plano(self, cleaned):
+        plano = cleaned.get('plano')
+        if not plano:
+            self.add_error('plano', 'Informe se possui plano de saúde.')
+        elif plano == 'sim' and not cleaned.get('plano_nome'):
+            self.add_error('plano_nome', 'Informe o nome do plano de saúde.')
+
+    def _validate_camiseta(self, cleaned):
+        if not cleaned.get('camiseta'):
+            self.add_error('camiseta', 'Selecione um tamanho de camiseta.')
+
+    def _validate_tipo_sangue(self, cleaned):
+        if not cleaned.get('tipo_sangue'):
+            self.add_error('tipo_sangue', 'Selecione o tipo sanguíneo.')
+
+    def _validate_condicoes(self):
+        for prefix in ('cardiaco', 'diabetico', 'renal', 'psicologico'):
+            if self.data.get(prefix) == 'sim' and not self.data.get(f"{prefix}_detalhe"):
+                self.add_error(f"{prefix}_detalhe", 'Descreva a condição indicada.')
+            if self.data.get(f"{prefix}_medicamento") == 'sim' and not self.data.get(f"{prefix}_remedio"):
+                self.add_error(f"{prefix}_remedio", 'Informe o medicamento utilizado.')
+
+    def _validate_alergias(self):
+        pairs = [
+            ('alergia_pele', 'alergia_pele_descricao'),
+            ('alergia_alimento', 'alergia_alimento_descricao'),
+            ('alergia_medicamento', 'alergia_medicamento_descricao'),
+        ]
+        for field, detail in pairs:
+            if self.data.get(field) == 'sim' and not self.data.get(detail):
+                self.add_error(detail, 'Informe o detalhe da alergia indicada.')
+
+    def _validate_declaracoes(self, cleaned):
+        if not cleaned.get('declaracao_medica'):
+            self.add_error('declaracao_medica', 'Aceite a declaração médica.')
+        if not cleaned.get('autorizacao_imagem'):
+            self.add_error('autorizacao_imagem', 'Aceite o termo de autorização de imagem.')
+
+    def save(self, responsavel, commit=True):
+        adventure = super().save(commit=False)
+        adventure.responsavel = responsavel
+        signature_data = self.cleaned_data.get('signature_value_av')
+        if signature := decode_signature(signature_data, 'aventura'):
+            adventure.assinatura.save(signature.name, signature, save=False)
+        if commit:
+            adventure.save()
+        return adventure
