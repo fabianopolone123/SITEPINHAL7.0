@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clube de Aventureiros Pinhal Junior — Dados dos Responsáveis</title>
+  <link rel="stylesheet" href="../static/css/styles.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="branding">
+      <p class="eyebrow">Portal oficial</p>
+      <h1>Dados dos pais / responsável legal</h1>
+      <p class="subtitle">Preencha as informações obrigatórias para que possamos manter o cadastro do aventureiro atualizado.</p>
+    </div>
+    <main class="login-card form-card">
+      <img src="../static/images/logo.jpeg" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
+      <form class="responsavel-form">
+        <section class="field-section">
+          <h2>Pai</h2>
+          <label for="pai-nome">Nome completo</label>
+          <input id="pai-nome" name="pai_nome" type="text" placeholder="Nome do pai" />
+          <label for="pai-cpf">CPF</label>
+          <input id="pai-cpf" name="pai_cpf" type="text" placeholder="000.000.000-00" />
+          <label for="pai-email">E-mail</label>
+          <input id="pai-email" name="pai_email" type="email" placeholder="pai@example.com" />
+          <label for="pai-telefone">Telefone</label>
+          <input id="pai-telefone" name="pai_telefone" type="tel" placeholder="(99) 9999-9999" />
+          <label for="pai-celular">Celular</label>
+          <input id="pai-celular" name="pai_celular" type="tel" placeholder="(99) 9 9999-9999" />
+        </section>
+
+        <section class="field-section">
+          <h2>Mãe</h2>
+          <label for="mae-nome">Nome completo</label>
+          <input id="mae-nome" name="mae_nome" type="text" placeholder="Nome da mãe" />
+          <label for="mae-cpf">CPF</label>
+          <input id="mae-cpf" name="mae_cpf" type="text" placeholder="000.000.000-00" />
+          <label for="mae-email">E-mail</label>
+          <input id="mae-email" name="mae_email" type="email" placeholder="mae@example.com" />
+          <label for="mae-telefone">Telefone</label>
+          <input id="mae-telefone" name="mae_telefone" type="tel" placeholder="(99) 9999-9999" />
+          <label for="mae-celular">Celular</label>
+          <input id="mae-celular" name="mae_celular" type="tel" placeholder="(99) 9 9999-9999" />
+        </section>
+
+        <section class="field-section">
+          <h2>Responsável Legal (quando não for pai ou mãe)</h2>
+          <label for="resp-nome">Nome completo</label>
+          <input id="resp-nome" name="responsavel_nome" type="text" placeholder="Nome do responsável legal" />
+          <label for="resp-parentesco">Grau de parentesco</label>
+          <input id="resp-parentesco" name="responsavel_parentesco" type="text" placeholder="Ex: Tio(a), Avó" />
+          <label for="resp-cpf">CPF</label>
+          <input id="resp-cpf" name="responsavel_cpf" type="text" placeholder="000.000.000-00" />
+          <label for="resp-email">E-mail</label>
+          <input id="resp-email" name="responsavel_email" type="email" placeholder="responsavel@example.com" />
+          <label for="resp-telefone">Telefone</label>
+          <input id="resp-telefone" name="responsavel_telefone" type="tel" placeholder="(99) 9999-9999" />
+          <label for="resp-celular">Celular</label>
+          <input id="resp-celular" name="responsavel_celular" type="tel" placeholder="(99) 9 9999-9999" />
+        </section>
+
+        <section class="field-section">
+          <h2>Endereço</h2>
+          <label for="endereco">Endereço</label>
+          <input id="endereco" name="endereco" type="text" placeholder="Rua, número e complemento" />
+          <label for="bairro">Bairro</label>
+          <input id="bairro" name="bairro" type="text" placeholder="Bairro" />
+          <label for="cidade">Cidade</label>
+          <input id="cidade" name="cidade" type="text" placeholder="Pinhal Junior" />
+          <label for="cep">CEP</label>
+          <input id="cep" name="cep" type="text" placeholder="00000-000" />
+          <label for="estado">Estado</label>
+          <input id="estado" name="estado" type="text" placeholder="UF" />
+        </section>
+
+        <div class="status" aria-live="polite"></div>
+        <div class="action-row">
+          <button type="button" class="secondary" id="open-signature">Assinar</button>
+          <button type="submit" class="primary">Salvar e avançar</button>
+        </div>
+        <div class="signature-preview" aria-live="polite">
+          <p>Assinatura registrada:</p>
+          <img id="signature-image" alt="Preview da assinatura" />
+        </div>
+      </form>
+    </main>
+    <div id="signature-modal" class="modal" aria-hidden="true">
+      <div class="modal-content">
+        <header>
+          <h2>Assinatura do responsável</h2>
+          <button id="close-signature" aria-label="Fechar modal">×</button>
+        </header>
+        <p class="panel-note">Use o mouse ou o dedo para desenhar sua assinatura. Clique em salvar para registrar ou limpar para recomeçar.</p>
+        <canvas id="signature-canvas" width="380" height="180"></canvas>
+        <div class="modal-actions">
+          <button type="button" class="secondary" id="clear-signature">Limpar</button>
+          <button type="button" class="primary" id="save-signature">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../static/js/responsavel.js" defer></script>
+  <script src="../static/js/signature.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ficha Cadastral e Médica – Clube de Aventureiros</title>
+  <link rel="stylesheet" href="../static/css/styles.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="branding">
+      <p class="eyebrow">Ficha cadastral e médica</p>
+      <h1>Clube de Aventureiros</h1>
+      <p class="subtitle">Complete cada seção numerada com os dados solicitados.</p>
+    </div>
+
+    <main class="login-card aventura-card">
+      <img src="../static/images/logo.jpeg" alt="logo Clube de Aventureiros" class="logo" />
+      <form class="aventura-form">
+        <section class="section-block">
+          <div class="section-header">
+            <span>1.</span>
+            <h2>Dados Pessoais e Escolares</h2>
+          </div>
+          <div class="form-row">
+            <label>Nome completo<input type="text" name="nome" placeholder="Nome completo" /></label>
+          </div>
+          <div class="radio-row">
+            <label><input type="radio" name="sexo" value="masculino" /> Masculino</label>
+            <label><input type="radio" name="sexo" value="feminino" /> Feminino</label>
+          </div>
+          <div class="form-row">
+            <label>Data de nascimento<input type="date" name="nascimento" /></label>
+            <label>Série (ano)<input type="text" name="serie" placeholder="Ex.: 3º ano" /></label>
+          </div>
+          <div class="form-row">
+            <label>Colégio<input type="text" name="colegio" /></label>
+          </div>
+          <div class="radio-row">
+            <label><input type="radio" name="bolsa" value="sim" /> Beneficiário do Bolsa Família – Sim</label>
+            <label><input type="radio" name="bolsa" value="nao" /> Não</label>
+          </div>
+          <div class="form-row">
+            <label>Religião<input type="text" name="religiao" /></label>
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>2.</span>
+            <h2>Classe Investida</h2>
+          </div>
+          <div class="checkbox-grid dois-colunas">
+            <label><input type="checkbox" name="classe" value="abelhinhas" /> Abelhinhas</label>
+            <label><input type="checkbox" name="classe" value="luminares" /> Luminares</label>
+            <label><input type="checkbox" name="classe" value="edificadores" /> Edificadores</label>
+            <label><input type="checkbox" name="classe" value="maos" /> Mãos Ajudadoras</label>
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>3.</span>
+            <h2>Documentos</h2>
+          </div>
+          <div class="form-row">
+            <label>Certidão de nascimento<input type="text" name="certidao" /></label>
+          </div>
+          <div class="form-row">
+            <label>RG<input type="text" name="rg" /></label>
+            <label>Órgão expedidor<input type="text" name="orgao" /></label>
+          </div>
+          <div class="form-row">
+            <label>CPF<input type="text" name="cpf" /></label>
+            <label>Tamanho da camiseta<input type="text" name="camiseta" /></label>
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>4.</span>
+            <h2>Ficha Médica</h2>
+          </div>
+          <div class="radio-row">
+            <label><input type="radio" name="plano" value="sim" /> Possui plano de saúde</label>
+            <label><input type="radio" name="plano" value="nao" /> Não possui</label>
+          </div>
+          <div class="form-row">
+            <label>Se possui, qual?<input type="text" name="plano_nome" /></label>
+          </div>
+          <div class="form-row">
+            <label>CNS / Cartão SUS<input type="text" name="cns" /></label>
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>5.</span>
+            <h2>Já teve ou tem?</h2>
+          </div>
+          <p class="panel-note panel-note--tight">Marque apenas as opções positivas.</p>
+          <div class="checkbox-grid extensive">
+            <label><input type="checkbox" name="doenca" value="pneumonia" /> Pneumonia</label>
+            <label><input type="checkbox" name="doenca" value="sarampo" /> Sarampo</label>
+            <label><input type="checkbox" name="doenca" value="tetano" /> Tétano</label>
+            <label><input type="checkbox" name="doenca" value="catapora" /> Catapora</label>
+            <label><input type="checkbox" name="doenca" value="meningite" /> Meningite</label>
+            <label><input type="checkbox" name="doenca" value="hepatite" /> Hepatite</label>
+            <label><input type="checkbox" name="doenca" value="dengue" /> Dengue</label>
+            <label><input type="checkbox" name="doenca" value="febre_amarela" /> Febre Amarela</label>
+            <label><input type="checkbox" name="doenca" value="h1n1" /> H1N1</label>
+            <label><input type="checkbox" name="doenca" value="colera" /> Cólera</label>
+            <label><input type="checkbox" name="doenca" value="rubeola" /> Rubéola</label>
+            <label><input type="checkbox" name="doenca" value="coqueluche" /> Coqueluche</label>
+            <label><input type="checkbox" name="doenca" value="difteria" /> Difteria</label>
+            <label><input type="checkbox" name="doenca" value="caxumba" /> Caxumba</label>
+            <label><input type="checkbox" name="doenca" value="rinite" /> Rinite</label>
+            <label><input type="checkbox" name="doenca" value="bronquite" /> Bronquite</label>
+            <label><input type="checkbox" name="doenca" value="malaria" /> Malária</label>
+            <label><input type="checkbox" name="doenca" value="variola" /> Varíola</label>
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>6.</span>
+            <h2>Condições de Saúde</h2>
+          </div>
+          <div class="question-row">
+            <span>Problemas cardíacos</span>
+            <div class="radio-group compact">
+              <label><input type="radio" name="cardiaco" value="sim" /> Sim</label>
+              <label><input type="radio" name="cardiaco" value="nao" /> Não</label>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="cardiaco_detalhe" /></label>
+          </div>
+          <div class="question-row">
+            <span>Utiliza remédios?</span>
+            <div class="radio-group compact">
+              <label><input type="radio" name="cardiaco_medicamento" value="sim" /> Sim</label>
+              <label><input type="radio" name="cardiaco_medicamento" value="nao" /> Não</label>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="cardiaco_remedio" /></label>
+          </div>
+          <div class="question-row">
+            <span>Diabetes</span>
+            <div class="radio-group compact">
+              <label><input type="radio" name="diabetico" value="sim" /> Sim</label>
+              <label><input type="radio" name="diabetico" value="nao" /> Não</label>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="diabetico_detalhe" /></label>
+          </div>
+          <div class="question-row">
+            <span>Utiliza remédios?</span>
+            <div class="radio-group compact">
+              <label><input type="radio" name="diabetico_medicamento" value="sim" /> Sim</label>
+              <label><input type="radio" name="diabetico_medicamento" value="nao" /> Não</label>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="diabetico_remedio" /></label>
+          </div>
+          <div class="question-row">
+            <span>Problemas renais</span>
+            <div class="radio-group compact">
+              <label><input type="radio" name="renal" value="sim" /> Sim</label>
+              <label><input type="radio" name="renal" value="nao" /> Não</label>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="renal_detalhe" /></label>
+          </div>
+          <div class="question-row">
+            <span>Utiliza remédios?</span>
+            <div class="radio-group compact">
+              <label><input type="radio" name="renal_medicamento" value="sim" /> Sim</label>
+              <label><input type="radio" name="renal_medicamento" value="nao" /> Não</label>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="renal_remedio" /></label>
+          </div>
+          <div class="question-row">
+            <span>Problemas psicológicos</span>
+            <div class="radio-group compact">
+              <label><input type="radio" name="psicologico" value="sim" /> Sim</label>
+              <label><input type="radio" name="psicologico" value="nao" /> Não</label>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="psicologico_detalhe" /></label>
+          </div>
+          <div class="question-row">
+            <span>Utiliza remédios?</span>
+            <div class="radio-group compact">
+              <label><input type="radio" name="psicologico_medicamento" value="sim" /> Sim</label>
+              <label><input type="radio" name="psicologico_medicamento" value="nao" /> Não</label>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="psicologico_remedio" /></label>
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>7.</span>
+            <h2>Alergias</h2>
+          </div>
+          <div class="question-row">
+            <span>Alergia cutânea (pele)</span>
+            <div class="radio-group compact">
+              <label><input type="radio" name="alergia_pele" value="sim" /> Sim</label>
+              <label><input type="radio" name="alergia_pele" value="nao" /> Não</label>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="alergia_pele_descricao" /></label>
+          </div>
+          <div class="question-row">
+            <span>Alergia alimentar</span>
+            <div class="radio-group compact">
+              <label><input type="radio" name="alergia_alimento" value="sim" /> Sim</label>
+              <label><input type="radio" name="alergia_alimento" value="nao" /> Não</label>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Qual alimento?<input type="text" name="alergia_alimento_descricao" /></label>
+          </div>
+          <div class="question-row">
+            <span>Alergia a medicamentos</span>
+            <div class="radio-group compact">
+              <label><input type="radio" name="alergia_medicamento" value="sim" /> Sim</label>
+              <label><input type="radio" name="alergia_medicamento" value="nao" /> Não</label>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Qual medicamento?<input type="text" name="alergia_medicamento_descricao" /></label>
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>8.</span>
+            <h2>Deficiências</h2>
+          </div>
+          <div class="checkbox-grid">
+            <label><input type="checkbox" name="deficiencia" value="cadeirante" /> Cadeirante</label>
+            <label><input type="checkbox" name="deficiencia" value="visual" /> Visual</label>
+            <label><input type="checkbox" name="deficiencia" value="auditiva" /> Auditiva</label>
+            <label><input type="checkbox" name="deficiencia" value="fala" /> Fala</label>
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>9.</span>
+            <h2>Tipo Sanguíneo</h2>
+          </div>
+          <div class="checkbox-grid dois-colunas">
+            <label><input type="radio" name="tipo_sangue" value="A+" /> A+</label>
+            <label><input type="radio" name="tipo_sangue" value="A-" /> A-</label>
+            <label><input type="radio" name="tipo_sangue" value="B+" /> B+</label>
+            <label><input type="radio" name="tipo_sangue" value="B-" /> B-</label>
+            <label><input type="radio" name="tipo_sangue" value="AB+" /> AB+</label>
+            <label><input type="radio" name="tipo_sangue" value="AB-" /> AB-</label>
+            <label><input type="radio" name="tipo_sangue" value="O+" /> O+</label>
+            <label><input type="radio" name="tipo_sangue" value="O-" /> O-</label>
+            <label><input type="radio" name="tipo_sangue" value="desconhecido" /> Não sabe</label>
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>10.</span>
+            <h2>Declaração Médica</h2>
+          </div>
+          <p class="panel-note">
+            Declaro que todas as informações médicas acima são verdadeiras, responsabilizando-me por quaisquer acidentes decorrentes da omissão de informações de saúde.
+          </p>
+          <label class="checkbox-full">
+            <input type="checkbox" name="declaracao_medica" required />
+            Li e aceito a declaração médica acima.
+          </label>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>11.</span>
+            <h2>Autorização de uso de imagem</h2>
+          </div>
+          <p class="panel-note">
+            AUTORIZO o uso de imagem em todo e qualquer material entre fotos e documentos para campanhas promocionais e institucionais do Clube de Aventureiros, em todo território nacional (outdoor, folhetos, folders, anúncios, redes sociais, cartazes e mídia eletrônica). Declaro estar de acordo, sem reivindicação futura de direitos.
+          </p>
+          <label class="checkbox-full">
+            <input type="checkbox" name="autorizacao_imagem" required />
+            Li e aceito o termo acima.
+          </label>
+        </section>
+
+        <div class="status" aria-live="polite"></div>
+        <div class="action-row">
+          <button type="submit" class="primary">Salvar e concluir</button>
+          <button type="button" class="secondary">Adicionar outro aventureiro</button>
+        </div>
+      </form>
+    </main>
+  </div>
+  <script src="../static/js/aventura.js" defer></script>
+</body>
+</html>
