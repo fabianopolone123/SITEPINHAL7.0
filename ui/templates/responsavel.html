@@ -17,6 +17,15 @@
       <img src="../static/images/logo.jpeg" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
       <form class="responsavel-form">
         <section class="field-section">
+          <h2>Acesso ao portal</h2>
+          <label for="responsavel-username">Nome de usuário</label>
+          <input id="responsavel-username" name="username" type="text" placeholder="ex.: pinhal.responsavel" />
+          <label for="responsavel-password">Senha</label>
+          <input id="responsavel-password" name="password" type="password" placeholder="••••••••" autocomplete="new-password" />
+          <label for="responsavel-password-confirm">Repita a senha</label>
+          <input id="responsavel-password-confirm" name="password_confirm" type="password" placeholder="••••••••" autocomplete="new-password" />
+        </section>
+        <section class="field-section">
           <h2>Pai</h2>
           <label for="pai-nome">Nome completo</label>
           <input id="pai-nome" name="pai_nome" type="text" placeholder="Nome do pai" />
@@ -45,7 +54,7 @@
         </section>
 
         <section class="field-section">
-          <h2>Responsável Legal (quando não for pai ou mãe)</h2>
+          <h2>Responsável legal</h2>
           <label for="resp-nome">Nome completo</label>
           <input id="resp-nome" name="responsavel_nome" type="text" placeholder="Nome do responsável legal" />
           <label for="resp-parentesco">Grau de parentesco</label>

@@ -58,3 +58,7 @@ Ele é a memória oficial do sistema.
 - [x] Tela de assinatura também presente em `aventura.html`, com preview e modal compartilhados entre os dois formulários.
 - [x] Criada `confirmacao.html` para revisar responsável e aventureiros antes de finalizar o cadastro.
 - [x] Preview da assinatura ocupa 100% da largura do card do formulário, garantindo consistência com a tela (`ui/static/css/styles.css`).
+
+### 03/02/2026 – Credenciais no responsável
+- [x] Incluída a seção “Acesso ao portal” no topo do formulário `ui/templates/responsavel.html` com os campos `username` e `password`, alinhando o cadastro do responsável com o restante das etapas.
+- [x] Acrescentado campo “Repita a senha” para confirmar o cadastro da senha no mesmo formulário, reforçando a validação antes de enviar.
