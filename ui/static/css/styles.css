@@ -143,11 +143,20 @@ body {
 
 .signature-preview img {
   width: 100%;
-  max-width: 320px;
   border: 1px dashed #cbd5f5;
   border-radius: 10px;
   min-height: 80px;
   object-fit: contain;
+}
+
+.signature-empty {
+  font-style: italic;
+  color: #94a3b8;
+}
+
+.signature-error {
+  color: #b91c1c;
+  font-size: 0.85rem;
 }
 
 .modal {

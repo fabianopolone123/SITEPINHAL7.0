@@ -81,7 +81,9 @@
         </div>
         <div class="signature-preview" aria-live="polite">
           <p>Assinatura registrada:</p>
+          <div class="signature-empty" id="signature-placeholder">Nenhuma assinatura salva ainda.</div>
           <img id="signature-image" alt="Preview da assinatura" />
+          <span id="signature-error" class="signature-error" aria-live="assertive"></span>
         </div>
       </form>
     </main>
@@ -92,6 +94,7 @@
           <button id="close-signature" aria-label="Fechar modal">×</button>
         </header>
         <p class="panel-note">Use o mouse ou o dedo para desenhar sua assinatura. Clique em salvar para registrar ou limpar para recomeçar.</p>
+        <span id="canvas-error" class="signature-error" aria-live="assertive"></span>
         <canvas id="signature-canvas" width="380" height="180"></canvas>
         <div class="modal-actions">
           <button type="button" class="secondary" id="clear-signature">Limpar</button>
