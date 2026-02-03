@@ -1,5 +1,6 @@
 const form = document.querySelector('.responsavel-form');
 const status = document.querySelector('.status');
+const signatureValue = document.getElementById('signature-value');
 
 const normalize = (value) => value?.trim() ?? '';
 
@@ -12,6 +13,12 @@ form.addEventListener('submit', (event) => {
 
   if (!hasAnyParent && !responsavel) {
     status.textContent = 'Informe ao menos um responsável (pai, mãe ou responsável legal).';
+    status.dataset.state = 'error';
+    return;
+  }
+
+  if (!signatureValue?.value) {
+    status.textContent = 'Assine o formulário antes de prosseguir.';
     status.dataset.state = 'error';
     return;
   }

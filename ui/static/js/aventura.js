@@ -1,5 +1,6 @@
 const adventureForm = document.querySelector('.aventura-form');
 const status = document.querySelector('.status');
+const adventureSignature = document.getElementById('signature-value-av');
 
 adventureForm.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -8,6 +9,12 @@ adventureForm.addEventListener('submit', (event) => {
 
   if (!nome) {
     status.textContent = 'Informe o nome do aventureiro antes de continuar.';
+    status.dataset.state = 'error';
+    return;
+  }
+
+  if (!adventureSignature?.value) {
+    status.textContent = 'Assine a ficha antes de prosseguir.';
     status.dataset.state = 'error';
     return;
   }

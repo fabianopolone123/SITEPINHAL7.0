@@ -56,4 +56,5 @@ Ele é a memória oficial do sistema.
 - [x] Botões de ação ao final agora oferecem “Salvar e concluir” e “Adicionar outro aventureiro”.
 - [x] Botão “Assinar” abre modal com canvas, salvar/limpar e preview (`ui/static/js/signature.js`, `ui/static/css/styles.css`), agora com validação contra assinaturas encostando na borda.
 - [x] Tela de assinatura também presente em `aventura.html`, com preview e modal compartilhados entre os dois formulários.
+- [x] Criada `confirmacao.html` para revisar responsável e aventureiros antes de finalizar o cadastro.
 - [x] Preview da assinatura ocupa 100% da largura do card do formulário, garantindo consistência com a tela (`ui/static/css/styles.css`).

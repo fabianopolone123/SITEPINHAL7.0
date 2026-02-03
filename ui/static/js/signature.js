@@ -10,6 +10,7 @@
       previewId,
       placeholderId,
       canvasErrorId,
+      signatureFieldId,
     } = config;
 
     const modal = document.getElementById(modalId);
@@ -21,6 +22,7 @@
     const preview = document.getElementById(previewId);
     const previewPlaceholder = document.getElementById(placeholderId);
     const canvasError = document.getElementById(canvasErrorId);
+    const signatureField = signatureFieldId ? document.getElementById(signatureFieldId) : null;
 
     if (!modal || !canvas || !openButton || !closeButton || !clearButton || !saveButton || !preview || !previewPlaceholder || !canvasError) {
       return;
@@ -116,6 +118,9 @@
     clearButton.addEventListener('click', () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       canvasError.textContent = '';
+      if (signatureField) {
+        signatureField.value = '';
+      }
     });
 
     saveButton.addEventListener('click', () => {
@@ -133,11 +138,17 @@
       preview.src = dataUrl;
       preview.style.display = 'block';
       previewPlaceholder.style.display = 'none';
+      if (signatureField) {
+        signatureField.value = dataUrl;
+      }
       closeModal();
     });
 
     previewPlaceholder.style.display = 'block';
     preview.style.display = 'none';
+    if (signatureField) {
+      signatureField.value = '';
+    }
   };
 
   createSignatureFlow({
@@ -150,6 +161,7 @@
     previewId: 'signature-image',
     placeholderId: 'signature-placeholder',
     canvasErrorId: 'canvas-error',
+    signatureFieldId: 'signature-value',
   });
 
   createSignatureFlow({
@@ -162,5 +174,6 @@
     previewId: 'signature-image-av',
     placeholderId: 'signature-placeholder-av',
     canvasErrorId: 'canvas-error-av',
+    signatureFieldId: 'signature-value-av',
   });
 })();
