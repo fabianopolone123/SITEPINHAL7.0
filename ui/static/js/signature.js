@@ -176,4 +176,17 @@
     canvasErrorId: 'canvas-error-av',
     signatureFieldId: 'signature-value-av',
   });
+
+  createSignatureFlow({
+    modalId: 'signature-modal-dir',
+    canvasId: 'signature-canvas-dir',
+    openButtonId: 'open-signature-dir',
+    closeButtonId: 'close-signature-dir',
+    clearButtonId: 'clear-signature-dir',
+    saveButtonId: 'save-signature-dir',
+    previewId: 'signature-image-dir',
+    placeholderId: 'signature-placeholder-dir',
+    canvasErrorId: 'canvas-error-dir',
+    signatureFieldId: 'signature-value-dir',
+  });
 })();

@@ -8,11 +8,12 @@ from django.views import View
 
 from .forms import (
     ResponsavelForm,
+    DiretoriaForm,
     AventureiroForm,
     ResponsavelDadosForm,
     AventureiroDadosForm,
 )
-from .models import Responsavel, Aventureiro
+from .models import Responsavel, Aventureiro, Diretoria
 from .utils import decode_signature, decode_photo
 from datetime import date
 
@@ -100,6 +101,24 @@ class ResponsavelView(View):
             login(request, responsavel.user)
             messages.success(request, 'Responsável cadastrado com sucesso. Continue com a ficha do aventureiro.')
             return redirect('accounts:aventura')
+        messages.error(request, 'Há campos obrigatórios pendentes; corrija e envie novamente.')
+        return render(request, self.template_name, {'form': form})
+
+
+class DiretoriaView(View):
+    template_name = 'diretoria.html'
+
+    def get(self, request):
+        form = DiretoriaForm()
+        return render(request, self.template_name, {'form': form})
+
+    def post(self, request):
+        form = DiretoriaForm(request.POST)
+        if form.is_valid():
+            diretoria = form.save()
+            login(request, diretoria.user)
+            messages.success(request, 'Cadastro da diretoria concluído com sucesso.')
+            return redirect('accounts:painel')
         messages.error(request, 'Há campos obrigatórios pendentes; corrija e envie novamente.')
         return render(request, self.template_name, {'form': form})
 

@@ -1,7 +1,7 @@
 ﻿from django import forms
 from django.contrib.auth import get_user_model
-from .models import Responsavel, Aventureiro
-from .utils import decode_signature
+from .models import Responsavel, Aventureiro, Diretoria
+from .utils import decode_signature, decode_photo
 
 User = get_user_model()
 
@@ -231,3 +231,71 @@ class AventureiroDadosForm(forms.ModelForm):
             'certidao', 'rg', 'orgao', 'cpf', 'camiseta', 'plano', 'plano_nome',
             'cns', 'tipo_sangue', 'declaracao_medica', 'autorizacao_imagem', 'foto',
         ]
+
+
+class DiretoriaForm(forms.ModelForm):
+    username = forms.CharField(max_length=150, label='nome de usuário')
+    password = forms.CharField(widget=forms.PasswordInput, label='senha')
+    password_confirm = forms.CharField(widget=forms.PasswordInput, label='repita a senha')
+    signature_value_dir = forms.CharField(widget=forms.HiddenInput, required=True)
+    photo_value_dir = forms.CharField(widget=forms.HiddenInput, required=True)
+
+    class Meta:
+        model = Diretoria
+        exclude = ('user', 'assinatura', 'foto', 'created_at')
+
+    def clean(self):
+        cleaned = super().clean()
+        senha = cleaned.get('password')
+        confirm = cleaned.get('password_confirm')
+        if senha and confirm and senha != confirm:
+            self.add_error('password_confirm', 'As senhas precisam coincidir.')
+
+        possui_limitacao = cleaned.get('possui_limitacao_saude')
+        descricao = cleaned.get('limitacao_saude_descricao')
+        if possui_limitacao == 'sim' and not (descricao and descricao.strip()):
+            self.add_error('limitacao_saude_descricao', 'Descreva a limitação de saúde informada.')
+
+        if not cleaned.get('autorizacao_imagem'):
+            self.add_error('autorizacao_imagem', 'Aceite a autorização de uso de imagem.')
+        if not cleaned.get('declaracao_medica'):
+            self.add_error('declaracao_medica', 'Aceite a declaração médica.')
+
+        signature_data = cleaned.get('signature_value_dir')
+        if not signature_data or not signature_data.strip():
+            self.add_error('signature_value_dir', 'Assine a ficha antes de concluir.')
+
+        photo_data = cleaned.get('photo_value_dir')
+        if not photo_data or not photo_data.strip():
+            self.add_error('photo_value_dir', 'Anexe a foto 3x4 antes de concluir.')
+
+        return cleaned
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if username and User.objects.filter(username=username).exists():
+            raise forms.ValidationError('Este nome de usuário já está em uso.')
+        return username
+
+    def save(self, commit=True):
+        username = self.cleaned_data.pop('username')
+        password = self.cleaned_data.pop('password')
+        self.cleaned_data.pop('password_confirm', None)
+        signature_data = self.cleaned_data.pop('signature_value_dir', None)
+        photo_data = self.cleaned_data.pop('photo_value_dir', None)
+
+        user = User.objects.create_user(username=username, password=password)
+        diretoria = super().save(commit=False)
+        diretoria.user = user
+
+        signature_file = decode_signature(signature_data, 'diretoria')
+        if signature_file:
+            diretoria.assinatura.save(signature_file.name, signature_file, save=False)
+
+        photo_file = decode_photo(photo_data, prefix='diretoria_photo')
+        if photo_file:
+            diretoria.foto.save(photo_file.name, photo_file, save=False)
+
+        if commit:
+            diretoria.save()
+        return diretoria

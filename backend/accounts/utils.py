@@ -22,5 +22,5 @@ def decode_signature(data_url, role_slug):
     return decode_data_url(data_url, f'{role_slug}_signature')
 
 
-def decode_photo(data_url):
-    return decode_data_url(data_url, 'aventura_photo')
+def decode_photo(data_url, prefix='aventura_photo'):
+    return decode_data_url(data_url, prefix)

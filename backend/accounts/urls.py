@@ -5,6 +5,7 @@ from django.contrib.auth.views import LoginView, LogoutView
 from .views import (
     RegisterView,
     ResponsavelView,
+    DiretoriaView,
     AventuraView,
     ConfirmacaoView,
     PainelView,
@@ -22,6 +23,7 @@ urlpatterns = [
     path('', RedirectView.as_view(pattern_name='accounts:login', permanent=False)),
     path('register/', RegisterView.as_view(), name='register'),
     path('responsavel/', ResponsavelView.as_view(), name='responsavel'),
+    path('diretoria/', DiretoriaView.as_view(), name='diretoria'),
     path('aventura/', AventuraView.as_view(), name='aventura'),
     path('confirmacao/', ConfirmacaoView.as_view(), name='confirmacao'),
     path('painel/', PainelView.as_view(), name='painel'),

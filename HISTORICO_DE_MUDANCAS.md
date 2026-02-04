@@ -98,3 +98,4 @@ Ele é a memória oficial do sistema.
 - [x] Visualização de aventureiro em “Meus dados” agora organiza `Condições` e `Alergias` em formato legível (sim/não, detalhe e uso de remédios), evitando exibir o JSON bruto.
 - [x] Barra lateral do painel passou a ficar consistente em todas as telas de “Meus dados” (incluindo edição), com conteúdo renderizado na área branca à direita e comportamento responsivo no celular.
 - [x] Barra lateral simplificada: removidos os menus placeholder “Responsável”, “Aventureiros”, “Confirmação” e “Relatórios”, mantendo apenas “Início” e “Meus dados”.
+- [x] Implementado cadastro da Diretoria (`/diretoria/`) com formulário completo (dados pessoais/familiares/saúde/escolaridade), usuário+senha, confirmação de senha, aceite dos termos médicos/imagem, foto 3x4 obrigatória e assinatura digital obrigatória; rota ligada ao botão “Cadastro Diretoria” de `/register/`.

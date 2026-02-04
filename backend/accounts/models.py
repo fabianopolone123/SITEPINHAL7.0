@@ -46,6 +46,46 @@ class Responsavel(models.Model):
         return f"{self.user.get_full_name() or self.user.username}"
 
 
+class Diretoria(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='diretoria')
+    nome = models.CharField('nome', max_length=255)
+    igreja = models.CharField('igreja', max_length=255)
+    endereco = models.CharField('endereço', max_length=255)
+    distrito = models.CharField('distrito', max_length=128)
+    numero = models.CharField('número', max_length=32)
+    bairro = models.CharField('bairro', max_length=128)
+    cep = models.CharField('CEP', max_length=16)
+    cidade = models.CharField('cidade', max_length=128)
+    estado = models.CharField('estado', max_length=64)
+    email = models.EmailField('e-mail')
+    whatsapp = models.CharField('whatsapp', max_length=32)
+    telefone_residencial = models.CharField('telefone residencial', max_length=32, blank=True)
+    telefone_comercial = models.CharField('telefone comercial', max_length=32, blank=True)
+    nascimento = models.DateField('data de nascimento')
+    estado_civil = models.CharField('estado civil', max_length=64)
+    cpf = models.CharField('CPF', max_length=32)
+    rg = models.CharField('RG', max_length=32)
+    conjuge = models.CharField('esposa(o)', max_length=255, blank=True)
+    filho_1 = models.CharField('filho(a) 1', max_length=255, blank=True)
+    filho_2 = models.CharField('filho(a) 2', max_length=255, blank=True)
+    filho_3 = models.CharField('filho(a) 3', max_length=255, blank=True)
+    possui_limitacao_saude = models.CharField('possui limitação de saúde', max_length=8)
+    limitacao_saude_descricao = models.TextField('descrição da limitação', blank=True)
+    escolaridade = models.CharField('escolaridade', max_length=32)
+    autorizacao_imagem = models.BooleanField('autorização de imagem aceita', default=False)
+    declaracao_medica = models.BooleanField('declaração médica aceita', default=False)
+    foto = models.ImageField('foto 3x4', upload_to='photos/diretoria', null=True, blank=True)
+    assinatura = models.ImageField('assinatura da diretoria', upload_to='signatures/diretoria', null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def role_slug(self):
+        return 'diretoria'
+
+    def __str__(self):
+        return self.nome
+
+
 class Aventureiro(models.Model):
     responsavel = models.ForeignKey(Responsavel, on_delete=models.CASCADE, related_name='aventures')
     nome = models.CharField('nome completo', max_length=255)
