@@ -769,10 +769,7 @@ body {
   margin-left: 280px;
   min-height: 100vh;
   padding: 2rem;
-}
-
-.painel-content--full {
-  margin-left: 0;
+  background: #ffffff;
 }
 
 .painel-header h2 {

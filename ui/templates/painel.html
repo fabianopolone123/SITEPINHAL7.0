@@ -8,24 +8,7 @@
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
 </head>
 <body class="painel-page">
-  <aside class="painel-sidebar">
-    <div class="painel-sidebar-brand">
-      <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
-      <h1>Painel</h1>
-    </div>
-
-    <nav class="painel-menu" aria-label="Menu principal">
-      <p class="painel-menu-title">Menus (em construcao)</p>
-      <ul>
-        <li><a href="{% url 'accounts:painel' %}">Inicio</a></li>
-        <li><a href="{% url 'accounts:meus_dados' %}">Meus dados</a></li>
-        <li><span>Responsavel</span></li>
-        <li><span>Aventureiros</span></li>
-        <li><span>Confirmacao</span></li>
-        <li><span>Relatorios</span></li>
-      </ul>
-    </nav>
-  </aside>
+  {% include '_painel_sidebar.html' %}
 
   <main class="painel-content">
     <header class="painel-header">
