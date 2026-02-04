@@ -35,7 +35,7 @@
                   -
                 {% endif %}
               </td>
-              <td>{{ av.nome }}</td>
+              <td><a href="{% url 'accounts:aventureiro_geral' av.pk %}">{{ av.nome }}</a></td>
               <td>{{ av.responsavel.user.username }}</td>
               <td>{{ av.serie|default:"-" }}</td>
             </tr>

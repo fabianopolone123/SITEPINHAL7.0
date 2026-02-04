@@ -112,3 +112,4 @@ Ele é a memória oficial do sistema.
 - [x] Menu lateral agora mostra `Aventureiros` e `Usuarios` apenas para perfil Diretor.
 - [x] Criada rota/tela de listagem geral de aventureiros para Diretor (`/aventureiros-gerais/`).
 - [x] Admin de `UserAccess` atualizado para exibir perfis e permitir atribuicao acumulativa de perfil.
+- [x] Perfil Diretor agora pode clicar no nome do aventureiro em `Aventureiros` para abrir a ficha completa em modo leitura.

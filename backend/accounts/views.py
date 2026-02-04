@@ -393,6 +393,9 @@ class MeuAventureiroDetalheView(LoginRequiredMixin, View):
             'alergias_display': alergias,
             'doencas_display': aventureiro.doencas or [],
             'deficiencias_display': aventureiro.deficiencias or [],
+            'back_url_name': 'accounts:meus_dados',
+            'back_label': 'Voltar para meus dados',
+            'can_edit': True,
         }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
@@ -483,6 +486,61 @@ class AventureirosGeraisView(LoginRequiredMixin, View):
             return redirect('accounts:painel')
         aventureiros = Aventureiro.objects.select_related('responsavel', 'responsavel__user').order_by('nome')
         context = {'aventureiros': aventureiros}
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
+
+
+class AventureiroGeralDetalheView(LoginRequiredMixin, View):
+    template_name = 'meus_dados_aventureiro.html'
+
+    def get(self, request, pk):
+        if not _is_diretor(request.user):
+            messages.error(request, 'Seu perfil não possui permissão para visualizar esse aventureiro.')
+            return redirect('accounts:painel')
+        aventureiro = get_object_or_404(Aventureiro, pk=pk)
+
+        condicoes_labels = {
+            'cardiaco': 'Problemas cardíacos',
+            'diabetico': 'Diabetes',
+            'renal': 'Problemas renais',
+            'psicologico': 'Problemas psicológicos',
+        }
+        alergias_labels = {
+            'alergia_pele': 'Alergia cutânea (pele)',
+            'alergia_alimento': 'Alergia alimentar',
+            'alergia_medicamento': 'Alergia a medicamentos',
+        }
+
+        condicoes = []
+        for key, label in condicoes_labels.items():
+            data = (aventureiro.condicoes or {}).get(key, {})
+            condicoes.append({
+                'label': label,
+                'resposta': data.get('resposta') or 'nao',
+                'detalhe': data.get('detalhe') or '',
+                'medicamento': data.get('medicamento') or 'nao',
+                'remedio': data.get('remedio') or '',
+            })
+
+        alergias = []
+        for key, label in alergias_labels.items():
+            data = (aventureiro.alergias or {}).get(key, {})
+            alergias.append({
+                'label': label,
+                'resposta': data.get('resposta') or 'nao',
+                'descricao': data.get('descricao') or '',
+            })
+
+        context = {
+            'aventureiro': aventureiro,
+            'condicoes_display': condicoes,
+            'alergias_display': alergias,
+            'doencas_display': aventureiro.doencas or [],
+            'deficiencias_display': aventureiro.deficiencias or [],
+            'back_url_name': 'accounts:aventureiros_gerais',
+            'back_label': 'Voltar para aventureiros',
+            'can_edit': False,
+        }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 

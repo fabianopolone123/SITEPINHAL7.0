@@ -17,6 +17,7 @@ from .views import (
     MinhaDiretoriaDetalheView,
     MinhaDiretoriaEditarView,
     AventureirosGeraisView,
+    AventureiroGeralDetalheView,
     UsuariosView,
     UsuarioPermissaoEditarView,
 )
@@ -42,6 +43,7 @@ urlpatterns = [
     path('usuarios/', UsuariosView.as_view(), name='usuarios'),
     path('usuarios/<int:pk>/editar/', UsuarioPermissaoEditarView.as_view(), name='editar_usuario_permissoes'),
     path('aventureiros-gerais/', AventureirosGeraisView.as_view(), name='aventureiros_gerais'),
+    path('aventureiros-gerais/<int:pk>/', AventureiroGeralDetalheView.as_view(), name='aventureiro_geral'),
     path('login/', LoginView.as_view(template_name='login.html'), name='login'),
     path('logout/', LogoutView.as_view(next_page='accounts:login'), name='logout'),
 ]

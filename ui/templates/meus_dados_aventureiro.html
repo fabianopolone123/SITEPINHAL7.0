@@ -12,7 +12,7 @@
   <main class="painel-content">
     <header class="painel-header">
       <h2>{{ aventureiro.nome }}</h2>
-      <p><a href="{% url 'accounts:meus_dados' %}">Voltar para meus dados</a></p>
+      <p><a href="{% url back_url_name %}">{{ back_label }}</a></p>
     </header>
 
     <section class="painel-card">
@@ -83,9 +83,11 @@
       </p>
     </section>
 
-    <p class="action-row">
-      <a class="primary" href="{% url 'accounts:editar_meu_aventureiro' aventureiro.pk %}">Editar</a>
-    </p>
+    {% if can_edit %}
+      <p class="action-row">
+        <a class="primary" href="{% url 'accounts:editar_meu_aventureiro' aventureiro.pk %}">Editar</a>
+      </p>
+    {% endif %}
   </main>
 </body>
 </html>
