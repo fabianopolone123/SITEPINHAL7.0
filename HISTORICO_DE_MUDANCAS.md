@@ -103,3 +103,4 @@ Ele é a memória oficial do sistema.
 - [x] Ajustado script de assinatura para não limpar assinatura já preenchida quando o formulário volta com erro, preservando os dados digitados no cadastro da diretoria em caso de validação pendente.
 - [x] Iniciada divisão de perfis com `UserAccess` (responsável/diretoria/diretor), menu lateral condicional e nova área de `Usuários` para perfil diretor gerenciar permissões/perfil e status ativo dos usuários.
 - [x] `Meus dados` agora também suporta perfil da diretoria com visualização e edição dos próprios dados.
+- [x] Modelos `Diretoria` e `UserAccess` registrados no Django Admin, incluindo ações rápidas para alterar perfil (Diretor/Diretoria/Responsável) direto pela interface administrativa.
