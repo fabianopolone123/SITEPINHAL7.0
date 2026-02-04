@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clube de Aventureiros Pinhal Junior — Painel</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="branding">
+      <p class="eyebrow">Portal oficial</p>
+      <h1>Painel inicial</h1>
+      <p class="subtitle">Bem-vindo, {{ request.user.username }}. Escolha a próxima ação para continuar o cadastro.</p>
+    </div>
+    <main class="login-card register-card">
+      <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
+      <h2>Próximos passos</h2>
+      <p>Fluxo principal do sistema após login.</p>
+
+      <div class="option-grid">
+        <a href="{% url primary_action.url_name %}" class="option-card">
+          <strong>{{ primary_action.label }}</strong>
+          <span>
+            {% if not has_responsavel %}
+              Preencha os dados do responsável para iniciar.
+            {% elif has_pending %}
+              Você possui {{ pending_count }} ficha(s) pendente(s) para revisar e salvar.
+            {% else %}
+              Continue com o cadastro de aventureiro.
+            {% endif %}
+          </span>
+        </a>
+
+        <a href="{% url 'accounts:responsavel' %}" class="option-card">
+          <strong>Iniciar/Editar cadastro do responsável</strong>
+          <span>Atualize os dados de quem responde pelo cadastro.</span>
+        </a>
+
+        <a href="{% url 'accounts:aventura' %}" class="option-card">
+          <strong>Cadastrar aventureiro</strong>
+          <span>Abra uma nova ficha de aventureiro.</span>
+        </a>
+
+        <a href="{% url 'accounts:confirmacao' %}" class="option-card">
+          <strong>Revisar e salvar tudo</strong>
+          <span>
+            {% if has_pending %}
+              Pendentes na sessão: {{ pending_count }}.
+            {% else %}
+              Sem pendências no momento.
+            {% endif %}
+          </span>
+        </a>
+
+        <a href="{% url 'accounts:logout' %}" class="option-card">
+          <strong>Sair</strong>
+          <span>Encerrar sessão e voltar para o login.</span>
+        </a>
+      </div>
+
+      <div class="status" aria-live="polite">
+        {% for message in messages %}
+          <p data-state="{{ message.tags }}">{{ message }}</p>
+        {% endfor %}
+      </div>
+    </main>
+  </div>
+</body>
+</html>

@@ -130,7 +130,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = Path(os.environ.get('DJANGO_MEDIA_ROOT')) if os.environ.get('DJANGO_MEDIA_ROOT') else BASE_DIR.parent / 'media'
 
 LOGIN_URL = 'accounts:login'
-LOGIN_REDIRECT_URL = 'accounts:confirmacao'
+LOGIN_REDIRECT_URL = 'accounts:painel'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

@@ -189,3 +189,39 @@ class ConfirmacaoView(LoginRequiredMixin, View):
         logout(request)
         messages.success(request, 'Cadastro finalizado com sucesso. Faça login novamente para continuar.')
         return redirect('accounts:login')
+
+
+class PainelView(LoginRequiredMixin, View):
+    template_name = 'painel.html'
+
+    def get(self, request):
+        responsavel = getattr(request.user, 'responsavel', None)
+        pending_count = len(request.session.get('aventures_pending', []))
+
+        has_responsavel = responsavel is not None
+        has_pending = pending_count > 0
+
+        if not has_responsavel:
+            primary_action = {
+                'label': 'Iniciar cadastro',
+                'url_name': 'accounts:responsavel',
+            }
+        elif has_pending:
+            primary_action = {
+                'label': 'Revisar e concluir',
+                'url_name': 'accounts:confirmacao',
+            }
+        else:
+            primary_action = {
+                'label': 'Cadastrar aventureiro',
+                'url_name': 'accounts:aventura',
+            }
+
+        context = {
+            'responsavel': responsavel,
+            'pending_count': pending_count,
+            'has_responsavel': has_responsavel,
+            'has_pending': has_pending,
+            'primary_action': primary_action,
+        }
+        return render(request, self.template_name, context)
