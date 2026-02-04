@@ -152,7 +152,10 @@ class ConfirmacaoView(LoginRequiredMixin, View):
         context = {
             'responsavel': responsavel,
             'aventures': responsavel.aventures.all(),
-            'pending_aventures': [entry['fields'] for entry in pending],
+            'pending_aventures': [
+                {'fields': entry['fields'], 'photo': entry.get('photo')}
+                for entry in pending
+            ],
             'pending_count': len(pending),
         }
         return render(request, self.template_name, context)
