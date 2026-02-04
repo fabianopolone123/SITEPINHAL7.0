@@ -89,3 +89,4 @@ Ele é a memória oficial do sistema.
 - [x] Atualizado `backend/config/settings.py` para suportar variáveis de ambiente (SECRET_KEY, DEBUG, ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS) e paths configuráveis para SQLite, `MEDIA_ROOT` e `STATIC_ROOT`.
 - [x] Atualizado `backend/requirements.txt` para Django 5.2 (LTS) e adicionado `gunicorn` para execução em produção.
 - [x] Adicionados templates de deploy em `deploy/` (exemplo de env, unit do systemd, config do nginx e script simples de deploy).
+- [x] Página inicial (`/`) agora redireciona para a tela de login; a escolha do tipo de cadastro foi movida para `/register/`.

@@ -38,11 +38,11 @@
         </div>
       </form>
       <div class="login-helpers">
-        <a href="#" class="secondary">Criar uma conta</a>
+        <a href="{% url 'accounts:register' %}" class="secondary">Criar uma conta</a>
         <a href="#" class="secondary">Esqueci minha senha</a>
       </div>
     </main>
   </div>
-  <script src="../static/js/login.js" defer></script>
+  <script src="{% static 'js/login.js' %}" defer></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
-﻿from django.urls import path
+from django.urls import path
+from django.views.generic import RedirectView
 from django.contrib.auth.views import LoginView, LogoutView
 
 from .views import (
@@ -11,7 +12,9 @@ from .views import (
 app_name = 'accounts'
 
 urlpatterns = [
-    path('', RegisterView.as_view(), name='register'),
+    # Página inicial -> login
+    path('', RedirectView.as_view(pattern_name='accounts:login', permanent=False)),
+    path('register/', RegisterView.as_view(), name='register'),
     path('responsavel/', ResponsavelView.as_view(), name='responsavel'),
     path('aventura/', AventuraView.as_view(), name='aventura'),
     path('confirmacao/', ConfirmacaoView.as_view(), name='confirmacao'),
