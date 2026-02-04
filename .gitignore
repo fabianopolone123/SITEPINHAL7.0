@@ -1,0 +1,20 @@
+﻿# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Distribution / packaging
+*.egg-info/
+*.pyc
+
+# django
+backend/db.sqlite3
+backend/media/
+media/
+backend/__pycache__/
+backend/staticfiles/
+
+# env (nao versionar segredos)
+.env
+*.env
+.venv/
+venv/

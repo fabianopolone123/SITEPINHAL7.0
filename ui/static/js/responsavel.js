@@ -5,24 +5,24 @@ const signatureValue = document.getElementById('signature-value');
 const normalize = (value) => value?.trim() ?? '';
 
 form.addEventListener('submit', (event) => {
-  event.preventDefault();
-
   const formData = new FormData(form);
   const hasAnyParent = normalize(formData.get('pai_nome')) || normalize(formData.get('mae_nome'));
   const responsavel = normalize(formData.get('responsavel_nome'));
 
   if (!hasAnyParent && !responsavel) {
+    event.preventDefault();
     status.textContent = 'Informe ao menos um responsável (pai, mãe ou responsável legal).';
     status.dataset.state = 'error';
     return;
   }
 
   if (!signatureValue?.value) {
+    event.preventDefault();
     status.textContent = 'Assine o formulário antes de prosseguir.';
     status.dataset.state = 'error';
     return;
   }
 
-  status.textContent = 'Dados salvos localmente. Próxima etapa: preenchimento do aventureiro.';
-  status.dataset.state = 'success';
+  status.textContent = 'Enviando dados do responsável...';
+  status.dataset.state = 'info';
 });

@@ -1,10 +1,11 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Clube de Aventureiros Pinhal Junior — Login</title>
-  <link rel="stylesheet" href="../static/css/styles.css" />
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
 </head>
 <body>
   <div class="page-shell">
@@ -14,9 +15,10 @@
       <p class="subtitle">Bem-vindo ao ponto de encontro de exploradores mirins e suas famílias.</p>
     </div>
     <main class="login-card">
-      <img src="../static/images/logo.jpeg" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
+      <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
       <h2>Entrar</h2>
-      <form class="login-form">
+      <form class="login-form" method="post" action="{% url 'accounts:login' %}">
+        {% csrf_token %}
         <label for="username">Nome de usuário</label>
         <input id="username" name="username" type="text" placeholder="pinhal.junior" autocomplete="username" />
 
@@ -24,7 +26,16 @@
         <input id="password" name="password" type="password" placeholder="••••••••" autocomplete="current-password" />
 
         <button type="submit" class="primary">Entrar</button>
-        <div class="status" aria-live="polite"></div>
+        <div class="status" aria-live="polite">
+          {% for message in messages %}
+            <p data-state="{{ message.tags }}">{{ message }}</p>
+          {% endfor %}
+          {% if form and form.non_field_errors %}
+            {% for error in form.non_field_errors %}
+              <p data-state="error">{{ error }}</p>
+            {% endfor %}
+          {% endif %}
+        </div>
       </form>
       <div class="login-helpers">
         <a href="#" class="secondary">Criar uma conta</a>

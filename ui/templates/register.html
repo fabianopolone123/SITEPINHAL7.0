@@ -1,10 +1,11 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Clube de Aventureiros Pinhal Junior — Cadastro</title>
-  <link rel="stylesheet" href="../static/css/styles.css" />
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
 </head>
 <body>
   <div class="page-shell">
@@ -14,11 +15,11 @@
       <p class="subtitle">Depois de clicar em “Cadastre-se”, escolha a categoria e siga para o formulário dedicado.</p>
     </div>
     <main class="login-card register-card">
-      <img src="../static/images/logo.jpeg" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
+      <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
       <h2>Tipo de cadastro</h2>
       <p>Selecione um dos perfis para continuar: aventureiro ou diretoria.</p>
       <div class="option-grid">
-        <a href="responsavel.html" class="option-card">
+        <a href="{% url 'accounts:responsavel' %}" class="option-card">
           <strong>Cadastro Aventureiro</strong>
           <span>Documentos e autorização dos responsáveis</span>
         </a>

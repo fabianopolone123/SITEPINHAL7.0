@@ -13,6 +13,12 @@ Prefixo: /
 /logout       → logout
 /dashboard    → área protegida
 
+## Novas rotas Django
+
+- `/responsavel` → formulário do responsável (cria `User`, `Responsavel` e salva assinatura).
+- `/aventura` → ficha médica do aventureiro; exige login e persiste doenças/condições/alergias + assinatura.
+- `/confirmacao` → painel final que agrupa o responsável autenticado e os aventureiros salvos.
+
 Renderização feita com templates Django.
 
 ---

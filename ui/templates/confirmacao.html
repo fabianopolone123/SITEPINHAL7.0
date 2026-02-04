@@ -1,10 +1,11 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Confirmação do cadastro – Clube de Aventureiros</title>
-  <link rel="stylesheet" href="../static/css/styles.css" />
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
 </head>
 <body>
   <div class="page-shell">
@@ -14,6 +15,14 @@
       <p class="subtitle">Verifique todos os dados antes de salvar definitivamente.</p>
     </div>
 
+    {% if messages %}
+      <div class="status" aria-live="polite">
+        {% for message in messages %}
+          <p data-state="{{ message.tags }}">{{ message }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+
     <main class="login-card">
       <section class="section-block">
         <div class="section-header">
@@ -21,27 +30,62 @@
           <h2>Responsável legal</h2>
         </div>
         <div class="summary-grid" id="responsavel-summary">
-          <p><strong>Nome do pai:</strong> —</p>
-          <p><strong>Nome da mãe:</strong> —</p>
-          <p><strong>Responsável legal:</strong> —</p>
-          <p><strong>Contato:</strong> —</p>
-          <p><strong>Endereço:</strong> —</p>
+          <p><strong>Nome do pai:</strong> {{ responsavel.pai_nome|default:"—" }}</p>
+          <p><strong>Nome da mãe:</strong> {{ responsavel.mae_nome|default:"—" }}</p>
+          <p><strong>Responsável legal:</strong> {{ responsavel.responsavel_nome|default:"—" }}</p>
+          <p><strong>Contato:</strong>
+            {{ responsavel.responsavel_email|default:"" }}
+            {% if responsavel.responsavel_telefone %}• {{ responsavel.responsavel_telefone }}{% endif %}
+            {% if responsavel.responsavel_celular %}• {{ responsavel.responsavel_celular }}{% endif %}
+          </p>
+          <p><strong>Endereço:</strong>
+            {% if responsavel.endereco %}{{ responsavel.endereco }}{% endif %}
+            {% if responsavel.bairro %}• {{ responsavel.bairro }}{% endif %}
+            {% if responsavel.cidade %}• {{ responsavel.cidade }}{% endif %}
+            {% if responsavel.estado %}• {{ responsavel.estado }}{% endif %}
+            {% if responsavel.cep %}• {{ responsavel.cep }}{% endif %}
+          </p>
         </div>
       </section>
 
       <section class="section-block">
         <div class="section-header">
           <span>2.</span>
-          <h2>Aventureiros registrados</h2>
+          <h2>Aventureiros pendentes</h2>
         </div>
-        <div id="aventures-list">
-          <article class="summary-card">
-            <p><strong>Nome:</strong> —</p>
-            <p><strong>Série:</strong> —</p>
-            <p><strong>Documento:</strong> —</p>
-          </article>
+        <div id="pending-aventures">
+          {% if pending_aventures %}
+            {% for entry in pending_aventures %}
+              <article class="summary-card summary-card--photo">
+                {% if entry.photo %}
+                  <img class="confirmation-photo" src="{{ entry.photo }}" alt="Foto 3x4" />
+                {% endif %}
+                <div class="summary-card-content">
+                  <p><strong>Nome:</strong> {{ entry.fields.nome|default:"—" }}</p>
+                  <p><strong>Série:</strong> {{ entry.fields.serie|default:"—" }}</p>
+                  <p><strong>Documento:</strong>
+                    {% if entry.fields.cpf %}
+                      CPF: {{ entry.fields.cpf }}
+                    {% elif entry.fields.certidao %}
+                      Certidão: {{ entry.fields.certidao }}
+                    {% elif entry.fields.rg and entry.fields.orgao %}
+                      RG: {{ entry.fields.rg }} ({{ entry.fields.orgao }})
+                    {% else %}
+                      —
+                    {% endif %}
+                  </p>
+                </div>
+              </article>
+            {% endfor %}
+          {% else %}
+            <article class="summary-card">
+              <p>Nenhuma ficha aguardando confirmação.</p>
+            </article>
+          {% endif %}
         </div>
-        <p class="panel-note">Neste painel aparecerão todos os aventureiros salvos durante a sessão.</p>
+        {% if pending_count %}
+          <p class="panel-note">Revise estas fichas antes de finalizar.</p>
+        {% endif %}
       </section>
 
       <section class="section-block">
@@ -50,8 +94,10 @@
           <h2>Confirmação</h2>
         </div>
         <div class="action-row">
-          <button type="button" class="secondary">Voltar para editar</button>
-          <button type="button" class="primary">Salvar tudo</button>
+          <form method="post" class="inline-form">
+            {% csrf_token %}
+            <button type="submit" class="primary" {% if not pending_count %}disabled{% endif %}>Salvar tudo</button>
+          </form>
         </div>
       </section>
     </main>

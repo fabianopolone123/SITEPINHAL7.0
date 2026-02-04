@@ -256,6 +256,19 @@ body {
   transition: color 0.2s ease;
 }
 
+.status-alert {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+}
+
+.status-alert.hidden {
+  display: none;
+}
+
 .status[data-state='error'] {
   color: #dc2626;
 }
@@ -266,6 +279,17 @@ body {
 
 .status[data-state='info'] {
   color: #0ea5e9;
+}
+
+.field-error {
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: #dc2626;
+  line-height: 1.2;
+}
+.input-error {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15);
 }
 
 .register-card {
@@ -309,6 +333,24 @@ body {
 .option-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 15px 30px rgba(15, 23, 42, 0.12);
+}
+
+.summary-card--photo {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.summary-card-content {
+  flex: 1;
+}
+
+.confirmation-photo {
+  width: 80px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.2);
 }
 
 .field-section {
@@ -415,6 +457,53 @@ body {
   margin: 0;
   color: #475569;
   font-size: 0.9rem;
+}
+
+.photo-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.photo-upload input[type="file"] {
+  border-radius: 10px;
+  border: 1px solid #cbd5f5;
+  padding: 0.75rem;
+  font-size: 0.95rem;
+  background: #fff;
+}
+
+.photo-preview {
+  border: 1px dashed #cbd5f5;
+  border-radius: 12px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  background: #f8fafc;
+}
+
+.photo-preview img {
+  width: 140px;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+}
+
+#photo-preview-img {
+  display: none;
+}
+
+.photo-preview-label {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.photo-note {
+  font-size: 0.8rem;
+  color: #475569;
 }
 
 .checkbox-full {

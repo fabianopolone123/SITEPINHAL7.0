@@ -1,0 +1,22 @@
+[Unit]
+Description=SITEPINHAL7.0 (Gunicorn)
+After=network.target
+
+[Service]
+# Ajuste o usuario/grupo conforme criar no servidor (ex.: sitepinhal).
+User=sitepinhal
+Group=sitepinhal
+
+WorkingDirectory=/srv/sitepinhal/current/backend
+EnvironmentFile=/etc/sitepinhal.env
+
+ExecStart=/srv/sitepinhal/venv/bin/gunicorn config.wsgi:application \
+  --bind 127.0.0.1:8000 \
+  --workers 3 \
+  --timeout 120
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
