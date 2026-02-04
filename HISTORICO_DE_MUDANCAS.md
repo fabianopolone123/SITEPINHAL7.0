@@ -97,3 +97,4 @@ Ele é a memória oficial do sistema.
 - [x] Adicionado menu “Meus dados” no painel com fluxo completo: listagem do responsável e aventureiros (com foto), visualização de dados por nome clicável e telas de edição com botão salvar.
 - [x] Visualização de aventureiro em “Meus dados” agora organiza `Condições` e `Alergias` em formato legível (sim/não, detalhe e uso de remédios), evitando exibir o JSON bruto.
 - [x] Barra lateral do painel passou a ficar consistente em todas as telas de “Meus dados” (incluindo edição), com conteúdo renderizado na área branca à direita e comportamento responsivo no celular.
+- [x] Barra lateral simplificada: removidos os menus placeholder “Responsável”, “Aventureiros”, “Confirmação” e “Relatórios”, mantendo apenas “Início” e “Meus dados”.
