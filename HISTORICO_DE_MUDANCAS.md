@@ -95,3 +95,4 @@ Ele é a memória oficial do sistema.
 - [x] Layout do `/painel/` foi ajustado para fase de prototipação: removidos botões de ação e criada barra lateral fixa com menus placeholder para evoluir a navegação.
 - [x] Painel simplificado: removidos os cards de conteúdo (“Área principal”, “Status do cadastro” e “Próximas seções”) e o item “Início” da barra lateral virou link para a tela inicial de login.
 - [x] Adicionado menu “Meus dados” no painel com fluxo completo: listagem do responsável e aventureiros (com foto), visualização de dados por nome clicável e telas de edição com botão salvar.
+- [x] Visualização de aventureiro em “Meus dados” agora organiza `Condições` e `Alergias` em formato legível (sim/não, detalhe e uso de remédios), evitando exibir o JSON bruto.

@@ -296,7 +296,47 @@ class MeuAventureiroDetalheView(LoginRequiredMixin, View):
         if redirect_response:
             return redirect_response
         aventureiro = get_object_or_404(Aventureiro, pk=pk, responsavel=responsavel)
-        return render(request, self.template_name, {'aventureiro': aventureiro})
+
+        condicoes_labels = {
+            'cardiaco': 'Problemas cardíacos',
+            'diabetico': 'Diabetes',
+            'renal': 'Problemas renais',
+            'psicologico': 'Problemas psicológicos',
+        }
+        alergias_labels = {
+            'alergia_pele': 'Alergia cutânea (pele)',
+            'alergia_alimento': 'Alergia alimentar',
+            'alergia_medicamento': 'Alergia a medicamentos',
+        }
+
+        condicoes = []
+        for key, label in condicoes_labels.items():
+            data = (aventureiro.condicoes or {}).get(key, {})
+            condicoes.append({
+                'label': label,
+                'resposta': data.get('resposta') or 'nao',
+                'detalhe': data.get('detalhe') or '',
+                'medicamento': data.get('medicamento') or 'nao',
+                'remedio': data.get('remedio') or '',
+            })
+
+        alergias = []
+        for key, label in alergias_labels.items():
+            data = (aventureiro.alergias or {}).get(key, {})
+            alergias.append({
+                'label': label,
+                'resposta': data.get('resposta') or 'nao',
+                'descricao': data.get('descricao') or '',
+            })
+
+        context = {
+            'aventureiro': aventureiro,
+            'condicoes_display': condicoes,
+            'alergias_display': alergias,
+            'doencas_display': aventureiro.doencas or [],
+            'deficiencias_display': aventureiro.deficiencias or [],
+        }
+        return render(request, self.template_name, context)
 
 
 class MeuAventureiroEditarView(LoginRequiredMixin, View):

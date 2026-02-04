@@ -31,10 +31,55 @@
       <p><strong>Tipo sanguíneo:</strong> {{ aventureiro.tipo_sangue|default:"-" }}</p>
       <p><strong>Declaração médica:</strong> {% if aventureiro.declaracao_medica %}Sim{% else %}Não{% endif %}</p>
       <p><strong>Autorização de imagem:</strong> {% if aventureiro.autorizacao_imagem %}Sim{% else %}Não{% endif %}</p>
-      <p><strong>Doenças:</strong> {{ aventureiro.doencas|default:"-" }}</p>
-      <p><strong>Condições:</strong> {{ aventureiro.condicoes|default:"-" }}</p>
-      <p><strong>Alergias:</strong> {{ aventureiro.alergias|default:"-" }}</p>
-      <p><strong>Deficiências:</strong> {{ aventureiro.deficiencias|default:"-" }}</p>
+
+      <p><strong>Doenças:</strong>
+        {% if doencas_display %}
+          {{ doencas_display|join:", " }}
+        {% else %}
+          -
+        {% endif %}
+      </p>
+
+      <div>
+        <strong>Condições:</strong>
+        {% if condicoes_display %}
+          {% for item in condicoes_display %}
+            <p>
+              {{ item.label }}:
+              {% if item.resposta == 'sim' %}Sim{% else %}Não{% endif %}
+              {% if item.resposta == 'sim' and item.detalhe %} - {{ item.detalhe }}{% endif %}
+              | Utiliza remédios:
+              {% if item.medicamento == 'sim' %}Sim{% else %}Não{% endif %}
+              {% if item.medicamento == 'sim' and item.remedio %} - {{ item.remedio }}{% endif %}
+            </p>
+          {% endfor %}
+        {% else %}
+          <p>-</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <strong>Alergias:</strong>
+        {% if alergias_display %}
+          {% for item in alergias_display %}
+            <p>
+              {{ item.label }}:
+              {% if item.resposta == 'sim' %}Sim{% else %}Não{% endif %}
+              {% if item.resposta == 'sim' and item.descricao %} - {{ item.descricao }}{% endif %}
+            </p>
+          {% endfor %}
+        {% else %}
+          <p>-</p>
+        {% endif %}
+      </div>
+
+      <p><strong>Deficiências:</strong>
+        {% if deficiencias_display %}
+          {{ deficiencias_display|join:", " }}
+        {% else %}
+          -
+        {% endif %}
+      </p>
     </section>
 
     <p class="action-row">
