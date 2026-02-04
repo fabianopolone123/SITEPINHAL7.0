@@ -215,3 +215,19 @@ class AventureiroForm(forms.ModelForm):
         if commit:
             adventure.save()
         return adventure
+
+
+class ResponsavelDadosForm(forms.ModelForm):
+    class Meta:
+        model = Responsavel
+        exclude = ('user', 'signature', 'created_at')
+
+
+class AventureiroDadosForm(forms.ModelForm):
+    class Meta:
+        model = Aventureiro
+        fields = [
+            'nome', 'sexo', 'nascimento', 'serie', 'colegio', 'bolsa', 'religiao',
+            'certidao', 'rg', 'orgao', 'cpf', 'camiseta', 'plano', 'plano_nome',
+            'cns', 'tipo_sangue', 'declaracao_medica', 'autorizacao_imagem', 'foto',
+        ]

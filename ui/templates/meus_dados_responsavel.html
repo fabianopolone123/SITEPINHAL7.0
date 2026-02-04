@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dados do responsável</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body class="painel-page">
+  <main class="painel-content painel-content--full">
+    <header class="painel-header">
+      <h2>Dados do responsável</h2>
+      <p><a href="{% url 'accounts:meus_dados' %}">Voltar para meus dados</a></p>
+    </header>
+
+    <section class="painel-card">
+      <p><strong>Nome do pai:</strong> {{ responsavel.pai_nome|default:"-" }}</p>
+      <p><strong>Nome da mãe:</strong> {{ responsavel.mae_nome|default:"-" }}</p>
+      <p><strong>Responsável legal:</strong> {{ responsavel.responsavel_nome|default:"-" }}</p>
+      <p><strong>Parentesco:</strong> {{ responsavel.responsavel_parentesco|default:"-" }}</p>
+      <p><strong>E-mail:</strong> {{ responsavel.responsavel_email|default:"-" }}</p>
+      <p><strong>Telefone:</strong> {{ responsavel.responsavel_telefone|default:"-" }}</p>
+      <p><strong>Celular:</strong> {{ responsavel.responsavel_celular|default:"-" }}</p>
+      <p><strong>Endereço:</strong> {{ responsavel.endereco|default:"-" }}</p>
+      <p><strong>Bairro:</strong> {{ responsavel.bairro|default:"-" }}</p>
+      <p><strong>Cidade:</strong> {{ responsavel.cidade|default:"-" }}</p>
+      <p><strong>CEP:</strong> {{ responsavel.cep|default:"-" }}</p>
+      <p><strong>Estado:</strong> {{ responsavel.estado|default:"-" }}</p>
+    </section>
+
+    <p class="action-row">
+      <a class="primary" href="{% url 'accounts:editar_meu_responsavel' %}">Editar</a>
+    </p>
+  </main>
+</body>
+</html>

@@ -8,6 +8,11 @@ from .views import (
     AventuraView,
     ConfirmacaoView,
     PainelView,
+    MeusDadosView,
+    MeuResponsavelDetalheView,
+    MeuResponsavelEditarView,
+    MeuAventureiroDetalheView,
+    MeuAventureiroEditarView,
 )
 
 app_name = 'accounts'
@@ -20,6 +25,11 @@ urlpatterns = [
     path('aventura/', AventuraView.as_view(), name='aventura'),
     path('confirmacao/', ConfirmacaoView.as_view(), name='confirmacao'),
     path('painel/', PainelView.as_view(), name='painel'),
+    path('meus-dados/', MeusDadosView.as_view(), name='meus_dados'),
+    path('meus-dados/responsavel/', MeuResponsavelDetalheView.as_view(), name='meu_responsavel'),
+    path('meus-dados/responsavel/editar/', MeuResponsavelEditarView.as_view(), name='editar_meu_responsavel'),
+    path('meus-dados/aventureiro/<int:pk>/', MeuAventureiroDetalheView.as_view(), name='meu_aventureiro'),
+    path('meus-dados/aventureiro/<int:pk>/editar/', MeuAventureiroEditarView.as_view(), name='editar_meu_aventureiro'),
     path('login/', LoginView.as_view(template_name='login.html'), name='login'),
     path('logout/', LogoutView.as_view(next_page='accounts:login'), name='logout'),
 ]

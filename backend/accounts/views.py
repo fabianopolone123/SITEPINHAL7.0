@@ -1,12 +1,17 @@
 ﻿import copy
 
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
 
-from .forms import ResponsavelForm, AventureiroForm
+from .forms import (
+    ResponsavelForm,
+    AventureiroForm,
+    ResponsavelDadosForm,
+    AventureiroDadosForm,
+)
 from .models import Responsavel, Aventureiro
 from .utils import decode_signature, decode_photo
 from datetime import date
@@ -225,3 +230,95 @@ class PainelView(LoginRequiredMixin, View):
             'primary_action': primary_action,
         }
         return render(request, self.template_name, context)
+
+
+def _require_responsavel_or_redirect(request):
+    responsavel = getattr(request.user, 'responsavel', None)
+    if not responsavel:
+        messages.error(request, 'Cadastre os dados do responsável antes de acessar esta área.')
+        return None, redirect('accounts:responsavel')
+    return responsavel, None
+
+
+class MeusDadosView(LoginRequiredMixin, View):
+    template_name = 'meus_dados.html'
+
+    def get(self, request):
+        responsavel, redirect_response = _require_responsavel_or_redirect(request)
+        if redirect_response:
+            return redirect_response
+        aventureiros = responsavel.aventures.order_by('nome')
+        context = {
+            'responsavel': responsavel,
+            'aventureiros': aventureiros,
+        }
+        return render(request, self.template_name, context)
+
+
+class MeuResponsavelDetalheView(LoginRequiredMixin, View):
+    template_name = 'meus_dados_responsavel.html'
+
+    def get(self, request):
+        responsavel, redirect_response = _require_responsavel_or_redirect(request)
+        if redirect_response:
+            return redirect_response
+        return render(request, self.template_name, {'responsavel': responsavel})
+
+
+class MeuResponsavelEditarView(LoginRequiredMixin, View):
+    template_name = 'meus_dados_responsavel_editar.html'
+
+    def get(self, request):
+        responsavel, redirect_response = _require_responsavel_or_redirect(request)
+        if redirect_response:
+            return redirect_response
+        form = ResponsavelDadosForm(instance=responsavel)
+        return render(request, self.template_name, {'form': form})
+
+    def post(self, request):
+        responsavel, redirect_response = _require_responsavel_or_redirect(request)
+        if redirect_response:
+            return redirect_response
+        form = ResponsavelDadosForm(request.POST, instance=responsavel)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Dados do responsável atualizados com sucesso.')
+            return redirect('accounts:meu_responsavel')
+        messages.error(request, 'Verifique os campos e tente novamente.')
+        return render(request, self.template_name, {'form': form})
+
+
+class MeuAventureiroDetalheView(LoginRequiredMixin, View):
+    template_name = 'meus_dados_aventureiro.html'
+
+    def get(self, request, pk):
+        responsavel, redirect_response = _require_responsavel_or_redirect(request)
+        if redirect_response:
+            return redirect_response
+        aventureiro = get_object_or_404(Aventureiro, pk=pk, responsavel=responsavel)
+        return render(request, self.template_name, {'aventureiro': aventureiro})
+
+
+class MeuAventureiroEditarView(LoginRequiredMixin, View):
+    template_name = 'meus_dados_aventureiro_editar.html'
+
+    def get(self, request, pk):
+        responsavel, redirect_response = _require_responsavel_or_redirect(request)
+        if redirect_response:
+            return redirect_response
+        aventureiro = get_object_or_404(Aventureiro, pk=pk, responsavel=responsavel)
+        form = AventureiroDadosForm(instance=aventureiro)
+        return render(request, self.template_name, {'form': form, 'aventureiro': aventureiro})
+
+    def post(self, request, pk):
+        responsavel, redirect_response = _require_responsavel_or_redirect(request)
+        if redirect_response:
+            return redirect_response
+        aventureiro = get_object_or_404(Aventureiro, pk=pk, responsavel=responsavel)
+        form = AventureiroDadosForm(request.POST, request.FILES, instance=aventureiro)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Dados do aventureiro atualizados com sucesso.')
+            return redirect('accounts:meu_aventureiro', pk=aventureiro.pk)
+        messages.error(request, 'Verifique os campos e tente novamente.')
+        return render(request, self.template_name, {'form': form, 'aventureiro': aventureiro})

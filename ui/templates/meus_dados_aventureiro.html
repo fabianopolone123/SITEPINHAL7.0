@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dados do aventureiro</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body class="painel-page">
+  <main class="painel-content painel-content--full">
+    <header class="painel-header">
+      <h2>{{ aventureiro.nome }}</h2>
+      <p><a href="{% url 'accounts:meus_dados' %}">Voltar para meus dados</a></p>
+    </header>
+
+    <section class="painel-card">
+      {% if aventureiro.foto %}
+        <p><img class="confirmation-photo" src="{{ aventureiro.foto.url }}" alt="Foto de {{ aventureiro.nome }}" /></p>
+      {% endif %}
+      <p><strong>Sexo:</strong> {{ aventureiro.sexo|default:"-" }}</p>
+      <p><strong>Nascimento:</strong> {{ aventureiro.nascimento|default:"-" }}</p>
+      <p><strong>Série:</strong> {{ aventureiro.serie|default:"-" }}</p>
+      <p><strong>Colégio:</strong> {{ aventureiro.colegio|default:"-" }}</p>
+      <p><strong>Bolsa:</strong> {{ aventureiro.bolsa|default:"-" }}</p>
+      <p><strong>Religião:</strong> {{ aventureiro.religiao|default:"-" }}</p>
+      <p><strong>Documentos:</strong> Certidão {{ aventureiro.certidao|default:"-" }}, RG {{ aventureiro.rg|default:"-" }}, Órgão {{ aventureiro.orgao|default:"-" }}, CPF {{ aventureiro.cpf|default:"-" }}</p>
+      <p><strong>Camiseta:</strong> {{ aventureiro.camiseta|default:"-" }}</p>
+      <p><strong>Plano:</strong> {{ aventureiro.plano|default:"-" }} {% if aventureiro.plano_nome %}- {{ aventureiro.plano_nome }}{% endif %}</p>
+      <p><strong>CNS:</strong> {{ aventureiro.cns|default:"-" }}</p>
+      <p><strong>Tipo sanguíneo:</strong> {{ aventureiro.tipo_sangue|default:"-" }}</p>
+      <p><strong>Declaração médica:</strong> {% if aventureiro.declaracao_medica %}Sim{% else %}Não{% endif %}</p>
+      <p><strong>Autorização de imagem:</strong> {% if aventureiro.autorizacao_imagem %}Sim{% else %}Não{% endif %}</p>
+      <p><strong>Doenças:</strong> {{ aventureiro.doencas|default:"-" }}</p>
+      <p><strong>Condições:</strong> {{ aventureiro.condicoes|default:"-" }}</p>
+      <p><strong>Alergias:</strong> {{ aventureiro.alergias|default:"-" }}</p>
+      <p><strong>Deficiências:</strong> {{ aventureiro.deficiencias|default:"-" }}</p>
+    </section>
+
+    <p class="action-row">
+      <a class="primary" href="{% url 'accounts:editar_meu_aventureiro' aventureiro.pk %}">Editar</a>
+    </p>
+  </main>
+</body>
+</html>

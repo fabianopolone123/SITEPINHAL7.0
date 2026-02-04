@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meus dados - Clube de Aventureiros Pinhal Junior</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body class="painel-page">
+  <main class="painel-content painel-content--full">
+    <header class="painel-header">
+      <p class="eyebrow">Portal oficial</p>
+      <h2>Meus dados</h2>
+      <p>Clique no nome para ver os dados completos e editar.</p>
+    </header>
+
+    <section class="painel-grid">
+      <article class="painel-card">
+        <h3>Responsável</h3>
+        <p><a href="{% url 'accounts:meu_responsavel' %}">{{ responsavel.responsavel_nome|default:responsavel.user.username }}</a></p>
+      </article>
+
+      <article class="painel-card">
+        <h3>Aventureiros</h3>
+        {% if aventureiros %}
+          <div class="avatar-list">
+            {% for av in aventureiros %}
+              <a href="{% url 'accounts:meu_aventureiro' av.pk %}" class="avatar-item">
+                {% if av.foto %}
+                  <img src="{{ av.foto.url }}" alt="Foto de {{ av.nome }}" />
+                {% endif %}
+                <span>{{ av.nome }}</span>
+              </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p>Nenhum aventureiro cadastrado.</p>
+        {% endif %}
+      </article>
+    </section>
+  </main>
+</body>
+</html>
