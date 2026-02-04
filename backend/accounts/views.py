@@ -130,7 +130,11 @@ class AventuraView(LoginRequiredMixin, View):
         form = AventureiroForm(request.POST)
         if form.is_valid():
             _enqueue_pending_aventure(request.session, form.cleaned_data)
+            action = request.POST.get('action', 'save_confirm')
             messages.success(request, 'Ficha salva e encaminhada para revisão. Vá para a confirmação para concluir o cadastro.')
+            if action == 'add_more':
+                form = AventureiroForm()
+                return render(request, self.template_name, self._build_context(form, request, responsavel))
             return redirect('accounts:confirmacao')
         messages.error(request, 'Verifique os campos antes de salvar o aventureiro.')
         return render(request, self.template_name, self._build_context(form, request, responsavel))
