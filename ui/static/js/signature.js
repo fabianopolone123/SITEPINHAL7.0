@@ -144,10 +144,13 @@
       closeModal();
     });
 
-    previewPlaceholder.style.display = 'block';
-    preview.style.display = 'none';
-    if (signatureField) {
-      signatureField.value = '';
+    if (signatureField && signatureField.value) {
+      preview.src = signatureField.value;
+      preview.style.display = 'block';
+      previewPlaceholder.style.display = 'none';
+    } else {
+      previewPlaceholder.style.display = 'block';
+      preview.style.display = 'none';
     }
   };
 

@@ -26,11 +26,11 @@
           {% if form.username.errors %}<p class="field-error">{{ form.username.errors|join:" " }}</p>{% endif %}
 
           <label for="dir-password">Senha</label>
-          <input id="dir-password" name="password" type="password" class="{% if form.password.errors %}input-error{% endif %}" />
+          <input id="dir-password" name="password" type="password" class="{% if form.password.errors %}input-error{% endif %}" value="{{ form.password.value|default:'' }}" />
           {% if form.password.errors %}<p class="field-error">{{ form.password.errors|join:" " }}</p>{% endif %}
 
           <label for="dir-password-confirm">Repita a senha</label>
-          <input id="dir-password-confirm" name="password_confirm" type="password" class="{% if form.password_confirm.errors %}input-error{% endif %}" />
+          <input id="dir-password-confirm" name="password_confirm" type="password" class="{% if form.password_confirm.errors %}input-error{% endif %}" value="{{ form.password_confirm.value|default:'' }}" />
           {% if form.password_confirm.errors %}<p class="field-error">{{ form.password_confirm.errors|join:" " }}</p>{% endif %}
         </section>
 
@@ -96,13 +96,13 @@
           <h2>Autorizações e assinatura</h2>
           <label class="checkbox-full">
             <input type="checkbox" name="autorizacao_imagem" value="on" {% if form.autorizacao_imagem.value %}checked{% endif %} />
-            AUTORIZO o uso de imagem em materiais e campanhas do Clube de Aventureiros.
+            AUTORIZO o uso de imagem em todo e qualquer material entre fotos e documentos para ser utilizado em campanhas promocionais e institucionais do CLUBE DE AVENTUREIROS sejam essas destinadas à divulgação ao público em geral. A presente autorização é concedida a título gratuito, abrangendo o uso da imagem acima mencionada em todo território nacional, das seguintes formas: (I) outdoor; (II) folhetos em geral (encartes, mala direta, catálogo, etc.); (III) folder de apresentação; (IV) anúncios em revistas e jornais em geral; (V) home Page (facebook); (VI) cartazes; (VII) mídia eletrônica (painéis, vídeos, televisão, programa para rádio, entre outros). Por esta ser a expressão da minha vontade, declaro que autorizo o uso acima descrito sem que nada haja a ser reclamado a título de direitos conexos à imagem ou a qualquer outro, e assino a presente autorização.
           </label>
           {% if form.autorizacao_imagem.errors %}<p class="field-error">{{ form.autorizacao_imagem.errors|join:" " }}</p>{% endif %}
 
           <label class="checkbox-full">
             <input type="checkbox" name="declaracao_medica" value="on" {% if form.declaracao_medica.value %}checked{% endif %} />
-            Declaro verdadeiras todas as informações médicas e me responsabilizo pelos dados informados.
+            Testo serem VERDADEIRAS todas as informações médicas preenchidas e me responsabilizo por quaisquer acidentes que venha a ocorrer em decorrência do não informe de problemas médicos de qualquer natureza:
           </label>
           {% if form.declaracao_medica.errors %}<p class="field-error">{{ form.declaracao_medica.errors|join:" " }}</p>{% endif %}
 

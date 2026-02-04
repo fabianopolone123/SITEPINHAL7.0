@@ -115,10 +115,9 @@ class DiretoriaView(View):
     def post(self, request):
         form = DiretoriaForm(request.POST)
         if form.is_valid():
-            diretoria = form.save()
-            login(request, diretoria.user)
-            messages.success(request, 'Cadastro da diretoria concluído com sucesso.')
-            return redirect('accounts:painel')
+            form.save()
+            messages.success(request, 'Cadastro da diretoria concluído com sucesso. Faça login para continuar.')
+            return redirect('accounts:login')
         messages.error(request, 'Há campos obrigatórios pendentes; corrija e envie novamente.')
         return render(request, self.template_name, {'form': form})
 
