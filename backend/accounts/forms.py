@@ -50,10 +50,32 @@ class ResponsavelForm(forms.ModelForm):
 
 class AventureiroForm(forms.ModelForm):
     signature_value_av = forms.CharField(widget=forms.HiddenInput, required=True)
+    cardiaco_detalhe = forms.CharField(required=False)
+    cardiaco_medicamento = forms.CharField(required=False)
+    cardiaco_remedio = forms.CharField(required=False)
+    diabetico_detalhe = forms.CharField(required=False)
+    diabetico_medicamento = forms.CharField(required=False)
+    diabetico_remedio = forms.CharField(required=False)
+    renal_detalhe = forms.CharField(required=False)
+    renal_medicamento = forms.CharField(required=False)
+    renal_remedio = forms.CharField(required=False)
+    psicologico_detalhe = forms.CharField(required=False)
+    psicologico_medicamento = forms.CharField(required=False)
+    psicologico_remedio = forms.CharField(required=False)
+    alergia_pele = forms.CharField(required=False)
+    alergia_pele_descricao = forms.CharField(required=False)
+    alergia_alimento = forms.CharField(required=False)
+    alergia_alimento_descricao = forms.CharField(required=False)
+    alergia_medicamento = forms.CharField(required=False)
+    alergia_medicamento_descricao = forms.CharField(required=False)
 
     class Meta:
         model = Aventureiro
         exclude = ('responsavel', 'assinatura', 'created_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.documentacao_error = False
 
     def clean_doencas(self):
         return self.data.getlist('doenca')
@@ -92,6 +114,8 @@ class AventureiroForm(forms.ModelForm):
             self.add_error('nome', 'Informe o nome do aventureiro.')
         if not cleaned.get('signature_value_av') or not cleaned['signature_value_av'].strip():
             self.add_error('signature_value_av', 'Assine a ficha antes de enviar.')
+        self.documentacao_error = False
+        self._validate_basic_fields(cleaned)
         self._validate_doc_requirements(cleaned)
         self._validate_plano(cleaned)
         self._validate_camiseta(cleaned)
@@ -100,6 +124,19 @@ class AventureiroForm(forms.ModelForm):
         self._validate_alergias()
         self._validate_declaracoes(cleaned)
         return cleaned
+
+    def _validate_basic_fields(self, cleaned):
+        required = [
+            ('religiao', 'Informe a religião.'),
+            ('sexo', 'Informe o sexo.'),
+            ('nascimento', 'Informe a data de nascimento.'),
+            ('serie', 'Informe a série/ano.'),
+            ('colegio', 'Informe o colégio.'),
+            ('bolsa', 'Informe se recebe Bolsa Família.'),
+        ]
+        for field, message in required:
+            if not cleaned.get(field):
+                self.add_error(field, message)
 
     def _validate_doc_requirements(self, cleaned):
         certidao = cleaned.get('certidao')
@@ -112,6 +149,7 @@ class AventureiroForm(forms.ModelForm):
         has_cpf = bool(cpf)
 
         if not (has_certidao or has_rg_with_orgao or has_cpf):
+            self.documentacao_error = True
             raise forms.ValidationError('Informe pelo menos uma documentação válida: certidão, RG (com órgão) ou CPF.')
         if rg and not orgao:
             self.add_error('orgao', 'Informe o órgão expedidor junto com o RG.')
@@ -135,9 +173,14 @@ class AventureiroForm(forms.ModelForm):
 
     def _validate_condicoes(self):
         for prefix in ('cardiaco', 'diabetico', 'renal', 'psicologico'):
+            if self.data.get(prefix) not in ('sim', 'nao'):
+                self.add_error(prefix, 'Informe sim ou não para essa condição.')
             if self.data.get(prefix) == 'sim' and not self.data.get(f"{prefix}_detalhe"):
                 self.add_error(f"{prefix}_detalhe", 'Descreva a condição indicada.')
-            if self.data.get(f"{prefix}_medicamento") == 'sim' and not self.data.get(f"{prefix}_remedio"):
+            med_flag = self.data.get(f"{prefix}_medicamento")
+            if med_flag not in ('sim', 'nao'):
+                self.add_error(f"{prefix}_medicamento", 'Informe sim ou não para essa pergunta.')
+            elif med_flag == 'sim' and not self.data.get(f"{prefix}_remedio"):
                 self.add_error(f"{prefix}_remedio", 'Informe o medicamento utilizado.')
 
     def _validate_alergias(self):
@@ -147,7 +190,10 @@ class AventureiroForm(forms.ModelForm):
             ('alergia_medicamento', 'alergia_medicamento_descricao'),
         ]
         for field, detail in pairs:
-            if self.data.get(field) == 'sim' and not self.data.get(detail):
+            value = self.data.get(field)
+            if value not in ('sim', 'nao'):
+                self.add_error(field, 'Informe sim ou não para essa alergia.')
+            if value == 'sim' and not self.data.get(detail):
                 self.add_error(detail, 'Informe o detalhe da alergia indicada.')
 
     def _validate_declaracoes(self, cleaned):
