@@ -53,6 +53,39 @@ def _sidebar_context(request):
     }
 
 
+def _profile_order_weight(access):
+    profiles = set(access.profiles or [])
+    if access.role:
+        profiles.add(access.role)
+    if UserAccess.ROLE_DIRETORIA in profiles or UserAccess.ROLE_DIRETOR in profiles:
+        return 0
+    if UserAccess.ROLE_RESPONSAVEL in profiles:
+        return 1
+    return 2
+
+
+def _user_display_data(user):
+    foto_url = ''
+    nome_completo = user.get_full_name().strip()
+    if hasattr(user, 'diretoria'):
+        diretoria = user.diretoria
+        nome_completo = diretoria.nome or nome_completo
+        if diretoria.foto:
+            foto_url = diretoria.foto.url
+    elif hasattr(user, 'responsavel'):
+        responsavel = user.responsavel
+        nome_completo = (
+            responsavel.responsavel_nome
+            or responsavel.mae_nome
+            or responsavel.pai_nome
+            or nome_completo
+        )
+    return {
+        'nome_completo': nome_completo or user.username,
+        'foto_url': foto_url,
+    }
+
+
 def _set_pending_aventures(session, pending):
     session['aventures_pending'] = pending
     session.modified = True
@@ -553,8 +586,47 @@ class UsuariosView(LoginRequiredMixin, View):
             messages.error(request, 'Seu perfil não possui permissão para acessar usuários.')
             return redirect('accounts:painel')
 
-        users = UserAccess.objects.select_related('user').order_by('user__username')
-        context = {'users': users}
+        users = (
+            UserAccess.objects
+            .select_related('user', 'user__responsavel', 'user__diretoria')
+        )
+        user_rows = []
+        for access in users:
+            display = _user_display_data(access.user)
+            user_rows.append({
+                'access': access,
+                'user': access.user,
+                'nome_completo': display['nome_completo'],
+                'foto_url': display['foto_url'],
+            })
+        user_rows.sort(key=lambda row: (_profile_order_weight(row['access']), row['user'].username.lower()))
+        context = {'users': user_rows}
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
+
+
+class UsuarioDetalheView(LoginRequiredMixin, View):
+    template_name = 'usuario_detalhe.html'
+
+    def get(self, request, pk):
+        if not _is_diretor(request.user):
+            messages.error(request, 'Seu perfil não possui permissão para acessar usuários.')
+            return redirect('accounts:painel')
+        target_user = get_object_or_404(User, pk=pk)
+        access = _ensure_user_access(target_user)
+        display = _user_display_data(target_user)
+        responsavel = getattr(target_user, 'responsavel', None)
+        diretoria = getattr(target_user, 'diretoria', None)
+        aventureiros = responsavel.aventures.order_by('nome') if responsavel else []
+        context = {
+            'target_user': target_user,
+            'access': access,
+            'nome_completo': display['nome_completo'],
+            'foto_url': display['foto_url'],
+            'responsavel': responsavel,
+            'diretoria': diretoria,
+            'aventureiros': aventureiros,
+        }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 
@@ -568,8 +640,17 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
             return redirect('accounts:painel')
         target_user = get_object_or_404(User, pk=pk)
         access = _ensure_user_access(target_user)
-        form = UserAccessForm(initial={'role': access.role, 'is_active': target_user.is_active})
-        context = {'form': form, 'target_user': target_user}
+        display = _user_display_data(target_user)
+        profiles = list(access.profiles or [])
+        if not profiles and access.role:
+            profiles = [access.role]
+        form = UserAccessForm(initial={'profiles': profiles, 'is_active': target_user.is_active})
+        context = {
+            'form': form,
+            'target_user': target_user,
+            'nome_completo': display['nome_completo'],
+            'foto_url': display['foto_url'],
+        }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 
@@ -579,15 +660,27 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
             return redirect('accounts:painel')
         target_user = get_object_or_404(User, pk=pk)
         access = _ensure_user_access(target_user)
+        display = _user_display_data(target_user)
         form = UserAccessForm(request.POST)
         if form.is_valid():
-            access.role = form.cleaned_data['role']
-            access.add_profile(form.cleaned_data['role'])
+            profiles = list(dict.fromkeys(form.cleaned_data['profiles']))
+            access.profiles = profiles
+            if UserAccess.ROLE_DIRETOR in profiles:
+                access.role = UserAccess.ROLE_DIRETOR
+            elif UserAccess.ROLE_DIRETORIA in profiles:
+                access.role = UserAccess.ROLE_DIRETORIA
+            else:
+                access.role = UserAccess.ROLE_RESPONSAVEL
             access.save(update_fields=['role', 'profiles', 'updated_at'])
             target_user.is_active = form.cleaned_data['is_active']
             target_user.save(update_fields=['is_active'])
             messages.success(request, 'Permissões atualizadas com sucesso.')
             return redirect('accounts:usuarios')
-        context = {'form': form, 'target_user': target_user}
+        context = {
+            'form': form,
+            'target_user': target_user,
+            'nome_completo': display['nome_completo'],
+            'foto_url': display['foto_url'],
+        }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)

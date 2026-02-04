@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Detalhes do usuario</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body class="painel-page">
+  {% include '_painel_sidebar.html' %}
+  <main class="painel-content">
+    <header class="painel-header">
+      <h2>{{ target_user.username }}</h2>
+      <p>{{ nome_completo }}</p>
+      <p><a href="{% url 'accounts:usuarios' %}">Voltar para usuarios</a></p>
+    </header>
+
+    <section class="painel-card">
+      {% if foto_url %}
+        <p><img class="confirmation-photo" src="{{ foto_url }}" alt="Foto de {{ nome_completo }}" /></p>
+      {% endif %}
+      <p><strong>Perfis:</strong> {{ access.get_profiles_display|join:", " }}</p>
+      <p><strong>Status:</strong> {% if target_user.is_active %}Ativo{% else %}Inativo{% endif %}</p>
+    </section>
+
+    {% if diretoria %}
+      <section class="painel-card">
+        <h3>Dados da diretoria</h3>
+        <p><strong>Nome:</strong> {{ diretoria.nome }}</p>
+        <p><strong>Igreja:</strong> {{ diretoria.igreja }}</p>
+        <p><strong>Email:</strong> {{ diretoria.email }}</p>
+        <p><strong>Whatsapp:</strong> {{ diretoria.whatsapp }}</p>
+        <p><strong>Cidade/UF:</strong> {{ diretoria.cidade }} - {{ diretoria.estado }}</p>
+      </section>
+    {% endif %}
+
+    {% if responsavel %}
+      <section class="painel-card">
+        <h3>Dados do responsavel</h3>
+        <p><strong>Pai:</strong> {{ responsavel.pai_nome|default:"-" }}</p>
+        <p><strong>Mae:</strong> {{ responsavel.mae_nome|default:"-" }}</p>
+        <p><strong>Responsavel legal:</strong> {{ responsavel.responsavel_nome|default:"-" }}</p>
+        <p><strong>Endereco:</strong> {{ responsavel.endereco|default:"-" }}</p>
+        <p><strong>Cidade/UF:</strong> {{ responsavel.cidade|default:"-" }} - {{ responsavel.estado|default:"-" }}</p>
+      </section>
+    {% endif %}
+
+    {% if aventureiros %}
+      <section class="painel-card">
+        <h3>Aventureiros vinculados</h3>
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>Foto</th>
+              <th>Nome</th>
+              <th>Serie</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for av in aventureiros %}
+              <tr>
+                <td>
+                  {% if av.foto %}
+                    <img class="confirmation-photo" src="{{ av.foto.url }}" alt="Foto de {{ av.nome }}" />
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td><a href="{% url 'accounts:aventureiro_geral' av.pk %}">{{ av.nome }}</a></td>
+                <td>{{ av.serie|default:"-" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    {% endif %}
+  </main>
+</body>
+</html>

@@ -4,38 +4,48 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Usuários</title>
+  <title>Usuarios</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
 </head>
 <body class="painel-page">
   {% include '_painel_sidebar.html' %}
   <main class="painel-content">
     <header class="painel-header">
-      <h2>Usuários</h2>
-      <p>Visualize usuários e ajuste o perfil de permissão.</p>
+      <h2>Usuarios</h2>
+      <p>Visualize usuarios e ajuste os perfis de permissao.</p>
     </header>
 
     <section class="painel-card">
       <table class="users-table">
         <thead>
           <tr>
-            <th>Usuário</th>
-            <th>Perfil</th>
+            <th>Foto</th>
+            <th>Usuario</th>
+            <th>Nome completo</th>
+            <th>Perfis</th>
             <th>Status</th>
-            <th>Ações</th>
+            <th>Acoes</th>
           </tr>
         </thead>
         <tbody>
           {% for item in users %}
             <tr>
-              <td>{{ item.user.username }}</td>
-              <td>{{ item.get_role_display }}</td>
+              <td>
+                {% if item.foto_url %}
+                  <img class="confirmation-photo" src="{{ item.foto_url }}" alt="Foto de {{ item.nome_completo }}" />
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td><a href="{% url 'accounts:usuario_detalhe' item.user.pk %}">{{ item.user.username }}</a></td>
+              <td>{{ item.nome_completo }}</td>
+              <td>{{ item.access.get_profiles_display|join:", " }}</td>
               <td>{% if item.user.is_active %}Ativo{% else %}Inativo{% endif %}</td>
-              <td><a href="{% url 'accounts:editar_usuario_permissoes' item.user.pk %}">Editar permissões</a></td>
+              <td><a href="{% url 'accounts:editar_usuario_permissoes' item.user.pk %}">Editar permissoes</a></td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="4">Nenhum usuário encontrado.</td>
+              <td colspan="6">Nenhum usuario encontrado.</td>
             </tr>
           {% endfor %}
         </tbody>

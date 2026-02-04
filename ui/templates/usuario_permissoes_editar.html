@@ -4,30 +4,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Editar permissões</title>
+  <title>Editar permissoes</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
 </head>
 <body class="painel-page">
   {% include '_painel_sidebar.html' %}
   <main class="painel-content">
     <header class="painel-header">
-      <h2>Editar permissões de {{ target_user.username }}</h2>
-      <p><a href="{% url 'accounts:usuarios' %}">Voltar para usuários</a></p>
+      <h2>Editar permissoes de {{ target_user.username }}</h2>
+      <p>{{ nome_completo }}</p>
+      <p><a href="{% url 'accounts:usuarios' %}">Voltar para usuarios</a></p>
     </header>
 
     <form method="post" class="login-card form-card">
       {% csrf_token %}
-      <label for="{{ form.role.id_for_label }}">{{ form.role.label }}</label>
-      {{ form.role }}
-      {% if form.role.errors %}<p class="field-error">{{ form.role.errors|join:" " }}</p>{% endif %}
+
+      {% if foto_url %}
+        <p><img class="confirmation-photo" src="{{ foto_url }}" alt="Foto de {{ nome_completo }}" /></p>
+      {% endif %}
+
+      <label>{{ form.profiles.label }}</label>
+      <div class="checkbox-grid">
+        {{ form.profiles }}
+      </div>
+      {% if form.profiles.errors %}<p class="field-error">{{ form.profiles.errors|join:" " }}</p>{% endif %}
 
       <label class="checkbox-full">
         {{ form.is_active }}
-        Usuário ativo
+        Usuario ativo
       </label>
       {% if form.is_active.errors %}<p class="field-error">{{ form.is_active.errors|join:" " }}</p>{% endif %}
 
-      <button type="submit" class="primary">Salvar permissões</button>
+      <button type="submit" class="primary">Salvar permissoes</button>
     </form>
   </main>
 </body>

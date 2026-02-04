@@ -322,5 +322,15 @@ class DiretoriaDadosForm(forms.ModelForm):
 
 
 class UserAccessForm(forms.Form):
-    role = forms.ChoiceField(label='perfil', choices=UserAccess.ROLE_CHOICES)
+    profiles = forms.MultipleChoiceField(
+        label='perfis',
+        choices=UserAccess.ROLE_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+    )
     is_active = forms.BooleanField(label='usuário ativo', required=False)
+
+    def clean_profiles(self):
+        profiles = self.cleaned_data.get('profiles') or []
+        if not profiles:
+            raise forms.ValidationError('Selecione pelo menos um perfil.')
+        return profiles

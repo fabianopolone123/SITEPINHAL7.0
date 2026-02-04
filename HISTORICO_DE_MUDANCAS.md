@@ -113,3 +113,5 @@ Ele é a memória oficial do sistema.
 - [x] Criada rota/tela de listagem geral de aventureiros para Diretor (`/aventureiros-gerais/`).
 - [x] Admin de `UserAccess` atualizado para exibir perfis e permitir atribuicao acumulativa de perfil.
 - [x] Perfil Diretor agora pode clicar no nome do aventureiro em `Aventureiros` para abrir a ficha completa em modo leitura.
+- [x] Tela `Usuarios` agora lista primeiro perfis de Diretoria/Diretor e depois Responsavel, com foto (quando houver), nome completo e link no username para abrir todos os dados.
+- [x] Edicao de permissoes passou a aceitar multiplos perfis por usuario (checkboxes), mantendo controle de usuario ativo/inativo.
