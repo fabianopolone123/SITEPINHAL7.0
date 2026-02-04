@@ -93,3 +93,4 @@ Ele é a memória oficial do sistema.
 - [x] `deploy/deploy.sh` virou um deploy completo com lock, `git fetch + reset` para a versão mais recente, backup do SQLite, `check/migrate/collectstatic`, restart de serviços, healthcheck e rollback automático em caso de falha.
 - [x] Criada a tela autenticada `/painel/` como primeira etapa pós-login, com ações rápidas para responsável, aventura, confirmação e logout; o `LOGIN_REDIRECT_URL` foi alterado para `accounts:painel`.
 - [x] Layout do `/painel/` foi ajustado para fase de prototipação: removidos botões de ação e criada barra lateral fixa com menus placeholder para evoluir a navegação.
+- [x] Painel simplificado: removidos os cards de conteúdo (“Área principal”, “Status do cadastro” e “Próximas seções”) e o item “Início” da barra lateral virou link para a tela inicial de login.

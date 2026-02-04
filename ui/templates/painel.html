@@ -17,7 +17,7 @@
     <nav class="painel-menu" aria-label="Menu principal">
       <p class="painel-menu-title">Menus (em construcao)</p>
       <ul>
-        <li><span>Inicio</span></li>
+        <li><a href="{% url 'accounts:login' %}">Inicio</a></li>
         <li><span>Responsavel</span></li>
         <li><span>Aventureiros</span></li>
         <li><span>Confirmacao</span></li>
@@ -32,21 +32,6 @@
       <h2>Painel inicial</h2>
       <p>Bem-vindo, {{ request.user.username }}. Vamos trabalhar no layout antes dos menus funcionarem.</p>
     </header>
-
-    <section class="painel-grid">
-      <article class="painel-card">
-        <h3>Area principal</h3>
-        <p>Espaco reservado para os indicadores e atalhos do sistema.</p>
-      </article>
-      <article class="painel-card">
-        <h3>Status do cadastro</h3>
-        <p>Pendencias em sessao: <strong>{{ pending_count }}</strong>.</p>
-      </article>
-      <article class="painel-card">
-        <h3>Proximas secoes</h3>
-        <p>Quando quiser, a gente pluga os menus da barra lateral aqui.</p>
-      </article>
-    </section>
 
     <div class="status" aria-live="polite">
       {% for message in messages %}
