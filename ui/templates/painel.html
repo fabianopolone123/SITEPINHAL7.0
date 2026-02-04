@@ -4,68 +4,55 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Clube de Aventureiros Pinhal Junior — Painel</title>
+  <title>Clube de Aventureiros Pinhal Junior - Painel</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
 </head>
-<body>
-  <div class="page-shell">
-    <div class="branding">
-      <p class="eyebrow">Portal oficial</p>
-      <h1>Painel inicial</h1>
-      <p class="subtitle">Bem-vindo, {{ request.user.username }}. Escolha a próxima ação para continuar o cadastro.</p>
-    </div>
-    <main class="login-card register-card">
+<body class="painel-page">
+  <aside class="painel-sidebar">
+    <div class="painel-sidebar-brand">
       <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
-      <h2>Próximos passos</h2>
-      <p>Fluxo principal do sistema após login.</p>
+      <h1>Painel</h1>
+    </div>
 
-      <div class="option-grid">
-        <a href="{% url primary_action.url_name %}" class="option-card">
-          <strong>{{ primary_action.label }}</strong>
-          <span>
-            {% if not has_responsavel %}
-              Preencha os dados do responsável para iniciar.
-            {% elif has_pending %}
-              Você possui {{ pending_count }} ficha(s) pendente(s) para revisar e salvar.
-            {% else %}
-              Continue com o cadastro de aventureiro.
-            {% endif %}
-          </span>
-        </a>
+    <nav class="painel-menu" aria-label="Menu principal">
+      <p class="painel-menu-title">Menus (em construcao)</p>
+      <ul>
+        <li><span>Inicio</span></li>
+        <li><span>Responsavel</span></li>
+        <li><span>Aventureiros</span></li>
+        <li><span>Confirmacao</span></li>
+        <li><span>Relatorios</span></li>
+      </ul>
+    </nav>
+  </aside>
 
-        <a href="{% url 'accounts:responsavel' %}" class="option-card">
-          <strong>Iniciar/Editar cadastro do responsável</strong>
-          <span>Atualize os dados de quem responde pelo cadastro.</span>
-        </a>
+  <main class="painel-content">
+    <header class="painel-header">
+      <p class="eyebrow">Portal oficial</p>
+      <h2>Painel inicial</h2>
+      <p>Bem-vindo, {{ request.user.username }}. Vamos trabalhar no layout antes dos menus funcionarem.</p>
+    </header>
 
-        <a href="{% url 'accounts:aventura' %}" class="option-card">
-          <strong>Cadastrar aventureiro</strong>
-          <span>Abra uma nova ficha de aventureiro.</span>
-        </a>
+    <section class="painel-grid">
+      <article class="painel-card">
+        <h3>Area principal</h3>
+        <p>Espaco reservado para os indicadores e atalhos do sistema.</p>
+      </article>
+      <article class="painel-card">
+        <h3>Status do cadastro</h3>
+        <p>Pendencias em sessao: <strong>{{ pending_count }}</strong>.</p>
+      </article>
+      <article class="painel-card">
+        <h3>Proximas secoes</h3>
+        <p>Quando quiser, a gente pluga os menus da barra lateral aqui.</p>
+      </article>
+    </section>
 
-        <a href="{% url 'accounts:confirmacao' %}" class="option-card">
-          <strong>Revisar e salvar tudo</strong>
-          <span>
-            {% if has_pending %}
-              Pendentes na sessão: {{ pending_count }}.
-            {% else %}
-              Sem pendências no momento.
-            {% endif %}
-          </span>
-        </a>
-
-        <a href="{% url 'accounts:logout' %}" class="option-card">
-          <strong>Sair</strong>
-          <span>Encerrar sessão e voltar para o login.</span>
-        </a>
-      </div>
-
-      <div class="status" aria-live="polite">
-        {% for message in messages %}
-          <p data-state="{{ message.tags }}">{{ message }}</p>
-        {% endfor %}
-      </div>
-    </main>
-  </div>
+    <div class="status" aria-live="polite">
+      {% for message in messages %}
+        <p data-state="{{ message.tags }}">{{ message }}</p>
+      {% endfor %}
+    </div>
+  </main>
 </body>
 </html>
