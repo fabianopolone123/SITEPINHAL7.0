@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Editar dados da diretoria</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body class="painel-page">
+  {% include '_painel_sidebar.html' %}
+  <main class="painel-content">
+    <header class="painel-header">
+      <h2>Editar dados da diretoria</h2>
+      <p><a href="{% url 'accounts:minha_diretoria' %}">Cancelar</a></p>
+    </header>
+
+    <form method="post" class="login-card form-card">
+      {% csrf_token %}
+      {% for field in form %}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}
+          <p class="field-error">{{ field.errors|join:" " }}</p>
+        {% endif %}
+      {% endfor %}
+      <button type="submit" class="primary">Salvar</button>
+    </form>
+  </main>
+</body>
+</html>

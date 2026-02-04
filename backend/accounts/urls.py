@@ -14,6 +14,10 @@ from .views import (
     MeuResponsavelEditarView,
     MeuAventureiroDetalheView,
     MeuAventureiroEditarView,
+    MinhaDiretoriaDetalheView,
+    MinhaDiretoriaEditarView,
+    UsuariosView,
+    UsuarioPermissaoEditarView,
 )
 
 app_name = 'accounts'
@@ -30,8 +34,12 @@ urlpatterns = [
     path('meus-dados/', MeusDadosView.as_view(), name='meus_dados'),
     path('meus-dados/responsavel/', MeuResponsavelDetalheView.as_view(), name='meu_responsavel'),
     path('meus-dados/responsavel/editar/', MeuResponsavelEditarView.as_view(), name='editar_meu_responsavel'),
+    path('meus-dados/diretoria/', MinhaDiretoriaDetalheView.as_view(), name='minha_diretoria'),
+    path('meus-dados/diretoria/editar/', MinhaDiretoriaEditarView.as_view(), name='editar_minha_diretoria'),
     path('meus-dados/aventureiro/<int:pk>/', MeuAventureiroDetalheView.as_view(), name='meu_aventureiro'),
     path('meus-dados/aventureiro/<int:pk>/editar/', MeuAventureiroEditarView.as_view(), name='editar_meu_aventureiro'),
+    path('usuarios/', UsuariosView.as_view(), name='usuarios'),
+    path('usuarios/<int:pk>/editar/', UsuarioPermissaoEditarView.as_view(), name='editar_usuario_permissoes'),
     path('login/', LoginView.as_view(template_name='login.html'), name='login'),
     path('logout/', LogoutView.as_view(next_page='accounts:login'), name='logout'),
 ]

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usuários</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body class="painel-page">
+  {% include '_painel_sidebar.html' %}
+  <main class="painel-content">
+    <header class="painel-header">
+      <h2>Usuários</h2>
+      <p>Visualize usuários e ajuste o perfil de permissão.</p>
+    </header>
+
+    <section class="painel-card">
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>Usuário</th>
+            <th>Perfil</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in users %}
+            <tr>
+              <td>{{ item.user.username }}</td>
+              <td>{{ item.get_role_display }}</td>
+              <td>{% if item.user.is_active %}Ativo{% else %}Inativo{% endif %}</td>
+              <td><a href="{% url 'accounts:editar_usuario_permissoes' item.user.pk %}">Editar permissões</a></td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4">Nenhum usuário encontrado.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

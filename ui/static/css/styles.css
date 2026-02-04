@@ -821,6 +821,18 @@ body {
   border: 1px solid #cbd5e1;
 }
 
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.users-table th,
+.users-table td {
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.6rem;
+}
+
 @media (max-width: 900px) {
   .painel-sidebar {
     position: static;

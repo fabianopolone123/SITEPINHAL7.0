@@ -17,28 +17,39 @@
     </header>
 
     <section class="painel-grid">
-      <article class="painel-card">
-        <h3>Responsável</h3>
-        <p><a href="{% url 'accounts:meu_responsavel' %}">{{ responsavel.responsavel_nome|default:responsavel.user.username }}</a></p>
-      </article>
+      {% if responsavel %}
+        <article class="painel-card">
+          <h3>Responsável</h3>
+          <p><a href="{% url 'accounts:meu_responsavel' %}">{{ responsavel.responsavel_nome|default:responsavel.user.username }}</a></p>
+        </article>
+      {% endif %}
 
-      <article class="painel-card">
-        <h3>Aventureiros</h3>
-        {% if aventureiros %}
-          <div class="avatar-list">
-            {% for av in aventureiros %}
-              <a href="{% url 'accounts:meu_aventureiro' av.pk %}" class="avatar-item">
-                {% if av.foto %}
-                  <img src="{{ av.foto.url }}" alt="Foto de {{ av.nome }}" />
-                {% endif %}
-                <span>{{ av.nome }}</span>
-              </a>
-            {% endfor %}
-          </div>
-        {% else %}
-          <p>Nenhum aventureiro cadastrado.</p>
-        {% endif %}
-      </article>
+      {% if diretoria %}
+        <article class="painel-card">
+          <h3>Diretoria</h3>
+          <p><a href="{% url 'accounts:minha_diretoria' %}">{{ diretoria.nome }}</a></p>
+        </article>
+      {% endif %}
+
+      {% if responsavel %}
+        <article class="painel-card">
+          <h3>Aventureiros</h3>
+          {% if aventureiros %}
+            <div class="avatar-list">
+              {% for av in aventureiros %}
+                <a href="{% url 'accounts:meu_aventureiro' av.pk %}" class="avatar-item">
+                  {% if av.foto %}
+                    <img src="{{ av.foto.url }}" alt="Foto de {{ av.nome }}" />
+                  {% endif %}
+                  <span>{{ av.nome }}</span>
+                </a>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p>Nenhum aventureiro cadastrado.</p>
+          {% endif %}
+        </article>
+      {% endif %}
     </section>
   </main>
 </body>

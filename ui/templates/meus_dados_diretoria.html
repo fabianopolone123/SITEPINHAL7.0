@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dados da diretoria</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body class="painel-page">
+  {% include '_painel_sidebar.html' %}
+  <main class="painel-content">
+    <header class="painel-header">
+      <h2>Dados da diretoria</h2>
+      <p><a href="{% url 'accounts:meus_dados' %}">Voltar para meus dados</a></p>
+    </header>
+
+    <section class="painel-card">
+      {% if diretoria.foto %}
+        <p><img class="confirmation-photo" src="{{ diretoria.foto.url }}" alt="Foto de {{ diretoria.nome }}" /></p>
+      {% endif %}
+      <p><strong>Nome:</strong> {{ diretoria.nome|default:"-" }}</p>
+      <p><strong>Igreja:</strong> {{ diretoria.igreja|default:"-" }}</p>
+      <p><strong>Endereço:</strong> {{ diretoria.endereco|default:"-" }}</p>
+      <p><strong>Distrito:</strong> {{ diretoria.distrito|default:"-" }}</p>
+      <p><strong>Número:</strong> {{ diretoria.numero|default:"-" }}</p>
+      <p><strong>Bairro:</strong> {{ diretoria.bairro|default:"-" }}</p>
+      <p><strong>CEP:</strong> {{ diretoria.cep|default:"-" }}</p>
+      <p><strong>Cidade:</strong> {{ diretoria.cidade|default:"-" }}</p>
+      <p><strong>Estado:</strong> {{ diretoria.estado|default:"-" }}</p>
+      <p><strong>Email:</strong> {{ diretoria.email|default:"-" }}</p>
+      <p><strong>WhatsApp:</strong> {{ diretoria.whatsapp|default:"-" }}</p>
+      <p><strong>Nascimento:</strong> {{ diretoria.nascimento|default:"-" }}</p>
+      <p><strong>Estado civil:</strong> {{ diretoria.estado_civil|default:"-" }}</p>
+      <p><strong>CPF:</strong> {{ diretoria.cpf|default:"-" }}</p>
+      <p><strong>RG:</strong> {{ diretoria.rg|default:"-" }}</p>
+      <p><strong>Escolaridade:</strong> {{ diretoria.escolaridade|default:"-" }}</p>
+    </section>
+
+    <p class="action-row">
+      <a class="primary" href="{% url 'accounts:editar_minha_diretoria' %}">Editar</a>
+    </p>
+  </main>
+</body>
+</html>

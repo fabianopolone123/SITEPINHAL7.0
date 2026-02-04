@@ -10,6 +10,9 @@
     <ul>
       <li><a href="{% url 'accounts:painel' %}">Inicio</a></li>
       <li><a href="{% url 'accounts:meus_dados' %}">Meus dados</a></li>
+      {% if is_diretor %}
+        <li><a href="{% url 'accounts:usuarios' %}">Usuários</a></li>
+      {% endif %}
     </ul>
   </nav>
 </aside>

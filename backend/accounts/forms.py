@@ -1,6 +1,6 @@
 ﻿from django import forms
 from django.contrib.auth import get_user_model
-from .models import Responsavel, Aventureiro, Diretoria
+from .models import Responsavel, Aventureiro, Diretoria, UserAccess
 from .utils import decode_signature, decode_photo
 
 User = get_user_model()
@@ -45,6 +45,10 @@ class ResponsavelForm(forms.ModelForm):
             responsavel.signature.save(signature_file.name, signature_file, save=False)
         if commit:
             responsavel.save()
+            UserAccess.objects.update_or_create(
+                user=user,
+                defaults={'role': UserAccess.ROLE_RESPONSAVEL},
+            )
         return responsavel
 
 
@@ -298,4 +302,19 @@ class DiretoriaForm(forms.ModelForm):
 
         if commit:
             diretoria.save()
+            UserAccess.objects.update_or_create(
+                user=user,
+                defaults={'role': UserAccess.ROLE_DIRETORIA},
+            )
         return diretoria
+
+
+class DiretoriaDadosForm(forms.ModelForm):
+    class Meta:
+        model = Diretoria
+        exclude = ('user', 'assinatura', 'foto', 'created_at')
+
+
+class UserAccessForm(forms.Form):
+    role = forms.ChoiceField(label='perfil', choices=UserAccess.ROLE_CHOICES)
+    is_active = forms.BooleanField(label='usuário ativo', required=False)

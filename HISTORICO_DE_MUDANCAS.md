@@ -101,3 +101,5 @@ Ele é a memória oficial do sistema.
 - [x] Implementado cadastro da Diretoria (`/diretoria/`) com formulário completo (dados pessoais/familiares/saúde/escolaridade), usuário+senha, confirmação de senha, aceite dos termos médicos/imagem, foto 3x4 obrigatória e assinatura digital obrigatória; rota ligada ao botão “Cadastro Diretoria” de `/register/`.
 - [x] Cadastro da diretoria atualizado com os textos completos de autorização de imagem e declaração médica; após concluir com sucesso, o sistema exibe mensagem de confirmação e retorna para a tela de login.
 - [x] Ajustado script de assinatura para não limpar assinatura já preenchida quando o formulário volta com erro, preservando os dados digitados no cadastro da diretoria em caso de validação pendente.
+- [x] Iniciada divisão de perfis com `UserAccess` (responsável/diretoria/diretor), menu lateral condicional e nova área de `Usuários` para perfil diretor gerenciar permissões/perfil e status ativo dos usuários.
+- [x] `Meus dados` agora também suporta perfil da diretoria com visualização e edição dos próprios dados.

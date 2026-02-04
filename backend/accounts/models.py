@@ -12,6 +12,25 @@ def signature_upload_to(instance, filename):
     return f"{prefix}/{role}/{timestamp}_{filename}" if filename else f"{prefix}/{role}/{timestamp}.png"
 
 
+class UserAccess(models.Model):
+    ROLE_RESPONSAVEL = 'responsavel'
+    ROLE_DIRETORIA = 'diretoria'
+    ROLE_DIRETOR = 'diretor'
+
+    ROLE_CHOICES = [
+        (ROLE_RESPONSAVEL, 'Responsável'),
+        (ROLE_DIRETORIA, 'Diretoria'),
+        (ROLE_DIRETOR, 'Diretor'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='access')
+    role = models.CharField('perfil de acesso', max_length=32, choices=ROLE_CHOICES, default=ROLE_RESPONSAVEL)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.user.username} ({self.get_role_display()})'
+
+
 class Responsavel(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='responsavel')
     pai_nome = models.CharField('nome do pai', max_length=255, blank=True)
