@@ -50,6 +50,7 @@ class ResponsavelForm(forms.ModelForm):
 
 class AventureiroForm(forms.ModelForm):
     signature_value_av = forms.CharField(widget=forms.HiddenInput, required=True)
+    photo_value = forms.CharField(widget=forms.HiddenInput, required=False)
     cardiaco_detalhe = forms.CharField(required=False)
     cardiaco_medicamento = forms.CharField(required=False)
     cardiaco_remedio = forms.CharField(required=False)
@@ -114,6 +115,9 @@ class AventureiroForm(forms.ModelForm):
             self.add_error('nome', 'Informe o nome do aventureiro.')
         if not cleaned.get('signature_value_av') or not cleaned['signature_value_av'].strip():
             self.add_error('signature_value_av', 'Assine a ficha antes de enviar.')
+        photo_value = cleaned.get('photo_value') or self.data.get('photo_value')
+        if not (photo_value and photo_value.strip()):
+            self.add_error('photo_value', 'Anexe a foto 3x4 do aventureiro.')
         self.documentacao_error = False
         self._validate_basic_fields(cleaned)
         self._validate_doc_requirements(cleaned)

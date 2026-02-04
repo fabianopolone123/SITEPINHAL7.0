@@ -70,6 +70,7 @@ class Aventureiro(models.Model):
     tipo_sangue = models.CharField('tipo sanguíneo', max_length=8, blank=True)
     declaracao_medica = models.BooleanField('declaracao médica aceita', default=False)
     autorizacao_imagem = models.BooleanField('autorização de imagem', default=False)
+    foto = models.ImageField('foto 3x4', upload_to='photos/aventura', null=True, blank=True)
     assinatura = models.ImageField('assinatura do aventureiro', upload_to='signatures/aventura', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

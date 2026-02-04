@@ -8,7 +8,7 @@ from django.views import View
 
 from .forms import ResponsavelForm, AventureiroForm
 from .models import Responsavel, Aventureiro
-from .utils import decode_signature
+from .utils import decode_signature, decode_photo
 from datetime import date
 
 
@@ -68,6 +68,7 @@ def _enqueue_pending_aventure(session, cleaned_data):
     entry = {
         'fields': fields,
         'signature': cleaned_data.get('signature_value_av', '').strip() or None,
+        'photo': cleaned_data.get('photo_value', '').strip() or None,
     }
     pending.append(entry)
     _set_pending_aventures(session, pending)
@@ -171,6 +172,11 @@ class ConfirmacaoView(LoginRequiredMixin, View):
                 signature_file = decode_signature(signature_data, 'aventura')
                 if signature_file:
                     aventureiro.assinatura.save(signature_file.name, signature_file, save=False)
+            photo_data = entry.get('photo')
+            if photo_data:
+                photo_file = decode_photo(photo_data)
+                if photo_file:
+                    aventureiro.foto.save(photo_file.name, photo_file, save=False)
             aventureiro.save()
         _clear_pending_aventures(request.session)
         logout(request)
