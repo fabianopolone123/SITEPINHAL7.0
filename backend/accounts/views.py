@@ -35,11 +35,22 @@ def _ensure_user_access(user):
     else:
         role = UserAccess.ROLE_RESPONSAVEL
     access, _ = UserAccess.objects.get_or_create(user=user, defaults={'role': role})
+    if not access.profiles:
+        access.profiles = [access.role]
+        access.save(update_fields=['profiles', 'updated_at'])
     return access
 
 
 def _is_diretor(user):
-    return _ensure_user_access(user).role == UserAccess.ROLE_DIRETOR
+    return _ensure_user_access(user).has_profile(UserAccess.ROLE_DIRETOR)
+
+
+def _sidebar_context(request):
+    access = _ensure_user_access(request.user)
+    return {
+        'is_diretor': access.has_profile(UserAccess.ROLE_DIRETOR),
+        'current_profiles': access.get_profiles_display(),
+    }
 
 
 def _set_pending_aventures(session, pending):
@@ -266,8 +277,8 @@ class PainelView(LoginRequiredMixin, View):
             'has_responsavel': has_responsavel,
             'has_pending': has_pending,
             'primary_action': primary_action,
-            'is_diretor': _is_diretor(request.user),
         }
+        context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 
 
@@ -291,8 +302,8 @@ class MeusDadosView(LoginRequiredMixin, View):
             'responsavel': responsavel,
             'diretoria': diretoria,
             'aventureiros': aventureiros,
-            'is_diretor': _is_diretor(request.user),
         }
+        context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 
 
@@ -303,7 +314,9 @@ class MeuResponsavelDetalheView(LoginRequiredMixin, View):
         responsavel, redirect_response = _require_responsavel_or_redirect(request)
         if redirect_response:
             return redirect_response
-        return render(request, self.template_name, {'responsavel': responsavel, 'is_diretor': _is_diretor(request.user)})
+        context = {'responsavel': responsavel}
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
 
 
 class MeuResponsavelEditarView(LoginRequiredMixin, View):
@@ -314,7 +327,9 @@ class MeuResponsavelEditarView(LoginRequiredMixin, View):
         if redirect_response:
             return redirect_response
         form = ResponsavelDadosForm(instance=responsavel)
-        return render(request, self.template_name, {'form': form, 'is_diretor': _is_diretor(request.user)})
+        context = {'form': form}
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
 
     def post(self, request):
         responsavel, redirect_response = _require_responsavel_or_redirect(request)
@@ -326,7 +341,9 @@ class MeuResponsavelEditarView(LoginRequiredMixin, View):
             messages.success(request, 'Dados do responsável atualizados com sucesso.')
             return redirect('accounts:meu_responsavel')
         messages.error(request, 'Verifique os campos e tente novamente.')
-        return render(request, self.template_name, {'form': form, 'is_diretor': _is_diretor(request.user)})
+        context = {'form': form}
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
 
 
 class MeuAventureiroDetalheView(LoginRequiredMixin, View):
@@ -376,8 +393,8 @@ class MeuAventureiroDetalheView(LoginRequiredMixin, View):
             'alergias_display': alergias,
             'doencas_display': aventureiro.doencas or [],
             'deficiencias_display': aventureiro.deficiencias or [],
-            'is_diretor': _is_diretor(request.user),
         }
+        context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 
 
@@ -390,7 +407,9 @@ class MeuAventureiroEditarView(LoginRequiredMixin, View):
             return redirect_response
         aventureiro = get_object_or_404(Aventureiro, pk=pk, responsavel=responsavel)
         form = AventureiroDadosForm(instance=aventureiro)
-        return render(request, self.template_name, {'form': form, 'aventureiro': aventureiro, 'is_diretor': _is_diretor(request.user)})
+        context = {'form': form, 'aventureiro': aventureiro}
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
 
     def post(self, request, pk):
         responsavel, redirect_response = _require_responsavel_or_redirect(request)
@@ -403,7 +422,9 @@ class MeuAventureiroEditarView(LoginRequiredMixin, View):
             messages.success(request, 'Dados do aventureiro atualizados com sucesso.')
             return redirect('accounts:meu_aventureiro', pk=aventureiro.pk)
         messages.error(request, 'Verifique os campos e tente novamente.')
-        return render(request, self.template_name, {'form': form, 'aventureiro': aventureiro, 'is_diretor': _is_diretor(request.user)})
+        context = {'form': form, 'aventureiro': aventureiro}
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
 
 
 def _require_diretoria_or_redirect(request):
@@ -421,7 +442,9 @@ class MinhaDiretoriaDetalheView(LoginRequiredMixin, View):
         diretoria, redirect_response = _require_diretoria_or_redirect(request)
         if redirect_response:
             return redirect_response
-        return render(request, self.template_name, {'diretoria': diretoria, 'is_diretor': _is_diretor(request.user)})
+        context = {'diretoria': diretoria}
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
 
 
 class MinhaDiretoriaEditarView(LoginRequiredMixin, View):
@@ -432,7 +455,9 @@ class MinhaDiretoriaEditarView(LoginRequiredMixin, View):
         if redirect_response:
             return redirect_response
         form = DiretoriaDadosForm(instance=diretoria)
-        return render(request, self.template_name, {'form': form, 'diretoria': diretoria, 'is_diretor': _is_diretor(request.user)})
+        context = {'form': form, 'diretoria': diretoria}
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
 
     def post(self, request):
         diretoria, redirect_response = _require_diretoria_or_redirect(request)
@@ -444,7 +469,22 @@ class MinhaDiretoriaEditarView(LoginRequiredMixin, View):
             messages.success(request, 'Dados da diretoria atualizados com sucesso.')
             return redirect('accounts:minha_diretoria')
         messages.error(request, 'Verifique os campos e tente novamente.')
-        return render(request, self.template_name, {'form': form, 'diretoria': diretoria, 'is_diretor': _is_diretor(request.user)})
+        context = {'form': form, 'diretoria': diretoria}
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
+
+
+class AventureirosGeraisView(LoginRequiredMixin, View):
+    template_name = 'aventureiros_gerais.html'
+
+    def get(self, request):
+        if not _is_diretor(request.user):
+            messages.error(request, 'Seu perfil não possui permissão para acessar aventureiros gerais.')
+            return redirect('accounts:painel')
+        aventureiros = Aventureiro.objects.select_related('responsavel', 'responsavel__user').order_by('nome')
+        context = {'aventureiros': aventureiros}
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
 
 
 class UsuariosView(LoginRequiredMixin, View):
@@ -456,7 +496,9 @@ class UsuariosView(LoginRequiredMixin, View):
             return redirect('accounts:painel')
 
         users = UserAccess.objects.select_related('user').order_by('user__username')
-        return render(request, self.template_name, {'users': users, 'is_diretor': True})
+        context = {'users': users}
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
 
 
 class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
@@ -469,7 +511,9 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
         target_user = get_object_or_404(User, pk=pk)
         access = _ensure_user_access(target_user)
         form = UserAccessForm(initial={'role': access.role, 'is_active': target_user.is_active})
-        return render(request, self.template_name, {'form': form, 'target_user': target_user, 'is_diretor': True})
+        context = {'form': form, 'target_user': target_user}
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
 
     def post(self, request, pk):
         if not _is_diretor(request.user):
@@ -480,9 +524,12 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
         form = UserAccessForm(request.POST)
         if form.is_valid():
             access.role = form.cleaned_data['role']
-            access.save(update_fields=['role', 'updated_at'])
+            access.add_profile(form.cleaned_data['role'])
+            access.save(update_fields=['role', 'profiles', 'updated_at'])
             target_user.is_active = form.cleaned_data['is_active']
             target_user.save(update_fields=['is_active'])
             messages.success(request, 'Permissões atualizadas com sucesso.')
             return redirect('accounts:usuarios')
-        return render(request, self.template_name, {'form': form, 'target_user': target_user, 'is_diretor': True})
+        context = {'form': form, 'target_user': target_user}
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)

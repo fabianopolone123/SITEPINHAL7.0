@@ -104,3 +104,11 @@ Ele é a memória oficial do sistema.
 - [x] Iniciada divisão de perfis com `UserAccess` (responsável/diretoria/diretor), menu lateral condicional e nova área de `Usuários` para perfil diretor gerenciar permissões/perfil e status ativo dos usuários.
 - [x] `Meus dados` agora também suporta perfil da diretoria com visualização e edição dos próprios dados.
 - [x] Modelos `Diretoria` e `UserAccess` registrados no Django Admin, incluindo ações rápidas para alterar perfil (Diretor/Diretoria/Responsável) direto pela interface administrativa.
+
+### 04/02/2026 - Perfis multiplos e menu por permissao
+- [x] `UserAccess` agora suporta multiplos perfis por usuario via campo `profiles` (JSON), mantendo compatibilidade com o papel principal.
+- [x] Cadastro de responsavel e diretoria passou a acumular perfis no mesmo usuario, sem sobrescrever o perfil anterior.
+- [x] Sidebar do painel foi reformulada: removido "Menus (em construcao)", adicionado bloco "Perfil" com perfil atual e visual do logo aprimorado.
+- [x] Menu lateral agora mostra `Aventureiros` e `Usuarios` apenas para perfil Diretor.
+- [x] Criada rota/tela de listagem geral de aventureiros para Diretor (`/aventureiros-gerais/`).
+- [x] Admin de `UserAccess` atualizado para exibir perfis e permitir atribuicao acumulativa de perfil.

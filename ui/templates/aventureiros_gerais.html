@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aventureiros cadastrados</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body class="painel-page">
+  {% include '_painel_sidebar.html' %}
+  <main class="painel-content">
+    <header class="painel-header">
+      <h2>Aventureiros cadastrados</h2>
+      <p>Lista geral para o perfil Diretor.</p>
+    </header>
+
+    <section class="painel-card">
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>Foto</th>
+            <th>Nome</th>
+            <th>Responsável</th>
+            <th>Série</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for av in aventureiros %}
+            <tr>
+              <td>
+                {% if av.foto %}
+                  <img class="confirmation-photo" src="{{ av.foto.url }}" alt="Foto de {{ av.nome }}" />
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>{{ av.nome }}</td>
+              <td>{{ av.responsavel.user.username }}</td>
+              <td>{{ av.serie|default:"-" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4">Nenhum aventureiro cadastrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

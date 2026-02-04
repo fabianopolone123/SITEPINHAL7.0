@@ -25,10 +25,33 @@ class UserAccess(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='access')
     role = models.CharField('perfil de acesso', max_length=32, choices=ROLE_CHOICES, default=ROLE_RESPONSAVEL)
+    profiles = models.JSONField('perfis de acesso', default=list, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f'{self.user.username} ({self.get_role_display()})'
+        return f'{self.user.username} ({", ".join(self.get_profiles_display())})'
+
+    def has_profile(self, profile):
+        current = set(self.profiles or [])
+        if not current and self.role:
+            current.add(self.role)
+        return profile in current
+
+    def add_profile(self, profile):
+        current = set(self.profiles or [])
+        if self.role:
+            current.add(self.role)
+        current.add(profile)
+        self.profiles = sorted(current)
+        if self.role not in current:
+            self.role = profile
+
+    def get_profiles_display(self):
+        mapping = dict(self.ROLE_CHOICES)
+        current = list(self.profiles or [])
+        if not current and self.role:
+            current = [self.role]
+        return [mapping.get(item, item) for item in current]
 
 
 class Responsavel(models.Model):

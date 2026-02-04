@@ -6,6 +6,18 @@ from .utils import decode_signature, decode_photo
 User = get_user_model()
 
 
+def _upsert_user_profile(user, profile):
+    access, _ = UserAccess.objects.get_or_create(
+        user=user,
+        defaults={'role': profile, 'profiles': [profile]},
+    )
+    access.add_profile(profile)
+    if profile == UserAccess.ROLE_DIRETOR:
+        access.role = UserAccess.ROLE_DIRETOR
+    access.save(update_fields=['role', 'profiles', 'updated_at'])
+    return access
+
+
 class ResponsavelForm(forms.ModelForm):
     username = forms.CharField(max_length=150, label='nome de usuário')
     password = forms.CharField(widget=forms.PasswordInput, label='senha')
@@ -45,10 +57,7 @@ class ResponsavelForm(forms.ModelForm):
             responsavel.signature.save(signature_file.name, signature_file, save=False)
         if commit:
             responsavel.save()
-            UserAccess.objects.update_or_create(
-                user=user,
-                defaults={'role': UserAccess.ROLE_RESPONSAVEL},
-            )
+            _upsert_user_profile(user, UserAccess.ROLE_RESPONSAVEL)
         return responsavel
 
 
@@ -302,10 +311,7 @@ class DiretoriaForm(forms.ModelForm):
 
         if commit:
             diretoria.save()
-            UserAccess.objects.update_or_create(
-                user=user,
-                defaults={'role': UserAccess.ROLE_DIRETORIA},
-            )
+            _upsert_user_profile(user, UserAccess.ROLE_DIRETORIA)
         return diretoria
 
 

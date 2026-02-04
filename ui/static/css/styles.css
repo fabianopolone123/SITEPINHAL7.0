@@ -721,12 +721,43 @@ body {
 
 .painel-sidebar .logo {
   width: 72px;
-  margin-bottom: 0.75rem;
+  margin: 0;
 }
 
 .painel-sidebar-brand h1 {
   font-size: 1.4rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.painel-logo-wrap {
+  width: 96px;
+  height: 96px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.45);
+}
+
+.painel-profile-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #93c5fd;
+  margin-bottom: 0.25rem;
+}
+
+.painel-profile-value {
+  font-size: 0.9rem;
+  color: #e2e8f0;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  padding: 0.5rem 0.65rem;
+  margin-bottom: 1rem;
 }
 
 .painel-menu-title {
@@ -844,5 +875,38 @@ body {
   .painel-content {
     margin-left: 0;
     padding: 1.25rem;
+  }
+
+  .painel-sidebar-brand {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "logo title"
+      "logo profiletitle"
+      "logo profilevalue";
+    column-gap: 0.85rem;
+    align-items: center;
+  }
+
+  .painel-logo-wrap {
+    grid-area: logo;
+    width: 70px;
+    height: 70px;
+    margin: 0;
+  }
+
+  .painel-sidebar-brand h1 {
+    grid-area: title;
+    margin: 0;
+  }
+
+  .painel-profile-title {
+    grid-area: profiletitle;
+    margin: 0;
+  }
+
+  .painel-profile-value {
+    grid-area: profilevalue;
+    margin: 0;
   }
 }

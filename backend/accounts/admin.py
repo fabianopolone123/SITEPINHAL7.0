@@ -23,19 +23,33 @@ class DiretoriaAdmin(admin.ModelAdmin):
 
 @admin.register(UserAccess)
 class UserAccessAdmin(admin.ModelAdmin):
-    list_display = ('user', 'role', 'updated_at')
+    list_display = ('user', 'role', 'profiles_preview', 'updated_at')
     list_filter = ('role',)
     search_fields = ('user__username',)
     actions = ('definir_como_diretor', 'definir_como_diretoria', 'definir_como_responsavel')
 
     @admin.action(description='Definir perfil como Diretor')
     def definir_como_diretor(self, request, queryset):
-        queryset.update(role=UserAccess.ROLE_DIRETOR)
+        for access in queryset:
+            access.add_profile(UserAccess.ROLE_DIRETOR)
+            access.role = UserAccess.ROLE_DIRETOR
+            access.save(update_fields=['role', 'profiles', 'updated_at'])
 
     @admin.action(description='Definir perfil como Diretoria')
     def definir_como_diretoria(self, request, queryset):
-        queryset.update(role=UserAccess.ROLE_DIRETORIA)
+        for access in queryset:
+            access.add_profile(UserAccess.ROLE_DIRETORIA)
+            access.role = UserAccess.ROLE_DIRETORIA
+            access.save(update_fields=['role', 'profiles', 'updated_at'])
 
     @admin.action(description='Definir perfil como Responsavel')
     def definir_como_responsavel(self, request, queryset):
-        queryset.update(role=UserAccess.ROLE_RESPONSAVEL)
+        for access in queryset:
+            access.add_profile(UserAccess.ROLE_RESPONSAVEL)
+            access.role = UserAccess.ROLE_RESPONSAVEL
+            access.save(update_fields=['role', 'profiles', 'updated_at'])
+
+    def profiles_preview(self, obj):
+        return ', '.join(obj.get_profiles_display())
+
+    profiles_preview.short_description = 'perfis'

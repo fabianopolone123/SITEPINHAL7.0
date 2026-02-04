@@ -1,16 +1,26 @@
 {% load static %}
 <aside class="painel-sidebar">
   <div class="painel-sidebar-brand">
-    <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
+    <div class="painel-logo-wrap">
+      <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
+    </div>
     <h1>Painel</h1>
+    <p class="painel-profile-title">Perfil</p>
+    <p class="painel-profile-value">
+      {% if current_profiles %}
+        {{ current_profiles|join:", " }}
+      {% else %}
+        Sem perfil
+      {% endif %}
+    </p>
   </div>
 
   <nav class="painel-menu" aria-label="Menu principal">
-    <p class="painel-menu-title">Menus (em construcao)</p>
     <ul>
       <li><a href="{% url 'accounts:painel' %}">Inicio</a></li>
       <li><a href="{% url 'accounts:meus_dados' %}">Meus dados</a></li>
       {% if is_diretor %}
+        <li><a href="{% url 'accounts:aventureiros_gerais' %}">Aventureiros</a></li>
         <li><a href="{% url 'accounts:usuarios' %}">Usuários</a></li>
       {% endif %}
     </ul>
