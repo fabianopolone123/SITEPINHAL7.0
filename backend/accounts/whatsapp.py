@@ -16,11 +16,22 @@ def normalize_phone_number(raw_phone):
     digits = re.sub(r'\D', '', raw_phone)
     if not digits:
         return ''
+    if digits.startswith('00'):
+        digits = digits[2:]
     if digits.startswith('55'):
-        return digits
-    if len(digits) >= 10:
-        return f'55{digits}'
-    return digits
+        local = digits[2:]
+    else:
+        local = digits
+
+    local = local.lstrip('0')
+    if len(local) > 11:
+        local = local[-11:]
+    if len(local) == 10:
+        # Numero antigo sem nono digito (DDD + 8): normaliza para padrao atual.
+        local = f'{local[:2]}9{local[2:]}'
+    if len(local) not in (10, 11):
+        return ''
+    return f'55{local}'
 
 
 def resolve_user_phone(user):

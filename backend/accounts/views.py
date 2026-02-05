@@ -25,7 +25,13 @@ from .models import (
     WhatsAppQueue,
 )
 from .utils import decode_signature, decode_photo
-from .whatsapp import enqueue_notification, queue_stats, resolve_user_phone, send_wapi_text
+from .whatsapp import (
+    enqueue_notification,
+    queue_stats,
+    resolve_user_phone,
+    send_wapi_text,
+    normalize_phone_number,
+)
 from datetime import date
 
 User = get_user_model()
@@ -629,7 +635,7 @@ class WhatsAppView(LoginRequiredMixin, View):
         for access in accesses:
             user = access.user
             pref, _ = WhatsAppPreference.objects.get_or_create(user=user)
-            detected_phone = resolve_user_phone(user)
+            detected_phone = normalize_phone_number(resolve_user_phone(user))
             if not pref.phone_number and detected_phone:
                 pref.phone_number = detected_phone
                 pref.save(update_fields=['phone_number', 'updated_at'])
@@ -663,7 +669,7 @@ class WhatsAppView(LoginRequiredMixin, View):
             user = row['user']
             pref = row['pref']
             prefix = f'u{user.pk}'
-            pref.phone_number = request.POST.get(f'{prefix}_phone', '').strip()
+            pref.phone_number = normalize_phone_number(request.POST.get(f'{prefix}_phone', '').strip())
             pref.notify_cadastro = bool(request.POST.get(f'{prefix}_cadastro'))
             pref.notify_financeiro = bool(request.POST.get(f'{prefix}_financeiro'))
             pref.notify_geral = bool(request.POST.get(f'{prefix}_geral'))

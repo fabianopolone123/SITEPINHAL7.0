@@ -122,3 +122,4 @@ Ele é a memória oficial do sistema.
 - [x] Tela de WhatsApp agora envia teste imediatamente para os contatos marcados (sem depender de enfileirar/rodar worker manual para o botao de teste).
 - [x] Botao de teste no WhatsApp renomeado para `Enviar teste` e agora exige ao menos um contato marcado na coluna Teste antes de executar o envio.
 - [x] Tela de WhatsApp agora exibe mensagens de retorno (erro/sucesso/info), incluindo aviso quando o botao `Enviar teste` e clicado sem contatos selecionados.
+- [x] Normalizacao automatica de telefone no WhatsApp aprimorada para aceitar formatos variados (com/sem parenteses, espacos, tracos e sem nono digito), salvando no padrao 55DDDNXXXXXXXX.
