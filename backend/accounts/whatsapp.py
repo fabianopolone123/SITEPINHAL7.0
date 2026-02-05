@@ -161,7 +161,8 @@ def queue_stats():
         'pending': WhatsAppQueue.objects.filter(status=WhatsAppQueue.STATUS_PENDING).count(),
         'sent': WhatsAppQueue.objects.filter(status=WhatsAppQueue.STATUS_SENT).count(),
         'failed': WhatsAppQueue.objects.filter(status=WhatsAppQueue.STATUS_FAILED).count(),
-        'updated_at': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
+        # Exibe o horario no fuso do Django (America/Sao_Paulo) para bater com o painel.
+        'updated_at': timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M:%S'),
     }
 
 

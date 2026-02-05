@@ -137,3 +137,4 @@ Ele é a memória oficial do sistema.
 - [x] Tela WhatsApp agora mostra feedback apos salvar: lista (resumida) de usuarios marcados para receber notificacao de Cadastro, ajudando a validar que as caixas foram persistidas.
 - [x] Rota `/logout/` agora encerra a sessao e redireciona automaticamente para a tela de login, evitando pagina em branco.
 - [x] Tela `/whatsapp/` no celular foi reorganizada: coluna Contato unificada (username + nome), input de telefone com melhor leitura e cards mais legiveis com checkboxes maiores.
+- [x] Horario nas notificacoes de WhatsApp e no painel agora usa `timezone.localtime()` (America/Sao_Paulo), evitando exibicao em UTC.

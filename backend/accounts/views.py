@@ -136,7 +136,8 @@ def _dispatch_cadastro_notifications(tipo_cadastro, user, nome):
         'nome': nome or user.username,
         'responsavel_nome': responsavel_nome,
         'aventureiros': aventureiros,
-        'data_hora': timezone.now().strftime('%d/%m/%Y %H:%M'),
+        # Usa o fuso configurado do Django (America/Sao_Paulo) ao montar a mensagem.
+        'data_hora': timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M'),
     }
     template_text = get_template_message(WhatsAppTemplate.TYPE_CADASTRO)
     prefs = WhatsAppPreference.objects.filter(notify_cadastro=True)
