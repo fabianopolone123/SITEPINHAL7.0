@@ -141,3 +141,4 @@ Ele Ã© a memÃ³ria oficial do sistema.
 - [x] Novos usuarios agora iniciam sem receber notificacoes de WhatsApp por padrao (checkbox Cadastro desmarcado ate ser habilitado manualmente).
 - [x] Ajustados textos para padrao pt-BR com acentos (UI e mensagens), incluindo Início, Usuários, Você e Notificações.
 - [x] Formulário de aventureiro agora pede confirmação antes de executar `Salvar e confirmar` ou `Adicionar outro aventureiro`, reduzindo envios acidentais.
+- [x] Confirmacao dos botoes da ficha de aventureiro foi aprimorada para evitar clique errado: ao cancelar uma acao, o sistema oferece trocar para a outra (concluir ou adicionar outro).

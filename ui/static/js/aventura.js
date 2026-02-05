@@ -12,15 +12,21 @@ const signatureError = document.getElementById('signature-error-av');
 const photoInput = document.getElementById('photo-input');
 const photoValueField = document.getElementById('photo-value');
 const photoPreviewImg = document.getElementById('photo-preview-img');
+const saveConfirmButton = adventureForm?.querySelector('[name="action"][value="save_confirm"]');
 
 const ALERT_MESSAGE = 'Há campos obrigatórios pendentes; complete-os antes de continuar.';
 const CONFIRM_MESSAGES = {
   save_confirm: 'Deseja salvar esta ficha e ir para a confirmação final?',
   add_more: 'Deseja salvar esta ficha e adicionar outro aventureiro?',
 };
+const SWITCH_ACTION_MESSAGES = {
+  save_confirm: 'Você quer adicionar outro aventureiro em vez de concluir agora?',
+  add_more: 'Você quer concluir agora em vez de adicionar outro aventureiro?',
+};
 
 const formatSequence = (value) => String(value).padStart(2, '0');
 let currentSequence = Number(adventureCounter?.dataset.currentNumber || adventureSequenceInput?.value || 1);
+let bypassConfirmation = false;
 if (Number.isNaN(currentSequence) || currentSequence < 1) {
   currentSequence = 1;
 }
@@ -89,6 +95,23 @@ const getSubmitAction = (event) => {
     return submitter.value;
   }
   return adventureForm.querySelector('[name="action"]')?.value || 'save_confirm';
+};
+
+const submitWithAction = (action) => {
+  const actionInput = document.getElementById('aventura-action');
+  if (actionInput) {
+    actionInput.value = action;
+  }
+  bypassConfirmation = true;
+  if (action === 'add_more' && addAnotherButton) {
+    adventureForm.requestSubmit(addAnotherButton);
+    return;
+  }
+  if (action === 'save_confirm' && saveConfirmButton) {
+    adventureForm.requestSubmit(saveConfirmButton);
+    return;
+  }
+  adventureForm.requestSubmit();
 };
 
 const validarAventuraAtual = () => {
@@ -291,14 +314,24 @@ adventureForm.addEventListener('submit', (event) => {
     event.preventDefault();
     return;
   }
+  if (bypassConfirmation) {
+    bypassConfirmation = false;
+  } else {
   const confirmMessage = CONFIRM_MESSAGES[action] || CONFIRM_MESSAGES.save_confirm;
-  if (!window.confirm(confirmMessage)) {
-    event.preventDefault();
-    if (status) {
-      status.textContent = 'Ação cancelada.';
-      status.dataset.state = 'info';
+    if (!window.confirm(confirmMessage)) {
+      event.preventDefault();
+      const switchedAction = action === 'save_confirm' ? 'add_more' : 'save_confirm';
+      const switchMessage = SWITCH_ACTION_MESSAGES[action] || '';
+      if (switchMessage && window.confirm(switchMessage)) {
+        submitWithAction(switchedAction);
+        return;
+      }
+      if (status) {
+        status.textContent = 'Ação cancelada.';
+        status.dataset.state = 'info';
+      }
+      return;
     }
-    return;
   }
   if (status) {
     status.textContent = action === 'add_more'
