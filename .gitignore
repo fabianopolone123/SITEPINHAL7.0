@@ -18,3 +18,5 @@ backend/staticfiles/
 *.env
 .venv/
 venv/
+config.py
+watsappAPI.py
