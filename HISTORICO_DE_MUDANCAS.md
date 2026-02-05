@@ -134,3 +134,4 @@ Ele é a memória oficial do sistema.
 - [x] Placeholders de notificacao de cadastro ampliados com `{responsavel_nome}` e `{aventureiros}` para exibir nome do responsavel e lista de aventureiros no WhatsApp.
 - [x] Disparo de notificacao para responsavel agora ocorre no fechamento do cadastro (confirmacao), garantindo que a lista de aventureiros ja esteja preenchida.
 - [x] Tela `/whatsapp/` ajustada para celular: tabela vira cards com labels por campo, mantendo edicao de telefone e selecao de Cadastro/Teste com boa leitura.
+- [x] Tela WhatsApp agora mostra feedback apos salvar: lista (resumida) de usuarios marcados para receber notificacao de Cadastro, ajudando a validar que as caixas foram persistidas.

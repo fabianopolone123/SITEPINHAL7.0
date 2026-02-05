@@ -726,6 +726,7 @@ class WhatsAppView(LoginRequiredMixin, View):
         if guard:
             return guard
         rows = self._users_context()
+        cadastro_enabled = []
         for row in rows:
             user = row['user']
             pref = row['pref']
@@ -735,6 +736,8 @@ class WhatsAppView(LoginRequiredMixin, View):
             pref.notify_financeiro = False
             pref.notify_geral = False
             pref.save(update_fields=['phone_number', 'notify_cadastro', 'notify_financeiro', 'notify_geral', 'updated_at'])
+            if pref.notify_cadastro:
+                cadastro_enabled.append(user.username)
 
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_CADASTRO,
@@ -814,6 +817,16 @@ class WhatsAppView(LoginRequiredMixin, View):
                 messages.error(request, 'Falhas: ' + ' | '.join(failed_items[:3]))
         else:
             messages.success(request, 'Preferencias de notificacao salvas com sucesso.')
+
+        if cadastro_enabled:
+            preview = ', '.join(cadastro_enabled[:6])
+            suffix = '...' if len(cadastro_enabled) > 6 else ''
+            messages.info(
+                request,
+                f'Cadastro marcado para: {preview}{suffix}',
+            )
+        else:
+            messages.info(request, 'Nenhum contato esta marcado para receber notificacao de Cadastro.')
 
         context = {
             'rows': self._users_context(),
