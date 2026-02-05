@@ -117,13 +117,20 @@ def _pending_count(session):
 
 
 def _required_field_names(form):
-    names = []
+    names = list(getattr(form, 'required_display_fields', []) or [])
     for name, field in form.fields.items():
         widget = getattr(field, 'widget', None)
         input_type = getattr(widget, 'input_type', '')
         if field.required and input_type != 'hidden':
             names.append(name)
-    return names
+    deduped = []
+    seen = set()
+    for item in names:
+        if item in seen:
+            continue
+        seen.add(item)
+        deduped.append(item)
+    return deduped
 
 
 def _dispatch_cadastro_notifications(tipo_cadastro, user, nome):

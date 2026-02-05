@@ -299,6 +299,7 @@ a.secondary {
 .required-mark {
   color: #dc2626;
   font-weight: 700;
+  font-size: 0.82em;
 }
 
 /* Marca visual para campos obrigatórios dos formulários */

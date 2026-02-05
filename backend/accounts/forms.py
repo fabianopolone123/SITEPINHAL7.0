@@ -19,6 +19,15 @@ def _upsert_user_profile(user, profile):
 
 
 class ResponsavelForm(forms.ModelForm):
+    required_display_fields = [
+        'username', 'password', 'password_confirm',
+        'pai_nome', 'pai_cpf', 'pai_email', 'pai_telefone', 'pai_celular',
+        'mae_nome', 'mae_cpf', 'mae_email', 'mae_telefone', 'mae_celular',
+        'responsavel_nome', 'responsavel_parentesco', 'responsavel_cpf',
+        'responsavel_email', 'responsavel_telefone', 'responsavel_celular',
+        'endereco', 'bairro', 'cidade', 'cep', 'estado',
+        'signature_value',
+    ]
     username = forms.CharField(max_length=150, label='nome de usuário')
     password = forms.CharField(widget=forms.PasswordInput, label='senha')
     password_confirm = forms.CharField(widget=forms.PasswordInput, label='repita a senha')
@@ -62,6 +71,11 @@ class ResponsavelForm(forms.ModelForm):
 
 
 class AventureiroForm(forms.ModelForm):
+    required_display_fields = [
+        'nome', 'religiao', 'sexo', 'nascimento', 'serie', 'colegio', 'bolsa',
+        'camiseta', 'plano', 'tipo_sangue', 'declaracao_medica',
+        'autorizacao_imagem', 'signature_value_av', 'photo_value',
+    ]
     signature_value_av = forms.CharField(widget=forms.HiddenInput, required=True)
     photo_value = forms.CharField(widget=forms.HiddenInput, required=False)
     cardiaco_detalhe = forms.CharField(required=False)
@@ -247,6 +261,14 @@ class AventureiroDadosForm(forms.ModelForm):
 
 
 class DiretoriaForm(forms.ModelForm):
+    required_display_fields = [
+        'username', 'password', 'password_confirm',
+        'nome', 'igreja', 'endereco', 'distrito', 'numero', 'bairro', 'cep',
+        'cidade', 'estado', 'email', 'whatsapp', 'nascimento', 'estado_civil',
+        'cpf', 'rg', 'possui_limitacao_saude', 'escolaridade',
+        'autorizacao_imagem', 'declaracao_medica',
+        'signature_value_dir', 'photo_value_dir',
+    ]
     username = forms.CharField(max_length=150, label='nome de usuário')
     password = forms.CharField(widget=forms.PasswordInput, label='senha')
     password_confirm = forms.CharField(widget=forms.PasswordInput, label='repita a senha')
