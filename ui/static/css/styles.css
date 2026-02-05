@@ -910,3 +910,114 @@ body {
     margin: 0;
   }
 }
+
+/* Melhorias extras de responsividade para formularios em celular */
+.form-row select,
+.form-row textarea,
+.field-section select,
+.field-section textarea,
+.login-form select,
+.login-form textarea {
+  width: 100%;
+  padding: 0.85rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid #cbd5f5;
+  background: #fff;
+  font-size: 0.95rem;
+}
+
+.form-row textarea,
+.field-section textarea,
+.login-form textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .page-shell {
+    padding: 1rem;
+    border-radius: 18px;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+  }
+
+  .branding {
+    text-align: center;
+  }
+
+  .login-card {
+    padding: 1rem;
+    border-radius: 14px;
+  }
+
+  .section-block,
+  .field-section {
+    padding: 0.9rem;
+    border-radius: 14px;
+  }
+
+  .form-row,
+  .row-grid,
+  .checkbox-grid,
+  .checkbox-grid.extensive,
+  .checkbox-grid.dois-colunas {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-grid {
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+  }
+
+  .inline-space {
+    grid-column: span 1;
+  }
+
+  .question-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .question-row span {
+    min-width: 0;
+  }
+
+  .radio-row,
+  .radio-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+
+  .action-row {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .action-row .primary,
+  .action-row .secondary,
+  .action-row button,
+  .action-row a {
+    width: 100%;
+    text-align: center;
+  }
+
+  .photo-preview img {
+    width: 110px;
+    height: 140px;
+  }
+
+  .users-table {
+    min-width: 680px;
+  }
+
+  .painel-card {
+    overflow-x: auto;
+  }
+}
