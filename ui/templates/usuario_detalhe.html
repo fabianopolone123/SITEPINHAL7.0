@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Detalhes do usuario</title>
+  <title>Detalhes do usuário</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
 </head>
 <body class="painel-page">
@@ -13,7 +13,7 @@
     <header class="painel-header">
       <h2>{{ target_user.username }}</h2>
       <p>{{ nome_completo }}</p>
-      <p><a href="{% url 'accounts:usuarios' %}">Voltar para usuarios</a></p>
+      <p><a href="{% url 'accounts:usuarios' %}">Voltar para usuários</a></p>
     </header>
 
     <section class="painel-card">
@@ -29,19 +29,19 @@
         <h3>Dados da diretoria</h3>
         <p><strong>Nome:</strong> {{ diretoria.nome }}</p>
         <p><strong>Igreja:</strong> {{ diretoria.igreja }}</p>
-        <p><strong>Email:</strong> {{ diretoria.email }}</p>
-        <p><strong>Whatsapp:</strong> {{ diretoria.whatsapp }}</p>
+        <p><strong>E-mail:</strong> {{ diretoria.email }}</p>
+        <p><strong>WhatsApp:</strong> {{ diretoria.whatsapp }}</p>
         <p><strong>Cidade/UF:</strong> {{ diretoria.cidade }} - {{ diretoria.estado }}</p>
       </section>
     {% endif %}
 
     {% if responsavel %}
       <section class="painel-card">
-        <h3>Dados do responsavel</h3>
+        <h3>Dados do responsável</h3>
         <p><strong>Pai:</strong> {{ responsavel.pai_nome|default:"-" }}</p>
-        <p><strong>Mae:</strong> {{ responsavel.mae_nome|default:"-" }}</p>
-        <p><strong>Responsavel legal:</strong> {{ responsavel.responsavel_nome|default:"-" }}</p>
-        <p><strong>Endereco:</strong> {{ responsavel.endereco|default:"-" }}</p>
+        <p><strong>Mãe:</strong> {{ responsavel.mae_nome|default:"-" }}</p>
+        <p><strong>Responsável legal:</strong> {{ responsavel.responsavel_nome|default:"-" }}</p>
+        <p><strong>Endereço:</strong> {{ responsavel.endereco|default:"-" }}</p>
         <p><strong>Cidade/UF:</strong> {{ responsavel.cidade|default:"-" }} - {{ responsavel.estado|default:"-" }}</p>
       </section>
     {% endif %}
@@ -54,7 +54,7 @@
             <tr>
               <th>Foto</th>
               <th>Nome</th>
-              <th>Serie</th>
+              <th>Série</th>
             </tr>
           </thead>
           <tbody>

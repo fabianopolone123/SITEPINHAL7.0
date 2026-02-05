@@ -142,3 +142,4 @@ Ele Ã© a memÃ³ria oficial do sistema.
 - [x] Ajustados textos para padrao pt-BR com acentos (UI e mensagens), incluindo Início, Usuários, Você e Notificações.
 - [x] Formulário de aventureiro agora pede confirmação antes de executar `Salvar e confirmar` ou `Adicionar outro aventureiro`, reduzindo envios acidentais.
 - [x] Confirmacao dos botoes da ficha de aventureiro foi aprimorada para evitar clique errado: ao cancelar uma acao, o sistema oferece trocar para a outra (concluir ou adicionar outro).
+- [x] Revisão de textos dos templates com padronização pt-BR: ajustes de acentuação em telas de usuários/detalhes e mensagens da tela WhatsApp.
