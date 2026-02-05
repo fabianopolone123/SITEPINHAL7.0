@@ -670,43 +670,55 @@ class WhatsAppView(LoginRequiredMixin, View):
             pref.save(update_fields=['phone_number', 'notify_cadastro', 'notify_financeiro', 'notify_geral', 'updated_at'])
 
         if request.POST.get('send_test') == '1':
-            sent_count = 0
-            failed_count = 0
+            selected_for_test = []
             for row in rows:
                 user = row['user']
                 if request.POST.get(f'u{user.pk}_send_test'):
-                    queue_item = enqueue_notification(
-                        user,
-                        WhatsAppQueue.TYPE_GERAL,
-                        'Mensagem de teste do sistema Pinhal Junior.',
-                    )
-                    if not queue_item:
-                        failed_count += 1
-                        continue
-                    success, provider_id, error_message = send_wapi_text(
-                        queue_item.phone_number,
-                        queue_item.message_text,
-                    )
-                    queue_item.attempts = 1
-                    if success:
-                        queue_item.status = WhatsAppQueue.STATUS_SENT
-                        queue_item.provider_message_id = provider_id
-                        queue_item.sent_at = timezone.now()
-                        queue_item.last_error = ''
-                        sent_count += 1
-                    else:
-                        queue_item.status = WhatsAppQueue.STATUS_FAILED
-                        queue_item.last_error = error_message
-                        failed_count += 1
-                    queue_item.save(
-                        update_fields=[
-                            'status',
-                            'attempts',
-                            'provider_message_id',
-                            'sent_at',
-                            'last_error',
-                        ]
-                    )
+                    selected_for_test.append(user)
+            if not selected_for_test:
+                messages.error(request, 'Marque pelo menos um contato na coluna Teste para enviar.')
+                context = {
+                    'rows': self._users_context(),
+                    'queue': queue_stats(),
+                }
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            sent_count = 0
+            failed_count = 0
+            for user in selected_for_test:
+                queue_item = enqueue_notification(
+                    user,
+                    WhatsAppQueue.TYPE_GERAL,
+                    'Mensagem de teste do sistema Pinhal Junior.',
+                )
+                if not queue_item:
+                    failed_count += 1
+                    continue
+                success, provider_id, error_message = send_wapi_text(
+                    queue_item.phone_number,
+                    queue_item.message_text,
+                )
+                queue_item.attempts = 1
+                if success:
+                    queue_item.status = WhatsAppQueue.STATUS_SENT
+                    queue_item.provider_message_id = provider_id
+                    queue_item.sent_at = timezone.now()
+                    queue_item.last_error = ''
+                    sent_count += 1
+                else:
+                    queue_item.status = WhatsAppQueue.STATUS_FAILED
+                    queue_item.last_error = error_message
+                    failed_count += 1
+                queue_item.save(
+                    update_fields=[
+                        'status',
+                        'attempts',
+                        'provider_message_id',
+                        'sent_at',
+                        'last_error',
+                    ]
+                )
             messages.success(
                 request,
                 f'Preferencias salvas. Testes enviados: {sent_count}. Falhas: {failed_count}.',

@@ -120,3 +120,4 @@ Ele é a memória oficial do sistema.
 - [x] Perfil Diretor ganhou menu `WhatsApp` com tela para configurar notificacoes por contato (cadastro/financeiro/geral), telefone e envio de teste para fila.
 - [x] Implementada fila de WhatsApp no backend com modelos de preferencia e fila, incluindo comando `process_whatsapp_queue` para envio com pausa configuravel (padrao 2 segundos).
 - [x] Tela de WhatsApp agora envia teste imediatamente para os contatos marcados (sem depender de enfileirar/rodar worker manual para o botao de teste).
+- [x] Botao de teste no WhatsApp renomeado para `Enviar teste` e agora exige ao menos um contato marcado na coluna Teste antes de executar o envio.
