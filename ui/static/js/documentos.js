@@ -8,6 +8,8 @@
   var fontSizeInput = document.getElementById('doc-font-size');
   var widthInput = document.getElementById('doc-width');
   var heightInput = document.getElementById('doc-height');
+  var floatingControls = document.getElementById('doc-floating-controls');
+  var closeControls = document.getElementById('doc-controls-close');
 
   var selectedField = null;
   var placedFields = [];
@@ -27,6 +29,7 @@
     selectedField = el;
     if (selectedField) selectedField.classList.add('doc-field-selected');
     syncControls();
+    positionControls();
   }
 
   function syncControls() {
@@ -57,6 +60,25 @@
       var height = parseInt(heightInput.value || '0', 10);
       if (height > 0) selectedField.style.height = height + 'px';
     }
+  }
+
+  function positionControls() {
+    if (!floatingControls) return;
+    if (!selectedField) {
+      floatingControls.classList.remove('show');
+      return;
+    }
+    var rect = selectedField.getBoundingClientRect();
+    var canvasRect = canvas.getBoundingClientRect();
+    var left = rect.right - canvasRect.left + 12;
+    var top = rect.top - canvasRect.top;
+    if (left + 260 > canvasRect.width) {
+      left = rect.left - canvasRect.left - 260;
+    }
+    if (top < 0) top = 0;
+    floatingControls.style.left = left + 'px';
+    floatingControls.style.top = top + 'px';
+    floatingControls.classList.add('show');
   }
 
   function createFieldElement(item) {
@@ -127,6 +149,7 @@
       h: type === 'image' ? 100 : 30,
       font_size: 18,
     });
+    setSelected(placedFields[placedFields.length - 1]);
   }
 
   function setupPalette() {
@@ -236,8 +259,17 @@
   if (fontSizeInput) fontSizeInput.addEventListener('input', applyControls);
   if (widthInput) widthInput.addEventListener('input', applyControls);
   if (heightInput) heightInput.addEventListener('input', applyControls);
+  if (closeControls) {
+    closeControls.addEventListener('click', function () {
+      if (!floatingControls) return;
+      floatingControls.classList.remove('show');
+      if (selectedField) selectedField.classList.remove('doc-field-selected');
+      selectedField = null;
+    });
+  }
 
   setupPalette();
   loadSavedPositions();
   setupGenerateLinks();
+  window.addEventListener('resize', positionControls);
 })();

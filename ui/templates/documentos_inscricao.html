@@ -76,8 +76,11 @@
             </div>
           </div>
 
-          <div class="documentos-controls">
-            <h4>Configuração do campo selecionado</h4>
+          <div class="documentos-floating-controls" id="doc-floating-controls">
+            <div class="documentos-floating-header">
+              <strong>Campo selecionado</strong>
+              <button type="button" id="doc-controls-close" aria-label="Fechar ajustes">×</button>
+            </div>
             <div class="documentos-controls-grid">
               <label>Tamanho da fonte
                 <input type="number" min="8" max="64" id="doc-font-size" value="18" />
@@ -89,7 +92,7 @@
                 <input type="number" min="20" max="800" id="doc-height" value="100" />
               </label>
             </div>
-            <p class="panel-note">Selecione um campo no layout para ajustar o tamanho.</p>
+            <p class="panel-note">Clique em um campo para editar.</p>
           </div>
 
           <form method="post" class="form-compact" id="doc-save-form">

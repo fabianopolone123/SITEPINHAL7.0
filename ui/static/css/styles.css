@@ -469,6 +469,7 @@ a.secondary {
   user-select: none;
   min-width: 40px;
   min-height: 20px;
+  white-space: nowrap;
 }
 
 .doc-field-selected {
@@ -482,21 +483,43 @@ a.secondary {
   border-color: rgba(16, 185, 129, 0.5);
 }
 
-.documentos-controls {
-  margin: 1rem 0;
-  padding: 0.75rem;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-}
-
 .documentos-controls-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.75rem;
 }
 
-.documentos-controls input {
+.documentos-floating-controls {
+  position: absolute;
+  z-index: 10;
+  width: 260px;
+  padding: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  box-shadow: 0 15px 30px rgba(15, 23, 42, 0.15);
+  display: none;
+}
+
+.documentos-floating-controls.show {
+  display: block;
+}
+
+.documentos-floating-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.documentos-floating-header button {
+  border: none;
+  background: transparent;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.documentos-floating-controls input {
   width: 100%;
 }
 
