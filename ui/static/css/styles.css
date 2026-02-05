@@ -880,6 +880,11 @@ a.secondary {
   border: 1px solid #cbd5f5;
 }
 
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
 .message-template-wrap {
   display: grid;
   gap: 0.8rem;
@@ -914,6 +919,42 @@ a.secondary {
   font-size: 0.92rem;
   line-height: 1.4;
   resize: vertical;
+}
+
+@media (max-width: 640px) {
+  /* Tabela WhatsApp vira cards para celular */
+  .whatsapp-table thead {
+    display: none;
+  }
+
+  .whatsapp-table tr {
+    display: block;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 0.5rem 0.6rem;
+    margin-bottom: 0.65rem;
+    background: #ffffff;
+  }
+
+  .whatsapp-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    border: none;
+    padding: 0.45rem 0;
+  }
+
+  .whatsapp-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: #0f172a;
+    min-width: 92px;
+  }
+
+  .whatsapp-table input[type="text"] {
+    min-width: 0;
+  }
 }
 
 @media (max-width: 900px) {

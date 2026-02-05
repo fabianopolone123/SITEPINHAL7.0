@@ -51,7 +51,8 @@
 
     <form method="post" class="painel-card" id="whatsapp-form">
       {% csrf_token %}
-      <table class="users-table">
+      <div class="table-scroll">
+      <table class="users-table whatsapp-table">
         <thead>
           <tr>
             <th>Usuario</th>
@@ -64,9 +65,9 @@
         <tbody>
           {% for item in rows %}
             <tr>
-              <td>{{ item.user.username }}</td>
-              <td>{{ item.nome_completo }}</td>
-              <td>
+              <td data-label="Usuario">{{ item.user.username }}</td>
+              <td data-label="Nome">{{ item.nome_completo }}</td>
+              <td data-label="Telefone">
                 <input
                   type="text"
                   name="u{{ item.user.pk }}_phone"
@@ -74,8 +75,8 @@
                   placeholder="5511999999999"
                 />
               </td>
-              <td><input type="checkbox" name="u{{ item.user.pk }}_cadastro" {% if item.pref.notify_cadastro %}checked{% endif %} /></td>
-              <td><input type="checkbox" name="u{{ item.user.pk }}_send_test" /></td>
+              <td data-label="Cadastro"><input type="checkbox" name="u{{ item.user.pk }}_cadastro" {% if item.pref.notify_cadastro %}checked{% endif %} /></td>
+              <td data-label="Teste"><input type="checkbox" name="u{{ item.user.pk }}_send_test" /></td>
             </tr>
           {% empty %}
             <tr>
@@ -84,6 +85,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
 
       <div class="action-row">
         <button type="submit" class="primary">Salvar preferencias</button>
