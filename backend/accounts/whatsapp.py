@@ -7,14 +7,19 @@ from urllib import error, request
 from django.db import transaction
 from django.utils import timezone
 
-from .models import WhatsAppPreference, WhatsAppQueue
+from .models import WhatsAppPreference, WhatsAppQueue, WhatsAppTemplate
 
 DEFAULT_CADASTRO_MESSAGE = (
-    'Novo cadastro realizado no sistema Pinhal Junior.\n'
-    'Tipo: {tipo_cadastro}\n'
-    'Usuario: {username}\n'
-    'Nome: {nome}\n'
-    'Data/Hora: {data_hora}'
+    '✨ Novo cadastro no Pinhal Junior!\n'
+    '📌 Tipo: {tipo_cadastro}\n'
+    '👤 Usuario: {username}\n'
+    '📝 Nome: {nome}\n'
+    '🕒 Data/Hora: {data_hora}'
+)
+
+DEFAULT_TESTE_MESSAGE = (
+    '✅ Mensagem de teste do sistema Pinhal Junior.\n'
+    'Se voce recebeu este aviso, o canal WhatsApp esta ativo.'
 )
 
 def normalize_phone_number(raw_phone):
@@ -158,9 +163,25 @@ def queue_stats():
     }
 
 
-def render_cadastro_message(template, payload):
+def render_message(template, payload):
     base = (template or '').strip() or DEFAULT_CADASTRO_MESSAGE
     try:
         return base.format(**payload)
     except Exception:  # noqa: BLE001
         return DEFAULT_CADASTRO_MESSAGE.format(**payload)
+
+
+def get_template_message(notification_type):
+    defaults = {
+        WhatsAppTemplate.TYPE_CADASTRO: DEFAULT_CADASTRO_MESSAGE,
+        WhatsAppTemplate.TYPE_TESTE: DEFAULT_TESTE_MESSAGE,
+    }
+    default_message = defaults.get(notification_type, DEFAULT_TESTE_MESSAGE)
+    template, _ = WhatsAppTemplate.objects.get_or_create(
+        notification_type=notification_type,
+        defaults={'message_text': default_message},
+    )
+    if not (template.message_text or '').strip():
+        template.message_text = default_message
+        template.save(update_fields=['message_text', 'updated_at'])
+    return template.message_text

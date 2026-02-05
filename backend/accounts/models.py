@@ -193,11 +193,13 @@ class WhatsAppQueue(models.Model):
     TYPE_CADASTRO = WhatsAppPreference.NOTIFY_CADASTRO
     TYPE_FINANCEIRO = WhatsAppPreference.NOTIFY_FINANCEIRO
     TYPE_GERAL = WhatsAppPreference.NOTIFY_GERAL
+    TYPE_TESTE = 'teste'
 
     TYPE_CHOICES = [
         (TYPE_CADASTRO, 'Cadastro'),
         (TYPE_FINANCEIRO, 'Financeiro'),
         (TYPE_GERAL, 'Geral'),
+        (TYPE_TESTE, 'Teste'),
     ]
 
     STATUS_PENDING = 'pending'
@@ -226,3 +228,20 @@ class WhatsAppQueue(models.Model):
 
     def __str__(self):
         return f'{self.phone_number} [{self.get_status_display()}]'
+
+
+class WhatsAppTemplate(models.Model):
+    TYPE_CADASTRO = WhatsAppPreference.NOTIFY_CADASTRO
+    TYPE_TESTE = 'teste'
+
+    TYPE_CHOICES = [
+        (TYPE_CADASTRO, 'Cadastro'),
+        (TYPE_TESTE, 'Teste'),
+    ]
+
+    notification_type = models.CharField('tipo de notificacao', max_length=32, choices=TYPE_CHOICES, unique=True)
+    message_text = models.TextField('mensagem')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.get_notification_type_display()}'

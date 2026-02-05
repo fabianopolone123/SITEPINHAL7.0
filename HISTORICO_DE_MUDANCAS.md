@@ -128,3 +128,5 @@ Ele é a memória oficial do sistema.
 - [x] Tela WhatsApp simplificada: removidos Financeiro/Geral; mantidos Cadastro e Teste.
 - [x] Notificacao de cadastro automatica implementada: ao concluir cadastro de Responsavel ou Diretoria, contatos com `Cadastro` marcado recebem mensagem automaticamente.
 - [x] Mensagem de cadastro agora e personalizavel por contato na propria tela, com exemplo visivel e placeholders (`{tipo_cadastro}`, `{username}`, `{nome}`, `{data_hora}`).
+- [x] WhatsApp agora usa modelos de mensagem globais por tipo (`Cadastro` e `Teste`): a edicao de texto vale para todos os contatos.
+- [x] Tela `/whatsapp/` reorganizada com caixas unicas de mensagem por notificacao e visual de exemplo mais amigavel.

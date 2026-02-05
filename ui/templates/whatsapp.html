@@ -31,7 +31,23 @@
       <p class="panel-note">As notificacoes de cadastro sao enviadas automaticamente quando um novo cadastro e concluido.</p>
     </section>
 
-    <form method="post" class="painel-card">
+    <section class="painel-card">
+      <h3>Mensagens padrao (vale para todos os contatos)</h3>
+      <p class="panel-note">Use os campos abaixo para definir o texto de cada tipo de notificacao.</p>
+      <label>
+        Mensagem de Cadastro
+        <textarea name="template_cadastro" form="whatsapp-form" rows="5">{{ cadastro_template|default:'' }}</textarea>
+      </label>
+      <label>
+        Mensagem de Teste
+        <textarea name="template_teste" form="whatsapp-form" rows="4">{{ teste_template|default:'' }}</textarea>
+      </label>
+      <p class="panel-note">
+        Placeholders para cadastro: <code>{tipo_cadastro}</code>, <code>{username}</code>, <code>{nome}</code>, <code>{data_hora}</code>.
+      </p>
+    </section>
+
+    <form method="post" class="painel-card" id="whatsapp-form">
       {% csrf_token %}
       <table class="users-table">
         <thead>
@@ -40,7 +56,6 @@
             <th>Nome</th>
             <th>Telefone</th>
             <th>Cadastro</th>
-            <th>Mensagem de cadastro</th>
             <th>Teste</th>
           </tr>
         </thead>
@@ -58,14 +73,11 @@
                 />
               </td>
               <td><input type="checkbox" name="u{{ item.user.pk }}_cadastro" {% if item.pref.notify_cadastro %}checked{% endif %} /></td>
-              <td>
-                <textarea name="u{{ item.user.pk }}_cadastro_message" rows="4" placeholder="Mensagem de cadastro">{{ item.pref.cadastro_message|default:'' }}</textarea>
-              </td>
               <td><input type="checkbox" name="u{{ item.user.pk }}_send_test" /></td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="6">Nenhum usuario disponivel.</td>
+              <td colspan="5">Nenhum usuario disponivel.</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -87,7 +99,7 @@
         Data/Hora: 05/02/2026 10:30
       </p>
       <p class="panel-note">
-        Voce pode personalizar por contato usando os campos de <strong>Mensagem de cadastro</strong> na tabela acima.
+        Esse exemplo vale para todos os contatos com <strong>Cadastro</strong> marcado.
       </p>
       <p class="panel-note">
         Campos disponiveis para personalizacao: <code>{tipo_cadastro}</code>, <code>{username}</code>, <code>{nome}</code>, <code>{data_hora}</code>.

@@ -7,6 +7,7 @@ from .models import (
     UserAccess,
     WhatsAppPreference,
     WhatsAppQueue,
+    WhatsAppTemplate,
 )
 
 
@@ -74,3 +75,9 @@ class WhatsAppQueueAdmin(admin.ModelAdmin):
     list_display = ('phone_number', 'notification_type', 'status', 'attempts', 'created_at', 'sent_at')
     search_fields = ('phone_number', 'user__username', 'provider_message_id')
     list_filter = ('status', 'notification_type')
+
+
+@admin.register(WhatsAppTemplate)
+class WhatsAppTemplateAdmin(admin.ModelAdmin):
+    list_display = ('notification_type', 'updated_at')
+    search_fields = ('notification_type',)

@@ -23,6 +23,7 @@ from .models import (
     UserAccess,
     WhatsAppPreference,
     WhatsAppQueue,
+    WhatsAppTemplate,
 )
 from .utils import decode_signature, decode_photo
 from .whatsapp import (
@@ -30,8 +31,8 @@ from .whatsapp import (
     resolve_user_phone,
     send_wapi_text,
     normalize_phone_number,
-    render_cadastro_message,
-    DEFAULT_CADASTRO_MESSAGE,
+    render_message,
+    get_template_message,
 )
 from datetime import date
 
@@ -122,12 +123,13 @@ def _dispatch_cadastro_notifications(tipo_cadastro, user, nome):
         'nome': nome or user.username,
         'data_hora': timezone.now().strftime('%d/%m/%Y %H:%M'),
     }
+    template_text = get_template_message(WhatsAppTemplate.TYPE_CADASTRO)
     prefs = WhatsAppPreference.objects.filter(notify_cadastro=True)
     for pref in prefs.select_related('user'):
         phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(pref.user))
         if not phone_number:
             continue
-        text = render_cadastro_message(pref.cadastro_message, payload)
+        text = render_message(template_text, payload)
         queue_item = WhatsAppQueue.objects.create(
             user=pref.user,
             phone_number=phone_number,
@@ -675,9 +677,6 @@ class WhatsAppView(LoginRequiredMixin, View):
             if not pref.phone_number and detected_phone:
                 pref.phone_number = detected_phone
                 pref.save(update_fields=['phone_number', 'updated_at'])
-            if not pref.cadastro_message:
-                pref.cadastro_message = DEFAULT_CADASTRO_MESSAGE
-                pref.save(update_fields=['cadastro_message', 'updated_at'])
             display = _user_display_data(user)
             rows.append({
                 'user': user,
@@ -692,9 +691,13 @@ class WhatsAppView(LoginRequiredMixin, View):
         guard = self._director_guard(request)
         if guard:
             return guard
+        cadastro_template = get_template_message(WhatsAppTemplate.TYPE_CADASTRO)
+        teste_template = get_template_message(WhatsAppTemplate.TYPE_TESTE)
         context = {
             'rows': self._users_context(),
             'queue': queue_stats(),
+            'cadastro_template': cadastro_template,
+            'teste_template': teste_template,
         }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
@@ -712,8 +715,16 @@ class WhatsAppView(LoginRequiredMixin, View):
             pref.notify_cadastro = bool(request.POST.get(f'{prefix}_cadastro'))
             pref.notify_financeiro = False
             pref.notify_geral = False
-            pref.cadastro_message = request.POST.get(f'{prefix}_cadastro_message', '').strip()
-            pref.save(update_fields=['phone_number', 'notify_cadastro', 'notify_financeiro', 'notify_geral', 'cadastro_message', 'updated_at'])
+            pref.save(update_fields=['phone_number', 'notify_cadastro', 'notify_financeiro', 'notify_geral', 'updated_at'])
+
+        WhatsAppTemplate.objects.update_or_create(
+            notification_type=WhatsAppTemplate.TYPE_CADASTRO,
+            defaults={'message_text': request.POST.get('template_cadastro', '').strip()},
+        )
+        WhatsAppTemplate.objects.update_or_create(
+            notification_type=WhatsAppTemplate.TYPE_TESTE,
+            defaults={'message_text': request.POST.get('template_teste', '').strip()},
+        )
 
         if request.POST.get('send_test') == '1':
             selected_rows = []
@@ -726,6 +737,8 @@ class WhatsAppView(LoginRequiredMixin, View):
                 context = {
                     'rows': self._users_context(),
                     'queue': queue_stats(),
+                    'cadastro_template': get_template_message(WhatsAppTemplate.TYPE_CADASTRO),
+                    'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
                 }
                 context.update(_sidebar_context(request))
                 return render(request, self.template_name, context)
@@ -745,8 +758,8 @@ class WhatsAppView(LoginRequiredMixin, View):
                 queue_item = WhatsAppQueue.objects.create(
                     user=user,
                     phone_number=phone_number,
-                    notification_type=WhatsAppQueue.TYPE_GERAL,
-                    message_text='Mensagem de teste do sistema Pinhal Junior.',
+                    notification_type=WhatsAppQueue.TYPE_TESTE,
+                    message_text=get_template_message(WhatsAppTemplate.TYPE_TESTE),
                     status=WhatsAppQueue.STATUS_PENDING,
                 )
                 success, provider_id, error_message = send_wapi_text(
@@ -786,6 +799,8 @@ class WhatsAppView(LoginRequiredMixin, View):
         context = {
             'rows': self._users_context(),
             'queue': queue_stats(),
+            'cadastro_template': get_template_message(WhatsAppTemplate.TYPE_CADASTRO),
+            'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
         }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
