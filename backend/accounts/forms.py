@@ -265,7 +265,8 @@ class DiretoriaForm(forms.ModelForm):
         'username', 'password', 'password_confirm',
         'nome', 'igreja', 'endereco', 'distrito', 'numero', 'bairro', 'cep',
         'cidade', 'estado', 'email', 'whatsapp', 'nascimento', 'estado_civil',
-        'cpf', 'rg', 'possui_limitacao_saude', 'escolaridade',
+        'cpf', 'rg', 'conjuge', 'filho_1', 'filho_2', 'filho_3',
+        'possui_limitacao_saude', 'escolaridade',
         'autorizacao_imagem', 'declaracao_medica',
         'signature_value_dir', 'photo_value_dir',
     ]
@@ -290,6 +291,15 @@ class DiretoriaForm(forms.ModelForm):
         descricao = cleaned.get('limitacao_saude_descricao')
         if possui_limitacao == 'sim' and not (descricao and descricao.strip()):
             self.add_error('limitacao_saude_descricao', 'Descreva a limitação de saúde informada.')
+
+        if not cleaned.get('conjuge'):
+            self.add_error('conjuge', 'Informe a esposa(o).')
+        if not cleaned.get('filho_1'):
+            self.add_error('filho_1', 'Informe o(a) filho(a) 1.')
+        if not cleaned.get('filho_2'):
+            self.add_error('filho_2', 'Informe o(a) filho(a) 2.')
+        if not cleaned.get('filho_3'):
+            self.add_error('filho_3', 'Informe o(a) filho(a) 3.')
 
         if not cleaned.get('autorizacao_imagem'):
             self.add_error('autorizacao_imagem', 'Aceite a autorização de uso de imagem.')

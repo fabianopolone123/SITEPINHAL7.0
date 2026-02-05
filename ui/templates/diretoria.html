@@ -65,10 +65,14 @@
 
         <section class="field-section">
           <h2>2. Informações Familiares</h2>
-          <label>Esposa(o)</label><input name="conjuge" type="text" value="{{ form.conjuge.value|default:'' }}" />
-          <label>Filho(a)</label><input name="filho_1" type="text" value="{{ form.filho_1.value|default:'' }}" />
-          <label>Filho(a)</label><input name="filho_2" type="text" value="{{ form.filho_2.value|default:'' }}" />
-          <label>Filho(a)</label><input name="filho_3" type="text" value="{{ form.filho_3.value|default:'' }}" />
+          <label>Esposa(o)</label><input name="conjuge" type="text" class="{% if form.conjuge.errors %}input-error{% endif %}" value="{{ form.conjuge.value|default:'' }}" />
+          {% if form.conjuge.errors %}<p class="field-error">{{ form.conjuge.errors|join:" " }}</p>{% endif %}
+          <label>Filho(a)</label><input name="filho_1" type="text" class="{% if form.filho_1.errors %}input-error{% endif %}" value="{{ form.filho_1.value|default:'' }}" />
+          {% if form.filho_1.errors %}<p class="field-error">{{ form.filho_1.errors|join:" " }}</p>{% endif %}
+          <label>Filho(a)</label><input name="filho_2" type="text" class="{% if form.filho_2.errors %}input-error{% endif %}" value="{{ form.filho_2.value|default:'' }}" />
+          {% if form.filho_2.errors %}<p class="field-error">{{ form.filho_2.errors|join:" " }}</p>{% endif %}
+          <label>Filho(a)</label><input name="filho_3" type="text" class="{% if form.filho_3.errors %}input-error{% endif %}" value="{{ form.filho_3.value|default:'' }}" />
+          {% if form.filho_3.errors %}<p class="field-error">{{ form.filho_3.errors|join:" " }}</p>{% endif %}
         </section>
 
         <section class="field-section">
@@ -167,6 +171,6 @@
 
   <script src="{% static 'js/signature.js' %}" defer></script>
   <script src="{% static 'js/diretoria.js' %}" defer></script>
-  <script src="{% static 'js/required-asterisk.js' %}?v=5" defer></script>
+  <script src="{% static 'js/required-asterisk.js' %}?v=6" defer></script>
 </body>
 </html>
