@@ -124,3 +124,4 @@ Ele é a memória oficial do sistema.
 - [x] Tela de WhatsApp agora exibe mensagens de retorno (erro/sucesso/info), incluindo aviso quando o botao `Enviar teste` e clicado sem contatos selecionados.
 - [x] Normalizacao automatica de telefone no WhatsApp aprimorada para aceitar formatos variados (com/sem parenteses, espacos, tracos e sem nono digito), salvando no padrao 55DDDNXXXXXXXX.
 - [x] Referencias locais de integracao (`config.py`/`watsappAPI.py`) foram descartadas; integracao oficial de WhatsApp permanece centralizada em `backend/accounts/whatsapp.py` via variaveis de ambiente.
+- [x] Botao `Enviar teste` no WhatsApp agora ignora filtros de notificacao e envia direto para os contatos marcados na coluna Teste (desde que tenham telefone valido), com retorno detalhado de falhas.

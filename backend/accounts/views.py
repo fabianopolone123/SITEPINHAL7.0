@@ -26,7 +26,6 @@ from .models import (
 )
 from .utils import decode_signature, decode_photo
 from .whatsapp import (
-    enqueue_notification,
     queue_stats,
     resolve_user_phone,
     send_wapi_text,
@@ -676,12 +675,12 @@ class WhatsAppView(LoginRequiredMixin, View):
             pref.save(update_fields=['phone_number', 'notify_cadastro', 'notify_financeiro', 'notify_geral', 'updated_at'])
 
         if request.POST.get('send_test') == '1':
-            selected_for_test = []
+            selected_rows = []
             for row in rows:
                 user = row['user']
                 if request.POST.get(f'u{user.pk}_send_test'):
-                    selected_for_test.append(user)
-            if not selected_for_test:
+                    selected_rows.append(row)
+            if not selected_rows:
                 messages.error(request, 'Marque pelo menos um contato na coluna Teste para enviar.')
                 context = {
                     'rows': self._users_context(),
@@ -692,15 +691,23 @@ class WhatsAppView(LoginRequiredMixin, View):
 
             sent_count = 0
             failed_count = 0
-            for user in selected_for_test:
-                queue_item = enqueue_notification(
-                    user,
-                    WhatsAppQueue.TYPE_GERAL,
-                    'Mensagem de teste do sistema Pinhal Junior.',
-                )
-                if not queue_item:
+            failed_items = []
+            for row in selected_rows:
+                user = row['user']
+                pref = row['pref']
+                phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(user))
+                if not phone_number:
                     failed_count += 1
+                    failed_items.append(f'{user.username}: telefone ausente/invalido')
                     continue
+
+                queue_item = WhatsAppQueue.objects.create(
+                    user=user,
+                    phone_number=phone_number,
+                    notification_type=WhatsAppQueue.TYPE_GERAL,
+                    message_text='Mensagem de teste do sistema Pinhal Junior.',
+                    status=WhatsAppQueue.STATUS_PENDING,
+                )
                 success, provider_id, error_message = send_wapi_text(
                     queue_item.phone_number,
                     queue_item.message_text,
@@ -716,6 +723,7 @@ class WhatsAppView(LoginRequiredMixin, View):
                     queue_item.status = WhatsAppQueue.STATUS_FAILED
                     queue_item.last_error = error_message
                     failed_count += 1
+                    failed_items.append(f'{user.username}: {error_message[:80]}')
                 queue_item.save(
                     update_fields=[
                         'status',
@@ -729,6 +737,8 @@ class WhatsAppView(LoginRequiredMixin, View):
                 request,
                 f'Preferencias salvas. Testes enviados: {sent_count}. Falhas: {failed_count}.',
             )
+            if failed_items:
+                messages.error(request, 'Falhas: ' + ' | '.join(failed_items[:3]))
         else:
             messages.success(request, 'Preferencias de notificacao salvas com sucesso.')
 
