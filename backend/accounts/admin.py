@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import Responsavel, Aventureiro, Diretoria, UserAccess
+from .models import (
+    Responsavel,
+    Aventureiro,
+    Diretoria,
+    UserAccess,
+    WhatsAppPreference,
+    WhatsAppQueue,
+)
 
 
 @admin.register(Responsavel)
@@ -53,3 +60,17 @@ class UserAccessAdmin(admin.ModelAdmin):
         return ', '.join(obj.get_profiles_display())
 
     profiles_preview.short_description = 'perfis'
+
+
+@admin.register(WhatsAppPreference)
+class WhatsAppPreferenceAdmin(admin.ModelAdmin):
+    list_display = ('user', 'phone_number', 'notify_cadastro', 'notify_financeiro', 'notify_geral', 'updated_at')
+    search_fields = ('user__username', 'phone_number')
+    list_filter = ('notify_cadastro', 'notify_financeiro', 'notify_geral')
+
+
+@admin.register(WhatsAppQueue)
+class WhatsAppQueueAdmin(admin.ModelAdmin):
+    list_display = ('phone_number', 'notification_type', 'status', 'attempts', 'created_at', 'sent_at')
+    search_fields = ('phone_number', 'user__username', 'provider_message_id')
+    list_filter = ('status', 'notification_type')

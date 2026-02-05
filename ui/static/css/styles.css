@@ -872,6 +872,14 @@ a.secondary {
   padding: 0.6rem;
 }
 
+.users-table input[type="text"] {
+  width: 100%;
+  min-width: 160px;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5f5;
+}
+
 @media (max-width: 900px) {
   .painel-sidebar {
     position: static;

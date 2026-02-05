@@ -162,3 +162,66 @@ class Aventureiro(models.Model):
     @property
     def role_slug(self):
         return 'aventura'
+
+
+class WhatsAppPreference(models.Model):
+    NOTIFY_CADASTRO = 'cadastro'
+    NOTIFY_FINANCEIRO = 'financeiro'
+    NOTIFY_GERAL = 'geral'
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='whatsapp_preference')
+    phone_number = models.CharField('numero whatsapp', max_length=32, blank=True)
+    notify_cadastro = models.BooleanField('notificacao de cadastro', default=True)
+    notify_financeiro = models.BooleanField('notificacao financeira', default=False)
+    notify_geral = models.BooleanField('notificacao geral', default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.user.username} ({self.phone_number or "sem numero"})'
+
+    def enabled_for(self, notification_type):
+        mapping = {
+            self.NOTIFY_CADASTRO: self.notify_cadastro,
+            self.NOTIFY_FINANCEIRO: self.notify_financeiro,
+            self.NOTIFY_GERAL: self.notify_geral,
+        }
+        return mapping.get(notification_type, False)
+
+
+class WhatsAppQueue(models.Model):
+    TYPE_CADASTRO = WhatsAppPreference.NOTIFY_CADASTRO
+    TYPE_FINANCEIRO = WhatsAppPreference.NOTIFY_FINANCEIRO
+    TYPE_GERAL = WhatsAppPreference.NOTIFY_GERAL
+
+    TYPE_CHOICES = [
+        (TYPE_CADASTRO, 'Cadastro'),
+        (TYPE_FINANCEIRO, 'Financeiro'),
+        (TYPE_GERAL, 'Geral'),
+    ]
+
+    STATUS_PENDING = 'pending'
+    STATUS_SENT = 'sent'
+    STATUS_FAILED = 'failed'
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pendente'),
+        (STATUS_SENT, 'Enviado'),
+        (STATUS_FAILED, 'Falhou'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='whatsapp_queue')
+    phone_number = models.CharField('numero destino', max_length=32)
+    notification_type = models.CharField('tipo notificacao', max_length=32, choices=TYPE_CHOICES, default=TYPE_GERAL)
+    message_text = models.TextField('mensagem')
+    status = models.CharField('status envio', max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    attempts = models.PositiveIntegerField('tentativas', default=0)
+    provider_message_id = models.CharField('id provedor', max_length=128, blank=True)
+    last_error = models.TextField('ultimo erro', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField('enviado em', null=True, blank=True)
+
+    class Meta:
+        ordering = ('created_at',)
+
+    def __str__(self):
+        return f'{self.phone_number} [{self.get_status_display()}]'

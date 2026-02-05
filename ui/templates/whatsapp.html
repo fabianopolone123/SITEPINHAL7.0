@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WhatsApp - Notificacoes</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body class="painel-page">
+  {% include '_painel_sidebar.html' %}
+  <main class="painel-content">
+    <header class="painel-header">
+      <h2>WhatsApp</h2>
+      <p>Configure quais notificacoes cada contato recebe e use fila com envio a cada 2 segundos.</p>
+    </header>
+
+    <section class="painel-card">
+      <p><strong>Fila:</strong> pendentes {{ queue.pending }} | enviados {{ queue.sent }} | falhas {{ queue.failed }}</p>
+      <p><strong>Atualizado em:</strong> {{ queue.updated_at }}</p>
+      <p class="panel-note">Worker recomendado: <code>python backend/manage.py process_whatsapp_queue --sleep 2</code></p>
+    </section>
+
+    <form method="post" class="painel-card">
+      {% csrf_token %}
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Nome</th>
+            <th>Telefone</th>
+            <th>Cadastro</th>
+            <th>Financeiro</th>
+            <th>Geral</th>
+            <th>Teste</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in rows %}
+            <tr>
+              <td>{{ item.user.username }}</td>
+              <td>{{ item.nome_completo }}</td>
+              <td>
+                <input
+                  type="text"
+                  name="u{{ item.user.pk }}_phone"
+                  value="{{ item.pref.phone_number|default:'' }}"
+                  placeholder="5511999999999"
+                />
+              </td>
+              <td><input type="checkbox" name="u{{ item.user.pk }}_cadastro" {% if item.pref.notify_cadastro %}checked{% endif %} /></td>
+              <td><input type="checkbox" name="u{{ item.user.pk }}_financeiro" {% if item.pref.notify_financeiro %}checked{% endif %} /></td>
+              <td><input type="checkbox" name="u{{ item.user.pk }}_geral" {% if item.pref.notify_geral %}checked{% endif %} /></td>
+              <td><input type="checkbox" name="u{{ item.user.pk }}_send_test" /></td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7">Nenhum usuario disponivel.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="action-row">
+        <button type="submit" class="primary">Salvar preferencias</button>
+        <button type="submit" class="secondary" name="enqueue_test" value="1">Salvar e enfileirar teste</button>
+      </div>
+    </form>
+  </main>
+</body>
+</html>

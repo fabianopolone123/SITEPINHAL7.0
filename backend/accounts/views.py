@@ -15,8 +15,16 @@ from .forms import (
     DiretoriaDadosForm,
     UserAccessForm,
 )
-from .models import Responsavel, Aventureiro, Diretoria, UserAccess
+from .models import (
+    Responsavel,
+    Aventureiro,
+    Diretoria,
+    UserAccess,
+    WhatsAppPreference,
+    WhatsAppQueue,
+)
 from .utils import decode_signature, decode_photo
+from .whatsapp import enqueue_notification, queue_stats, resolve_user_phone
 from datetime import date
 
 User = get_user_model()
@@ -601,6 +609,80 @@ class UsuariosView(LoginRequiredMixin, View):
             })
         user_rows.sort(key=lambda row: (_profile_order_weight(row['access']), row['user'].username.lower()))
         context = {'users': user_rows}
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
+
+
+class WhatsAppView(LoginRequiredMixin, View):
+    template_name = 'whatsapp.html'
+
+    def _director_guard(self, request):
+        if not _is_diretor(request.user):
+            messages.error(request, 'Seu perfil nao possui permissao para acessar WhatsApp.')
+            return redirect('accounts:painel')
+        return None
+
+    def _users_context(self):
+        rows = []
+        accesses = UserAccess.objects.select_related('user', 'user__responsavel', 'user__diretoria').order_by('user__username')
+        for access in accesses:
+            user = access.user
+            pref, _ = WhatsAppPreference.objects.get_or_create(user=user)
+            detected_phone = resolve_user_phone(user)
+            if not pref.phone_number and detected_phone:
+                pref.phone_number = detected_phone
+                pref.save(update_fields=['phone_number', 'updated_at'])
+            display = _user_display_data(user)
+            rows.append({
+                'user': user,
+                'access': access,
+                'pref': pref,
+                'nome_completo': display['nome_completo'],
+            })
+        rows.sort(key=lambda row: (_profile_order_weight(row['access']), row['user'].username.lower()))
+        return rows
+
+    def get(self, request):
+        guard = self._director_guard(request)
+        if guard:
+            return guard
+        context = {
+            'rows': self._users_context(),
+            'queue': queue_stats(),
+        }
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        guard = self._director_guard(request)
+        if guard:
+            return guard
+        rows = self._users_context()
+        for row in rows:
+            user = row['user']
+            pref = row['pref']
+            prefix = f'u{user.pk}'
+            pref.phone_number = request.POST.get(f'{prefix}_phone', '').strip()
+            pref.notify_cadastro = bool(request.POST.get(f'{prefix}_cadastro'))
+            pref.notify_financeiro = bool(request.POST.get(f'{prefix}_financeiro'))
+            pref.notify_geral = bool(request.POST.get(f'{prefix}_geral'))
+            pref.save(update_fields=['phone_number', 'notify_cadastro', 'notify_financeiro', 'notify_geral', 'updated_at'])
+
+        if request.POST.get('enqueue_test') == '1':
+            test_count = 0
+            for row in rows:
+                user = row['user']
+                if request.POST.get(f'u{user.pk}_send_test'):
+                    if enqueue_notification(user, WhatsAppQueue.TYPE_GERAL, 'Mensagem de teste do sistema Pinhal Junior.'):
+                        test_count += 1
+            messages.success(request, f'Preferencias salvas. Testes enfileirados: {test_count}.')
+        else:
+            messages.success(request, 'Preferencias de notificacao salvas com sucesso.')
+
+        context = {
+            'rows': self._users_context(),
+            'queue': queue_stats(),
+        }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 
