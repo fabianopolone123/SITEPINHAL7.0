@@ -14,6 +14,10 @@ const photoValueField = document.getElementById('photo-value');
 const photoPreviewImg = document.getElementById('photo-preview-img');
 
 const ALERT_MESSAGE = 'Há campos obrigatórios pendentes; complete-os antes de continuar.';
+const CONFIRM_MESSAGES = {
+  save_confirm: 'Deseja salvar esta ficha e ir para a confirmação final?',
+  add_more: 'Deseja salvar esta ficha e adicionar outro aventureiro?',
+};
 
 const formatSequence = (value) => String(value).padStart(2, '0');
 let currentSequence = Number(adventureCounter?.dataset.currentNumber || adventureSequenceInput?.value || 1);
@@ -77,6 +81,14 @@ const setStatusError = (message) => {
     status.dataset.state = 'error';
   }
   showCampoAlert();
+};
+
+const getSubmitAction = (event) => {
+  const submitter = event?.submitter;
+  if (submitter && submitter.name === 'action' && submitter.value) {
+    return submitter.value;
+  }
+  return adventureForm.querySelector('[name="action"]')?.value || 'save_confirm';
 };
 
 const validarAventuraAtual = () => {
@@ -274,12 +286,24 @@ const limparFormulario = () => {
 updateSequenceDisplay();
 
 adventureForm.addEventListener('submit', (event) => {
+  const action = getSubmitAction(event);
   if (!validarAventuraAtual()) {
     event.preventDefault();
     return;
   }
+  const confirmMessage = CONFIRM_MESSAGES[action] || CONFIRM_MESSAGES.save_confirm;
+  if (!window.confirm(confirmMessage)) {
+    event.preventDefault();
+    if (status) {
+      status.textContent = 'Ação cancelada.';
+      status.dataset.state = 'info';
+    }
+    return;
+  }
   if (status) {
-    status.textContent = 'Enviando dados do aventureiro...';
+    status.textContent = action === 'add_more'
+      ? 'Salvando ficha e preparando novo cadastro...'
+      : 'Salvando ficha e indo para confirmação...';
     status.dataset.state = 'info';
   }
 });

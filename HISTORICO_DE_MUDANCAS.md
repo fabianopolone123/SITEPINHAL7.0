@@ -140,3 +140,4 @@ Ele Ã© a memÃ³ria oficial do sistema.
 - [x] Horario nas notificacoes de WhatsApp e no painel agora usa `timezone.localtime()` (America/Sao_Paulo), evitando exibicao em UTC.
 - [x] Novos usuarios agora iniciam sem receber notificacoes de WhatsApp por padrao (checkbox Cadastro desmarcado ate ser habilitado manualmente).
 - [x] Ajustados textos para padrao pt-BR com acentos (UI e mensagens), incluindo Início, Usuários, Você e Notificações.
+- [x] Formulário de aventureiro agora pede confirmação antes de executar `Salvar e confirmar` ou `Adicionar outro aventureiro`, reduzindo envios acidentais.
