@@ -295,6 +295,27 @@ a.secondary {
   color: #dc2626;
   line-height: 1.2;
 }
+
+/* Marca visual para campos obrigatórios dos formulários */
+.form-card label:has(> input[required]:not([type="radio"]):not([type="checkbox"])),
+.form-card label:has(> select[required]),
+.form-card label:has(> textarea[required]),
+.aventura-form label:has(> input[required]:not([type="radio"]):not([type="checkbox"])),
+.aventura-form label:has(> select[required]),
+.aventura-form label:has(> textarea[required]) {
+  position: relative;
+}
+
+.form-card label:has(> input[required]:not([type="radio"]):not([type="checkbox"]))::after,
+.form-card label:has(> select[required])::after,
+.form-card label:has(> textarea[required])::after,
+.aventura-form label:has(> input[required]:not([type="radio"]):not([type="checkbox"]))::after,
+.aventura-form label:has(> select[required])::after,
+.aventura-form label:has(> textarea[required])::after {
+  content: " *";
+  color: #dc2626;
+  font-weight: 700;
+}
 .input-error {
   border-color: #dc2626;
   box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15);

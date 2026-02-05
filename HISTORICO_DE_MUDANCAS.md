@@ -144,3 +144,4 @@ Ele Ã© a memÃ³ria oficial do sistema.
 - [x] Confirmacao dos botoes da ficha de aventureiro foi aprimorada para evitar clique errado: ao cancelar uma acao, o sistema oferece trocar para a outra (concluir ou adicionar outro).
 - [x] Revisão de textos dos templates com padronização pt-BR: ajustes de acentuação em telas de usuários/detalhes e mensagens da tela WhatsApp.
 - [x] Tela de login ajustada: "Pinhal Júnior" com acento e subtítulo simplificado para "Bem-vindo".
+- [x] Campos obrigatórios dos formulários (responsável, diretoria e aventureiro) agora exibem `*` automaticamente ao lado do rótulo.
