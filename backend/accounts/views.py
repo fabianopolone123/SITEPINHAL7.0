@@ -156,6 +156,18 @@ def _document_fields():
     }
 
 
+def _combined_document_fields():
+    fields = []
+    seen = set()
+    for group in _document_fields().values():
+        for key, label, field_type in group:
+            if key in seen:
+                continue
+            seen.add(key)
+            fields.append((key, label, field_type))
+    return fields
+
+
 def _template_field_definitions(template_type):
     return _document_fields().get(template_type, [])
 
@@ -892,7 +904,7 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
         if selected_id:
             selected = DocumentoTemplate.objects.filter(pk=selected_id).first()
             if selected:
-                fields = _template_field_definitions(selected.template_type)
+                fields = _combined_document_fields()
         context = {
             'templates': templates,
             'responsaveis': responsaveis,
