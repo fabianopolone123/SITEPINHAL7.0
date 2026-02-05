@@ -116,6 +116,16 @@ def _pending_count(session):
     return len(_get_pending_aventures(session))
 
 
+def _required_field_names(form):
+    names = []
+    for name, field in form.fields.items():
+        widget = getattr(field, 'widget', None)
+        input_type = getattr(widget, 'input_type', '')
+        if field.required and input_type != 'hidden':
+            names.append(name)
+    return names
+
+
 def _dispatch_cadastro_notifications(tipo_cadastro, user, nome):
     responsavel_nome = '-'
     aventureiros = '-'
@@ -233,7 +243,10 @@ class ResponsavelView(View):
 
     def get(self, request):
         form = ResponsavelForm()
-        return render(request, self.template_name, {'form': form})
+        return render(request, self.template_name, {
+            'form': form,
+            'required_fields': _required_field_names(form),
+        })
 
     def post(self, request):
         form = ResponsavelForm(request.POST)
@@ -243,7 +256,10 @@ class ResponsavelView(View):
             messages.success(request, 'Responsável cadastrado com sucesso. Continue com a ficha do aventureiro.')
             return redirect('accounts:aventura')
         messages.error(request, 'Há campos obrigatórios pendentes; corrija e envie novamente.')
-        return render(request, self.template_name, {'form': form})
+        return render(request, self.template_name, {
+            'form': form,
+            'required_fields': _required_field_names(form),
+        })
 
 
 class DiretoriaView(View):
@@ -251,7 +267,10 @@ class DiretoriaView(View):
 
     def get(self, request):
         form = DiretoriaForm()
-        return render(request, self.template_name, {'form': form})
+        return render(request, self.template_name, {
+            'form': form,
+            'required_fields': _required_field_names(form),
+        })
 
     def post(self, request):
         form = DiretoriaForm(request.POST)
@@ -261,7 +280,10 @@ class DiretoriaView(View):
             messages.success(request, 'Cadastro da diretoria concluído com sucesso. Faça login para continuar.')
             return redirect('accounts:login')
         messages.error(request, 'Há campos obrigatórios pendentes; corrija e envie novamente.')
-        return render(request, self.template_name, {'form': form})
+        return render(request, self.template_name, {
+            'form': form,
+            'required_fields': _required_field_names(form),
+        })
 
 
 class AventuraView(LoginRequiredMixin, View):
@@ -277,6 +299,7 @@ class AventuraView(LoginRequiredMixin, View):
             'form': form,
             'current_sequence': self._current_sequence_for(request, responsavel),
             'pending_count': _pending_count(request.session),
+            'required_fields': _required_field_names(form),
         }
 
     def get(self, request):

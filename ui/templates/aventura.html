@@ -20,7 +20,7 @@
       <div id="aventura-counter" class="counter-chip" data-current-number="{{ current_sequence|default:1 }}">
         <p>Ficha cadastral aventureiro <span id="aventura-counter-value">{{ current_sequence|stringformat:"02d" }}</span></p>
       </div>
-      <form class="aventura-form" method="post" action="{% url 'accounts:aventura' %}">
+      <form class="aventura-form" method="post" action="{% url 'accounts:aventura' %}" data-required-fields="{{ required_fields|join:',' }}">
         {% csrf_token %}
         <input type="hidden" name="aventura_sequence" id="aventura-sequence" value="{{ current_sequence|default:1 }}" />
         <input type="hidden" name="action" id="aventura-action" value="save_confirm" />
@@ -527,6 +527,6 @@
   </div>
   <script src="{% static 'js/aventura.js' %}" defer></script>
   <script src="{% static 'js/signature.js' %}" defer></script>
-  <script src="{% static 'js/required-asterisk.js' %}?v=2" defer></script>
+  <script src="{% static 'js/required-asterisk.js' %}?v=3" defer></script>
 </body>
 </html>

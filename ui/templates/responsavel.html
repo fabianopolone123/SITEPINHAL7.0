@@ -16,7 +16,7 @@
     </div>
     <main class="login-card form-card">
       <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
-      <form class="responsavel-form" method="post" action="{% url 'accounts:responsavel' %}">
+      <form class="responsavel-form" method="post" action="{% url 'accounts:responsavel' %}" data-required-fields="{{ required_fields|join:',' }}">
         {% csrf_token %}
         <section class="field-section">
           <h2>Acesso ao portal</h2>
@@ -198,6 +198,6 @@
   </div>
   <script src="{% static 'js/responsavel.js' %}" defer></script>
   <script src="{% static 'js/signature.js' %}" defer></script>
-  <script src="{% static 'js/required-asterisk.js' %}?v=2" defer></script>
+  <script src="{% static 'js/required-asterisk.js' %}?v=3" defer></script>
 </body>
 </html>
