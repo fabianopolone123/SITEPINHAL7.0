@@ -145,3 +145,4 @@ Ele Ã© a memÃ³ria oficial do sistema.
 - [x] Revisão de textos dos templates com padronização pt-BR: ajustes de acentuação em telas de usuários/detalhes e mensagens da tela WhatsApp.
 - [x] Tela de login ajustada: "Pinhal Júnior" com acento e subtítulo simplificado para "Bem-vindo".
 - [x] Campos obrigatórios dos formulários (responsável, diretoria e aventureiro) agora exibem `*` automaticamente ao lado do rótulo.
+- [x] Correção do asterisco de obrigatório: adicionado script (`required-asterisk.js`) para marcar campos obrigatórios em responsavel/diretoria/aventureiro de forma compatível com navegadores sem suporte pleno a `:has`.

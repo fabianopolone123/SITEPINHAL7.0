@@ -296,6 +296,11 @@ a.secondary {
   line-height: 1.2;
 }
 
+.required-mark {
+  color: #dc2626;
+  font-weight: 700;
+}
+
 /* Marca visual para campos obrigatórios dos formulários */
 .form-card label:has(> input[required]:not([type="radio"]):not([type="checkbox"])),
 .form-card label:has(> select[required]),
