@@ -55,8 +55,7 @@
       <table class="users-table whatsapp-table">
         <thead>
           <tr>
-            <th>Usuario</th>
-            <th>Nome</th>
+            <th>Contato</th>
             <th>Telefone</th>
             <th>Cadastro</th>
             <th>Teste</th>
@@ -65,9 +64,13 @@
         <tbody>
           {% for item in rows %}
             <tr>
-              <td data-label="Usuario">{{ item.user.username }}</td>
-              <td data-label="Nome">{{ item.nome_completo }}</td>
-              <td data-label="Telefone">
+              <td data-label="Contato">
+                <div class="wa-contact">
+                  <div class="wa-username">{{ item.user.username }}</div>
+                  <div class="wa-name">{{ item.nome_completo }}</div>
+                </div>
+              </td>
+              <td data-label="Telefone" class="wa-phone-cell">
                 <input
                   type="text"
                   name="u{{ item.user.pk }}_phone"
@@ -80,7 +83,7 @@
             </tr>
           {% empty %}
             <tr>
-              <td colspan="5">Nenhum usuario disponivel.</td>
+              <td colspan="4">Nenhum usuario disponivel.</td>
             </tr>
           {% endfor %}
         </tbody>

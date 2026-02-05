@@ -880,6 +880,26 @@ a.secondary {
   border: 1px solid #cbd5f5;
 }
 
+.wa-contact {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.wa-username {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.wa-name {
+  color: #334155;
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+
+.wa-phone-cell input[type="text"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
 .table-scroll {
   width: 100%;
   overflow-x: auto;
@@ -952,8 +972,31 @@ a.secondary {
     min-width: 92px;
   }
 
+  .whatsapp-table td[data-label="Contato"] {
+    align-items: flex-start;
+  }
+
+  .wa-contact {
+    gap: 0.1rem;
+  }
+
   .whatsapp-table input[type="text"] {
     min-width: 0;
+  }
+
+  .whatsapp-table td[data-label="Telefone"] input[type="text"] {
+    width: min(220px, 100%);
+  }
+
+  .whatsapp-table td[data-label="Cadastro"],
+  .whatsapp-table td[data-label="Teste"] {
+    align-items: center;
+  }
+
+  .whatsapp-table td[data-label="Cadastro"] input[type="checkbox"],
+  .whatsapp-table td[data-label="Teste"] input[type="checkbox"] {
+    width: 1.2rem;
+    height: 1.2rem;
   }
 }
 
