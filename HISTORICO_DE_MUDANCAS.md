@@ -119,3 +119,4 @@ Ele é a memória oficial do sistema.
 - [x] Login agora detecta sessao ativa: mostra opcao para entrar direto no painel ou sair para entrar com outra conta; menu lateral recebeu botao "Sair" para logout rapido.
 - [x] Perfil Diretor ganhou menu `WhatsApp` com tela para configurar notificacoes por contato (cadastro/financeiro/geral), telefone e envio de teste para fila.
 - [x] Implementada fila de WhatsApp no backend com modelos de preferencia e fila, incluindo comando `process_whatsapp_queue` para envio com pausa configuravel (padrao 2 segundos).
+- [x] Tela de WhatsApp agora envia teste imediatamente para os contatos marcados (sem depender de enfileirar/rodar worker manual para o botao de teste).

@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth import login, logout, get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
+from django.utils import timezone
 
 from .forms import (
     ResponsavelForm,
@@ -24,7 +25,7 @@ from .models import (
     WhatsAppQueue,
 )
 from .utils import decode_signature, decode_photo
-from .whatsapp import enqueue_notification, queue_stats, resolve_user_phone
+from .whatsapp import enqueue_notification, queue_stats, resolve_user_phone, send_wapi_text
 from datetime import date
 
 User = get_user_model()
@@ -668,14 +669,48 @@ class WhatsAppView(LoginRequiredMixin, View):
             pref.notify_geral = bool(request.POST.get(f'{prefix}_geral'))
             pref.save(update_fields=['phone_number', 'notify_cadastro', 'notify_financeiro', 'notify_geral', 'updated_at'])
 
-        if request.POST.get('enqueue_test') == '1':
-            test_count = 0
+        if request.POST.get('send_test') == '1':
+            sent_count = 0
+            failed_count = 0
             for row in rows:
                 user = row['user']
                 if request.POST.get(f'u{user.pk}_send_test'):
-                    if enqueue_notification(user, WhatsAppQueue.TYPE_GERAL, 'Mensagem de teste do sistema Pinhal Junior.'):
-                        test_count += 1
-            messages.success(request, f'Preferencias salvas. Testes enfileirados: {test_count}.')
+                    queue_item = enqueue_notification(
+                        user,
+                        WhatsAppQueue.TYPE_GERAL,
+                        'Mensagem de teste do sistema Pinhal Junior.',
+                    )
+                    if not queue_item:
+                        failed_count += 1
+                        continue
+                    success, provider_id, error_message = send_wapi_text(
+                        queue_item.phone_number,
+                        queue_item.message_text,
+                    )
+                    queue_item.attempts = 1
+                    if success:
+                        queue_item.status = WhatsAppQueue.STATUS_SENT
+                        queue_item.provider_message_id = provider_id
+                        queue_item.sent_at = timezone.now()
+                        queue_item.last_error = ''
+                        sent_count += 1
+                    else:
+                        queue_item.status = WhatsAppQueue.STATUS_FAILED
+                        queue_item.last_error = error_message
+                        failed_count += 1
+                    queue_item.save(
+                        update_fields=[
+                            'status',
+                            'attempts',
+                            'provider_message_id',
+                            'sent_at',
+                            'last_error',
+                        ]
+                    )
+            messages.success(
+                request,
+                f'Preferencias salvas. Testes enviados: {sent_count}. Falhas: {failed_count}.',
+            )
         else:
             messages.success(request, 'Preferencias de notificacao salvas com sucesso.')
 
