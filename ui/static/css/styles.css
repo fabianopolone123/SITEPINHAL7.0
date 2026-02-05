@@ -880,6 +880,42 @@ a.secondary {
   border: 1px solid #cbd5f5;
 }
 
+.message-template-wrap {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.message-template-grid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.message-template-card {
+  display: grid;
+  gap: 0.45rem;
+  background: #f8fafc;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+
+.message-template-title {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.message-template-card textarea {
+  width: 100%;
+  min-height: 135px;
+  border-radius: 10px;
+  border: 1px solid #cbd5f5;
+  padding: 0.7rem;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  resize: vertical;
+}
+
 @media (max-width: 900px) {
   .painel-sidebar {
     position: static;
