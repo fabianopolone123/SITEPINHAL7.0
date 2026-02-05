@@ -9,6 +9,13 @@ from django.utils import timezone
 
 from .models import WhatsAppPreference, WhatsAppQueue
 
+DEFAULT_CADASTRO_MESSAGE = (
+    'Novo cadastro realizado no sistema Pinhal Junior.\n'
+    'Tipo: {tipo_cadastro}\n'
+    'Usuario: {username}\n'
+    'Nome: {nome}\n'
+    'Data/Hora: {data_hora}'
+)
 
 def normalize_phone_number(raw_phone):
     if not raw_phone:
@@ -149,3 +156,11 @@ def queue_stats():
         'failed': WhatsAppQueue.objects.filter(status=WhatsAppQueue.STATUS_FAILED).count(),
         'updated_at': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
     }
+
+
+def render_cadastro_message(template, payload):
+    base = (template or '').strip() or DEFAULT_CADASTRO_MESSAGE
+    try:
+        return base.format(**payload)
+    except Exception:  # noqa: BLE001
+        return DEFAULT_CADASTRO_MESSAGE.format(**payload)

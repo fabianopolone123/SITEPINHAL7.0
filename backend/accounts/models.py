@@ -174,6 +174,7 @@ class WhatsAppPreference(models.Model):
     notify_cadastro = models.BooleanField('notificacao de cadastro', default=True)
     notify_financeiro = models.BooleanField('notificacao financeira', default=False)
     notify_geral = models.BooleanField('notificacao geral', default=False)
+    cadastro_message = models.TextField('mensagem de cadastro', blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

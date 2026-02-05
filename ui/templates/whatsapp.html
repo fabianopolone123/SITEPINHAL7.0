@@ -12,7 +12,7 @@
   <main class="painel-content">
     <header class="painel-header">
       <h2>WhatsApp</h2>
-      <p>Configure quais notificacoes cada contato recebe e use fila com envio a cada 2 segundos.</p>
+      <p>Configure notificacoes de cadastro e envie testes para os contatos marcados.</p>
     </header>
 
     <section class="painel-card">
@@ -28,7 +28,7 @@
     <section class="painel-card">
       <p><strong>Fila:</strong> pendentes {{ queue.pending }} | enviados {{ queue.sent }} | falhas {{ queue.failed }}</p>
       <p><strong>Atualizado em:</strong> {{ queue.updated_at }}</p>
-      <p class="panel-note">Worker recomendado: <code>python backend/manage.py process_whatsapp_queue --sleep 2</code></p>
+      <p class="panel-note">As notificacoes de cadastro sao enviadas automaticamente quando um novo cadastro e concluido.</p>
     </section>
 
     <form method="post" class="painel-card">
@@ -40,8 +40,7 @@
             <th>Nome</th>
             <th>Telefone</th>
             <th>Cadastro</th>
-            <th>Financeiro</th>
-            <th>Geral</th>
+            <th>Mensagem de cadastro</th>
             <th>Teste</th>
           </tr>
         </thead>
@@ -59,13 +58,14 @@
                 />
               </td>
               <td><input type="checkbox" name="u{{ item.user.pk }}_cadastro" {% if item.pref.notify_cadastro %}checked{% endif %} /></td>
-              <td><input type="checkbox" name="u{{ item.user.pk }}_financeiro" {% if item.pref.notify_financeiro %}checked{% endif %} /></td>
-              <td><input type="checkbox" name="u{{ item.user.pk }}_geral" {% if item.pref.notify_geral %}checked{% endif %} /></td>
+              <td>
+                <textarea name="u{{ item.user.pk }}_cadastro_message" rows="4" placeholder="Mensagem de cadastro">{{ item.pref.cadastro_message|default:'' }}</textarea>
+              </td>
               <td><input type="checkbox" name="u{{ item.user.pk }}_send_test" /></td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="7">Nenhum usuario disponivel.</td>
+              <td colspan="6">Nenhum usuario disponivel.</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -76,6 +76,23 @@
         <button type="submit" class="secondary" name="send_test" value="1">Enviar teste</button>
       </div>
     </form>
+
+    <section class="painel-card">
+      <h3>Exemplo de mensagem de cadastro</h3>
+      <p class="panel-note">
+        Novo cadastro realizado no sistema Pinhal Junior.<br />
+        Tipo: Responsavel<br />
+        Usuario: joao123<br />
+        Nome: Joao da Silva<br />
+        Data/Hora: 05/02/2026 10:30
+      </p>
+      <p class="panel-note">
+        Voce pode personalizar por contato usando os campos de <strong>Mensagem de cadastro</strong> na tabela acima.
+      </p>
+      <p class="panel-note">
+        Campos disponiveis para personalizacao: <code>{tipo_cadastro}</code>, <code>{username}</code>, <code>{nome}</code>, <code>{data_hora}</code>.
+      </p>
+    </section>
   </main>
 </body>
 </html>

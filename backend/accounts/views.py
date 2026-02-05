@@ -30,6 +30,8 @@ from .whatsapp import (
     resolve_user_phone,
     send_wapi_text,
     normalize_phone_number,
+    render_cadastro_message,
+    DEFAULT_CADASTRO_MESSAGE,
 )
 from datetime import date
 
@@ -113,6 +115,39 @@ def _pending_count(session):
     return len(_get_pending_aventures(session))
 
 
+def _dispatch_cadastro_notifications(tipo_cadastro, user, nome):
+    payload = {
+        'tipo_cadastro': tipo_cadastro,
+        'username': user.username,
+        'nome': nome or user.username,
+        'data_hora': timezone.now().strftime('%d/%m/%Y %H:%M'),
+    }
+    prefs = WhatsAppPreference.objects.filter(notify_cadastro=True)
+    for pref in prefs.select_related('user'):
+        phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(pref.user))
+        if not phone_number:
+            continue
+        text = render_cadastro_message(pref.cadastro_message, payload)
+        queue_item = WhatsAppQueue.objects.create(
+            user=pref.user,
+            phone_number=phone_number,
+            notification_type=WhatsAppQueue.TYPE_CADASTRO,
+            message_text=text,
+            status=WhatsAppQueue.STATUS_PENDING,
+        )
+        success, provider_id, error_message = send_wapi_text(phone_number, text)
+        queue_item.attempts = 1
+        if success:
+            queue_item.status = WhatsAppQueue.STATUS_SENT
+            queue_item.provider_message_id = provider_id
+            queue_item.sent_at = timezone.now()
+            queue_item.last_error = ''
+        else:
+            queue_item.status = WhatsAppQueue.STATUS_FAILED
+            queue_item.last_error = error_message
+        queue_item.save(update_fields=['status', 'attempts', 'provider_message_id', 'sent_at', 'last_error'])
+
+
 def _serialize_field_value(value):
     if isinstance(value, date):
         return value.isoformat()
@@ -176,6 +211,7 @@ class ResponsavelView(View):
         form = ResponsavelForm(request.POST)
         if form.is_valid():
             responsavel = form.save()
+            _dispatch_cadastro_notifications('Responsavel', responsavel.user, responsavel.responsavel_nome or responsavel.mae_nome or responsavel.pai_nome)
             login(request, responsavel.user)
             messages.success(request, 'Responsável cadastrado com sucesso. Continue com a ficha do aventureiro.')
             return redirect('accounts:aventura')
@@ -193,7 +229,8 @@ class DiretoriaView(View):
     def post(self, request):
         form = DiretoriaForm(request.POST)
         if form.is_valid():
-            form.save()
+            diretoria = form.save()
+            _dispatch_cadastro_notifications('Diretoria', diretoria.user, diretoria.nome)
             messages.success(request, 'Cadastro da diretoria concluído com sucesso. Faça login para continuar.')
             return redirect('accounts:login')
         messages.error(request, 'Há campos obrigatórios pendentes; corrija e envie novamente.')
@@ -638,6 +675,9 @@ class WhatsAppView(LoginRequiredMixin, View):
             if not pref.phone_number and detected_phone:
                 pref.phone_number = detected_phone
                 pref.save(update_fields=['phone_number', 'updated_at'])
+            if not pref.cadastro_message:
+                pref.cadastro_message = DEFAULT_CADASTRO_MESSAGE
+                pref.save(update_fields=['cadastro_message', 'updated_at'])
             display = _user_display_data(user)
             rows.append({
                 'user': user,
@@ -670,9 +710,10 @@ class WhatsAppView(LoginRequiredMixin, View):
             prefix = f'u{user.pk}'
             pref.phone_number = normalize_phone_number(request.POST.get(f'{prefix}_phone', '').strip())
             pref.notify_cadastro = bool(request.POST.get(f'{prefix}_cadastro'))
-            pref.notify_financeiro = bool(request.POST.get(f'{prefix}_financeiro'))
-            pref.notify_geral = bool(request.POST.get(f'{prefix}_geral'))
-            pref.save(update_fields=['phone_number', 'notify_cadastro', 'notify_financeiro', 'notify_geral', 'updated_at'])
+            pref.notify_financeiro = False
+            pref.notify_geral = False
+            pref.cadastro_message = request.POST.get(f'{prefix}_cadastro_message', '').strip()
+            pref.save(update_fields=['phone_number', 'notify_cadastro', 'notify_financeiro', 'notify_geral', 'cadastro_message', 'updated_at'])
 
         if request.POST.get('send_test') == '1':
             selected_rows = []
