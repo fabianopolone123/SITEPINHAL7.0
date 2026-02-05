@@ -138,3 +138,4 @@ Ele é a memória oficial do sistema.
 - [x] Rota `/logout/` agora encerra a sessao e redireciona automaticamente para a tela de login, evitando pagina em branco.
 - [x] Tela `/whatsapp/` no celular foi reorganizada: coluna Contato unificada (username + nome), input de telefone com melhor leitura e cards mais legiveis com checkboxes maiores.
 - [x] Horario nas notificacoes de WhatsApp e no painel agora usa `timezone.localtime()` (America/Sao_Paulo), evitando exibicao em UTC.
+- [x] Novos usuarios agora iniciam sem receber notificacoes de WhatsApp por padrao (checkbox Cadastro desmarcado ate ser habilitado manualmente).

@@ -171,7 +171,7 @@ class WhatsAppPreference(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='whatsapp_preference')
     phone_number = models.CharField('numero whatsapp', max_length=32, blank=True)
-    notify_cadastro = models.BooleanField('notificacao de cadastro', default=True)
+    notify_cadastro = models.BooleanField('notificacao de cadastro', default=False)
     notify_financeiro = models.BooleanField('notificacao financeira', default=False)
     notify_geral = models.BooleanField('notificacao geral', default=False)
     cadastro_message = models.TextField('mensagem de cadastro', blank=True)
