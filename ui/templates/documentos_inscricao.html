@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documentos de inscrição</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body class="painel-page">
+  {% include '_painel_sidebar.html' %}
+  <main class="painel-content">
+    <header class="painel-header">
+      <h2>Documentos de inscrição</h2>
+      <p>Carregue o fundo da ficha, posicione os campos e gere os documentos preenchidos.</p>
+    </header>
+
+    <section class="painel-card">
+      <div class="status" aria-live="polite">
+        {% for message in messages %}
+          <p data-state="{{ message.tags }}">{{ message }}</p>
+        {% empty %}
+          <p data-state="info">Crie um template para começar.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="painel-card documentos-grid">
+      <div class="documentos-col">
+        <h3>Novo template</h3>
+        <form method="post" enctype="multipart/form-data" class="form-compact">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="create_template" />
+          <label>Nome do template</label>
+          <input type="text" name="name" placeholder="Ficha Aventureiro" />
+          <label>Tipo</label>
+          <select name="template_type">
+            {% for value, label in template_types %}
+              <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+          <label>Imagem de fundo</label>
+          <input type="file" name="background" accept="image/*" />
+          <button type="submit" class="primary">Criar template</button>
+        </form>
+
+        <h3>Templates</h3>
+        <ul class="documentos-lista">
+          {% for template in templates %}
+            <li class="{% if selected_template and template.pk == selected_template.pk %}active{% endif %}">
+              <a href="?template={{ template.pk }}">
+                {{ template.name }} <span>{{ template.get_template_type_display }}</span>
+              </a>
+            </li>
+          {% empty %}
+            <li>Nenhum template criado.</li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <div class="documentos-col">
+        {% if selected_template %}
+          <h3>Editor de campos</h3>
+          <p class="panel-note">Arraste os campos para posicionar sobre a ficha.</p>
+
+          <div class="documentos-editor">
+            <div class="documentos-campos" id="doc-fields">
+              {% for key, label, field_type in fields %}
+                <div class="doc-field-pill" draggable="true" data-key="{{ key }}" data-type="{{ field_type }}">{{ label }}</div>
+              {% endfor %}
+            </div>
+            <div class="documentos-canvas-wrap">
+              <div class="documentos-canvas" id="doc-canvas">
+                <img src="{{ selected_template.background.url }}" alt="Template" id="doc-background" />
+              </div>
+            </div>
+          </div>
+
+          <div class="documentos-controls">
+            <h4>Configuração do campo selecionado</h4>
+            <div class="documentos-controls-grid">
+              <label>Tamanho da fonte
+                <input type="number" min="8" max="64" id="doc-font-size" value="18" />
+              </label>
+              <label>Largura
+                <input type="number" min="20" max="800" id="doc-width" value="140" />
+              </label>
+              <label>Altura
+                <input type="number" min="20" max="800" id="doc-height" value="100" />
+              </label>
+            </div>
+            <p class="panel-note">Selecione um campo no layout para ajustar o tamanho.</p>
+          </div>
+
+          <form method="post" class="form-compact" id="doc-save-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save_positions" />
+            <input type="hidden" name="template_id" value="{{ selected_template.pk }}" />
+            <input type="hidden" name="positions_json" id="doc-positions" />
+            <button type="submit" class="primary">Salvar posições</button>
+          </form>
+
+          <div class="documentos-gerar">
+            <h3>Gerar documentos</h3>
+            <div class="documentos-gerar-grid">
+              <div>
+                <h4>Responsáveis</h4>
+                <select class="doc-select" id="doc-responsavel-select">
+                  <option value="">Selecione um responsável</option>
+                  {% for responsavel in responsaveis %}
+                    <option value="{{ responsavel.pk }}">
+                      {{ responsavel.user.username }} - {{ responsavel.responsavel_nome|default:responsavel.mae_nome|default:responsavel.pai_nome }}
+                    </option>
+                  {% endfor %}
+                </select>
+                <a class="secondary small-link" id="doc-responsavel-generate" href="#" target="_blank">Gerar ficha</a>
+              </div>
+              <div>
+                <h4>Aventureiros</h4>
+                <select class="doc-select" id="doc-aventureiro-select">
+                  <option value="">Selecione um aventureiro</option>
+                  {% for aventureiro in aventureiros %}
+                    <option value="{{ aventureiro.pk }}">
+                      {{ aventureiro.nome }} ({{ aventureiro.responsavel.user.username }})
+                    </option>
+                  {% endfor %}
+                </select>
+                <a class="secondary small-link" id="doc-aventureiro-generate" href="#" target="_blank">Gerar ficha</a>
+              </div>
+              <div>
+                <h4>Diretoria</h4>
+                <select class="doc-select" id="doc-diretoria-select">
+                  <option value="">Selecione a diretoria</option>
+                  {% for diretoria in diretorias %}
+                    <option value="{{ diretoria.pk }}">
+                      {{ diretoria.user.username }} - {{ diretoria.nome }}
+                    </option>
+                  {% endfor %}
+                </select>
+                <a class="secondary small-link" id="doc-diretoria-generate" href="#" target="_blank">Gerar ficha</a>
+              </div>
+            </div>
+          </div>
+
+          <script type="application/json" id="doc-positions-data">{{ selected_template.positions|default:'[]'|safe }}</script>
+        {% else %}
+          <p class="panel-note">Selecione um template para editar os campos e gerar documentos.</p>
+        {% endif %}
+      </div>
+    </section>
+  </main>
+  <script>
+    window.documentosConfig = {
+      templateId: {{ selected_template.pk|default:'null' }},
+      generateBase: "{% url 'accounts:documento_gerar' 0 'responsavel' 0 %}"
+    };
+  </script>
+  <script src="{% static 'js/documentos.js' %}" defer></script>
+</body>
+</html>

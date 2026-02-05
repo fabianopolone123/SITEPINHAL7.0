@@ -23,6 +23,8 @@ from .views import (
     WhatsAppView,
     UsuarioDetalheView,
     UsuarioPermissaoEditarView,
+    DocumentosInscricaoView,
+    DocumentoGerarView,
 )
 
 app_name = 'accounts'
@@ -45,6 +47,8 @@ urlpatterns = [
     path('meus-dados/aventureiro/<int:pk>/editar/', MeuAventureiroEditarView.as_view(), name='editar_meu_aventureiro'),
     path('usuarios/', UsuariosView.as_view(), name='usuarios'),
     path('whatsapp/', WhatsAppView.as_view(), name='whatsapp'),
+    path('documentos/', DocumentosInscricaoView.as_view(), name='documentos_inscricao'),
+    path('documentos/gerar/<int:template_id>/<str:kind>/<int:pk>/', DocumentoGerarView.as_view(), name='documento_gerar'),
     path('usuarios/<int:pk>/', UsuarioDetalheView.as_view(), name='usuario_detalhe'),
     path('usuarios/<int:pk>/editar/', UsuarioPermissaoEditarView.as_view(), name='editar_usuario_permissoes'),
     path('aventureiros-gerais/', AventureirosGeraisView.as_view(), name='aventureiros_gerais'),

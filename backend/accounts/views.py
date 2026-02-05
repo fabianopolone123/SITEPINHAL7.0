@@ -1,4 +1,5 @@
 ﻿import copy
+import json
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -24,6 +25,7 @@ from .models import (
     WhatsAppPreference,
     WhatsAppQueue,
     WhatsAppTemplate,
+    DocumentoTemplate,
 )
 from .utils import decode_signature, decode_photo
 from .whatsapp import (
@@ -34,6 +36,9 @@ from .whatsapp import (
     render_message,
     get_template_message,
 )
+from django.http import HttpResponse
+from PIL import Image, ImageDraw, ImageFont
+from io import BytesIO
 from datetime import date
 
 User = get_user_model()
@@ -102,6 +107,233 @@ def _user_display_data(user):
         'foto_url': foto_url,
     }
 
+
+
+
+def _document_fields():
+    return {
+        DocumentoTemplate.TYPE_RESPONSAVEL: [
+            ('responsavel_nome', 'Nome do respons?vel', 'text'),
+            ('responsavel_cpf', 'CPF do respons?vel', 'text'),
+            ('responsavel_email', 'E-mail do respons?vel', 'text'),
+            ('responsavel_telefone', 'Telefone do respons?vel', 'text'),
+            ('responsavel_celular', 'Celular do respons?vel', 'text'),
+            ('pai_nome', 'Nome do pai', 'text'),
+            ('mae_nome', 'Nome da m?e', 'text'),
+            ('endereco', 'Endere?o', 'text'),
+            ('bairro', 'Bairro', 'text'),
+            ('cidade', 'Cidade', 'text'),
+            ('cep', 'CEP', 'text'),
+            ('estado', 'Estado', 'text'),
+            ('assinatura', 'Assinatura', 'image'),
+        ],
+        DocumentoTemplate.TYPE_AVENTUREIRO: [
+            ('nome', 'Nome completo do aventureiro', 'text'),
+            ('sexo', 'Sexo', 'text'),
+            ('nascimento', 'Data de nascimento', 'text'),
+            ('colegio', 'Col?gio', 'text'),
+            ('serie', 'S?rie', 'text'),
+            ('bolsa', 'Bolsa Fam?lia', 'text'),
+            ('classes', 'Classes investidas', 'text'),
+            ('religiao', 'Religi?o', 'text'),
+            ('certidao', 'Certid?o de nascimento', 'text'),
+            ('rg', 'RG', 'text'),
+            ('orgao', '?rg?o expedidor', 'text'),
+            ('cpf', 'CPF', 'text'),
+            ('camiseta', 'Tamanho camiseta', 'text'),
+            ('plano', 'Plano de sa?de', 'text'),
+            ('plano_nome', 'Nome do plano', 'text'),
+            ('tipo_sangue', 'Tipo sangu?neo', 'text'),
+            ('endereco', 'Endere?o', 'text'),
+            ('bairro', 'Bairro', 'text'),
+            ('cidade', 'Cidade', 'text'),
+            ('cep', 'CEP', 'text'),
+            ('estado', 'Estado', 'text'),
+            ('responsavel_nome', 'Nome do respons?vel', 'text'),
+            ('responsavel_celular', 'WhatsApp respons?vel', 'text'),
+            ('pai_celular', 'WhatsApp pai', 'text'),
+            ('mae_celular', 'WhatsApp m?e', 'text'),
+            ('alergias', 'Alergias (resumo)', 'text'),
+            ('condicoes', 'Condi??es de sa?de (resumo)', 'text'),
+            ('foto', 'Foto 3x4', 'image'),
+            ('assinatura', 'Assinatura', 'image'),
+        ],
+        DocumentoTemplate.TYPE_DIRETORIA: [
+            ('nome', 'Nome', 'text'),
+            ('igreja', 'Igreja', 'text'),
+            ('endereco', 'Endere?o', 'text'),
+            ('distrito', 'Distrito', 'text'),
+            ('numero', 'N?mero', 'text'),
+            ('bairro', 'Bairro', 'text'),
+            ('cep', 'CEP', 'text'),
+            ('cidade', 'Cidade', 'text'),
+            ('estado', 'Estado', 'text'),
+            ('email', 'E-mail', 'text'),
+            ('whatsapp', 'WhatsApp', 'text'),
+            ('telefone_residencial', 'Telefone residencial', 'text'),
+            ('telefone_comercial', 'Telefone comercial', 'text'),
+            ('nascimento', 'Data de nascimento', 'text'),
+            ('estado_civil', 'Estado civil', 'text'),
+            ('cpf', 'CPF', 'text'),
+            ('rg', 'RG', 'text'),
+            ('conjuge', 'Esposa(o)', 'text'),
+            ('filho_1', 'Filho(a) 1', 'text'),
+            ('filho_2', 'Filho(a) 2', 'text'),
+            ('filho_3', 'Filho(a) 3', 'text'),
+            ('foto', 'Foto 3x4', 'image'),
+            ('assinatura', 'Assinatura', 'image'),
+        ],
+    }
+
+
+def _combined_document_fields():
+    fields = []
+    seen = set()
+    for group in _document_fields().values():
+        for key, label, field_type in group:
+            if key in seen:
+                continue
+            seen.add(key)
+            fields.append((key, label, field_type))
+    return fields
+
+
+def _collect_responsavel_data(responsavel):
+    return {
+        'responsavel_nome': responsavel.responsavel_nome,
+        'responsavel_cpf': responsavel.responsavel_cpf,
+        'responsavel_email': responsavel.responsavel_email,
+        'responsavel_telefone': responsavel.responsavel_telefone,
+        'responsavel_celular': responsavel.responsavel_celular,
+        'pai_nome': responsavel.pai_nome,
+        'mae_nome': responsavel.mae_nome,
+        'pai_celular': responsavel.pai_celular,
+        'mae_celular': responsavel.mae_celular,
+        'endereco': responsavel.endereco,
+        'bairro': responsavel.bairro,
+        'cidade': responsavel.cidade,
+        'cep': responsavel.cep,
+        'estado': responsavel.estado,
+        'assinatura': responsavel.signature.path if responsavel.signature else '',
+    }
+
+
+def _collect_aventureiro_data(aventureiro):
+    responsavel = aventureiro.responsavel
+    condicoes = aventureiro.condicoes or {}
+    alergias = aventureiro.alergias or {}
+    condicoes_resumo = []
+    for key, info in condicoes.items():
+        if info.get('resposta') == 'sim':
+            condicoes_resumo.append(f"{key}: {info.get('detalhe') or ''}".strip())
+    alergias_resumo = []
+    for key, info in alergias.items():
+        if info.get('resposta') == 'sim':
+            alergias_resumo.append(f"{key}: {info.get('descricao') or ''}".strip())
+
+    return {
+        'nome': aventureiro.nome,
+        'sexo': aventureiro.sexo,
+        'nascimento': aventureiro.nascimento.strftime('%d/%m/%Y') if aventureiro.nascimento else '',
+        'colegio': aventureiro.colegio,
+        'serie': aventureiro.serie,
+        'bolsa': aventureiro.bolsa,
+        'classes': '',
+        'religiao': aventureiro.religiao,
+        'certidao': aventureiro.certidao,
+        'rg': aventureiro.rg,
+        'orgao': aventureiro.orgao,
+        'cpf': aventureiro.cpf,
+        'camiseta': aventureiro.camiseta,
+        'plano': aventureiro.plano,
+        'plano_nome': aventureiro.plano_nome,
+        'tipo_sangue': aventureiro.tipo_sangue,
+        'endereco': responsavel.endereco,
+        'bairro': responsavel.bairro,
+        'cidade': responsavel.cidade,
+        'cep': responsavel.cep,
+        'estado': responsavel.estado,
+        'responsavel_nome': responsavel.responsavel_nome or responsavel.mae_nome or responsavel.pai_nome,
+        'responsavel_celular': responsavel.responsavel_celular,
+        'pai_celular': responsavel.pai_celular,
+        'mae_celular': responsavel.mae_celular,
+        'alergias': '; '.join(alergias_resumo),
+        'condicoes': '; '.join(condicoes_resumo),
+        'foto': aventureiro.foto.path if aventureiro.foto else '',
+        'assinatura': aventureiro.assinatura.path if aventureiro.assinatura else '',
+    }
+
+
+def _collect_diretoria_data(diretoria):
+    return {
+        'nome': diretoria.nome,
+        'igreja': diretoria.igreja,
+        'endereco': diretoria.endereco,
+        'distrito': diretoria.distrito,
+        'numero': diretoria.numero,
+        'bairro': diretoria.bairro,
+        'cep': diretoria.cep,
+        'cidade': diretoria.cidade,
+        'estado': diretoria.estado,
+        'email': diretoria.email,
+        'whatsapp': diretoria.whatsapp,
+        'telefone_residencial': diretoria.telefone_residencial,
+        'telefone_comercial': diretoria.telefone_comercial,
+        'nascimento': diretoria.nascimento.strftime('%d/%m/%Y') if diretoria.nascimento else '',
+        'estado_civil': diretoria.estado_civil,
+        'cpf': diretoria.cpf,
+        'rg': diretoria.rg,
+        'conjuge': diretoria.conjuge,
+        'filho_1': diretoria.filho_1,
+        'filho_2': diretoria.filho_2,
+        'filho_3': diretoria.filho_3,
+        'foto': diretoria.foto.path if diretoria.foto else '',
+        'assinatura': diretoria.assinatura.path if diretoria.assinatura else '',
+    }
+
+
+def _render_document_image(template, data):
+    background_path = template.background.path
+    img = Image.open(background_path).convert('RGBA')
+    draw = ImageDraw.Draw(img)
+    try:
+        base_font = ImageFont.truetype('arial.ttf', 18)
+    except OSError:
+        base_font = ImageFont.load_default()
+
+    for item in template.positions or []:
+        key = item.get('key')
+        field_type = item.get('type', 'text')
+        x = int(item.get('x', 0))
+        y = int(item.get('y', 0))
+        w = int(item.get('w', 0) or 0)
+        h = int(item.get('h', 0) or 0)
+        font_size = int(item.get('font_size', 18) or 18)
+        if field_type == 'image':
+            path = data.get(key) or ''
+            if not path:
+                continue
+            try:
+                stamp = Image.open(path).convert('RGBA')
+            except OSError:
+                continue
+            if w > 0 and h > 0:
+                stamp = stamp.resize((w, h))
+            img.paste(stamp, (x, y), stamp)
+        else:
+            value = data.get(key) or ''
+            if not value:
+                continue
+            try:
+                font = ImageFont.truetype('arial.ttf', font_size)
+            except OSError:
+                font = base_font
+            draw.text((x, y), str(value), fill=(15, 23, 42), font=font)
+
+    output = BytesIO()
+    img.save(output, format='PNG')
+    output.seek(0)
+    return output
 
 def _set_pending_aventures(session, pending):
     session['aventures_pending'] = pending
@@ -716,6 +948,104 @@ class UsuariosView(LoginRequiredMixin, View):
         context = {'users': user_rows}
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
+
+
+
+
+class DocumentosInscricaoView(LoginRequiredMixin, View):
+    template_name = 'documentos_inscricao.html'
+
+    def _guard(self, request):
+        if not _is_diretor(request.user):
+            messages.error(request, 'Seu perfil n?o possui permiss?o para acessar documentos.')
+            return redirect('accounts:painel')
+        return None
+
+    def get(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+        templates = DocumentoTemplate.objects.order_by('name')
+        responsaveis = Responsavel.objects.select_related('user').order_by('user__username')
+        aventureiros = Aventureiro.objects.select_related('responsavel', 'responsavel__user').order_by('nome')
+        diretorias = Diretoria.objects.select_related('user').order_by('user__username')
+        selected_id = request.GET.get('template')
+        selected = None
+        fields = []
+        if selected_id:
+            selected = DocumentoTemplate.objects.filter(pk=selected_id).first()
+            if selected:
+                fields = _combined_document_fields()
+        context = {
+            'templates': templates,
+            'responsaveis': responsaveis,
+            'aventureiros': aventureiros,
+            'diretorias': diretorias,
+            'selected_template': selected,
+            'fields': fields,
+            'template_types': DocumentoTemplate.TYPE_CHOICES,
+        }
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+        action = request.POST.get('action')
+        if action == 'create_template':
+            name = request.POST.get('name', '').strip()
+            template_type = request.POST.get('template_type')
+            background = request.FILES.get('background')
+            if not (name and template_type and background):
+                messages.error(request, 'Preencha nome, tipo e imagem do template.')
+            else:
+                template = DocumentoTemplate.objects.create(
+                    name=name,
+                    template_type=template_type,
+                    background=background,
+                )
+                messages.success(request, 'Template criado. Ajuste as posi??es e salve.')
+                return redirect(f"{request.path}?template={template.pk}")
+        elif action == 'save_positions':
+            template_id = request.POST.get('template_id')
+            template = DocumentoTemplate.objects.filter(pk=template_id).first()
+            if not template:
+                messages.error(request, 'Template n?o encontrado.')
+                return redirect(request.path)
+            positions_raw = request.POST.get('positions_json', '[]')
+            try:
+                positions = json.loads(positions_raw)
+            except json.JSONDecodeError:
+                messages.error(request, 'N?o foi poss?vel salvar as posi??es.')
+            else:
+                template.positions = positions
+                template.save(update_fields=['positions', 'updated_at'])
+                messages.success(request, 'Posi??es salvas com sucesso.')
+                return redirect(f"{request.path}?template={template.pk}")
+        return redirect(request.path)
+
+
+class DocumentoGerarView(LoginRequiredMixin, View):
+    def get(self, request, template_id, kind, pk):
+        if not _is_diretor(request.user):
+            messages.error(request, 'Seu perfil n?o possui permiss?o para gerar documentos.')
+            return redirect('accounts:painel')
+        template = get_object_or_404(DocumentoTemplate, pk=template_id)
+        if kind == DocumentoTemplate.TYPE_RESPONSAVEL:
+            responsavel = get_object_or_404(Responsavel, pk=pk)
+            data = _collect_responsavel_data(responsavel)
+        elif kind == DocumentoTemplate.TYPE_DIRETORIA:
+            diretoria = get_object_or_404(Diretoria, pk=pk)
+            data = _collect_diretoria_data(diretoria)
+        else:
+            aventureiro = get_object_or_404(Aventureiro, pk=pk)
+            data = _collect_aventureiro_data(aventureiro)
+
+        output = _render_document_image(template, data)
+        response = HttpResponse(output.getvalue(), content_type='image/png')
+        response['Content-Disposition'] = f'inline; filename="documento_{pk}.png"'
+        return response
 
 
 class WhatsAppView(LoginRequiredMixin, View):
