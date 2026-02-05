@@ -116,3 +116,4 @@ Ele é a memória oficial do sistema.
 - [x] Tela `Usuarios` agora lista primeiro perfis de Diretoria/Diretor e depois Responsavel, com foto (quando houver), nome completo e link no username para abrir todos os dados.
 - [x] Edicao de permissoes passou a aceitar multiplos perfis por usuario (checkboxes), mantendo controle de usuario ativo/inativo.
 - [x] Formularios de cadastro (responsavel, aventureiro e diretoria) receberam ajustes de responsividade para celular: grids em 1 coluna, botoes em largura total, radios empilhados e melhor leitura dos campos.
+- [x] Login agora detecta sessao ativa: mostra opcao para entrar direto no painel ou sair para entrar com outra conta; menu lateral recebeu botao "Sair" para logout rapido.

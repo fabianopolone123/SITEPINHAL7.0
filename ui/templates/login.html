@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Clube de Aventureiros Pinhal Junior — Login</title>
+  <title>Clube de Aventureiros Pinhal Junior - Login</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
 </head>
 <body>
@@ -12,35 +12,45 @@
     <div class="branding">
       <p class="eyebrow">Portal oficial</p>
       <h1>Clube de Aventureiros Pinhal Junior</h1>
-      <p class="subtitle">Bem-vindo ao ponto de encontro de exploradores mirins e suas famílias.</p>
+      <p class="subtitle">Bem-vindo ao ponto de encontro de exploradores mirins e suas familias.</p>
     </div>
     <main class="login-card">
       <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
-      <h2>Entrar</h2>
-      <form class="login-form" method="post" action="{% url 'accounts:login' %}">
-        {% csrf_token %}
-        <label for="username">Nome de usuário</label>
-        <input id="username" name="username" type="text" placeholder="pinhal.junior" autocomplete="username" />
 
-        <label for="password">Senha</label>
-        <input id="password" name="password" type="password" placeholder="••••••••" autocomplete="current-password" />
-
-        <button type="submit" class="primary">Entrar</button>
-        <div class="status" aria-live="polite">
-          {% for message in messages %}
-            <p data-state="{{ message.tags }}">{{ message }}</p>
-          {% endfor %}
-          {% if form and form.non_field_errors %}
-            {% for error in form.non_field_errors %}
-              <p data-state="error">{{ error }}</p>
-            {% endfor %}
-          {% endif %}
+      {% if request.user.is_authenticated %}
+        <h2>Voce ja esta logado</h2>
+        <p>Usuario atual: <strong>{{ request.user.username }}</strong></p>
+        <div class="action-row">
+          <a href="{% url 'accounts:painel' %}" class="primary">Entrar direto</a>
+          <a href="{% url 'accounts:logout' %}" class="secondary">Entrar com outra conta</a>
         </div>
-      </form>
-      <div class="login-helpers">
-        <a href="{% url 'accounts:register' %}" class="secondary">Criar uma conta</a>
-        <a href="#" class="secondary">Esqueci minha senha</a>
-      </div>
+      {% else %}
+        <h2>Entrar</h2>
+        <form class="login-form" method="post" action="{% url 'accounts:login' %}">
+          {% csrf_token %}
+          <label for="username">Nome de usuario</label>
+          <input id="username" name="username" type="text" placeholder="pinhal.junior" autocomplete="username" />
+
+          <label for="password">Senha</label>
+          <input id="password" name="password" type="password" placeholder="********" autocomplete="current-password" />
+
+          <button type="submit" class="primary">Entrar</button>
+          <div class="status" aria-live="polite">
+            {% for message in messages %}
+              <p data-state="{{ message.tags }}">{{ message }}</p>
+            {% endfor %}
+            {% if form and form.non_field_errors %}
+              {% for error in form.non_field_errors %}
+                <p data-state="error">{{ error }}</p>
+              {% endfor %}
+            {% endif %}
+          </div>
+        </form>
+        <div class="login-helpers">
+          <a href="{% url 'accounts:register' %}" class="secondary">Criar uma conta</a>
+          <a href="#" class="secondary">Esqueci minha senha</a>
+        </div>
+      {% endif %}
     </main>
   </div>
   <script src="{% static 'js/login.js' %}" defer></script>
