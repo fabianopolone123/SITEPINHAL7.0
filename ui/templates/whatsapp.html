@@ -16,6 +16,16 @@
     </header>
 
     <section class="painel-card">
+      <div class="status" aria-live="polite">
+        {% for message in messages %}
+          <p data-state="{{ message.tags }}">{{ message }}</p>
+        {% empty %}
+          <p data-state="info">Selecione os contatos e use os botoes abaixo.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="painel-card">
       <p><strong>Fila:</strong> pendentes {{ queue.pending }} | enviados {{ queue.sent }} | falhas {{ queue.failed }}</p>
       <p><strong>Atualizado em:</strong> {{ queue.updated_at }}</p>
       <p class="panel-note">Worker recomendado: <code>python backend/manage.py process_whatsapp_queue --sleep 2</code></p>
