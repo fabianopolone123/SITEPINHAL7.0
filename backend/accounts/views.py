@@ -117,10 +117,25 @@ def _pending_count(session):
 
 
 def _dispatch_cadastro_notifications(tipo_cadastro, user, nome):
+    responsavel_nome = '-'
+    aventureiros = '-'
+    responsavel = getattr(user, 'responsavel', None)
+    if responsavel:
+        responsavel_nome = (
+            responsavel.responsavel_nome
+            or responsavel.mae_nome
+            or responsavel.pai_nome
+            or user.username
+        )
+        aventura_nomes = list(responsavel.aventures.order_by('nome').values_list('nome', flat=True))
+        aventureiros = ', '.join(aventura_nomes) if aventura_nomes else '-'
+
     payload = {
         'tipo_cadastro': tipo_cadastro,
         'username': user.username,
         'nome': nome or user.username,
+        'responsavel_nome': responsavel_nome,
+        'aventureiros': aventureiros,
         'data_hora': timezone.now().strftime('%d/%m/%Y %H:%M'),
     }
     template_text = get_template_message(WhatsAppTemplate.TYPE_CADASTRO)
@@ -213,7 +228,6 @@ class ResponsavelView(View):
         form = ResponsavelForm(request.POST)
         if form.is_valid():
             responsavel = form.save()
-            _dispatch_cadastro_notifications('Responsavel', responsavel.user, responsavel.responsavel_nome or responsavel.mae_nome or responsavel.pai_nome)
             login(request, responsavel.user)
             messages.success(request, 'Responsável cadastrado com sucesso. Continue com a ficha do aventureiro.')
             return redirect('accounts:aventura')
@@ -325,6 +339,11 @@ class ConfirmacaoView(LoginRequiredMixin, View):
                 if photo_file:
                     aventureiro.foto.save(photo_file.name, photo_file, save=False)
             aventureiro.save()
+        _dispatch_cadastro_notifications(
+            'Cadastro completo',
+            request.user,
+            responsavel.responsavel_nome or responsavel.mae_nome or responsavel.pai_nome,
+        )
         _clear_pending_aventures(request.session)
         logout(request)
         messages.success(request, 'Cadastro finalizado com sucesso. Faça login novamente para continuar.')

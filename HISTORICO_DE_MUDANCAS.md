@@ -131,3 +131,5 @@ Ele é a memória oficial do sistema.
 - [x] WhatsApp agora usa modelos de mensagem globais por tipo (`Cadastro` e `Teste`): a edicao de texto vale para todos os contatos.
 - [x] Tela `/whatsapp/` reorganizada com caixas unicas de mensagem por notificacao e visual de exemplo mais amigavel.
 - [x] Tela de WhatsApp teve ajuste visual na secao de mensagens padrao: removido bloco de exemplo duplicado e adicionado layout em cards para edicao global de Cadastro e Teste.
+- [x] Placeholders de notificacao de cadastro ampliados com `{responsavel_nome}` e `{aventureiros}` para exibir nome do responsavel e lista de aventureiros no WhatsApp.
+- [x] Disparo de notificacao para responsavel agora ocorre no fechamento do cadastro (confirmacao), garantindo que a lista de aventureiros ja esteja preenchida.

@@ -14,6 +14,8 @@ DEFAULT_CADASTRO_MESSAGE = (
     '📌 Tipo: {tipo_cadastro}\n'
     '👤 Usuario: {username}\n'
     '📝 Nome: {nome}\n'
+    '👨‍👩‍👧 Responsavel: {responsavel_nome}\n'
+    '🧒 Aventureiros: {aventureiros}\n'
     '🕒 Data/Hora: {data_hora}'
 )
 
