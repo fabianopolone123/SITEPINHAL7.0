@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WhatsApp - Notificacoes</title>
+  <title>WhatsApp - Notificações</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
 </head>
 <body class="painel-page">
@@ -12,7 +12,7 @@
   <main class="painel-content">
     <header class="painel-header">
       <h2>WhatsApp</h2>
-      <p>Configure notificacoes de cadastro e envie testes para os contatos marcados.</p>
+      <p>Configure notificações de cadastro e envie testes para os contatos marcados.</p>
     </header>
 
     <section class="painel-card">
@@ -28,11 +28,11 @@
     <section class="painel-card">
       <p><strong>Fila:</strong> pendentes {{ queue.pending }} | enviados {{ queue.sent }} | falhas {{ queue.failed }}</p>
       <p><strong>Atualizado em:</strong> {{ queue.updated_at }}</p>
-      <p class="panel-note">As notificacoes de cadastro sao enviadas automaticamente quando um novo cadastro e concluido.</p>
+      <p class="panel-note">As notificações de cadastro são enviadas automaticamente quando um novo cadastro é concluído.</p>
     </section>
 
     <section class="painel-card message-template-wrap">
-      <h3>Mensagens padrao</h3>
+      <h3>Mensagens padrão</h3>
       <p class="panel-note">Esses textos valem para todos os contatos.</p>
       <div class="message-template-grid">
         <label class="message-template-card">
@@ -83,7 +83,7 @@
             </tr>
           {% empty %}
             <tr>
-              <td colspan="4">Nenhum usuario disponivel.</td>
+              <td colspan="4">Nenhum usuário disponível.</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -91,7 +91,7 @@
       </div>
 
       <div class="action-row">
-        <button type="submit" class="primary">Salvar preferencias</button>
+        <button type="submit" class="primary">Salvar preferências</button>
         <button type="submit" class="secondary" name="send_test" value="1">Enviar teste</button>
       </div>
     </form>

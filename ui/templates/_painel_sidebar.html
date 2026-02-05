@@ -17,11 +17,11 @@
 
   <nav class="painel-menu" aria-label="Menu principal">
     <ul>
-      <li><a href="{% url 'accounts:painel' %}">Inicio</a></li>
+      <li><a href="{% url 'accounts:painel' %}">Início</a></li>
       <li><a href="{% url 'accounts:meus_dados' %}">Meus dados</a></li>
       {% if is_diretor %}
         <li><a href="{% url 'accounts:aventureiros_gerais' %}">Aventureiros</a></li>
-        <li><a href="{% url 'accounts:usuarios' %}">Usuarios</a></li>
+        <li><a href="{% url 'accounts:usuarios' %}">Usuários</a></li>
         <li><a href="{% url 'accounts:whatsapp' %}">WhatsApp</a></li>
       {% endif %}
       <li><a href="{% url 'accounts:logout' %}">Sair</a></li>

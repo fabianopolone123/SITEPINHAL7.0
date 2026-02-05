@@ -4,15 +4,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Usuarios</title>
+  <title>Usuários</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
 </head>
 <body class="painel-page">
   {% include '_painel_sidebar.html' %}
   <main class="painel-content">
     <header class="painel-header">
-      <h2>Usuarios</h2>
-      <p>Visualize usuarios e ajuste os perfis de permissao.</p>
+      <h2>Usuários</h2>
+      <p>Visualize usuários e ajuste os perfis de permissão.</p>
     </header>
 
     <section class="painel-card">
@@ -20,11 +20,11 @@
         <thead>
           <tr>
             <th>Foto</th>
-            <th>Usuario</th>
+            <th>Usuário</th>
             <th>Nome completo</th>
             <th>Perfis</th>
             <th>Status</th>
-            <th>Acoes</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -41,11 +41,11 @@
               <td>{{ item.nome_completo }}</td>
               <td>{{ item.access.get_profiles_display|join:", " }}</td>
               <td>{% if item.user.is_active %}Ativo{% else %}Inativo{% endif %}</td>
-              <td><a href="{% url 'accounts:editar_usuario_permissoes' item.user.pk %}">Editar permissoes</a></td>
+              <td><a href="{% url 'accounts:editar_usuario_permissoes' item.user.pk %}">Editar permissões</a></td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="6">Nenhum usuario encontrado.</td>
+              <td colspan="6">Nenhum usuário encontrado.</td>
             </tr>
           {% endfor %}
         </tbody>

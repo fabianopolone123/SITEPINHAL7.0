@@ -693,7 +693,7 @@ class WhatsAppView(LoginRequiredMixin, View):
 
     def _director_guard(self, request):
         if not _is_diretor(request.user):
-            messages.error(request, 'Seu perfil nao possui permissao para acessar WhatsApp.')
+            messages.error(request, 'Seu perfil não possui permissão para acessar WhatsApp.')
             return redirect('accounts:painel')
         return None
 
@@ -822,12 +822,12 @@ class WhatsAppView(LoginRequiredMixin, View):
                 )
             messages.success(
                 request,
-                f'Preferencias salvas. Testes enviados: {sent_count}. Falhas: {failed_count}.',
+                f'Preferências salvas. Testes enviados: {sent_count}. Falhas: {failed_count}.',
             )
             if failed_items:
                 messages.error(request, 'Falhas: ' + ' | '.join(failed_items[:3]))
         else:
-            messages.success(request, 'Preferencias de notificacao salvas com sucesso.')
+            messages.success(request, 'Preferências de notificação salvas com sucesso.')
 
         if cadastro_enabled:
             preview = ', '.join(cadastro_enabled[:6])
@@ -837,7 +837,7 @@ class WhatsAppView(LoginRequiredMixin, View):
                 f'Cadastro marcado para: {preview}{suffix}',
             )
         else:
-            messages.info(request, 'Nenhum contato esta marcado para receber notificacao de Cadastro.')
+            messages.info(request, 'Nenhum contato está marcado para receber notificação de Cadastro.')
 
         context = {
             'rows': self._users_context(),

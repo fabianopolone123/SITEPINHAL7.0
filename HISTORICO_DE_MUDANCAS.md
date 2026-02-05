@@ -139,3 +139,4 @@ Ele Ã© a memÃ³ria oficial do sistema.
 - [x] Tela `/whatsapp/` no celular foi reorganizada: coluna Contato unificada (username + nome), input de telefone com melhor leitura e cards mais legiveis com checkboxes maiores.
 - [x] Horario nas notificacoes de WhatsApp e no painel agora usa `timezone.localtime()` (America/Sao_Paulo), evitando exibicao em UTC.
 - [x] Novos usuarios agora iniciam sem receber notificacoes de WhatsApp por padrao (checkbox Cadastro desmarcado ate ser habilitado manualmente).
+- [x] Ajustados textos para padrao pt-BR com acentos (UI e mensagens), incluindo Início, Usuários, Você e Notificações.

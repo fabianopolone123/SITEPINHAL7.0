@@ -18,8 +18,8 @@
       <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
 
       {% if request.user.is_authenticated %}
-        <h2>Voce ja esta logado</h2>
-        <p>Usuario atual: <strong>{{ request.user.username }}</strong></p>
+        <h2>Você já está logado</h2>
+        <p>Usuário atual: <strong>{{ request.user.username }}</strong></p>
         <div class="action-row">
           <a href="{% url 'accounts:painel' %}" class="primary">Entrar direto</a>
           <a href="{% url 'accounts:logout' %}" class="secondary">Entrar com outra conta</a>
@@ -28,7 +28,7 @@
         <h2>Entrar</h2>
         <form class="login-form" method="post" action="{% url 'accounts:login' %}">
           {% csrf_token %}
-          <label for="username">Nome de usuario</label>
+          <label for="username">Nome de usuário</label>
           <input id="username" name="username" type="text" placeholder="pinhal.junior" autocomplete="username" />
 
           <label for="password">Senha</label>
