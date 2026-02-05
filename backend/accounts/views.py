@@ -217,6 +217,16 @@ class RegisterView(View):
         return render(request, self.template_name)
 
 
+class LogoutRedirectView(View):
+    def get(self, request):
+        logout(request)
+        messages.success(request, 'Sessão encerrada. Faça login para continuar.')
+        return redirect('accounts:login')
+
+    def post(self, request):
+        return self.get(request)
+
+
 class ResponsavelView(View):
     template_name = 'responsavel.html'
 

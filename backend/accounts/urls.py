@@ -1,9 +1,10 @@
 from django.urls import path
 from django.views.generic import RedirectView
-from django.contrib.auth.views import LoginView, LogoutView
+from django.contrib.auth.views import LoginView
 
 from .views import (
     RegisterView,
+    LogoutRedirectView,
     ResponsavelView,
     DiretoriaView,
     AventuraView,
@@ -49,5 +50,5 @@ urlpatterns = [
     path('aventureiros-gerais/', AventureirosGeraisView.as_view(), name='aventureiros_gerais'),
     path('aventureiros-gerais/<int:pk>/', AventureiroGeralDetalheView.as_view(), name='aventureiro_geral'),
     path('login/', LoginView.as_view(template_name='login.html'), name='login'),
-    path('logout/', LogoutView.as_view(next_page='accounts:login'), name='logout'),
+    path('logout/', LogoutRedirectView.as_view(), name='logout'),
 ]
