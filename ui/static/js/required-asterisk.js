@@ -19,7 +19,23 @@
     var wrapped = field.closest ? field.closest('label') : null;
     if (wrapped) return wrapped;
     if (!field.id) return null;
-    return form.querySelector('label[for="' + field.id + '"]');
+    var byFor = form.querySelector('label[for="' + field.id + '"]');
+    if (byFor) return byFor;
+    return null;
+  }
+
+  function findNearestSiblingLabel(field) {
+    var previous = field.previousElementSibling;
+    if (previous && previous.tagName === 'LABEL') return previous;
+    var parent = field.parentElement;
+    if (!parent) return null;
+    var children = parent.children;
+    for (var i = 0; i < children.length; i += 1) {
+      if (children[i] !== field) continue;
+      if (i > 0 && children[i - 1].tagName === 'LABEL') return children[i - 1];
+      break;
+    }
+    return null;
   }
 
   function appendMark(label) {
@@ -42,9 +58,9 @@
       if (target.type === 'hidden') continue;
 
       if (target.type === 'radio' || target.type === 'checkbox') {
-        appendMark(findLabelForField(form, target));
+        appendMark(findLabelForField(form, target) || findNearestSiblingLabel(target));
       } else {
-        appendMark(findLabelForField(form, target));
+        appendMark(findLabelForField(form, target) || findNearestSiblingLabel(target));
       }
     }
   }
@@ -54,7 +70,7 @@
     for (var i = 0; i < fields.length; i += 1) {
       var field = fields[i];
       if (field.type === 'hidden') continue;
-      appendMark(findLabelForField(form, field));
+      appendMark(findLabelForField(form, field) || findNearestSiblingLabel(field));
     }
   }
 
