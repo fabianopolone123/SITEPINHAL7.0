@@ -245,3 +245,26 @@ class WhatsAppTemplate(models.Model):
 
     def __str__(self):
         return f'{self.get_notification_type_display()}'
+
+
+class DocumentoTemplate(models.Model):
+    TYPE_RESPONSAVEL = 'responsavel'
+    TYPE_AVENTUREIRO = 'aventureiro'
+
+    TYPE_CHOICES = [
+        (TYPE_RESPONSAVEL, 'Responsável'),
+        (TYPE_AVENTUREIRO, 'Aventureiro'),
+    ]
+
+    name = models.CharField('nome', max_length=120)
+    template_type = models.CharField('tipo', max_length=24, choices=TYPE_CHOICES)
+    background = models.ImageField('imagem de fundo', upload_to='documentos/templates')
+    positions = models.JSONField('posições', default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'template de documento'
+        verbose_name_plural = 'templates de documentos'
+
+    def __str__(self):
+        return f'{self.name} ({self.get_template_type_display()})'
