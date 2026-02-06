@@ -105,15 +105,40 @@
   }
 
   function createFieldElementFromStored(item) {
+    function migrateKey(key, label) {
+      if (!key) return key;
+      if (key.indexOf('av_') === 0 || key.indexOf('resp_') === 0 || key.indexOf('dir_') === 0) return key;
+
+      var l = (label || '').toLowerCase();
+      if (l.indexOf('diretoria') === 0) {
+        if (key === 'nome') return 'dir_nome';
+        if (key === 'nascimento') return 'dir_nascimento';
+        if (key === 'email') return 'dir_email';
+        if (key === 'whatsapp') return 'dir_whatsapp';
+        if (key === 'foto') return 'dir_foto';
+        if (key === 'assinatura') return 'dir_assinatura';
+      }
+      if (l.indexOf('responsavel') === 0 || l.indexOf('pai') === 0 || l.indexOf('mae') === 0 || l.indexOf('endereco') === 0) {
+        if (key === 'assinatura') return 'resp_assinatura';
+        // leave others as-is, backend fallback can still resolve
+        return key;
+      }
+      // default to aventureiro
+      if (key === 'foto') return 'av_foto';
+      if (key === 'assinatura') return 'av_assinatura';
+      return 'av_' + key;
+    }
+
     // Stored positions are saved in "natural image pixels".
     var scale = getScale();
+    var migratedKey = migrateKey(item.key, item.label);
     var x = scale.scaleX ? item.x / scale.scaleX : item.x;
     var y = scale.scaleY ? item.y / scale.scaleY : item.y;
     var w = scale.scaleX ? item.w / scale.scaleX : item.w;
     var h = scale.scaleY ? item.h / scale.scaleY : item.h;
     var fontSize = scale.scaleX ? (item.font_size / scale.scaleX) : item.font_size;
     createFieldElement({
-      key: item.key,
+      key: migratedKey,
       label: item.label,
       type: item.type,
       x: x,
