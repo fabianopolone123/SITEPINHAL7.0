@@ -409,6 +409,43 @@ a.secondary {
   color: #0f172a;
 }
 
+.documentos-item {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.documentos-link {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  text-decoration: none;
+  color: #0f172a;
+}
+
+.documentos-delete-form {
+  margin: 0;
+}
+
+.danger {
+  border: 1px solid rgba(185, 28, 28, 0.35);
+  background: #fff;
+  color: #b91c1c;
+  font-weight: 700;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.danger:hover {
+  background: #fef2f2;
+  border-color: rgba(185, 28, 28, 0.6);
+}
+
 .documentos-lista li.active a {
   border-color: #6366f1;
   box-shadow: 0 10px 20px rgba(99, 102, 241, 0.15);

@@ -1041,6 +1041,18 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
                 template.save(update_fields=['positions', 'updated_at'])
                 messages.success(request, 'Posi??es salvas com sucesso.')
                 return redirect(f"{request.path}?template={template.pk}")
+        elif action == 'delete_template':
+            template_id = request.POST.get('template_id')
+            template = DocumentoTemplate.objects.filter(pk=template_id).first()
+            if not template:
+                messages.error(request, 'Template não encontrado.')
+                return redirect(request.path)
+            # Remove the uploaded background file as well.
+            if template.background:
+                template.background.delete(save=False)
+            template.delete()
+            messages.success(request, 'Template apagado com sucesso.')
+            return redirect(request.path)
         return redirect(request.path)
 
 

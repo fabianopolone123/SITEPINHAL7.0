@@ -48,9 +48,18 @@
         <ul class="documentos-lista">
           {% for template in templates %}
             <li class="{% if selected_template and template.pk == selected_template.pk %}active{% endif %}">
-              <a href="?template={{ template.pk }}">
-                {{ template.name }} <span>{{ template.get_template_type_display }}</span>
-              </a>
+              <div class="documentos-item">
+                <a class="documentos-link" href="?template={{ template.pk }}">
+                  <span class="documentos-name">{{ template.name }}</span>
+                  <span class="documentos-type">{{ template.get_template_type_display }}</span>
+                </a>
+                <form method="post" class="documentos-delete-form" onsubmit="return confirm('Apagar este template?');">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete_template" />
+                  <input type="hidden" name="template_id" value="{{ template.pk }}" />
+                  <button type="submit" class="danger small-link">Apagar</button>
+                </form>
+              </div>
             </li>
           {% empty %}
             <li>Nenhum template criado.</li>
