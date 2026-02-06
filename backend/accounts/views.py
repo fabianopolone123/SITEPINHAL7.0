@@ -1030,6 +1030,7 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
             'aventureiros': aventureiros,
             'diretorias': diretorias,
             'selected_template': selected,
+            'selected_positions': (selected.positions if selected else []) or [],
             'fields': fields,
             'template_types': DocumentoTemplate.TYPE_CHOICES,
         }

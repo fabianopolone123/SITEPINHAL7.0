@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 {% load static %}
+{% load json_script %}
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
@@ -165,7 +166,7 @@
             </div>
           </div>
 
-          <script type="application/json" id="doc-positions-data">{{ selected_template.positions|default:'[]'|safe }}</script>
+          {{ selected_positions|json_script:"doc-positions-data" }}
         {% else %}
           <p class="panel-note">Selecione um template para editar os campos e gerar documentos.</p>
         {% endif %}

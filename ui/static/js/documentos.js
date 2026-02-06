@@ -193,7 +193,10 @@
         createFieldElementFromStored(item);
       });
     } catch (err) {
-      // ignore
+      // Avoid silent failure; this is usually invalid JSON coming from the template.
+      if (window && window.console && window.console.warn) {
+        window.console.warn('Falha ao carregar posicoes do template:', err);
+      }
     }
   }
 
