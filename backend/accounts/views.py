@@ -114,75 +114,70 @@ def _user_display_data(user):
 def _document_fields():
     return {
         DocumentoTemplate.TYPE_RESPONSAVEL: [
-            ('responsavel_nome', 'Nome do respons?vel', 'text'),
-            ('responsavel_cpf', 'CPF do respons?vel', 'text'),
-            ('responsavel_email', 'E-mail do respons?vel', 'text'),
-            ('responsavel_telefone', 'Telefone do respons?vel', 'text'),
-            ('responsavel_celular', 'Celular do respons?vel', 'text'),
-            ('pai_nome', 'Nome do pai', 'text'),
-            ('mae_nome', 'Nome da m?e', 'text'),
-            ('endereco', 'Endere?o', 'text'),
-            ('bairro', 'Bairro', 'text'),
-            ('cidade', 'Cidade', 'text'),
-            ('cep', 'CEP', 'text'),
-            ('estado', 'Estado', 'text'),
-            ('assinatura', 'Assinatura', 'image'),
+            ('responsavel_nome', 'Responsavel - Nome', 'text'),
+            ('responsavel_cpf', 'Responsavel - CPF', 'text'),
+            ('responsavel_email', 'Responsavel - E-mail', 'text'),
+            ('responsavel_telefone', 'Responsavel - Telefone', 'text'),
+            ('responsavel_celular', 'Responsavel - WhatsApp', 'text'),
+            ('pai_nome', 'Pai - Nome', 'text'),
+            ('pai_email', 'Pai - E-mail', 'text'),
+            ('pai_celular', 'Pai - WhatsApp', 'text'),
+            ('mae_nome', 'Mae - Nome', 'text'),
+            ('mae_email', 'Mae - E-mail', 'text'),
+            ('mae_celular', 'Mae - WhatsApp', 'text'),
+            ('endereco', 'Endereco - Rua/Numero/Compl.', 'text'),
+            ('bairro', 'Endereco - Bairro', 'text'),
+            ('cidade', 'Endereco - Cidade', 'text'),
+            ('cep', 'Endereco - CEP', 'text'),
+            ('estado', 'Endereco - Estado', 'text'),
+            ('assinatura', 'Assinatura do responsavel', 'image'),
         ],
         DocumentoTemplate.TYPE_AVENTUREIRO: [
-            ('nome', 'Nome completo do aventureiro', 'text'),
-            ('sexo', 'Sexo', 'text'),
-            ('nascimento', 'Data de nascimento', 'text'),
-            ('colegio', 'Col?gio', 'text'),
-            ('serie', 'S?rie', 'text'),
-            ('bolsa', 'Bolsa Fam?lia', 'text'),
-            ('classes', 'Classes investidas', 'text'),
-            ('religiao', 'Religi?o', 'text'),
-            ('certidao', 'Certid?o de nascimento', 'text'),
-            ('rg', 'RG', 'text'),
-            ('orgao', '?rg?o expedidor', 'text'),
-            ('cpf', 'CPF', 'text'),
-            ('camiseta', 'Tamanho camiseta', 'text'),
-            ('plano', 'Plano de sa?de', 'text'),
-            ('plano_nome', 'Nome do plano', 'text'),
-            ('tipo_sangue', 'Tipo sangu?neo', 'text'),
-            ('endereco', 'Endere?o', 'text'),
-            ('bairro', 'Bairro', 'text'),
-            ('cidade', 'Cidade', 'text'),
-            ('cep', 'CEP', 'text'),
-            ('estado', 'Estado', 'text'),
-            ('responsavel_nome', 'Nome do respons?vel', 'text'),
-            ('responsavel_celular', 'WhatsApp respons?vel', 'text'),
-            ('pai_celular', 'WhatsApp pai', 'text'),
-            ('mae_celular', 'WhatsApp m?e', 'text'),
-            ('alergias', 'Alergias (resumo)', 'text'),
-            ('condicoes', 'Condi??es de sa?de (resumo)', 'text'),
-            ('foto', 'Foto 3x4', 'image'),
-            ('assinatura', 'Assinatura', 'image'),
+            ('nome', 'Aventureiro - Nome completo', 'text'),
+            ('sexo', 'Aventureiro - Sexo', 'text'),
+            ('nascimento', 'Aventureiro - Data de nascimento', 'text'),
+            ('colegio', 'Aventureiro - Colegio', 'text'),
+            ('serie', 'Aventureiro - Serie', 'text'),
+            ('bolsa', 'Aventureiro - Bolsa Familia', 'text'),
+            ('classes', 'Aventureiro - Classes investidas (nao salvo)', 'text'),
+            ('religiao', 'Aventureiro - Religiao', 'text'),
+            ('certidao', 'Documentos - Certidao', 'text'),
+            ('rg', 'Documentos - RG', 'text'),
+            ('orgao', 'Documentos - Orgao expedidor', 'text'),
+            ('cpf', 'Documentos - CPF', 'text'),
+            ('camiseta', 'Aventureiro - Camiseta', 'text'),
+            ('plano', 'Saude - Plano', 'text'),
+            ('plano_nome', 'Saude - Nome do plano', 'text'),
+            ('tipo_sangue', 'Saude - Tipo sanguineo', 'text'),
+            ('alergias', 'Saude - Alergias (resumo)', 'text'),
+            ('condicoes', 'Saude - Condicoes (resumo)', 'text'),
+            ('foto', 'Foto 3x4 do aventureiro', 'image'),
+            ('assinatura', 'Assinatura do aventureiro', 'image'),
         ],
         DocumentoTemplate.TYPE_DIRETORIA: [
-            ('nome', 'Nome', 'text'),
-            ('igreja', 'Igreja', 'text'),
-            ('endereco', 'Endere?o', 'text'),
-            ('distrito', 'Distrito', 'text'),
-            ('numero', 'N?mero', 'text'),
-            ('bairro', 'Bairro', 'text'),
-            ('cep', 'CEP', 'text'),
-            ('cidade', 'Cidade', 'text'),
-            ('estado', 'Estado', 'text'),
-            ('email', 'E-mail', 'text'),
-            ('whatsapp', 'WhatsApp', 'text'),
-            ('telefone_residencial', 'Telefone residencial', 'text'),
-            ('telefone_comercial', 'Telefone comercial', 'text'),
-            ('nascimento', 'Data de nascimento', 'text'),
-            ('estado_civil', 'Estado civil', 'text'),
-            ('cpf', 'CPF', 'text'),
-            ('rg', 'RG', 'text'),
-            ('conjuge', 'Esposa(o)', 'text'),
-            ('filho_1', 'Filho(a) 1', 'text'),
-            ('filho_2', 'Filho(a) 2', 'text'),
-            ('filho_3', 'Filho(a) 3', 'text'),
-            ('foto', 'Foto 3x4', 'image'),
-            ('assinatura', 'Assinatura', 'image'),
+            ('nome', 'Diretoria - Nome', 'text'),
+            ('igreja', 'Diretoria - Igreja', 'text'),
+            ('endereco', 'Diretoria - Endereco', 'text'),
+            ('distrito', 'Diretoria - Distrito', 'text'),
+            ('numero', 'Diretoria - Numero', 'text'),
+            ('bairro', 'Diretoria - Bairro', 'text'),
+            ('cep', 'Diretoria - CEP', 'text'),
+            ('cidade', 'Diretoria - Cidade', 'text'),
+            ('estado', 'Diretoria - Estado', 'text'),
+            ('email', 'Diretoria - E-mail', 'text'),
+            ('whatsapp', 'Diretoria - WhatsApp', 'text'),
+            ('telefone_residencial', 'Diretoria - Tel. residencial', 'text'),
+            ('telefone_comercial', 'Diretoria - Tel. comercial', 'text'),
+            ('nascimento', 'Diretoria - Nascimento', 'text'),
+            ('estado_civil', 'Diretoria - Estado civil', 'text'),
+            ('cpf', 'Diretoria - CPF', 'text'),
+            ('rg', 'Diretoria - RG', 'text'),
+            ('conjuge', 'Diretoria - Conjuge', 'text'),
+            ('filho_1', 'Diretoria - Filho(a) 1', 'text'),
+            ('filho_2', 'Diretoria - Filho(a) 2', 'text'),
+            ('filho_3', 'Diretoria - Filho(a) 3', 'text'),
+            ('foto', 'Foto 3x4 da diretoria', 'image'),
+            ('assinatura', 'Assinatura da diretoria', 'image'),
         ],
     }
 
@@ -199,6 +194,39 @@ def _combined_document_fields():
     return fields
 
 
+def _document_field_groups():
+    def pick(keys):
+        mapping = {}
+        for group in _document_fields().values():
+            for key, label, field_type in group:
+                mapping[key] = (key, label, field_type)
+        return [mapping[k] for k in keys if k in mapping]
+
+    groups = [
+        ('Aventureiro', pick([
+            'nome', 'sexo', 'nascimento', 'colegio', 'serie', 'bolsa', 'religiao',
+            'camiseta', 'tipo_sangue', 'plano', 'plano_nome',
+        ])),
+        ('Documentos', pick(['certidao', 'rg', 'orgao', 'cpf'])),
+        ('Responsavel', pick([
+            'responsavel_nome', 'responsavel_cpf', 'responsavel_email',
+            'responsavel_telefone', 'responsavel_celular',
+        ])),
+        ('Pai', pick(['pai_nome', 'pai_email', 'pai_celular'])),
+        ('Mae', pick(['mae_nome', 'mae_email', 'mae_celular'])),
+        ('Endereco', pick(['endereco', 'bairro', 'cidade', 'cep', 'estado'])),
+        ('Saude (Resumo)', pick(['alergias', 'condicoes'])),
+        ('Imagens', pick(['foto', 'assinatura'])),
+        ('Diretoria', pick([
+            'nome', 'igreja', 'email', 'whatsapp',
+            'endereco', 'bairro', 'cidade', 'cep', 'estado',
+            'assinatura',
+        ])),
+    ]
+    # Remove empty groups.
+    return [{'title': title, 'items': items} for (title, items) in groups if items]
+
+
 def _collect_responsavel_data(responsavel):
     return {
         'responsavel_nome': responsavel.responsavel_nome,
@@ -207,7 +235,9 @@ def _collect_responsavel_data(responsavel):
         'responsavel_telefone': responsavel.responsavel_telefone,
         'responsavel_celular': responsavel.responsavel_celular,
         'pai_nome': responsavel.pai_nome,
+        'pai_email': responsavel.pai_email,
         'mae_nome': responsavel.mae_nome,
+        'mae_email': responsavel.mae_email,
         'pai_celular': responsavel.pai_celular,
         'mae_celular': responsavel.mae_celular,
         'endereco': responsavel.endereco,
@@ -993,7 +1023,7 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
         if selected_id:
             selected = DocumentoTemplate.objects.filter(pk=selected_id).first()
             if selected:
-                fields = _combined_document_fields()
+                fields = _document_field_groups()
         context = {
             'templates': templates,
             'responsaveis': responsaveis,

@@ -104,6 +104,26 @@
     });
   }
 
+  function createFieldElementFromStored(item) {
+    // Stored positions are saved in "natural image pixels".
+    var scale = getScale();
+    var x = scale.scaleX ? item.x / scale.scaleX : item.x;
+    var y = scale.scaleY ? item.y / scale.scaleY : item.y;
+    var w = scale.scaleX ? item.w / scale.scaleX : item.w;
+    var h = scale.scaleY ? item.h / scale.scaleY : item.h;
+    var fontSize = scale.scaleX ? (item.font_size / scale.scaleX) : item.font_size;
+    createFieldElement({
+      key: item.key,
+      label: item.label,
+      type: item.type,
+      x: x,
+      y: y,
+      w: w,
+      h: h,
+      font_size: Math.max(8, Math.round(fontSize || 18)),
+    });
+  }
+
   function enableDrag(el) {
     el.addEventListener('pointerdown', function (event) {
       activeDrag = el;
@@ -158,7 +178,7 @@
     items.forEach(function (item) {
       item.addEventListener('dragstart', function (event) {
         event.dataTransfer.setData('text/key', item.dataset.key);
-        event.dataTransfer.setData('text/label', item.textContent);
+        event.dataTransfer.setData('text/label', item.dataset.label || item.textContent);
         event.dataTransfer.setData('text/type', item.dataset.type || 'text');
       });
     });
@@ -170,7 +190,7 @@
     try {
       var positions = JSON.parse(script.textContent || '[]');
       positions.forEach(function (item) {
-        createFieldElement(item);
+        createFieldElementFromStored(item);
       });
     } catch (err) {
       // ignore
@@ -270,7 +290,11 @@
   }
 
   setupPalette();
-  loadSavedPositions();
+  if (background && !background.complete) {
+    background.addEventListener('load', loadSavedPositions, { once: true });
+  } else {
+    loadSavedPositions();
+  }
   setupGenerateLinks();
   window.addEventListener('resize', positionControls);
 })();

@@ -74,8 +74,19 @@
 
           <div class="documentos-editor">
             <div class="documentos-campos" id="doc-fields">
-              {% for key, label, field_type in fields %}
-                <div class="doc-field-pill" draggable="true" data-key="{{ key }}" data-type="{{ field_type }}">{{ label }}</div>
+              {% for group in fields %}
+                <div class="doc-field-group">
+                  <div class="doc-field-group-title">{{ group.title }}</div>
+                  {% for key, label, field_type in group.items %}
+                    <div
+                      class="doc-field-pill"
+                      draggable="true"
+                      data-key="{{ key }}"
+                      data-type="{{ field_type }}"
+                      data-label="{{ label }}"
+                    >{{ label }}</div>
+                  {% endfor %}
+                </div>
               {% endfor %}
             </div>
             <div class="documentos-canvas-wrap">
