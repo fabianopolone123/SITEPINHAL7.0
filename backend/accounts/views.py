@@ -318,8 +318,14 @@ def _render_document_image(template, data):
             except OSError:
                 continue
             if w > 0 and h > 0:
-                stamp = stamp.resize((w, h))
-            img.paste(stamp, (x, y), stamp)
+                # Preserve aspect ratio inside the target box.
+                stamp.thumbnail((w, h))
+                paste_x = x + max((w - stamp.width) // 2, 0)
+                paste_y = y + max((h - stamp.height) // 2, 0)
+            else:
+                paste_x = x
+                paste_y = y
+            img.paste(stamp, (paste_x, paste_y), stamp)
         else:
             value = data.get(key) or ''
             if not value:

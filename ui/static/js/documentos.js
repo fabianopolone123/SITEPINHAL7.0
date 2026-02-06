@@ -186,6 +186,7 @@
       var y = (rect.top - canvasRect.top) * scale.scaleY;
       var w = rect.width * scale.scaleX;
       var h = rect.height * scale.scaleY;
+      var fontScale = scale.scaleX;
       return {
         key: el.dataset.key,
         label: el.textContent,
@@ -194,7 +195,7 @@
         y: Math.round(y),
         w: Math.round(w),
         h: Math.round(h),
-        font_size: Number(el.dataset.fontSize || 18),
+        font_size: Math.max(8, Math.round((Number(el.dataset.fontSize || 18)) * fontScale)),
       };
     });
     return data;
