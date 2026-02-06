@@ -1031,6 +1031,7 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
             'diretorias': diretorias,
             'selected_template': selected,
             'selected_positions': (selected.positions if selected else []) or [],
+            'selected_positions_json': json.dumps((selected.positions if selected else []) or []),
             'fields': fields,
             'template_types': DocumentoTemplate.TYPE_CHOICES,
         }
