@@ -1,5 +1,6 @@
 ﻿import copy
 import json
+import os
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -292,14 +293,28 @@ def _collect_diretoria_data(diretoria):
     }
 
 
+
+
+def _load_document_font(size):
+    candidates = [
+        os.path.join(os.path.dirname(__file__), '..', '..', 'ui', 'static', 'fonts', 'DejaVuSans.ttf'),
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            try:
+                return ImageFont.truetype(path, size)
+            except OSError:
+                continue
+    return ImageFont.load_default()
+
+
 def _render_document_image(template, data):
     background_path = template.background.path
     img = Image.open(background_path).convert('RGBA')
     draw = ImageDraw.Draw(img)
-    try:
-        base_font = ImageFont.truetype('arial.ttf', 18)
-    except OSError:
-        base_font = ImageFont.load_default()
+    base_font = _load_document_font(18)
 
     for item in template.positions or []:
         key = item.get('key')
@@ -330,10 +345,7 @@ def _render_document_image(template, data):
             value = data.get(key) or ''
             if not value:
                 continue
-            try:
-                font = ImageFont.truetype('arial.ttf', font_size)
-            except OSError:
-                font = base_font
+            font = _load_document_font(font_size) or base_font
             draw.text((x, y), str(value), fill=(15, 23, 42), font=font)
 
     output = BytesIO()
