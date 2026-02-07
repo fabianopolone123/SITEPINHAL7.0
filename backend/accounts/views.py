@@ -1375,8 +1375,6 @@ class NovoCadastroDiretoriaCompromissoView(View):
         missing = [name for name in required if not str(fields.get(name, '')).strip()]
         if not fields.get('declaracao_medica'):
             missing.append('declaracao_medica')
-        if fields.get('possui_limitacao_saude') == 'sim' and not str(fields.get('limitacao_saude_descricao', '')).strip():
-            missing.append('limitacao_saude_descricao')
         if missing:
             messages.error(request, 'Preencha todos os campos obrigatórios do compromisso.')
             return render(request, self.template_name, {'step_data': fields})
