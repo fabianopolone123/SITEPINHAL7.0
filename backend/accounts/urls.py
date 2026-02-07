@@ -31,6 +31,7 @@ from .views import (
     UsuarioDetalheView,
     UsuarioPermissaoEditarView,
     DocumentosInscricaoView,
+    DocumentoInscricaoVisualizarView,
     DocumentoGerarView,
 )
 
@@ -66,6 +67,7 @@ urlpatterns = [
     path('usuarios/', UsuariosView.as_view(), name='usuarios'),
     path('whatsapp/', WhatsAppView.as_view(), name='whatsapp'),
     path('documentos/', DocumentosInscricaoView.as_view(), name='documentos_inscricao'),
+    path('documentos/inscricao-gerado/<int:pk>/', DocumentoInscricaoVisualizarView.as_view(), name='documento_inscricao_visualizar'),
     path('documentos/gerar/<int:template_id>/<str:kind>/<int:pk>/', DocumentoGerarView.as_view(), name='documento_gerar'),
     path('usuarios/<int:pk>/', UsuarioDetalheView.as_view(), name='usuario_detalhe'),
     path('usuarios/<int:pk>/editar/', UsuarioPermissaoEditarView.as_view(), name='editar_usuario_permissoes'),

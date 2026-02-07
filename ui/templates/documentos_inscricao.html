@@ -1,17 +1,17 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 {% load static %}
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Documentos de inscrição</title>
+  <title>Documentos de inscricao</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
 </head>
 <body class="painel-page">
   {% include '_painel_sidebar.html' %}
   <main class="painel-content">
     <header class="painel-header">
-      <h2>Documentos de inscrição</h2>
+      <h2>Documentos de inscricao</h2>
       <p>Carregue o fundo da ficha, posicione os campos e gere os documentos preenchidos.</p>
     </header>
 
@@ -20,7 +20,7 @@
         {% for message in messages %}
           <p data-state="{{ message.tags }}">{{ message }}</p>
         {% empty %}
-          <p data-state="info">Crie um template para começar.</p>
+          <p data-state="info">Crie um template para comecar.</p>
         {% endfor %}
       </div>
     </section>
@@ -99,7 +99,7 @@
           <div class="documentos-floating-controls" id="doc-floating-controls">
             <div class="documentos-floating-header">
               <strong>Campo selecionado</strong>
-              <button type="button" id="doc-controls-close" aria-label="Fechar ajustes">×</button>
+              <button type="button" id="doc-controls-close" aria-label="Fechar ajustes">x</button>
             </div>
             <div class="documentos-controls-grid">
               <label>Tamanho da fonte
@@ -120,49 +120,54 @@
             <input type="hidden" name="action" value="save_positions" />
             <input type="hidden" name="template_id" value="{{ selected_template.pk }}" />
             <input type="hidden" name="positions_json" id="doc-positions" />
-            <button type="submit" class="primary">Salvar posições</button>
+            <button type="submit" class="primary">Salvar posicoes</button>
           </form>
 
           <div class="documentos-gerar">
-            <h3>Gerar documentos</h3>
-            <div class="documentos-gerar-grid">
-              <div>
-                <h4>Responsáveis</h4>
-                <select class="doc-select" id="doc-responsavel-select">
-                  <option value="">Selecione um responsável</option>
-                  {% for responsavel in responsaveis %}
-                    <option value="{{ responsavel.pk }}">
-                      {{ responsavel.user.username }} - {{ responsavel.responsavel_nome|default:responsavel.mae_nome|default:responsavel.pai_nome }}
-                    </option>
-                  {% endfor %}
-                </select>
-                <a class="secondary small-link" id="doc-responsavel-generate" href="#" target="_blank">Gerar ficha</a>
-              </div>
-              <div>
-                <h4>Aventureiros</h4>
-                <select class="doc-select" id="doc-aventureiro-select">
-                  <option value="">Selecione um aventureiro</option>
-                  {% for aventureiro in aventureiros %}
-                    <option value="{{ aventureiro.pk }}">
-                      {{ aventureiro.nome }} ({{ aventureiro.responsavel.user.username }})
-                    </option>
-                  {% endfor %}
-                </select>
-                <a class="secondary small-link" id="doc-aventureiro-generate" href="#" target="_blank">Gerar ficha</a>
-              </div>
-              <div>
-                <h4>Diretoria</h4>
-                <select class="doc-select" id="doc-diretoria-select">
-                  <option value="">Selecione a diretoria</option>
-                  {% for diretoria in diretorias %}
-                    <option value="{{ diretoria.pk }}">
-                      {{ diretoria.user.username }} - {{ diretoria.nome }}
-                    </option>
-                  {% endfor %}
-                </select>
-                <a class="secondary small-link" id="doc-diretoria-generate" href="#" target="_blank">Gerar ficha</a>
-              </div>
-            </div>
+            <h3>Gerar documentos de inscricao</h3>
+            <form method="post" class="form-compact">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="generate_doc" />
+              <label>Tipo de documento</label>
+              <select name="doc_type" required>
+                <option value="">Selecione o tipo</option>
+                {% for value, label in doc_generate_types %}
+                  <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+              <label>Nome do aventureiro</label>
+              <select name="aventureiro_id" required>
+                <option value="">Selecione o aventureiro</option>
+                {% for aventureiro in aventureiros %}
+                  <option value="{{ aventureiro.pk }}">
+                    {{ aventureiro.nome }} ({{ aventureiro.responsavel.user.username }})
+                  </option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="primary">Gerar</button>
+            </form>
+
+            <h4 style="margin-top:16px;">Documentos gerados</h4>
+            <ul class="documentos-lista">
+              {% for doc in documentos_gerados %}
+                <li>
+                  <div class="documentos-item">
+                    <a class="documentos-link" href="{% url 'accounts:documento_inscricao_visualizar' doc.pk %}" target="_blank">
+                      <span class="documentos-name">{{ doc.get_doc_type_display }} - {{ doc.aventureiro.nome }}</span>
+                      <span class="documentos-type">{{ doc.created_at|date:"d/m/Y H:i" }}</span>
+                    </a>
+                    <form method="post" class="documentos-delete-form" onsubmit="return confirm('Excluir este documento gerado?');">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="delete_generated_doc" />
+                      <input type="hidden" name="doc_id" value="{{ doc.pk }}" />
+                      <button type="submit" class="danger small-link">Excluir</button>
+                    </form>
+                  </div>
+                </li>
+              {% empty %}
+                <li>Nenhum documento gerado ainda.</li>
+              {% endfor %}
+            </ul>
           </div>
 
           {{ selected_positions|json_script:"doc-positions-data" }}

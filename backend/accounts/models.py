@@ -305,3 +305,30 @@ class AventureiroFicha(models.Model):
 
     def __str__(self):
         return f'Ficha completa - {self.aventureiro.nome}'
+
+
+class DocumentoInscricaoGerado(models.Model):
+    TYPE_INSCRICAO = 'ficha_inscricao'
+    TYPE_MEDICA = 'ficha_medica'
+    TYPE_DECLARACAO = 'declaracao_medica'
+    TYPE_TERMO = 'termo_imagem'
+
+    TYPE_CHOICES = [
+        (TYPE_INSCRICAO, 'Ficha de inscrição'),
+        (TYPE_MEDICA, 'Ficha médica'),
+        (TYPE_DECLARACAO, 'Declaração médica'),
+        (TYPE_TERMO, 'Termo de imagem'),
+    ]
+
+    aventureiro = models.ForeignKey(Aventureiro, on_delete=models.CASCADE, related_name='documentos_gerados')
+    doc_type = models.CharField('tipo de documento', max_length=32, choices=TYPE_CHOICES)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='documentos_inscricao_gerados')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'documento de inscrição gerado'
+        verbose_name_plural = 'documentos de inscrição gerados'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f'{self.get_doc_type_display()} - {self.aventureiro.nome}'

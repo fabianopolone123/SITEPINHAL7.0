@@ -30,6 +30,7 @@ from .models import (
     WhatsAppTemplate,
     DocumentoTemplate,
     AventureiroFicha,
+    DocumentoInscricaoGerado,
 )
 from .utils import decode_signature, decode_photo
 from .whatsapp import (
@@ -1776,6 +1777,37 @@ class UsuariosView(LoginRequiredMixin, View):
         return render(request, self.template_name, context)
 
 
+def _documento_tipo_label(doc_type):
+    mapping = dict(DocumentoInscricaoGerado.TYPE_CHOICES)
+    return mapping.get(doc_type, doc_type)
+
+
+def _build_documento_gerado_context(documento):
+    aventureiro = documento.aventureiro
+    responsavel = aventureiro.responsavel
+    ficha = getattr(aventureiro, 'ficha_completa', None)
+    inscricao = (ficha.inscricao_data if ficha else {}) or {}
+    medica = (ficha.ficha_medica_data if ficha else {}) or {}
+    declaracao = (ficha.declaracao_medica_data if ficha else {}) or {}
+    termo = (ficha.termo_imagem_data if ficha else {}) or {}
+
+    return {
+        'documento': documento,
+        'doc_label': _documento_tipo_label(documento.doc_type),
+        'aventureiro': aventureiro,
+        'responsavel': responsavel,
+        'ficha': ficha,
+        'inscricao': inscricao,
+        'medica': medica,
+        'declaracao': declaracao,
+        'termo': termo,
+        'foto_url': aventureiro.foto.url if aventureiro.foto else '',
+        'assinatura_inscricao_url': ficha.assinatura_inscricao.url if ficha and ficha.assinatura_inscricao else '',
+        'assinatura_declaracao_url': ficha.assinatura_declaracao_medica.url if ficha and ficha.assinatura_declaracao_medica else '',
+        'assinatura_termo_url': ficha.assinatura_termo_imagem.url if ficha and ficha.assinatura_termo_imagem else '',
+    }
+
+
 
 
 class DocumentosInscricaoView(LoginRequiredMixin, View):
@@ -1795,6 +1827,7 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
         responsaveis = Responsavel.objects.select_related('user').order_by('user__username')
         aventureiros = Aventureiro.objects.select_related('responsavel', 'responsavel__user').order_by('nome')
         diretorias = Diretoria.objects.select_related('user').order_by('user__username')
+        documentos_gerados = DocumentoInscricaoGerado.objects.select_related('aventureiro', 'aventureiro__responsavel', 'aventureiro__responsavel__user')
         selected_id = request.GET.get('template')
         selected = None
         fields = []
@@ -1812,6 +1845,8 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
             'selected_positions_json': json.dumps((selected.positions if selected else []) or []),
             'fields': fields,
             'template_types': DocumentoTemplate.TYPE_CHOICES,
+            'doc_generate_types': DocumentoInscricaoGerado.TYPE_CHOICES,
+            'documentos_gerados': documentos_gerados,
         }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
@@ -1835,6 +1870,36 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
                 )
                 messages.success(request, 'Template criado. Ajuste as posi??es e salve.')
                 return redirect(f"{request.path}?template={template.pk}")
+        elif action == 'generate_doc':
+            aventura_id = request.POST.get('aventureiro_id')
+            doc_type = request.POST.get('doc_type')
+            aventureiro = Aventureiro.objects.filter(pk=aventura_id).first()
+            if not aventureiro:
+                messages.error(request, 'Selecione um aventureiro válido para gerar o documento.')
+                return redirect(request.path)
+            if doc_type not in {item[0] for item in DocumentoInscricaoGerado.TYPE_CHOICES}:
+                messages.error(request, 'Selecione um tipo de documento válido.')
+                return redirect(request.path)
+            ficha = getattr(aventureiro, 'ficha_completa', None)
+            if not ficha:
+                messages.error(request, 'Esse aventureiro ainda não possui as fichas completas salvas.')
+                return redirect(request.path)
+            documento = DocumentoInscricaoGerado.objects.create(
+                aventureiro=aventureiro,
+                doc_type=doc_type,
+                created_by=request.user,
+            )
+            messages.success(request, f'Documento gerado: {_documento_tipo_label(doc_type)} para {aventureiro.nome}.')
+            return redirect('accounts:documento_inscricao_visualizar', pk=documento.pk)
+        elif action == 'delete_generated_doc':
+            doc_id = request.POST.get('doc_id')
+            documento = DocumentoInscricaoGerado.objects.filter(pk=doc_id).first()
+            if not documento:
+                messages.error(request, 'Documento gerado não encontrado.')
+                return redirect(request.path)
+            documento.delete()
+            messages.success(request, 'Documento gerado excluído com sucesso.')
+            return redirect(request.path)
         elif action == 'save_positions':
             template_id = request.POST.get('template_id')
             template = DocumentoTemplate.objects.filter(pk=template_id).first()
@@ -1864,6 +1929,22 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
             messages.success(request, 'Template apagado com sucesso.')
             return redirect(request.path)
         return redirect(request.path)
+
+
+class DocumentoInscricaoVisualizarView(LoginRequiredMixin, View):
+    template_name = 'documento_inscricao_visualizar.html'
+
+    def get(self, request, pk):
+        if not _is_diretor(request.user):
+            messages.error(request, 'Seu perfil não possui permissão para visualizar documentos gerados.')
+            return redirect('accounts:painel')
+        documento = get_object_or_404(
+            DocumentoInscricaoGerado.objects.select_related('aventureiro', 'aventureiro__responsavel', 'aventureiro__responsavel__user'),
+            pk=pk,
+        )
+        context = _build_documento_gerado_context(documento)
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
 
 
 class DocumentoGerarView(LoginRequiredMixin, View):

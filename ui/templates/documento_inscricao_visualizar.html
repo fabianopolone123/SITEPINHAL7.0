@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ doc_label }} - {{ aventureiro.nome }}</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body class="painel-page">
+  <main class="painel-content" style="max-width: 980px; margin: 0 auto;">
+    <header class="painel-header">
+      <h2>{{ doc_label }}</h2>
+      <p>Aventureiro: <strong>{{ aventureiro.nome }}</strong> | Responsavel: <strong>{{ responsavel.responsavel_nome|default:responsavel.mae_nome|default:responsavel.pai_nome }}</strong></p>
+    </header>
+
+    <section class="painel-card">
+      <div class="action-row" style="margin-bottom: 12px;">
+        <button class="secondary" type="button" onclick="window.print()">Imprimir</button>
+      </div>
+
+      {% if documento.doc_type == 'ficha_inscricao' %}
+        <h3>Ficha de inscricao</h3>
+        <p><strong>Nome completo:</strong> {{ inscricao.nome_completo|default:aventureiro.nome }}</p>
+        <p><strong>Sexo:</strong> {{ inscricao.sexo|default:aventureiro.sexo }}</p>
+        <p><strong>Nascimento:</strong> {{ inscricao.data_nascimento|default:'-' }}</p>
+        <p><strong>Colegio / Serie:</strong> {{ inscricao.colegio|default:aventureiro.colegio }} / {{ inscricao.serie|default:aventureiro.serie }}</p>
+        <p><strong>Endereco:</strong> {{ inscricao.endereco|default:responsavel.endereco }} - {{ inscricao.bairro|default:responsavel.bairro }} - {{ inscricao.cidade|default:responsavel.cidade }}</p>
+        <p><strong>Documentos:</strong> Certidao {{ inscricao.certidao_nascimento|default:aventureiro.certidao }} | RG {{ inscricao.rg|default:aventureiro.rg }} | CPF {{ inscricao.cpf_aventureiro|default:aventureiro.cpf }}</p>
+        {% if foto_url %}
+          <p><strong>Foto 3x4</strong></p>
+          <img src="{{ foto_url }}" alt="Foto 3x4" style="max-width: 180px; border: 1px solid #cbd5e1; border-radius: 8px;" />
+        {% endif %}
+        {% if assinatura_inscricao_url %}
+          <p style="margin-top: 12px;"><strong>Assinatura</strong></p>
+          <img src="{{ assinatura_inscricao_url }}" alt="Assinatura inscricao" style="max-width: 340px; border: 1px solid #cbd5e1; border-radius: 8px;" />
+        {% endif %}
+      {% elif documento.doc_type == 'ficha_medica' %}
+        <h3>Ficha medica</h3>
+        <p><strong>Plano de saude:</strong> {{ medica.plano_saude|default:'-' }} {% if medica.qual_plano %}({{ medica.qual_plano }}){% endif %}</p>
+        <p><strong>CNS/SUS:</strong> {{ medica.cns_sus|default:'-' }}</p>
+        <p><strong>Doencas:</strong> {{ medica.doencas|default:'-' }}</p>
+        <p><strong>Alergia pele:</strong> {{ medica.alergia_pele|default:'-' }}</p>
+        <p><strong>Alergia alimentar:</strong> {{ medica.alergia_alimentar|default:'-' }}</p>
+        <p><strong>Alergia medicamento:</strong> {{ medica.alergia_medicamento|default:'-' }}</p>
+        <p><strong>Cardiacos:</strong> {{ medica.cardiacos|default:'-' }} | <strong>Diabetico:</strong> {{ medica.diabetico|default:'-' }}</p>
+        <p><strong>Renais:</strong> {{ medica.renais|default:'-' }} | <strong>Psicologicos:</strong> {{ medica.psicologicos|default:'-' }}</p>
+        <p><strong>Tipo sanguineo:</strong> {{ medica.tipo_sangue|default:aventureiro.tipo_sangue|default:'-' }}</p>
+      {% elif documento.doc_type == 'declaracao_medica' %}
+        <h3>Declaracao medica</h3>
+        <p><strong>Cidade/Data:</strong> {{ declaracao.cidade_data|default:'-' }}, {{ declaracao.dia_data|default:'-' }} de {{ declaracao.mes_data|default:'-' }} de {{ declaracao.ano_data|default:'-' }}</p>
+        {% if assinatura_declaracao_url %}
+          <p style="margin-top: 12px;"><strong>Assinatura</strong></p>
+          <img src="{{ assinatura_declaracao_url }}" alt="Assinatura declaracao medica" style="max-width: 340px; border: 1px solid #cbd5e1; border-radius: 8px;" />
+        {% endif %}
+      {% elif documento.doc_type == 'termo_imagem' %}
+        <h3>Termo de imagem</h3>
+        <p><strong>Aventureiro:</strong> {{ termo.nome_aventureiro_termo|default:aventureiro.nome }}</p>
+        <p><strong>Responsavel:</strong> {{ termo.responsavel_nome_termo|default:responsavel.responsavel_nome }}</p>
+        <p><strong>Contato:</strong> {{ termo.telefone_contato_termo|default:'-' }} | {{ termo.email_contato_termo|default:'-' }}</p>
+        <p><strong>Cidade/Data:</strong> {{ termo.cidade_data|default:'-' }}, {{ termo.dia_data|default:'-' }} de {{ termo.mes_data|default:'-' }} de {{ termo.ano_data|default:'-' }}</p>
+        {% if assinatura_termo_url %}
+          <p style="margin-top: 12px;"><strong>Assinatura</strong></p>
+          <img src="{{ assinatura_termo_url }}" alt="Assinatura termo imagem" style="max-width: 340px; border: 1px solid #cbd5e1; border-radius: 8px;" />
+        {% endif %}
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>
