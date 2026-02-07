@@ -849,6 +849,11 @@ class NovoCadastroMedicaView(View):
         if not str(fields.get('plano_saude', '')).strip():
             messages.error(request, 'Informe se tem plano de saúde para continuar.')
             return render(request, self.template_name, {'step_data': fields})
+        required_radios = ['cardiacos', 'diabetico', 'renais', 'psicologicos']
+        missing = [name for name in required_radios if not str(fields.get(name, '')).strip()]
+        if missing:
+            messages.error(request, 'Preencha todos os campos obrigatórios de condições de saúde.')
+            return render(request, self.template_name, {'step_data': fields})
         data['current']['medica'] = fields
         _set_new_flow_data(request.session, data)
         return redirect('accounts:novo_cadastro_declaracao')
