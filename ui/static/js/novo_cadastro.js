@@ -6,7 +6,8 @@
     style.textContent = '' +
       '.required-mark{color:#b91c1c;font-weight:700;margin-left:4px;}' +
       '.required-missing{outline:2px solid rgba(185,28,28,.45)!important;border-color:#b91c1c!important;border-radius:6px;}' +
-      '.required-widget-missing{border:2px solid rgba(185,28,28,.45)!important;border-radius:8px;padding:8px;}';
+      '.required-widget-missing{border:2px solid rgba(185,28,28,.45)!important;border-radius:8px;padding:8px;}' +
+      '.duplicate-missing{outline:2px solid rgba(185,28,28,.45)!important;border-color:#b91c1c!important;border-radius:6px;}';
     document.head.appendChild(style);
   }
 
@@ -39,6 +40,9 @@
     });
     form.querySelectorAll('.required-widget-missing').forEach(function (el) {
       el.classList.remove('required-widget-missing');
+    });
+    form.querySelectorAll('.duplicate-missing').forEach(function (el) {
+      el.classList.remove('duplicate-missing');
     });
   }
 
@@ -82,7 +86,106 @@
         status.innerHTML = '<p data-state="error">Preencha todos os campos obrigatórios (*) antes de continuar.</p>';
       }
     }
-    return !hasError;
+    return !hasError && !form.dataset.hasDuplicateError;
+  }
+
+  function normalizeCpf(value) {
+    return String(value || '').replace(/\D+/g, '');
+  }
+
+  function normalizeDocText(value) {
+    return String(value || '').toUpperCase().replace(/[^A-Z0-9]+/g, '');
+  }
+
+  function markDuplicateStatus(form, field, message) {
+    form.dataset.hasDuplicateError = '1';
+    field.classList.add('duplicate-missing');
+    var status = form.querySelector('.status');
+    if (status) {
+      status.innerHTML = '<p data-state="error">' + message + '</p>';
+    }
+  }
+
+  function clearDuplicateStatus(form, field) {
+    field.classList.remove('duplicate-missing');
+    var hasAny = form.querySelector('.duplicate-missing');
+    if (!hasAny) {
+      delete form.dataset.hasDuplicateError;
+    }
+  }
+
+  function initDocumentDuplicateCheck() {
+    var form = document.querySelector('form[data-doc-check-url]');
+    if (!form) return;
+    var url = form.getAttribute('data-doc-check-url');
+    if (!url) return;
+
+    var fields = [
+      { name: 'cpf_aventureiro', type: 'cpf', min: 11 },
+      { name: 'cpf_pai', type: 'cpf', min: 11 },
+      { name: 'cpf_mae', type: 'cpf', min: 11 },
+      { name: 'cpf_responsavel', type: 'cpf', min: 11 },
+      { name: 'rg', type: 'doc', min: 4 },
+      { name: 'certidao_nascimento', type: 'doc', min: 6 }
+    ];
+
+    fields.forEach(function (cfg) {
+      var field = form.querySelector('[name="' + cfg.name + '"]');
+      if (!field) return;
+      var timer = null;
+
+      function normalizeLocal() {
+        if (cfg.type === 'cpf') {
+          field.value = normalizeCpf(field.value);
+        } else {
+          field.value = normalizeDocText(field.value);
+        }
+      }
+
+      function checkDuplicate() {
+        normalizeLocal();
+        var value = String(field.value || '').trim();
+        if (!value || value.length < cfg.min) {
+          clearDuplicateStatus(form, field);
+          return;
+        }
+        var params = new URLSearchParams({ field: cfg.name, value: value });
+        fetch(url + '?' + params.toString(), {
+          method: 'GET',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            if (!data || data.ok !== true) return;
+            if (data.normalized) {
+              field.value = data.normalized;
+            }
+            if (data.duplicate) {
+              markDuplicateStatus(form, field, data.message || 'Documento já cadastrado.');
+            } else {
+              clearDuplicateStatus(form, field);
+            }
+          })
+          .catch(function () {});
+      }
+
+      field.addEventListener('input', function () {
+        normalizeLocal();
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(checkDuplicate, 350);
+      });
+      field.addEventListener('blur', checkDuplicate);
+    });
+
+    form.addEventListener('submit', function (event) {
+      if (form.dataset.hasDuplicateError) {
+        event.preventDefault();
+        var status = form.querySelector('.status');
+        if (status) {
+          status.innerHTML = '<p data-state="error">Existem documentos duplicados. Corrija para continuar.</p>';
+        }
+      }
+    });
   }
 
   function initRequiredMarkersAndValidation() {
@@ -267,4 +370,5 @@
   initPhotoToDataUrl();
   initSignatureWidgets();
   initRequiredMarkersAndValidation();
+  initDocumentDuplicateCheck();
 })();

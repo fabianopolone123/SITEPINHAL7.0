@@ -1,6 +1,7 @@
 ﻿import copy
 import json
 import os
+import re
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -39,7 +40,7 @@ from .whatsapp import (
     render_message,
     get_template_message,
 )
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 from datetime import date
@@ -655,6 +656,60 @@ def _normalize_bool(value):
     return str(value).strip().lower() in {'1', 'true', 'sim', 's', 'on', 'yes'}
 
 
+def _normalize_cpf(value):
+    return ''.join(ch for ch in str(value or '') if ch.isdigit())
+
+
+def _normalize_doc_text(value):
+    raw = str(value or '').upper()
+    return re.sub(r'[^A-Z0-9]', '', raw)
+
+
+def _normalize_inscricao_docs(fields):
+    cpf_fields = ['cpf_aventureiro', 'cpf_pai', 'cpf_mae', 'cpf_responsavel']
+    for key in cpf_fields:
+        if key in fields:
+            fields[key] = _normalize_cpf(fields.get(key))
+    if 'rg' in fields:
+        fields['rg'] = _normalize_doc_text(fields.get('rg'))
+    if 'certidao_nascimento' in fields:
+        fields['certidao_nascimento'] = _normalize_doc_text(fields.get('certidao_nascimento'))
+    return fields
+
+
+def _find_duplicate_document(field_name, normalized_value):
+    value = str(normalized_value or '').strip()
+    if not value:
+        return None
+
+    if field_name in {'cpf_aventureiro', 'cpf_pai', 'cpf_mae', 'cpf_responsavel'}:
+        if Aventureiro.objects.filter(cpf=value).exists():
+            return 'CPF já cadastrado em aventureiro.'
+        if Diretoria.objects.filter(cpf=value).exists():
+            return 'CPF já cadastrado em diretoria.'
+        if Responsavel.objects.filter(pai_cpf=value).exists():
+            return 'CPF já cadastrado como CPF do pai.'
+        if Responsavel.objects.filter(mae_cpf=value).exists():
+            return 'CPF já cadastrado como CPF da mãe.'
+        if Responsavel.objects.filter(responsavel_cpf=value).exists():
+            return 'CPF já cadastrado como CPF do responsável.'
+        return None
+
+    if field_name == 'rg':
+        if Aventureiro.objects.filter(rg=value).exists():
+            return 'RG já cadastrado em aventureiro.'
+        if Diretoria.objects.filter(rg=value).exists():
+            return 'RG já cadastrado em diretoria.'
+        return None
+
+    if field_name == 'certidao_nascimento':
+        if Aventureiro.objects.filter(certidao=value).exists():
+            return 'Certidão já cadastrada em aventureiro.'
+        return None
+
+    return None
+
+
 def _date_parts_today():
     now = timezone.localtime(timezone.now())
     meses_ptbr = [
@@ -820,7 +875,20 @@ class NovoCadastroInscricaoView(View):
         if data is None:
             return redirect('accounts:novo_cadastro_login')
         fields = _extract_fields(request.POST, self.field_names)
+        _normalize_inscricao_docs(fields)
         _apply_date_defaults(fields)
+        duplicate_fields = ['cpf_aventureiro', 'cpf_pai', 'cpf_mae', 'cpf_responsavel', 'rg', 'certidao_nascimento']
+        for field_name in duplicate_fields:
+            duplicate_message = _find_duplicate_document(field_name, fields.get(field_name))
+            if duplicate_message:
+                messages.error(request, duplicate_message)
+                initial = _date_parts_today()
+                initial.update(fields)
+                return render(request, self.template_name, {
+                    'initial': initial,
+                    'step_data': fields,
+                    'has_saved_aventureiros': bool(data.get('aventures')),
+                })
         required = ['nome_completo', 'data_nascimento', 'nome_responsavel', 'assinatura_inscricao', 'foto_3x4']
         missing = [name for name in required if not str(fields.get(name, '')).strip()]
         if missing:
@@ -840,6 +908,30 @@ class NovoCadastroInscricaoView(View):
         data['current'] = current
         _set_new_flow_data(request.session, data)
         return redirect('accounts:novo_cadastro_medica')
+
+
+class VerificarDocumentoView(View):
+    def get(self, request):
+        field = str(request.GET.get('field', '')).strip()
+        value = request.GET.get('value', '')
+        if not field:
+            return JsonResponse({'ok': False, 'error': 'Campo inválido.'}, status=400)
+
+        if field in {'cpf_aventureiro', 'cpf_pai', 'cpf_mae', 'cpf_responsavel'}:
+            normalized = _normalize_cpf(value)
+        elif field in {'rg', 'certidao_nascimento'}:
+            normalized = _normalize_doc_text(value)
+        else:
+            return JsonResponse({'ok': False, 'error': 'Campo não suportado.'}, status=400)
+
+        duplicate_message = _find_duplicate_document(field, normalized)
+        return JsonResponse({
+            'ok': True,
+            'field': field,
+            'normalized': normalized,
+            'duplicate': bool(duplicate_message),
+            'message': duplicate_message or '',
+        })
 
 
 class NovoCadastroMedicaView(View):
