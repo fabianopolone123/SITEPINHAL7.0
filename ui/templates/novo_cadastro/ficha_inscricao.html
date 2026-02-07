@@ -101,10 +101,11 @@
       <div class="grid g2" style="margin-top:8px;"><div class="field"><div class="label">Telefone:</div><input type="tel" name="tel_responsavel" value="{{ step_data.tel_responsavel|default:'' }}" /></div><div class="field"><div class="label">Celular:</div><input type="tel" name="cel_responsavel" value="{{ step_data.cel_responsavel|default:'' }}" /></div></div>
 
       <div class="sign">
-        <div class="grid g3">
+        <div class="grid" style="grid-template-columns:1.7fr .8fr 1.1fr .9fr;">
           <div class="field"><div class="label">Cidade</div><input type="text" name="cidade_data" value="{{ step_data.cidade_data|default:initial.cidade_data|default:'' }}" /></div>
           <div class="field"><div class="label">Dia</div><input type="text" name="dia_data" value="{{ step_data.dia_data|default:initial.dia_data|default:'' }}" /></div>
-          <div class="field"><div class="label">Mês/Ano</div><input type="text" name="mes_data" value="{{ step_data.mes_data|default:initial.mes_data|default:'' }}" /><input type="hidden" name="ano_data" value="{{ step_data.ano_data|default:initial.ano_data|default:'' }}" /></div>
+          <div class="field"><div class="label">Mês</div><input type="text" name="mes_data" value="{{ step_data.mes_data|default:initial.mes_data|default:'' }}" /></div>
+          <div class="field"><div class="label">Ano</div><input type="text" name="ano_data" value="{{ step_data.ano_data|default:initial.ano_data|default:'' }}" /></div>
         </div>
         <div class="signature-widget" style="margin-top:12px;">
           <p class="required-sign-label">Atesto serem <b>VERDADEIRAS</b> todas as informações acima preenchidas:</p>
