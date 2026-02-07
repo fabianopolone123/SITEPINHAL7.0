@@ -812,6 +812,7 @@ class NovoCadastroInscricaoView(View):
         return render(request, self.template_name, {
             'initial': initial,
             'step_data': step_data,
+            'has_saved_aventureiros': bool(data.get('aventures')),
         })
 
     def post(self, request):
@@ -829,6 +830,7 @@ class NovoCadastroInscricaoView(View):
             return render(request, self.template_name, {
                 'initial': initial,
                 'step_data': fields,
+                'has_saved_aventureiros': bool(data.get('aventures')),
             })
         if not fields.get('cidade_data'):
             fields['cidade_data'] = fields.get('cidade', '')
@@ -999,42 +1001,70 @@ class NovoCadastroTermoImagemView(View):
 class NovoCadastroResumoView(View):
     template_name = 'novo_cadastro/resumo.html'
 
-    def _require_current_complete(self, request):
-        data = _new_flow_data(request.session)
+    def _is_current_complete(self, data):
         current = data.get('current') or {}
         required_keys = ['inscricao', 'medica', 'declaracao_medica', 'termo_imagem']
-        if not all(current.get(item) for item in required_keys):
-            return None
-        return data
+        return all(current.get(item) for item in required_keys)
+
+    def _require_access(self, request):
+        data = _new_flow_data(request.session)
+        aventureiros = data.get('aventures') or []
+        if self._is_current_complete(data):
+            return data
+        if aventureiros:
+            # Permite concluir os aventureiros já completos mesmo que a ficha atual esteja incompleta.
+            return data
+        return None
+
+    def _responsavel_nome(self, data):
+        current = data.get('current') or {}
+        inscricao = current.get('inscricao') or {}
+        if inscricao.get('nome_responsavel'):
+            return inscricao.get('nome_responsavel')
+        aventureiros = data.get('aventures') or []
+        if aventureiros:
+            return (aventureiros[0].get('inscricao') or {}).get('nome_responsavel', '')
+        return ''
 
     def get(self, request):
-        data = self._require_current_complete(request)
+        data = self._require_access(request)
         if data is None:
+            return None
             messages.error(request, 'Complete todas as fichas do aventureiro.')
             return redirect('accounts:novo_cadastro_inscricao')
         current = data.get('current', {})
         aventureiros = data.get('aventures', [])
-        preview = aventureiros + [current]
+        preview = list(aventureiros)
+        current_incomplete = False
+        if self._is_current_complete(data):
+            preview.append(current)
+        elif current:
+            current_incomplete = True
         return render(request, self.template_name, {
             'current': current,
             'aventures_preview': preview,
-            'responsavel_nome': current.get('inscricao', {}).get('nome_responsavel', ''),
+            'responsavel_nome': self._responsavel_nome(data),
+            'current_incomplete': current_incomplete,
         })
 
     def post(self, request):
         action = request.POST.get('action')
-        data = self._require_current_complete(request)
+        data = self._require_access(request)
         if data is None:
             messages.error(request, 'Complete todas as fichas do aventureiro.')
             return redirect('accounts:novo_cadastro_inscricao')
         if action == 'add_more':
-            data['aventures'].append(data['current'])
+            if self._is_current_complete(data):
+                data['aventures'].append(data['current'])
             data['current'] = {}
             _set_new_flow_data(request.session, data)
             messages.success(request, 'Aventureiro salvo temporariamente. Preencha o próximo.')
             return redirect('accounts:novo_cadastro_inscricao')
         if action == 'finalizar':
-            data['aventures'].append(data['current'])
+            if self._is_current_complete(data):
+                data['aventures'].append(data['current'])
+            elif data.get('current'):
+                messages.info(request, 'A ficha atual incompleta foi ignorada. Somente os aventureiros completos foram finalizados.')
             payload = data
             login_data = payload.get('login', {})
             if not login_data:

@@ -21,6 +21,9 @@
       </section>
       <section class="section-block">
         <div class="section-header"><span>OK</span><h2>Aventureiros ate aqui</h2></div>
+        {% if current_incomplete %}
+          <p>A ficha atual está incompleta e não será finalizada, a menos que você complete todas as etapas dela.</p>
+        {% endif %}
         {% for av in aventures_preview %}
           <article class="summary-card">
             <p><strong>{{ av.inscricao.nome_completo|default:'Sem nome' }}</strong></p>
