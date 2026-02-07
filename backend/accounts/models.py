@@ -307,6 +307,33 @@ class AventureiroFicha(models.Model):
         return f'Ficha completa - {self.aventureiro.nome}'
 
 
+class DiretoriaFicha(models.Model):
+    diretoria = models.OneToOneField(Diretoria, on_delete=models.CASCADE, related_name='ficha_completa')
+    compromisso_data = models.JSONField('dados do compromisso voluntariado', default=dict, blank=True)
+    termo_imagem_data = models.JSONField('dados do termo de imagem', default=dict, blank=True)
+    assinatura_compromisso = models.ImageField(
+        'assinatura do compromisso voluntariado',
+        upload_to='signatures/fichas/diretoria_compromisso',
+        null=True,
+        blank=True,
+    )
+    assinatura_termo_imagem = models.ImageField(
+        'assinatura do termo de imagem da diretoria',
+        upload_to='signatures/fichas/diretoria_termo_imagem',
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'ficha completa da diretoria'
+        verbose_name_plural = 'fichas completas da diretoria'
+
+    def __str__(self):
+        return f'Ficha completa da diretoria - {self.diretoria.nome}'
+
+
 class DocumentoInscricaoGerado(models.Model):
     TYPE_INSCRICAO = 'ficha_inscricao'
     TYPE_MEDICA = 'ficha_medica'

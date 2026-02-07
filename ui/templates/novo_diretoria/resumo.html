@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resumo do cadastro da diretoria</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="branding">
+      <p class="eyebrow">Novo cadastro</p>
+      <h1>Resumo da diretoria</h1>
+      <p class="subtitle">Confira os dados e finalize o cadastro.</p>
+    </div>
+    <main class="login-card">
+      <h2>{{ nome_diretoria }}</h2>
+      <p><strong>Usuário:</strong> {{ login_username }}</p>
+      <ul>
+        {% for item in ok_items %}
+          <li>{{ item }} OK</li>
+        {% endfor %}
+      </ul>
+      <div class="status" aria-live="polite">
+        {% for message in messages %}
+          <p data-state="{{ message.tags }}">{{ message }}</p>
+        {% endfor %}
+      </div>
+      <form method="post">
+        {% csrf_token %}
+        <button class="primary" type="submit">Finalizar</button>
+      </form>
+    </main>
+  </div>
+</body>
+</html>

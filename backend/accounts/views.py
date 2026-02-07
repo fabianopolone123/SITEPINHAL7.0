@@ -30,6 +30,7 @@ from .models import (
     WhatsAppTemplate,
     DocumentoTemplate,
     AventureiroFicha,
+    DiretoriaFicha,
     DocumentoInscricaoGerado,
 )
 from .utils import decode_signature, decode_photo
@@ -620,6 +621,7 @@ def _enqueue_pending_aventure(session, cleaned_data):
 
 
 NEW_FLOW_SESSION_KEY = 'novo_cadastro_aventureiro'
+NEW_DIRETORIA_FLOW_SESSION_KEY = 'novo_cadastro_diretoria'
 
 
 def _new_flow_data(session):
@@ -637,6 +639,21 @@ def _set_new_flow_data(session, data):
 def _clear_new_flow(session):
     if NEW_FLOW_SESSION_KEY in session:
         del session[NEW_FLOW_SESSION_KEY]
+        session.modified = True
+
+
+def _new_diretoria_flow_data(session):
+    return session.get(NEW_DIRETORIA_FLOW_SESSION_KEY, {'login': {}})
+
+
+def _set_new_diretoria_flow_data(session, data):
+    session[NEW_DIRETORIA_FLOW_SESSION_KEY] = data
+    session.modified = True
+
+
+def _clear_new_diretoria_flow(session):
+    if NEW_DIRETORIA_FLOW_SESSION_KEY in session:
+        del session[NEW_DIRETORIA_FLOW_SESSION_KEY]
         session.modified = True
 
 
@@ -1292,6 +1309,287 @@ class NovoCadastroResumoView(View):
             messages.success(request, 'Cadastro efetuado com sucesso.')
             return redirect('accounts:login')
         return redirect('accounts:novo_cadastro_resumo')
+
+
+class NovoCadastroDiretoriaLoginView(View):
+    template_name = 'novo_diretoria/login_inicio.html'
+
+    def get(self, request):
+        _clear_new_diretoria_flow(request.session)
+        return render(request, self.template_name, {'form': NovoCadastroLoginForm()})
+
+    def post(self, request):
+        form = NovoCadastroLoginForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, 'Corrija os campos para continuar.')
+            return render(request, self.template_name, {'form': form})
+        data = _new_diretoria_flow_data(request.session)
+        data['login'] = {
+            'username': form.cleaned_data['username'].strip(),
+            'password': form.cleaned_data['password'],
+        }
+        _set_new_diretoria_flow_data(request.session, data)
+        return redirect('accounts:novo_diretoria_compromisso')
+
+
+class NovoCadastroDiretoriaCompromissoView(View):
+    template_name = 'novo_diretoria/compromisso_voluntariado.html'
+    field_names = [
+        'nome', 'igreja', 'endereco', 'distrito', 'numero', 'bairro', 'cep', 'cidade',
+        'estado', 'email', 'whatsapp', 'telefone_residencial', 'telefone_comercial',
+        'nascimento', 'estado_civil', 'cpf', 'rg', 'conjuge', 'filho_1', 'filho_2', 'filho_3',
+        'possui_limitacao_saude', 'limitacao_saude_descricao', 'escolaridade',
+        'declaracao_medica', 'foto_3x4', 'assinatura_compromisso',
+    ]
+
+    def _require_login_step(self, request):
+        data = _new_diretoria_flow_data(request.session)
+        if not data.get('login'):
+            messages.error(request, 'Comece pelo login da diretoria.')
+            return None
+        return data
+
+    def get(self, request):
+        data = self._require_login_step(request)
+        if data is None:
+            return redirect('accounts:novo_diretoria_login')
+        current = data.get('current') or {}
+        step_data = current.get('compromisso') or {}
+        return render(request, self.template_name, {'step_data': step_data})
+
+    def post(self, request):
+        data = self._require_login_step(request)
+        if data is None:
+            return redirect('accounts:novo_diretoria_login')
+        fields = _extract_fields(request.POST, self.field_names)
+        fields['cpf'] = _normalize_cpf(fields.get('cpf'))
+        fields['rg'] = _normalize_doc_text(fields.get('rg'))
+        fields['declaracao_medica'] = _normalize_bool(fields.get('declaracao_medica'))
+
+        required = [
+            'nome', 'igreja', 'endereco', 'distrito', 'numero', 'bairro', 'cep', 'cidade',
+            'estado', 'email', 'whatsapp', 'telefone_residencial', 'telefone_comercial',
+            'nascimento', 'estado_civil', 'cpf', 'rg', 'conjuge', 'filho_1', 'filho_2', 'filho_3',
+            'possui_limitacao_saude', 'escolaridade', 'foto_3x4', 'assinatura_compromisso',
+        ]
+        missing = [name for name in required if not str(fields.get(name, '')).strip()]
+        if not fields.get('declaracao_medica'):
+            missing.append('declaracao_medica')
+        if fields.get('possui_limitacao_saude') == 'sim' and not str(fields.get('limitacao_saude_descricao', '')).strip():
+            missing.append('limitacao_saude_descricao')
+        if missing:
+            messages.error(request, 'Preencha todos os campos obrigatórios do compromisso.')
+            return render(request, self.template_name, {'step_data': fields})
+
+        cpf_duplicate = _find_duplicate_document('cpf_aventureiro', fields.get('cpf'))
+        if cpf_duplicate:
+            messages.error(request, cpf_duplicate)
+            return render(request, self.template_name, {'step_data': fields})
+        rg_duplicate = _find_duplicate_document('rg', fields.get('rg'))
+        if rg_duplicate:
+            messages.error(request, rg_duplicate)
+            return render(request, self.template_name, {'step_data': fields})
+
+        current = data.get('current') or {}
+        current['compromisso'] = fields
+        data['current'] = current
+        _set_new_diretoria_flow_data(request.session, data)
+        return redirect('accounts:novo_diretoria_termo')
+
+
+class NovoCadastroDiretoriaTermoView(View):
+    template_name = 'novo_diretoria/termo_imagem.html'
+    field_names = [
+        'nome_diretoria_termo', 'nacionalidade_diretoria_termo', 'responsavel_nome_termo',
+        'responsavel_nacionalidade_termo', 'responsavel_estado_civil_termo',
+        'responsavel_rg_termo', 'responsavel_cpf_termo', 'responsavel_endereco_termo',
+        'responsavel_numero_termo', 'responsavel_cidade_termo', 'responsavel_estado_termo',
+        'cidade_data', 'dia_data', 'mes_data', 'ano_data', 'telefone_contato_termo',
+        'email_contato_termo', 'assinatura_termo_imagem', 'autorizacao_imagem',
+    ]
+
+    def _require_compromisso_step(self, request):
+        data = _new_diretoria_flow_data(request.session)
+        current = data.get('current') or {}
+        if not data.get('login') or not current.get('compromisso'):
+            return None
+        return data
+
+    def get(self, request):
+        data = self._require_compromisso_step(request)
+        if data is None:
+            messages.error(request, 'Preencha o compromisso da diretoria antes do termo.')
+            return redirect('accounts:novo_diretoria_compromisso')
+        compromisso = data.get('current', {}).get('compromisso', {})
+        termo = data.get('current', {}).get('termo_imagem', {})
+        initial = _date_parts_today()
+        initial.update({
+            'nome_diretoria_termo': compromisso.get('nome', ''),
+            'nacionalidade_diretoria_termo': 'Brasileiro',
+            'responsavel_nome_termo': compromisso.get('nome', ''),
+            'responsavel_nacionalidade_termo': 'Brasileiro',
+            'responsavel_estado_civil_termo': compromisso.get('estado_civil', ''),
+            'responsavel_rg_termo': compromisso.get('rg', ''),
+            'responsavel_cpf_termo': compromisso.get('cpf', ''),
+            'responsavel_endereco_termo': compromisso.get('endereco', ''),
+            'responsavel_numero_termo': compromisso.get('numero', ''),
+            'responsavel_cidade_termo': compromisso.get('cidade', ''),
+            'responsavel_estado_termo': compromisso.get('estado', ''),
+            'telefone_contato_termo': compromisso.get('whatsapp', ''),
+            'email_contato_termo': compromisso.get('email', ''),
+            'cidade_data': compromisso.get('cidade', ''),
+        })
+        initial.update(termo)
+        _apply_date_defaults(initial)
+        return render(request, self.template_name, {'initial': initial, 'step_data': termo})
+
+    def post(self, request):
+        data = self._require_compromisso_step(request)
+        if data is None:
+            messages.error(request, 'Preencha o compromisso da diretoria antes do termo.')
+            return redirect('accounts:novo_diretoria_compromisso')
+        fields = _extract_fields(request.POST, self.field_names)
+        fields['autorizacao_imagem'] = _normalize_bool(fields.get('autorizacao_imagem'))
+        _apply_date_defaults(fields)
+        if not str(fields.get('nacionalidade_diretoria_termo', '')).strip():
+            fields['nacionalidade_diretoria_termo'] = 'Brasileiro'
+        if not str(fields.get('responsavel_nacionalidade_termo', '')).strip():
+            fields['responsavel_nacionalidade_termo'] = 'Brasileiro'
+
+        required = [
+            'nome_diretoria_termo', 'responsavel_nome_termo', 'responsavel_rg_termo',
+            'responsavel_cpf_termo', 'responsavel_endereco_termo', 'responsavel_numero_termo',
+            'responsavel_cidade_termo', 'responsavel_estado_termo',
+            'cidade_data', 'dia_data', 'mes_data', 'ano_data',
+            'telefone_contato_termo', 'email_contato_termo', 'assinatura_termo_imagem',
+        ]
+        missing = [name for name in required if not str(fields.get(name, '')).strip()]
+        if not fields.get('autorizacao_imagem'):
+            missing.append('autorizacao_imagem')
+        if missing:
+            messages.error(request, 'Preencha todos os campos obrigatórios do termo de imagem.')
+            initial = _date_parts_today()
+            initial.update(fields)
+            return render(request, self.template_name, {'initial': initial, 'step_data': fields})
+
+        current = data.get('current') or {}
+        current['termo_imagem'] = fields
+        data['current'] = current
+        _set_new_diretoria_flow_data(request.session, data)
+        return redirect('accounts:novo_diretoria_resumo')
+
+
+class NovoCadastroDiretoriaResumoView(View):
+    template_name = 'novo_diretoria/resumo.html'
+
+    def _require_steps(self, request):
+        data = _new_diretoria_flow_data(request.session)
+        current = data.get('current') or {}
+        if data.get('login') and current.get('compromisso') and current.get('termo_imagem'):
+            return data
+        return None
+
+    def get(self, request):
+        data = self._require_steps(request)
+        if data is None:
+            messages.error(request, 'Complete as etapas do cadastro da diretoria.')
+            return redirect('accounts:novo_diretoria_login')
+        compromisso = data['current']['compromisso']
+        return render(request, self.template_name, {
+            'login_username': data['login'].get('username', ''),
+            'nome_diretoria': compromisso.get('nome', ''),
+            'ok_items': [
+                'Login criado',
+                'Compromisso voluntariado preenchido',
+                'Termo de imagem assinado',
+            ],
+        })
+
+    def post(self, request):
+        data = self._require_steps(request)
+        if data is None:
+            messages.error(request, 'Complete as etapas do cadastro da diretoria.')
+            return redirect('accounts:novo_diretoria_login')
+
+        login_data = data.get('login', {})
+        compromisso = data.get('current', {}).get('compromisso', {})
+        termo = data.get('current', {}).get('termo_imagem', {})
+
+        user = User.objects.create_user(
+            username=login_data['username'],
+            password=login_data['password'],
+        )
+        access, _ = UserAccess.objects.get_or_create(
+            user=user,
+            defaults={'role': UserAccess.ROLE_DIRETORIA, 'profiles': [UserAccess.ROLE_DIRETORIA]},
+        )
+        access.add_profile(UserAccess.ROLE_DIRETORIA)
+        access.save(update_fields=['role', 'profiles', 'updated_at'])
+
+        try:
+            nascimento = date.fromisoformat(compromisso.get('nascimento', ''))
+        except ValueError:
+            nascimento = None
+
+        diretoria = Diretoria.objects.create(
+            user=user,
+            nome=compromisso.get('nome', ''),
+            igreja=compromisso.get('igreja', ''),
+            endereco=compromisso.get('endereco', ''),
+            distrito=compromisso.get('distrito', ''),
+            numero=compromisso.get('numero', ''),
+            bairro=compromisso.get('bairro', ''),
+            cep=compromisso.get('cep', ''),
+            cidade=compromisso.get('cidade', ''),
+            estado=compromisso.get('estado', ''),
+            email=compromisso.get('email', ''),
+            whatsapp=compromisso.get('whatsapp', ''),
+            telefone_residencial=compromisso.get('telefone_residencial', ''),
+            telefone_comercial=compromisso.get('telefone_comercial', ''),
+            nascimento=nascimento,
+            estado_civil=compromisso.get('estado_civil', ''),
+            cpf=compromisso.get('cpf', ''),
+            rg=compromisso.get('rg', ''),
+            conjuge=compromisso.get('conjuge', ''),
+            filho_1=compromisso.get('filho_1', ''),
+            filho_2=compromisso.get('filho_2', ''),
+            filho_3=compromisso.get('filho_3', ''),
+            possui_limitacao_saude=compromisso.get('possui_limitacao_saude', ''),
+            limitacao_saude_descricao=compromisso.get('limitacao_saude_descricao', ''),
+            escolaridade=compromisso.get('escolaridade', ''),
+            autorizacao_imagem=bool(termo.get('autorizacao_imagem')),
+            declaracao_medica=bool(compromisso.get('declaracao_medica')),
+        )
+
+        photo = decode_photo(compromisso.get('foto_3x4'))
+        if photo:
+            diretoria.foto.save(photo.name, photo, save=False)
+        assinatura_compromisso = decode_signature(compromisso.get('assinatura_compromisso'), 'diretoria_compromisso')
+        if assinatura_compromisso:
+            diretoria.assinatura.save(assinatura_compromisso.name, assinatura_compromisso, save=False)
+        diretoria.save()
+
+        ficha = DiretoriaFicha.objects.create(
+            diretoria=diretoria,
+            compromisso_data=compromisso,
+            termo_imagem_data=termo,
+        )
+        assinatura_compromisso_ficha = decode_signature(compromisso.get('assinatura_compromisso'), 'diretoria_compromisso')
+        if assinatura_compromisso_ficha:
+            ficha.assinatura_compromisso.save(
+                assinatura_compromisso_ficha.name,
+                assinatura_compromisso_ficha,
+                save=False,
+            )
+        assinatura_termo = decode_signature(termo.get('assinatura_termo_imagem'), 'diretoria_termo_imagem')
+        if assinatura_termo:
+            ficha.assinatura_termo_imagem.save(assinatura_termo.name, assinatura_termo, save=False)
+        ficha.save()
+
+        _dispatch_cadastro_notifications('Diretoria', user, diretoria.nome)
+        _clear_new_diretoria_flow(request.session)
+        messages.success(request, 'Cadastro da diretoria concluído com sucesso. Faça login para continuar.')
+        return redirect('accounts:login')
 
 
 class LogoutRedirectView(View):

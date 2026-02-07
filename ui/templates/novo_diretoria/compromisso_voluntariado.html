@@ -1,0 +1,149 @@
+<!doctype html>
+{% load static %}
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Compromisso para Voluntários</title>
+  <style>
+    :root { --orange:#f3a75a; --blue:#2aa6d6; --title:#2c6fa3; --text:#222; }
+    * { box-sizing:border-box; }
+    body { margin:0; padding:24px; font-family:"Times New Roman",serif; background:#f2f4f7; color:var(--text); }
+    .page { max-width:880px; margin:0 auto; background:#fff; border:4px solid var(--orange); padding:10px; box-shadow:0 8px 20px rgba(0,0,0,.1); }
+    .inner { border:2px solid var(--blue); padding:20px 20px 70px; min-height:1000px; position:relative; }
+    .header { text-align:center; position:relative; padding-top:10px; }
+    .header .title1 { font-weight:bold; font-size:22px; }
+    .header .title2 { font-size:14px; margin-top:4px; }
+    .logo { position:absolute; right:10px; top:0; width:90px; height:90px; object-fit:cover; border-radius:12px; border:1px solid #9ca3af; }
+    .main-title { text-align:center; font-size:36px; font-weight:bold; color:var(--title); margin:40px 0 20px; border-bottom:2px solid #cbd5e1; padding-bottom:8px; }
+    .section { margin-top:16px; }
+    .section-title { font-weight:bold; font-size:24px; margin-bottom:10px; }
+    .field { margin:10px 0; font-size:18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .line-input { border:none; border-bottom:1px solid #000; font-size:18px; outline:none; background:transparent; min-width:120px; }
+    .full { width:100%; }
+    .half { width:40%; }
+    .small { width:20%; }
+    .radio-group { display:flex; gap:18px; align-items:center; flex-wrap:wrap; font-size:18px; }
+    .textarea { width:100%; border:none; border-bottom:1px solid #000; font-size:18px; outline:none; resize:vertical; min-height:42px; background:transparent; }
+    .photo-area { margin-top:14px; border:1px dashed #93c5fd; border-radius:10px; padding:10px; max-width:320px; }
+    .photo-placeholder { width:150px; height:190px; border:1px dashed #9ca3af; display:flex; align-items:center; justify-content:center; margin-bottom:10px; font-weight:700; text-align:center; }
+    #foto-preview { width:150px; height:190px; object-fit:cover; border:1px solid #cbd5e1; display:none; margin-bottom:10px; }
+    .signature-widget canvas { width:100%; max-width:500px; border:1px solid #cbd5e5; border-radius:10px; background:#fff; min-height:130px; }
+    .action-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+    .btn { padding:9px 14px; border-radius:8px; border:1px solid #cbd5e5; background:#fff; cursor:pointer; font-size:15px; text-decoration:none; color:#0f172a; }
+    .btn.primary { background:#2c6fa3; border-color:#2c6fa3; color:#fff; }
+    .status { margin-top:12px; }
+    .status p[data-state="error"] { color:#b91c1c; }
+    .footer { position:absolute; bottom:10px; left:10px; display:flex; gap:10px; }
+    .badge { width:44px; height:44px; border-radius:50%; object-fit:cover; }
+    .required-sign-label.required-marked::after { content:" *"; color:#b91c1c; font-weight:700; }
+    @media (max-width: 768px) {
+      body { padding:8px; }
+      .main-title { font-size:28px; }
+      .field { font-size:16px; }
+      .line-input, .textarea { font-size:16px; }
+      .half, .small { width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="inner">
+      <form method="post">
+        {% csrf_token %}
+        <div class="header">
+          <div class="title1">CLUBE DE AVENTUREIROS</div>
+          <div class="title2">IGREJA ADVENTISTA DO SÉTIMO DIA</div>
+          <img class="logo" src="{% static 'images/logo_htmls.jpg' %}?v=3" alt="Logo" />
+        </div>
+        <div class="main-title">Compromisso para Voluntários</div>
+
+        <div class="section">
+          <div class="section-title">Informações Pessoais</div>
+          <div class="field">Nome: <input class="line-input full" name="nome" type="text" value="{{ step_data.nome|default:'' }}" required /></div>
+          <div class="field">Igreja: <input class="line-input half" name="igreja" type="text" value="{{ step_data.igreja|default:'' }}" required /> Distrito: <input class="line-input half" name="distrito" type="text" value="{{ step_data.distrito|default:'' }}" required /></div>
+          <div class="field">Endereço: <input class="line-input half" name="endereco" type="text" value="{{ step_data.endereco|default:'' }}" required /> Nº: <input class="line-input small" name="numero" type="text" value="{{ step_data.numero|default:'' }}" required /></div>
+          <div class="field">Bairro: <input class="line-input half" name="bairro" type="text" value="{{ step_data.bairro|default:'' }}" required /> Cidade: <input class="line-input half" name="cidade" type="text" value="{{ step_data.cidade|default:'' }}" required /></div>
+          <div class="field">CEP: <input class="line-input half" name="cep" type="text" value="{{ step_data.cep|default:'' }}" required /> Estado: <input class="line-input small" name="estado" type="text" value="{{ step_data.estado|default:'' }}" required /></div>
+          <div class="field">E-mail: <input class="line-input half" name="email" type="email" value="{{ step_data.email|default:'' }}" required /> WhatsApp: <input class="line-input half" name="whatsapp" type="text" value="{{ step_data.whatsapp|default:'' }}" required /></div>
+          <div class="field">Tel. Residencial: <input class="line-input half" name="telefone_residencial" type="text" value="{{ step_data.telefone_residencial|default:'' }}" required /> Tel. Comercial: <input class="line-input half" name="telefone_comercial" type="text" value="{{ step_data.telefone_comercial|default:'' }}" required /></div>
+          <div class="field">Data de Nascimento: <input class="line-input small" name="nascimento" type="date" value="{{ step_data.nascimento|default:'' }}" required /> Estado Civil: <input class="line-input half" name="estado_civil" type="text" value="{{ step_data.estado_civil|default:'' }}" required /></div>
+          <div class="field">CPF: <input class="line-input half" name="cpf" type="text" value="{{ step_data.cpf|default:'' }}" required /> RG: <input class="line-input half" name="rg" type="text" value="{{ step_data.rg|default:'' }}" required /></div>
+          <div class="field">Esposa(o): <input class="line-input full" name="conjuge" type="text" value="{{ step_data.conjuge|default:'' }}" required /></div>
+          <div class="field">Filho(a): <input class="line-input full" name="filho_1" type="text" value="{{ step_data.filho_1|default:'' }}" required /></div>
+          <div class="field">Filho(a): <input class="line-input full" name="filho_2" type="text" value="{{ step_data.filho_2|default:'' }}" required /></div>
+          <div class="field">Filho(a): <input class="line-input full" name="filho_3" type="text" value="{{ step_data.filho_3|default:'' }}" required /></div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Informações de Saúde</div>
+          <div class="field">Possui alguma dificuldade de saúde que limite sua participação total nas atividades do Clube de Aventureiros?</div>
+          <div class="radio-group">
+            <label><input type="radio" name="possui_limitacao_saude" value="sim" {% if step_data.possui_limitacao_saude == 'sim' %}checked{% endif %} required /> Sim</label>
+            <label><input type="radio" name="possui_limitacao_saude" value="nao" {% if step_data.possui_limitacao_saude == 'nao' %}checked{% endif %} required /> Não</label>
+          </div>
+          <div class="field">Em caso afirmativo, descreva:</div>
+          <textarea class="textarea" name="limitacao_saude_descricao">{{ step_data.limitacao_saude_descricao|default:'' }}</textarea>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Informações Educacionais</div>
+          <div class="radio-group">
+            Escolaridade:
+            <label><input type="radio" name="escolaridade" value="fundamental" {% if step_data.escolaridade == 'fundamental' %}checked{% endif %} required /> Ensino Fundamental</label>
+            <label><input type="radio" name="escolaridade" value="medio" {% if step_data.escolaridade == 'medio' %}checked{% endif %} required /> Ensino Médio</label>
+            <label><input type="radio" name="escolaridade" value="faculdade" {% if step_data.escolaridade == 'faculdade' %}checked{% endif %} required /> Faculdade</label>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="field">
+            <label>
+              <input type="checkbox" name="declaracao_medica" value="on" {% if step_data.declaracao_medica %}checked{% endif %} required />
+              Atesto serem VERDADEIRAS todas as informações médicas preenchidas e me responsabilizo por quaisquer acidentes que venha a ocorrer em decorrência do não informe de problemas médicos.
+            </label>
+          </div>
+          <div class="photo-area">
+            <p><strong>Foto 3x4</strong></p>
+            <div id="photo-placeholder" class="photo-placeholder">FOTO<br />3X4</div>
+            <img id="foto-preview" alt="Prévia da foto 3x4" />
+            <input id="foto-file" type="file" accept="image/*" />
+            <input id="foto-3x4" type="hidden" name="foto_3x4" value="{{ step_data.foto_3x4|default:'' }}" data-required="true" data-required-target=".photo-area p strong" />
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="signature-widget">
+            <p class="required-sign-label required-marked">Assinatura</p>
+            <canvas width="500" height="170"></canvas>
+            <input type="hidden" name="assinatura_compromisso" value="{{ step_data.assinatura_compromisso|default:'' }}" data-required="true" data-required-target=".required-sign-label" />
+            <div class="action-row">
+              <button type="button" class="btn" data-action="clear-sign">Limpar</button>
+              <button type="button" class="btn primary" data-action="save-sign">Salvar assinatura</button>
+            </div>
+            <p class="signature-status"></p>
+          </div>
+        </div>
+
+        <div class="status" aria-live="polite">
+          {% for message in messages %}
+            <p data-state="{{ message.tags }}">{{ message }}</p>
+          {% endfor %}
+        </div>
+
+        <div class="action-row">
+          <button type="submit" class="btn primary">Próximo</button>
+        </div>
+
+        <div class="footer">
+          <img class="badge" src="{% static 'images/icone1.png' %}?v=3" alt="Ícone 1" />
+          <img class="badge" src="{% static 'images/icone2.png' %}?v=3" alt="Ícone 2" />
+          <img class="badge" src="{% static 'images/icone3.png' %}?v=3" alt="Ícone 3" />
+          <img class="badge" src="{% static 'images/icone4.png' %}?v=3" alt="Ícone 4" />
+        </div>
+      </form>
+    </div>
+  </div>
+  <script src="{% static 'js/novo_cadastro.js' %}" defer></script>
+</body>
+</html>

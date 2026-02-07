@@ -1,0 +1,120 @@
+<!doctype html>
+{% load static %}
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Termo de Autorização de Uso de Imagem</title>
+  <style>
+    :root { --orange:#f3a75a; --blue:#2aa6d6; --title:#2c6fa3; --text:#222; }
+    * { box-sizing:border-box; }
+    body { margin:0; padding:24px; font-family:"Times New Roman",serif; background:#f2f4f7; color:var(--text); }
+    .page { max-width:880px; margin:0 auto; background:#fff; border:4px solid var(--orange); padding:10px; box-shadow:0 8px 20px rgba(0,0,0,.1); }
+    .inner { border:2px solid var(--blue); padding:20px 20px 70px; min-height:1000px; position:relative; }
+    .header { text-align:center; position:relative; padding-top:10px; }
+    .header .title1 { font-weight:bold; font-size:22px; }
+    .header .title2 { font-size:14px; margin-top:4px; }
+    .logo { position:absolute; right:10px; top:0; width:90px; height:90px; object-fit:cover; border-radius:12px; border:1px solid #9ca3af; }
+    .main-title { text-align:center; font-size:34px; font-weight:bold; color:var(--title); margin:40px 0 20px; border-bottom:2px solid #cbd5e1; padding-bottom:8px; }
+    .text { font-size:17px; line-height:1.7; text-align:justify; margin-top:20px; }
+    .line-input { border:none; border-bottom:1px solid #000; min-width:120px; font-size:17px; outline:none; text-align:center; background:transparent; }
+    .long { width:260px; } .medium { width:180px; } .short { width:100px; }
+    .date { margin-top:40px; text-align:center; font-size:18px; }
+    .final-fields { margin-top:28px; font-size:18px; }
+    .field { margin:14px 0; }
+    .signature-widget canvas { width:100%; max-width:500px; border:1px solid #cbd5e5; border-radius:10px; background:#fff; min-height:130px; }
+    .action-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:center; margin-top:10px; }
+    .btn { padding:9px 14px; border-radius:8px; border:1px solid #cbd5e5; background:#fff; cursor:pointer; font-size:15px; text-decoration:none; color:#0f172a; }
+    .btn.primary { background:#2c6fa3; border-color:#2c6fa3; color:#fff; }
+    .status { margin-top:12px; }
+    .status p[data-state="error"] { color:#b91c1c; }
+    .footer { position:absolute; bottom:10px; left:10px; display:flex; gap:10px; }
+    .badge { width:44px; height:44px; border-radius:50%; object-fit:cover; }
+    .required-sign-label.required-marked::after { content:" *"; color:#b91c1c; font-weight:700; }
+    @media (max-width: 768px) {
+      body { padding:8px; }
+      .main-title { font-size:28px; }
+      .text, .line-input { font-size:16px; }
+      .long, .medium, .short { width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="inner">
+      <form method="post">
+        {% csrf_token %}
+        <div class="header">
+          <div class="title1">CLUBE DE AVENTUREIROS</div>
+          <div class="title2">IGREJA ADVENTISTA DO SÉTIMO DIA</div>
+          <img class="logo" src="{% static 'images/logo_htmls.jpg' %}?v=3" alt="Logo" />
+        </div>
+        <div class="main-title">Termo de Autorização de Uso de Imagem</div>
+
+        <div class="text">
+          <input class="line-input long" type="text" name="nome_diretoria_termo" value="{{ step_data.nome_diretoria_termo|default:initial.nome_diretoria_termo|default:'' }}" required />,
+          nacionalidade <input class="line-input medium" type="text" name="nacionalidade_diretoria_termo" value="{{ step_data.nacionalidade_diretoria_termo|default:initial.nacionalidade_diretoria_termo|default:'Brasileiro' }}" required />,
+          neste ato devidamente representado por seu (sua) responsável legal,
+          <input class="line-input long" type="text" name="responsavel_nome_termo" value="{{ step_data.responsavel_nome_termo|default:initial.responsavel_nome_termo|default:'' }}" required />,
+          nacionalidade <input class="line-input medium" type="text" name="responsavel_nacionalidade_termo" value="{{ step_data.responsavel_nacionalidade_termo|default:initial.responsavel_nacionalidade_termo|default:'Brasileiro' }}" required />,
+          estado civil <input class="line-input medium" type="text" name="responsavel_estado_civil_termo" value="{{ step_data.responsavel_estado_civil_termo|default:initial.responsavel_estado_civil_termo|default:'' }}" required />,
+          RG nº <input class="line-input medium" type="text" name="responsavel_rg_termo" value="{{ step_data.responsavel_rg_termo|default:initial.responsavel_rg_termo|default:'' }}" required />,
+          CPF nº <input class="line-input medium" type="text" name="responsavel_cpf_termo" value="{{ step_data.responsavel_cpf_termo|default:initial.responsavel_cpf_termo|default:'' }}" required />,
+          residente na Rua <input class="line-input long" type="text" name="responsavel_endereco_termo" value="{{ step_data.responsavel_endereco_termo|default:initial.responsavel_endereco_termo|default:'' }}" required />,
+          nº <input class="line-input short" type="text" name="responsavel_numero_termo" value="{{ step_data.responsavel_numero_termo|default:initial.responsavel_numero_termo|default:'' }}" required />,
+          município de <input class="line-input medium" type="text" name="responsavel_cidade_termo" value="{{ step_data.responsavel_cidade_termo|default:initial.responsavel_cidade_termo|default:'' }}" required /> /
+          <input class="line-input short" type="text" name="responsavel_estado_termo" value="{{ step_data.responsavel_estado_termo|default:initial.responsavel_estado_termo|default:'' }}" required />.
+          <br /><br />
+          AUTORIZO o uso de imagem em todo e qualquer material entre fotos e documentos para ser utilizado em campanhas promocionais e institucionais do CLUBE DE AVENTUREIROS.
+        </div>
+
+        <div class="field">
+          <label><input type="checkbox" name="autorizacao_imagem" value="on" {% if step_data.autorizacao_imagem %}checked{% endif %} required /> Confirmo a autorização de uso de imagem.</label>
+        </div>
+
+        <div class="date">
+          <input class="line-input long" type="text" name="cidade_data" value="{{ step_data.cidade_data|default:initial.cidade_data|default:'' }}" required />,
+          dia <input class="line-input short" type="text" name="dia_data" value="{{ step_data.dia_data|default:initial.dia_data|default:'' }}" required />
+          de <input class="line-input medium" type="text" name="mes_data" value="{{ step_data.mes_data|default:initial.mes_data|default:'' }}" required />
+          de <input class="line-input short" type="text" name="ano_data" value="{{ step_data.ano_data|default:initial.ano_data|default:'' }}" required />.
+        </div>
+
+        <div class="final-fields">
+          <div class="field">Telefone para contato: <input class="line-input medium" type="text" name="telefone_contato_termo" value="{{ step_data.telefone_contato_termo|default:initial.telefone_contato_termo|default:'' }}" required /></div>
+          <div class="field">E-mail para contato: <input class="line-input medium" type="email" name="email_contato_termo" value="{{ step_data.email_contato_termo|default:initial.email_contato_termo|default:'' }}" required /></div>
+        </div>
+
+        <div class="signature-widget">
+          <p class="required-sign-label required-marked">Assinatura</p>
+          <canvas width="500" height="170"></canvas>
+          <input type="hidden" name="assinatura_termo_imagem" value="{{ step_data.assinatura_termo_imagem|default:'' }}" data-required="true" data-required-target=".required-sign-label" />
+          <div class="action-row">
+            <button type="button" class="btn" data-action="clear-sign">Limpar</button>
+            <button type="button" class="btn primary" data-action="save-sign">Salvar assinatura</button>
+          </div>
+          <p class="signature-status"></p>
+        </div>
+
+        <div class="status" aria-live="polite">
+          {% for message in messages %}
+            <p data-state="{{ message.tags }}">{{ message }}</p>
+          {% endfor %}
+        </div>
+
+        <div class="action-row">
+          <a class="btn" href="{% url 'accounts:novo_diretoria_compromisso' %}">Voltar</a>
+          <button type="submit" class="btn primary">Próximo</button>
+        </div>
+
+        <div class="footer">
+          <img class="badge" src="{% static 'images/icone1.png' %}?v=3" alt="Ícone 1" />
+          <img class="badge" src="{% static 'images/icone2.png' %}?v=3" alt="Ícone 2" />
+          <img class="badge" src="{% static 'images/icone3.png' %}?v=3" alt="Ícone 3" />
+          <img class="badge" src="{% static 'images/icone4.png' %}?v=3" alt="Ícone 4" />
+        </div>
+      </form>
+    </div>
+  </div>
+  <script src="{% static 'js/novo_cadastro.js' %}" defer></script>
+</body>
+</html>
