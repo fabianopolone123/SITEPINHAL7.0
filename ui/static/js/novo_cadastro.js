@@ -95,9 +95,14 @@
       fieldsForGlobalRequired.forEach(function (field) {
         var tag = (field.tagName || '').toLowerCase();
         var type = (field.type || '').toLowerCase();
+        var name = (field.name || '').toLowerCase();
         if (tag === 'button') return;
         if (type === 'hidden' || type === 'submit' || type === 'button' || type === 'reset') return;
         if (type === 'file') return;
+        if (field.hasAttribute('data-optional') || name === 'classes') {
+          field.required = false;
+          return;
+        }
         if (type === 'radio') {
           if (!field.name) return;
           if (!radioGroups[field.name]) {

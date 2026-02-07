@@ -657,10 +657,24 @@ def _normalize_bool(value):
 
 def _date_parts_today():
     now = timezone.localtime(timezone.now())
+    meses_ptbr = [
+        'janeiro',
+        'fevereiro',
+        'marco',
+        'abril',
+        'maio',
+        'junho',
+        'julho',
+        'agosto',
+        'setembro',
+        'outubro',
+        'novembro',
+        'dezembro',
+    ]
     return {
         'cidade_data': '',
         'dia_data': f'{now.day:02d}',
-        'mes_data': now.strftime('%B').capitalize(),
+        'mes_data': meses_ptbr[now.month - 1],
         'ano_data': str(now.year),
     }
 
