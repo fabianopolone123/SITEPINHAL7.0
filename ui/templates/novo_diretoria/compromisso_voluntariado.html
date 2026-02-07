@@ -98,16 +98,17 @@
             <label><input type="radio" name="possui_limitacao_saude" value="nao" {% if step_data.possui_limitacao_saude == 'nao' %}checked{% endif %} required /> Não</label>
           </div>
           <div class="field">Em caso afirmativo, descreva:</div>
-          <textarea class="textarea" name="limitacao_saude_descricao">{{ step_data.limitacao_saude_descricao|default:'' }}</textarea>
+          <textarea class="textarea" name="limitacao_saude_descricao" data-optional="true">{{ step_data.limitacao_saude_descricao|default:'' }}</textarea>
         </div>
 
         <div class="section">
           <div class="section-title">Informações Educacionais</div>
           <div class="radio-group">
-            Escolaridade:
-            <label><input type="radio" name="escolaridade" value="fundamental" {% if step_data.escolaridade == 'fundamental' %}checked{% endif %} required /> Ensino Fundamental</label>
-            <label><input type="radio" name="escolaridade" value="medio" {% if step_data.escolaridade == 'medio' %}checked{% endif %} required /> Ensino Médio</label>
-            <label><input type="radio" name="escolaridade" value="faculdade" {% if step_data.escolaridade == 'faculdade' %}checked{% endif %} required /> Faculdade</label>
+            <span class="escolaridade-label">Escolaridade:</span>
+            <label><input type="radio" name="escolaridade" value="fundamental" {% if step_data.escolaridade == 'fundamental' %}checked{% endif %} /> Ensino Fundamental</label>
+            <label><input type="radio" name="escolaridade" value="medio" {% if step_data.escolaridade == 'medio' %}checked{% endif %} /> Ensino Médio</label>
+            <label><input type="radio" name="escolaridade" value="faculdade" {% if step_data.escolaridade == 'faculdade' %}checked{% endif %} /> Faculdade</label>
+            <input type="hidden" id="escolaridade-required" value="{{ step_data.escolaridade|default:'' }}" data-required="true" data-required-target=".escolaridade-label" />
           </div>
         </div>
 
@@ -153,5 +154,20 @@
     </div>
   </div>
   <script src="{% static 'js/novo_cadastro.js' %}" defer></script>
+  <script>
+    (function () {
+      var radios = document.querySelectorAll('input[name="escolaridade"]');
+      var hidden = document.getElementById('escolaridade-required');
+      if (!radios.length || !hidden) return;
+      function sync() {
+        var checked = document.querySelector('input[name="escolaridade"]:checked');
+        hidden.value = checked ? checked.value : '';
+      }
+      radios.forEach(function (radio) {
+        radio.addEventListener('change', sync);
+      });
+      sync();
+    })();
+  </script>
 </body>
 </html>
