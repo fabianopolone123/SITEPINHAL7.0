@@ -23,7 +23,7 @@
 <body>
   <div class="page"><div class="inner">
     <form method="post">{% csrf_token %}
-      <div class="header"><div class="title1">CLUBE DE AVENTUREIROS</div><div class="title2">IGREJA ADVENTISTA DO SÉTIMO DIA</div><img class="logo" src="{% static 'images/htmls/logo.jpg' %}" alt="Logo" /></div>
+      <div class="header"><div class="title1">CLUBE DE AVENTUREIROS</div><div class="title2">IGREJA ADVENTISTA DO SÉTIMO DIA</div><img class="logo" src="{% static 'images/logo_htmls.jpg' %}?v=2" alt="Logo" /></div>
       <div class="content">
         <div class="date-line"><input class="long-input" type="text" name="cidade_data" value="{{ step_data.cidade_data|default:initial.cidade_data|default:'' }}" placeholder="Cidade" />, <input class="date-input" type="text" name="dia_data" value="{{ step_data.dia_data|default:initial.dia_data|default:'' }}" placeholder="dia" /> de <input class="long-input" type="text" name="mes_data" value="{{ step_data.mes_data|default:initial.mes_data|default:'' }}" placeholder="mês" /> de <input class="date-input" type="text" name="ano_data" value="{{ step_data.ano_data|default:initial.ano_data|default:'' }}" placeholder="ano" />.</div>
         <div class="paragraph">Atesto serem <strong>VERDADEIRAS</strong> todas as informações médicas preenchidas e me responsabilizo por quaisquer acidentes que venha a ocorrer em decorrência do não informe de problemas médicos de qualquer natureza:</div>
@@ -38,9 +38,10 @@
       </div>
       <div class="status" aria-live="polite">{% for message in messages %}<p data-state="{{ message.tags }}">{{ message }}</p>{% endfor %}</div>
       <div class="action-row"><button type="submit" class="btn primary">Próximo</button></div>
-      <div class="footer"><img class="badge" src="{% static 'images/htmls/icone1.png' %}" alt="Ícone 1" /><img class="badge" src="{% static 'images/htmls/icone2.png' %}" alt="Ícone 2" /><img class="badge" src="{% static 'images/htmls/icone3.png' %}" alt="Ícone 3" /><img class="badge" src="{% static 'images/htmls/icone4.png' %}" alt="Ícone 4" /></div>
+      <div class="footer"><img class="badge" src="{% static 'images/icone1.png' %}?v=2" alt="Ícone 1" /><img class="badge" src="{% static 'images/icone2.png' %}?v=2" alt="Ícone 2" /><img class="badge" src="{% static 'images/icone3.png' %}?v=2" alt="Ícone 3" /><img class="badge" src="{% static 'images/icone4.png' %}?v=2" alt="Ícone 4" /></div>
     </form>
   </div></div>
   <script src="{% static 'js/novo_cadastro.js' %}" defer></script>
 </body>
 </html>
+

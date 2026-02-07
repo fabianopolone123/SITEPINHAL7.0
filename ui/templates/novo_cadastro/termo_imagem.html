@@ -23,7 +23,7 @@
 <body>
   <div class="page"><div class="inner">
     <form method="post">{% csrf_token %}
-      <div class="header"><div class="title1">CLUBE DE AVENTUREIROS</div><div class="title2">IGREJA ADVENTISTA DO SÉTIMO DIA</div><img class="logo" src="{% static 'images/htmls/logo.jpg' %}" alt="Logo" /></div>
+      <div class="header"><div class="title1">CLUBE DE AVENTUREIROS</div><div class="title2">IGREJA ADVENTISTA DO SÉTIMO DIA</div><img class="logo" src="{% static 'images/logo_htmls.jpg' %}?v=2" alt="Logo" /></div>
       <div class="main-title">Termo de Autorização de Uso de Imagem</div>
       <div class="text">
         <input class="line-input long" type="text" name="nome_aventureiro_termo" value="{{ step_data.nome_aventureiro_termo|default:initial.nome_aventureiro_termo|default:'' }}">, nacionalidade
@@ -43,9 +43,10 @@
       <div class="signature"><div class="signature-widget"><canvas width="500" height="170"></canvas><input type="hidden" name="assinatura_termo_imagem" value="{{ step_data.assinatura_termo_imagem|default:'' }}" /><div class="action-row"><button type="button" class="btn" data-action="clear-sign">Limpar</button><button type="button" class="btn primary" data-action="save-sign">Salvar assinatura</button></div><p class="signature-status"></p></div></div>
       <div class="final-fields"><div class="field">Nome da criança: <input class="line-input long" type="text" value="{{ step_data.nome_aventureiro_termo|default:initial.nome_aventureiro_termo|default:'' }}"></div><div class="field">Por seu Responsável Legal: <input class="line-input long" type="text" value="{{ step_data.responsavel_nome_termo|default:initial.responsavel_nome_termo|default:'' }}"></div><div class="field">Telefone p/ contato: <input class="line-input medium" type="text" name="telefone_contato_termo" value="{{ step_data.telefone_contato_termo|default:initial.telefone_contato_termo|default:'' }}"></div><div class="field">E-mail p/ contato: <input class="line-input medium" type="email" name="email_contato_termo" value="{{ step_data.email_contato_termo|default:initial.email_contato_termo|default:'' }}"></div></div>
       <div class="action-row"><button type="submit" class="btn primary">Próximo</button></div>
-      <div class="footer"><img class="badge" src="{% static 'images/htmls/icone1.png' %}" alt="Ícone 1" /><img class="badge" src="{% static 'images/htmls/icone2.png' %}" alt="Ícone 2" /><img class="badge" src="{% static 'images/htmls/icone3.png' %}" alt="Ícone 3" /><img class="badge" src="{% static 'images/htmls/icone4.png' %}" alt="Ícone 4" /></div>
+      <div class="footer"><img class="badge" src="{% static 'images/icone1.png' %}?v=2" alt="Ícone 1" /><img class="badge" src="{% static 'images/icone2.png' %}?v=2" alt="Ícone 2" /><img class="badge" src="{% static 'images/icone3.png' %}?v=2" alt="Ícone 3" /><img class="badge" src="{% static 'images/icone4.png' %}?v=2" alt="Ícone 4" /></div>
     </form>
   </div></div>
   <script src="{% static 'js/novo_cadastro.js' %}" defer></script>
 </body>
 </html>
+
