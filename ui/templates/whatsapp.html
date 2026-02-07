@@ -61,8 +61,8 @@
           <tr>
             <th>Contato</th>
             <th>Telefone</th>
-            <th>Cadastro</th>
-            <th>Diretoria</th>
+            <th>Cadastro responsável</th>
+            <th>Cadastro diretoria</th>
             <th>Teste</th>
           </tr>
         </thead>
@@ -83,8 +83,8 @@
                   placeholder="5511999999999"
                 />
               </td>
-              <td data-label="Cadastro"><input type="checkbox" name="u{{ item.user.pk }}_cadastro" {% if item.pref.notify_cadastro %}checked{% endif %} /></td>
-              <td data-label="Diretoria"><input type="checkbox" name="u{{ item.user.pk }}_diretoria" {% if item.pref.notify_diretoria %}checked{% endif %} /></td>
+              <td data-label="Cadastro responsável"><input type="checkbox" name="u{{ item.user.pk }}_cadastro" {% if item.pref.notify_cadastro %}checked{% endif %} /></td>
+              <td data-label="Cadastro diretoria"><input type="checkbox" name="u{{ item.user.pk }}_diretoria" {% if item.pref.notify_diretoria %}checked{% endif %} /></td>
               <td data-label="Teste"><input type="checkbox" name="u{{ item.user.pk }}_send_test" /></td>
             </tr>
           {% empty %}
