@@ -672,7 +672,7 @@ def _date_parts_today():
         'dezembro',
     ]
     return {
-        'cidade_data': '',
+        'cidade_data': 'São Carlos',
         'dia_data': f'{now.day:02d}',
         'mes_data': meses_ptbr[now.month - 1],
         'ano_data': str(now.year),
