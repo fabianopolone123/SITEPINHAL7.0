@@ -1873,6 +1873,7 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
         elif action == 'generate_doc':
             aventura_id = request.POST.get('aventureiro_id')
             doc_type = request.POST.get('doc_type')
+            selected_template_id = request.POST.get('selected_template_id')
             aventureiro = Aventureiro.objects.filter(pk=aventura_id).first()
             if not aventureiro:
                 messages.error(request, 'Selecione um aventureiro válido para gerar o documento.')
@@ -1890,7 +1891,9 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
                 created_by=request.user,
             )
             messages.success(request, f'Documento gerado: {_documento_tipo_label(doc_type)} para {aventureiro.nome}.')
-            return redirect('accounts:documento_inscricao_visualizar', pk=documento.pk)
+            if selected_template_id and str(selected_template_id).isdigit():
+                return redirect(f'{request.path}?template={selected_template_id}')
+            return redirect(request.path)
         elif action == 'delete_generated_doc':
             doc_id = request.POST.get('doc_id')
             documento = DocumentoInscricaoGerado.objects.filter(pk=doc_id).first()

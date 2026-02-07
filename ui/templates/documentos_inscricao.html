@@ -177,6 +177,7 @@
       <form method="post" class="form-compact">
         {% csrf_token %}
         <input type="hidden" name="action" value="generate_doc" />
+        <input type="hidden" name="selected_template_id" value="{{ selected_template.pk|default:'' }}" />
         <label>Tipo de documento</label>
         <select name="doc_type" required>
           <option value="">Selecione o tipo</option>
