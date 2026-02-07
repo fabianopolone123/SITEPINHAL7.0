@@ -13,7 +13,7 @@
     .inner{border:2px solid #2aa6d6;padding:14px 14px 10px;position:relative}
     .inner::before{content:"";position:absolute;inset:6px;border:1px solid #2aa6d6;pointer-events:none}
     .top{display:grid;grid-template-columns:130px 1fr 130px;gap:12px;align-items:start;padding:10px 6px 4px}
-    .top-left{display:flex;flex-direction:column;gap:8px}
+    .top-left{display:flex;flex-direction:column;gap:8px;align-items:stretch;justify-self:start;align-self:start}
     .photo-box{border:1px solid var(--line);height:150px;display:flex;justify-content:center;align-items:center;font-weight:700;letter-spacing:.5px;overflow:hidden;position:relative;background:#fff}
     .photo-box small{font-weight:700}
     .photo-placeholder{text-align:center}
@@ -32,6 +32,7 @@
     .radio{display:flex;align-items:center;gap:6px;font-size:14px}.radio input{transform:translateY(1px)}
     .subline{border-bottom:1px solid var(--line);padding-bottom:8px}
     .sign{margin-top:14px;padding-top:10px;border-top:1px solid #c9d2dc}
+    .sign .signature-widget{max-width:560px;margin:12px auto 0;text-align:center}
     .signature-widget canvas{width:100%;border:1px solid #cbd5f5;border-radius:10px;background:#fff;min-height:120px}
     .action-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
     .btn{padding:8px 12px;border-radius:8px;border:1px solid #cbd5f5;background:#fff;cursor:pointer}
