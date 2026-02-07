@@ -43,6 +43,7 @@ from .whatsapp import (
     get_template_message,
 )
 from django.http import HttpResponse, JsonResponse
+from django.db import IntegrityError, transaction
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 from datetime import date
@@ -1512,77 +1513,89 @@ class NovoCadastroDiretoriaResumoView(View):
         login_data = data.get('login', {})
         compromisso = data.get('current', {}).get('compromisso', {})
         termo = data.get('current', {}).get('termo_imagem', {})
+        username = str(login_data.get('username', '')).strip()
+        password = login_data.get('password')
 
-        user = User.objects.create_user(
-            username=login_data['username'],
-            password=login_data['password'],
-        )
-        access, _ = UserAccess.objects.get_or_create(
-            user=user,
-            defaults={'role': UserAccess.ROLE_DIRETORIA, 'profiles': [UserAccess.ROLE_DIRETORIA]},
-        )
-        access.add_profile(UserAccess.ROLE_DIRETORIA)
-        access.save(update_fields=['role', 'profiles', 'updated_at'])
+        if not username or not password:
+            messages.error(request, 'Sessão de login inválida. Refaça o cadastro da diretoria.')
+            return redirect('accounts:novo_diretoria_login')
 
         try:
             nascimento = date.fromisoformat(compromisso.get('nascimento', ''))
         except ValueError:
-            nascimento = None
+            messages.error(request, 'Data de nascimento inválida. Volte ao compromisso e corrija.')
+            return redirect('accounts:novo_diretoria_compromisso')
 
-        diretoria = Diretoria.objects.create(
-            user=user,
-            nome=compromisso.get('nome', ''),
-            igreja=compromisso.get('igreja', ''),
-            endereco=compromisso.get('endereco', ''),
-            distrito=compromisso.get('distrito', ''),
-            numero=compromisso.get('numero', ''),
-            bairro=compromisso.get('bairro', ''),
-            cep=compromisso.get('cep', ''),
-            cidade=compromisso.get('cidade', ''),
-            estado=compromisso.get('estado', ''),
-            email=compromisso.get('email', ''),
-            whatsapp=compromisso.get('whatsapp', ''),
-            telefone_residencial=compromisso.get('telefone_residencial', ''),
-            telefone_comercial=compromisso.get('telefone_comercial', ''),
-            nascimento=nascimento,
-            estado_civil=compromisso.get('estado_civil', ''),
-            cpf=compromisso.get('cpf', ''),
-            rg=compromisso.get('rg', ''),
-            conjuge=compromisso.get('conjuge', ''),
-            filho_1=compromisso.get('filho_1', ''),
-            filho_2=compromisso.get('filho_2', ''),
-            filho_3=compromisso.get('filho_3', ''),
-            possui_limitacao_saude=compromisso.get('possui_limitacao_saude', ''),
-            limitacao_saude_descricao=compromisso.get('limitacao_saude_descricao', ''),
-            escolaridade=compromisso.get('escolaridade', ''),
-            autorizacao_imagem=bool(termo.get('autorizacao_imagem')),
-            declaracao_medica=bool(compromisso.get('declaracao_medica')),
-        )
+        try:
+            with transaction.atomic():
+                user = User.objects.create_user(username=username, password=password)
+                access, _ = UserAccess.objects.get_or_create(
+                    user=user,
+                    defaults={'role': UserAccess.ROLE_DIRETORIA, 'profiles': [UserAccess.ROLE_DIRETORIA]},
+                )
+                access.add_profile(UserAccess.ROLE_DIRETORIA)
+                access.save(update_fields=['role', 'profiles', 'updated_at'])
 
-        photo = decode_photo(compromisso.get('foto_3x4'))
-        if photo:
-            diretoria.foto.save(photo.name, photo, save=False)
-        assinatura_compromisso = decode_signature(compromisso.get('assinatura_compromisso'), 'diretoria_compromisso')
-        if assinatura_compromisso:
-            diretoria.assinatura.save(assinatura_compromisso.name, assinatura_compromisso, save=False)
-        diretoria.save()
+                diretoria = Diretoria.objects.create(
+                    user=user,
+                    nome=compromisso.get('nome', ''),
+                    igreja=compromisso.get('igreja', ''),
+                    endereco=compromisso.get('endereco', ''),
+                    distrito=compromisso.get('distrito', ''),
+                    numero=compromisso.get('numero', ''),
+                    bairro=compromisso.get('bairro', ''),
+                    cep=compromisso.get('cep', ''),
+                    cidade=compromisso.get('cidade', ''),
+                    estado=compromisso.get('estado', ''),
+                    email=compromisso.get('email', ''),
+                    whatsapp=compromisso.get('whatsapp', ''),
+                    telefone_residencial=compromisso.get('telefone_residencial', ''),
+                    telefone_comercial=compromisso.get('telefone_comercial', ''),
+                    nascimento=nascimento,
+                    estado_civil=compromisso.get('estado_civil', ''),
+                    cpf=compromisso.get('cpf', ''),
+                    rg=compromisso.get('rg', ''),
+                    conjuge=compromisso.get('conjuge', ''),
+                    filho_1=compromisso.get('filho_1', ''),
+                    filho_2=compromisso.get('filho_2', ''),
+                    filho_3=compromisso.get('filho_3', ''),
+                    possui_limitacao_saude=compromisso.get('possui_limitacao_saude', ''),
+                    limitacao_saude_descricao=compromisso.get('limitacao_saude_descricao', ''),
+                    escolaridade=compromisso.get('escolaridade', ''),
+                    autorizacao_imagem=bool(termo.get('autorizacao_imagem')),
+                    declaracao_medica=bool(compromisso.get('declaracao_medica')),
+                )
 
-        ficha = DiretoriaFicha.objects.create(
-            diretoria=diretoria,
-            compromisso_data=compromisso,
-            termo_imagem_data=termo,
-        )
-        assinatura_compromisso_ficha = decode_signature(compromisso.get('assinatura_compromisso'), 'diretoria_compromisso')
-        if assinatura_compromisso_ficha:
-            ficha.assinatura_compromisso.save(
-                assinatura_compromisso_ficha.name,
-                assinatura_compromisso_ficha,
-                save=False,
-            )
-        assinatura_termo = decode_signature(termo.get('assinatura_termo_imagem'), 'diretoria_termo_imagem')
-        if assinatura_termo:
-            ficha.assinatura_termo_imagem.save(assinatura_termo.name, assinatura_termo, save=False)
-        ficha.save()
+                photo = decode_photo(compromisso.get('foto_3x4'))
+                if photo:
+                    diretoria.foto.save(photo.name, photo, save=False)
+                assinatura_compromisso = decode_signature(compromisso.get('assinatura_compromisso'), 'diretoria_compromisso')
+                if assinatura_compromisso:
+                    diretoria.assinatura.save(assinatura_compromisso.name, assinatura_compromisso, save=False)
+                diretoria.save()
+
+                ficha = DiretoriaFicha.objects.create(
+                    diretoria=diretoria,
+                    compromisso_data=compromisso,
+                    termo_imagem_data=termo,
+                )
+                assinatura_compromisso_ficha = decode_signature(compromisso.get('assinatura_compromisso'), 'diretoria_compromisso')
+                if assinatura_compromisso_ficha:
+                    ficha.assinatura_compromisso.save(
+                        assinatura_compromisso_ficha.name,
+                        assinatura_compromisso_ficha,
+                        save=False,
+                    )
+                assinatura_termo = decode_signature(termo.get('assinatura_termo_imagem'), 'diretoria_termo_imagem')
+                if assinatura_termo:
+                    ficha.assinatura_termo_imagem.save(assinatura_termo.name, assinatura_termo, save=False)
+                ficha.save()
+        except IntegrityError:
+            messages.error(request, 'Não foi possível finalizar: username já existe ou há conflito de dados. Tente outro username.')
+            return redirect('accounts:novo_diretoria_login')
+        except Exception:
+            messages.error(request, 'Falha ao finalizar cadastro da diretoria. Revise os dados e tente novamente.')
+            return redirect('accounts:novo_diretoria_resumo')
 
         _dispatch_cadastro_notifications('Diretoria', user, diretoria.nome)
         _clear_new_diretoria_flow(request.session)
