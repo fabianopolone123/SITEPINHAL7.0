@@ -166,12 +166,14 @@ class Aventureiro(models.Model):
 
 class WhatsAppPreference(models.Model):
     NOTIFY_CADASTRO = 'cadastro'
+    NOTIFY_DIRETORIA = 'diretoria'
     NOTIFY_FINANCEIRO = 'financeiro'
     NOTIFY_GERAL = 'geral'
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='whatsapp_preference')
     phone_number = models.CharField('numero whatsapp', max_length=32, blank=True)
     notify_cadastro = models.BooleanField('notificacao de cadastro', default=False)
+    notify_diretoria = models.BooleanField('notificacao de cadastro de diretoria', default=False)
     notify_financeiro = models.BooleanField('notificacao financeira', default=False)
     notify_geral = models.BooleanField('notificacao geral', default=False)
     cadastro_message = models.TextField('mensagem de cadastro', blank=True)
@@ -183,6 +185,7 @@ class WhatsAppPreference(models.Model):
     def enabled_for(self, notification_type):
         mapping = {
             self.NOTIFY_CADASTRO: self.notify_cadastro,
+            self.NOTIFY_DIRETORIA: self.notify_diretoria,
             self.NOTIFY_FINANCEIRO: self.notify_financeiro,
             self.NOTIFY_GERAL: self.notify_geral,
         }
@@ -191,12 +194,14 @@ class WhatsAppPreference(models.Model):
 
 class WhatsAppQueue(models.Model):
     TYPE_CADASTRO = WhatsAppPreference.NOTIFY_CADASTRO
+    TYPE_DIRETORIA = WhatsAppPreference.NOTIFY_DIRETORIA
     TYPE_FINANCEIRO = WhatsAppPreference.NOTIFY_FINANCEIRO
     TYPE_GERAL = WhatsAppPreference.NOTIFY_GERAL
     TYPE_TESTE = 'teste'
 
     TYPE_CHOICES = [
         (TYPE_CADASTRO, 'Cadastro'),
+        (TYPE_DIRETORIA, 'Diretoria'),
         (TYPE_FINANCEIRO, 'Financeiro'),
         (TYPE_GERAL, 'Geral'),
         (TYPE_TESTE, 'Teste'),
@@ -232,10 +237,12 @@ class WhatsAppQueue(models.Model):
 
 class WhatsAppTemplate(models.Model):
     TYPE_CADASTRO = WhatsAppPreference.NOTIFY_CADASTRO
+    TYPE_DIRETORIA = WhatsAppPreference.NOTIFY_DIRETORIA
     TYPE_TESTE = 'teste'
 
     TYPE_CHOICES = [
         (TYPE_CADASTRO, 'Cadastro'),
+        (TYPE_DIRETORIA, 'Diretoria'),
         (TYPE_TESTE, 'Teste'),
     ]
 

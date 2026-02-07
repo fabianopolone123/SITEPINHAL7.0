@@ -549,8 +549,16 @@ def _dispatch_cadastro_notifications(tipo_cadastro, user, nome):
         # Usa o fuso configurado do Django (America/Sao_Paulo) ao montar a mensagem.
         'data_hora': timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M'),
     }
-    template_text = get_template_message(WhatsAppTemplate.TYPE_CADASTRO)
-    prefs = WhatsAppPreference.objects.filter(notify_cadastro=True)
+    tipo_lower = str(tipo_cadastro or '').strip().lower()
+    if tipo_lower == 'diretoria':
+        template_text = get_template_message(WhatsAppTemplate.TYPE_DIRETORIA)
+        prefs = WhatsAppPreference.objects.filter(notify_diretoria=True)
+        queue_type = WhatsAppQueue.TYPE_DIRETORIA
+    else:
+        template_text = get_template_message(WhatsAppTemplate.TYPE_CADASTRO)
+        prefs = WhatsAppPreference.objects.filter(notify_cadastro=True)
+        queue_type = WhatsAppQueue.TYPE_CADASTRO
+
     for pref in prefs.select_related('user'):
         phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(pref.user))
         if not phone_number:
@@ -559,7 +567,7 @@ def _dispatch_cadastro_notifications(tipo_cadastro, user, nome):
         queue_item = WhatsAppQueue.objects.create(
             user=pref.user,
             phone_number=phone_number,
-            notification_type=WhatsAppQueue.TYPE_CADASTRO,
+            notification_type=queue_type,
             message_text=text,
             status=WhatsAppQueue.STATUS_PENDING,
         )
@@ -2315,11 +2323,13 @@ class WhatsAppView(LoginRequiredMixin, View):
         if guard:
             return guard
         cadastro_template = get_template_message(WhatsAppTemplate.TYPE_CADASTRO)
+        diretoria_template = get_template_message(WhatsAppTemplate.TYPE_DIRETORIA)
         teste_template = get_template_message(WhatsAppTemplate.TYPE_TESTE)
         context = {
             'rows': self._users_context(),
             'queue': queue_stats(),
             'cadastro_template': cadastro_template,
+            'diretoria_template': diretoria_template,
             'teste_template': teste_template,
         }
         context.update(_sidebar_context(request))
@@ -2331,21 +2341,38 @@ class WhatsAppView(LoginRequiredMixin, View):
             return guard
         rows = self._users_context()
         cadastro_enabled = []
+        diretoria_enabled = []
         for row in rows:
             user = row['user']
             pref = row['pref']
             prefix = f'u{user.pk}'
             pref.phone_number = normalize_phone_number(request.POST.get(f'{prefix}_phone', '').strip())
             pref.notify_cadastro = bool(request.POST.get(f'{prefix}_cadastro'))
+            pref.notify_diretoria = bool(request.POST.get(f'{prefix}_diretoria'))
             pref.notify_financeiro = False
             pref.notify_geral = False
-            pref.save(update_fields=['phone_number', 'notify_cadastro', 'notify_financeiro', 'notify_geral', 'updated_at'])
+            pref.save(
+                update_fields=[
+                    'phone_number',
+                    'notify_cadastro',
+                    'notify_diretoria',
+                    'notify_financeiro',
+                    'notify_geral',
+                    'updated_at',
+                ]
+            )
             if pref.notify_cadastro:
                 cadastro_enabled.append(user.username)
+            if pref.notify_diretoria:
+                diretoria_enabled.append(user.username)
 
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_CADASTRO,
             defaults={'message_text': request.POST.get('template_cadastro', '').strip()},
+        )
+        WhatsAppTemplate.objects.update_or_create(
+            notification_type=WhatsAppTemplate.TYPE_DIRETORIA,
+            defaults={'message_text': request.POST.get('template_diretoria', '').strip()},
         )
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_TESTE,
@@ -2364,6 +2391,7 @@ class WhatsAppView(LoginRequiredMixin, View):
                     'rows': self._users_context(),
                     'queue': queue_stats(),
                     'cadastro_template': get_template_message(WhatsAppTemplate.TYPE_CADASTRO),
+                    'diretoria_template': get_template_message(WhatsAppTemplate.TYPE_DIRETORIA),
                     'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
                 }
                 context.update(_sidebar_context(request))
@@ -2431,11 +2459,21 @@ class WhatsAppView(LoginRequiredMixin, View):
             )
         else:
             messages.info(request, 'Nenhum contato está marcado para receber notificação de Cadastro.')
+        if diretoria_enabled:
+            preview = ', '.join(diretoria_enabled[:6])
+            suffix = '...' if len(diretoria_enabled) > 6 else ''
+            messages.info(
+                request,
+                f'Diretoria marcado para: {preview}{suffix}',
+            )
+        else:
+            messages.info(request, 'Nenhum contato está marcado para receber notificação de Diretoria.')
 
         context = {
             'rows': self._users_context(),
             'queue': queue_stats(),
             'cadastro_template': get_template_message(WhatsAppTemplate.TYPE_CADASTRO),
+            'diretoria_template': get_template_message(WhatsAppTemplate.TYPE_DIRETORIA),
             'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
         }
         context.update(_sidebar_context(request))

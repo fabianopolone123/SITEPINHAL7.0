@@ -40,6 +40,10 @@
           <textarea name="template_cadastro" form="whatsapp-form" rows="6">{{ cadastro_template|default:'' }}</textarea>
         </label>
         <label class="message-template-card">
+          <span class="message-template-title">Mensagem de Diretoria</span>
+          <textarea name="template_diretoria" form="whatsapp-form" rows="6">{{ diretoria_template|default:'' }}</textarea>
+        </label>
+        <label class="message-template-card">
           <span class="message-template-title">Mensagem de Teste</span>
           <textarea name="template_teste" form="whatsapp-form" rows="6">{{ teste_template|default:'' }}</textarea>
         </label>
@@ -58,6 +62,7 @@
             <th>Contato</th>
             <th>Telefone</th>
             <th>Cadastro</th>
+            <th>Diretoria</th>
             <th>Teste</th>
           </tr>
         </thead>
@@ -79,11 +84,12 @@
                 />
               </td>
               <td data-label="Cadastro"><input type="checkbox" name="u{{ item.user.pk }}_cadastro" {% if item.pref.notify_cadastro %}checked{% endif %} /></td>
+              <td data-label="Diretoria"><input type="checkbox" name="u{{ item.user.pk }}_diretoria" {% if item.pref.notify_diretoria %}checked{% endif %} /></td>
               <td data-label="Teste"><input type="checkbox" name="u{{ item.user.pk }}_send_test" /></td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="4">Nenhum usuário disponível.</td>
+              <td colspan="5">Nenhum usuário disponível.</td>
             </tr>
           {% endfor %}
         </tbody>

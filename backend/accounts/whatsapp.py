@@ -19,6 +19,14 @@ DEFAULT_CADASTRO_MESSAGE = (
     '🕒 Data/Hora: {data_hora}'
 )
 
+DEFAULT_DIRETORIA_MESSAGE = (
+    '✨ Novo cadastro de diretoria no Pinhal Junior!\n'
+    '📌 Tipo: {tipo_cadastro}\n'
+    '👤 Usuario: {username}\n'
+    '📝 Nome completo: {nome}\n'
+    '🕒 Data/Hora: {data_hora}'
+)
+
 DEFAULT_TESTE_MESSAGE = (
     '✅ Mensagem de teste do sistema Pinhal Junior.\n'
     'Se voce recebeu este aviso, o canal WhatsApp esta ativo.'
@@ -177,6 +185,7 @@ def render_message(template, payload):
 def get_template_message(notification_type):
     defaults = {
         WhatsAppTemplate.TYPE_CADASTRO: DEFAULT_CADASTRO_MESSAGE,
+        WhatsAppTemplate.TYPE_DIRETORIA: DEFAULT_DIRETORIA_MESSAGE,
         WhatsAppTemplate.TYPE_TESTE: DEFAULT_TESTE_MESSAGE,
     }
     default_message = defaults.get(notification_type, DEFAULT_TESTE_MESSAGE)
