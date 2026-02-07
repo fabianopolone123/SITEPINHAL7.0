@@ -194,6 +194,9 @@
       ctx.strokeStyle = '#1f2937';
       ctx.lineCap = 'round';
       var drawing = false;
+      // Prevent mobile browsers from interpreting drawing gestures as page scroll.
+      canvas.style.touchAction = 'none';
+      canvas.style.webkitUserSelect = 'none';
 
       function getCanvasPoint(event) {
         var rect = canvas.getBoundingClientRect();
@@ -212,6 +215,7 @@
       }
 
       canvas.addEventListener('pointerdown', function (event) {
+        event.preventDefault();
         drawing = true;
         canvas.setPointerCapture(event.pointerId);
         var point = getCanvasPoint(event);
@@ -221,6 +225,7 @@
 
       canvas.addEventListener('pointermove', function (event) {
         if (!drawing) return;
+        event.preventDefault();
         var point = getCanvasPoint(event);
         ctx.lineTo(point.x, point.y);
         ctx.stroke();
@@ -235,6 +240,9 @@
 
       canvas.addEventListener('pointerup', stopDraw);
       canvas.addEventListener('pointerleave', stopDraw);
+      canvas.addEventListener('touchstart', function (event) { event.preventDefault(); }, { passive: false });
+      canvas.addEventListener('touchmove', function (event) { event.preventDefault(); }, { passive: false });
+      canvas.addEventListener('touchend', function (event) { event.preventDefault(); }, { passive: false });
 
       if (clearBtn) clearBtn.addEventListener('click', clearCanvas);
 
