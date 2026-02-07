@@ -658,18 +658,18 @@ def _normalize_bool(value):
 def _date_parts_today():
     now = timezone.localtime(timezone.now())
     meses_ptbr = [
-        'janeiro',
-        'fevereiro',
-        'marco',
-        'abril',
-        'maio',
-        'junho',
-        'julho',
-        'agosto',
-        'setembro',
-        'outubro',
-        'novembro',
-        'dezembro',
+        'Janeiro',
+        'Fevereiro',
+        'Março',
+        'Abril',
+        'Maio',
+        'Junho',
+        'Julho',
+        'Agosto',
+        'Setembro',
+        'Outubro',
+        'Novembro',
+        'Dezembro',
     ]
     return {
         'cidade_data': 'São Carlos',
@@ -677,6 +677,14 @@ def _date_parts_today():
         'mes_data': meses_ptbr[now.month - 1],
         'ano_data': str(now.year),
     }
+
+
+def _apply_date_defaults(fields):
+    defaults = _date_parts_today()
+    for key in ('cidade_data', 'dia_data', 'mes_data', 'ano_data'):
+        if not str(fields.get(key, '')).strip():
+            fields[key] = defaults[key]
+    return fields
 
 
 class RegisterView(View):
@@ -743,6 +751,7 @@ class NovoCadastroInscricaoView(View):
         if data is None:
             return redirect('accounts:novo_cadastro_login')
         fields = _extract_fields(request.POST, self.field_names)
+        _apply_date_defaults(fields)
         required = ['nome_completo', 'data_nascimento', 'nome_responsavel', 'assinatura_inscricao', 'foto_3x4']
         missing = [name for name in required if not str(fields.get(name, '')).strip()]
         if missing:
