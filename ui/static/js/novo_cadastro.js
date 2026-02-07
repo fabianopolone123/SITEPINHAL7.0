@@ -1,0 +1,93 @@
+﻿(function () {
+  function initPhotoToDataUrl() {
+    var input = document.getElementById('foto-file');
+    var hidden = document.getElementById('foto-3x4');
+    var preview = document.getElementById('foto-preview');
+    if (!input || !hidden) return;
+    input.addEventListener('change', function () {
+      var file = input.files && input.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (event) {
+        hidden.value = event.target.result || '';
+        if (preview) {
+          preview.src = hidden.value;
+          preview.style.display = 'block';
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    if (hidden.value && preview) {
+      preview.src = hidden.value;
+      preview.style.display = 'block';
+    }
+  }
+
+  function initSignatureWidgets() {
+    var widgets = document.querySelectorAll('.signature-widget');
+    widgets.forEach(function (widget) {
+      var canvas = widget.querySelector('canvas');
+      var clearBtn = widget.querySelector('[data-action="clear-sign"]');
+      var saveBtn = widget.querySelector('[data-action="save-sign"]');
+      var hidden = widget.querySelector('input[type="hidden"]');
+      var status = widget.querySelector('.signature-status');
+      if (!canvas || !hidden) return;
+
+      var ctx = canvas.getContext('2d');
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#1f2937';
+      ctx.lineCap = 'round';
+      var drawing = false;
+
+      function clearCanvas() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        hidden.value = '';
+        if (status) status.textContent = 'Assinatura limpa.';
+      }
+
+      canvas.addEventListener('pointerdown', function (event) {
+        drawing = true;
+        canvas.setPointerCapture(event.pointerId);
+        ctx.beginPath();
+        ctx.moveTo(event.offsetX, event.offsetY);
+      });
+
+      canvas.addEventListener('pointermove', function (event) {
+        if (!drawing) return;
+        ctx.lineTo(event.offsetX, event.offsetY);
+        ctx.stroke();
+      });
+
+      function stopDraw(event) {
+        if (event) {
+          try { canvas.releasePointerCapture(event.pointerId); } catch (e) {}
+        }
+        drawing = false;
+      }
+
+      canvas.addEventListener('pointerup', stopDraw);
+      canvas.addEventListener('pointerleave', stopDraw);
+
+      if (clearBtn) clearBtn.addEventListener('click', clearCanvas);
+
+      if (saveBtn) {
+        saveBtn.addEventListener('click', function () {
+          hidden.value = canvas.toDataURL('image/png');
+          if (status) status.textContent = 'Assinatura salva.';
+        });
+      }
+
+      if (hidden.value) {
+        var img = new Image();
+        img.onload = function () {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = hidden.value;
+      }
+    });
+  }
+
+  initPhotoToDataUrl();
+  initSignatureWidgets();
+})();

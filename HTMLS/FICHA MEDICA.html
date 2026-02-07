@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ficha Médica - Clube de Aventureiros</title>
+  <style>
+    :root{
+      --blue:#123a7a;
+      --line:#3f4b5a;
+      --orange:#d97706;
+      --bg:#ffffff;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      padding:24px;
+      font-family: Arial, Helvetica, sans-serif;
+      background:#f2f4f7;
+      color:#111;
+    }
+    .page{
+      max-width: 860px;
+      margin: 0 auto;
+      background:var(--bg);
+      border:3px solid #f3a75a;              /* laranja externo */
+      padding:10px;
+      box-shadow: 0 10px 28px rgba(0,0,0,.10);
+    }
+    .inner{
+      border:2px solid #2aa6d6;              /* azul claro */
+      padding:14px;
+      position:relative;
+    }
+    .inner::before{
+      content:"";
+      position:absolute;
+      inset:6px;
+      border:1px solid #2aa6d6;
+      pointer-events:none;
+    }
+
+    /* Cabeçalho */
+    .header{
+      display:grid;
+      grid-template-columns: 1fr 120px;
+      gap:12px;
+      align-items:start;
+      padding:6px 6px 0 6px;
+    }
+    .club{
+      text-align:center;
+      line-height:1.2;
+    }
+    .club .t1{
+      font-weight:800;
+      font-size:22px;
+      letter-spacing:.4px;
+    }
+    .club .t2{
+      margin-top:4px;
+      font-size:13px;
+      letter-spacing:.3px;
+    }
+    .club .title{
+      margin-top:10px;
+      font-weight:900;
+      font-size:42px;
+      color:var(--orange);
+    }
+    .logo{
+      width:110px;
+      height:110px;
+      border-radius:10px;
+      border:1px dashed #999;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      font-size:12px;
+      color:#666;
+      padding:8px;
+      margin-left:auto;
+      background:#fff;
+    }
+    .thin-divider{
+      height:2px;
+      background:#9fb2c9;
+      margin:10px 0 12px 0;
+    }
+
+    /* Barra seção */
+    .bar{
+      background:var(--blue);
+      color:#fff;
+      font-weight:900;
+      letter-spacing:.6px;
+      text-align:center;
+      padding:9px 10px;
+      font-size:13px;
+      margin:0 0 10px 0;
+    }
+
+    /* “Tabela” com linhas */
+    .row{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:0;
+      border-top:1px solid var(--line);
+      border-left:1px solid var(--line);
+      border-right:1px solid var(--line);
+    }
+    .cell{
+      padding:10px 10px 8px 10px;
+      border-right:1px solid var(--line);
+      min-height:54px;
+    }
+    .cell:last-child{border-right:none;}
+    .row.single{
+      grid-template-columns: 1fr;
+    }
+    .row.single .cell{
+      border-right:none;
+    }
+    .row.end{
+      border-bottom:1px solid var(--line);
+    }
+
+    .label{
+      font-size:13px;
+      font-weight:700;
+      margin-bottom:6px;
+    }
+    .control input[type="text"],
+    .control input[type="date"]{
+      width:100%;
+      border:1px solid #cfd6de;
+      border-radius:6px;
+      padding:8px 10px;
+      font-size:14px;
+      outline:none;
+      background:#fff;
+    }
+    .inline{
+      display:flex;
+      gap:14px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .opt{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      font-size:14px;
+      white-space:nowrap;
+    }
+    .opt input{transform:translateY(1px)}
+    .small{
+      font-size:12px;
+      color:#333;
+      margin-top:6px;
+    }
+
+    /* Lista doenças */
+    .diseases{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px 18px;
+      padding-top:2px;
+    }
+
+    /* Tipos de sangue */
+    .blood{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px 14px;
+      padding-top:2px;
+    }
+
+    /* Rodapé (ícones) */
+    .footer{
+      margin-top:12px;
+      border-top:2px solid #000;
+      padding-top:10px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:flex-start;
+    }
+    .badge{
+      width:44px;
+      height:44px;
+      border-radius:50%;
+      border:1px solid #bbb;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:11px;
+      color:#555;
+      background:#fff;
+    }
+
+    @media print{
+      body{background:#fff; padding:0;}
+      .page{box-shadow:none; border:none; padding:0;}
+      .inner{border:none;}
+      .inner::before{display:none;}
+      .logo{border:none;}
+      .control input{border:1px solid #000;}
+    }
+
+    @media (max-width: 740px){
+      .header{grid-template-columns: 1fr;}
+      .logo{margin:0;}
+      .club .title{font-size:34px;}
+      .row{grid-template-columns: 1fr;}
+      .cell{border-right:none; border-bottom:1px solid var(--line);}
+      .row.end .cell{border-bottom:none;}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <div class="inner">
+
+      <div class="header">
+        <div class="club">
+          <div class="t1">CLUBE DE AVENTUREIROS</div>
+          <div class="t2">IGREJA ADVENTISTA DO SÉTIMO DIA</div>
+          <div class="title">Ficha Médica</div>
+        </div>
+        <div class="logo">Coloque o<br>LOGO<br>aqui</div>
+      </div>
+
+      <div class="thin-divider"></div>
+
+      <div class="bar">DADOS MÉDICOS DO AVENTUREIRO</div>
+
+      <!-- Tem plano de saúde? / Se sim, qual? -->
+      <div class="row">
+        <div class="cell">
+          <div class="label">Tem plano de saúde?</div>
+          <div class="inline control">
+            <label class="opt"><input type="radio" name="plano_saude" value="S"> Sim</label>
+            <label class="opt"><input type="radio" name="plano_saude" value="N"> Não</label>
+          </div>
+        </div>
+        <div class="cell">
+          <div class="label">Se sim, qual?</div>
+          <div class="control"><input type="text" name="qual_plano" /></div>
+        </div>
+      </div>
+
+      <!-- CNS/SUS -->
+      <div class="row single">
+        <div class="cell">
+          <div class="label">Número da Carteira Nacional de Saúde ou SUS</div>
+          <div class="control"><input type="text" name="cns_sus" /></div>
+        </div>
+      </div>
+
+      <!-- Doenças -->
+      <div class="row single">
+        <div class="cell">
+          <div class="label">Já teve ou tem: <span class="small">(Marque X apenas nas opções positivas)</span></div>
+          <div class="diseases">
+            <label class="opt"><input type="checkbox" name="doencas" value="Catapora"> Catapora</label>
+            <label class="opt"><input type="checkbox" name="doencas" value="Meningite"> Meningite</label>
+            <label class="opt"><input type="checkbox" name="doencas" value="Hepatite"> Hepatite</label>
+            <label class="opt"><input type="checkbox" name="doencas" value="Dengue"> Dengue</label>
+            <label class="opt"><input type="checkbox" name="doencas" value="Pneumonia"> Pneumonia</label>
+            <label class="opt"><input type="checkbox" name="doencas" value="Malária"> Malária</label>
+
+            <label class="opt"><input type="checkbox" name="doencas" value="Febre Amarela"> Febre Amarela</label>
+            <label class="opt"><input type="checkbox" name="doencas" value="H1N1"> H1N1</label>
+            <label class="opt"><input type="checkbox" name="doencas" value="Cólera"> Cólera</label>
+            <label class="opt"><input type="checkbox" name="doencas" value="Rubéola"> Rubéola</label>
+            <label class="opt"><input type="checkbox" name="doencas" value="Sarampo"> Sarampo</label>
+            <label class="opt"><input type="checkbox" name="doencas" value="Tétano"> Tétano</label>
+            <label class="opt"><input type="checkbox" name="doencas" value="Varíola"> Varíola</label>
+
+            <label class="opt"><input type="checkbox" name="doencas" value="Coqueluche"> Coqueluche</label>
+            <label class="opt"><input type="checkbox" name="doencas" value="Difteria"> Difteria</label>
+            <label class="opt"><input type="checkbox" name="doencas" value="Caxumba"> Caxumba</label>
+            <label class="opt"><input type="checkbox" name="doencas" value="Rinite"> Rinite</label>
+            <label class="opt"><input type="checkbox" name="doencas" value="Bronquite"> Bronquite</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alergias (3 linhas) -->
+      <div class="row single">
+        <div class="cell">
+          <div class="label">Possui alergia cutânea (pele)? Se sim, qual?</div>
+          <div class="control"><input type="text" name="alergia_pele" /></div>
+        </div>
+      </div>
+
+      <div class="row single">
+        <div class="cell">
+          <div class="label">Possui alergia alimentar? Se sim, a qual alimento?</div>
+          <div class="control"><input type="text" name="alergia_alimentar" /></div>
+        </div>
+      </div>
+
+      <div class="row single">
+        <div class="cell">
+          <div class="label">Possui alguma alergia à medicamentos? Se sim, a qual remédio?</div>
+          <div class="control"><input type="text" name="alergia_medicamento" /></div>
+        </div>
+      </div>
+
+      <!-- Deficiências -->
+      <div class="row single">
+        <div class="cell">
+          <div class="label">Deficiente:</div>
+          <div class="inline">
+            <label class="opt"><input type="checkbox" name="deficiencia" value="Físico - Cadeirante"> Físico - Cadeirante</label>
+            <label class="opt"><input type="checkbox" name="deficiencia" value="Visual"> Visual</label>
+            <label class="opt"><input type="checkbox" name="deficiencia" value="Auditivo"> Auditivo</label>
+            <label class="opt"><input type="checkbox" name="deficiencia" value="Fala - mudo/dificuldade"> Fala – mudo ou dificuldade</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cardíacos -->
+<div class="row">
+  <div class="cell">
+    <div class="label">Possui problemas Cardíacos?</div>
+    <div class="inline">
+      <label class="opt"><input type="radio" name="cardiacos" value="S"> S</label>
+      <label class="opt"><input type="radio" name="cardiacos" value="N"> N</label>
+    </div>
+  </div>
+  <div class="cell">
+    <div class="label">Medicamentos utilizados:</div>
+    <div class="control">
+      <input type="text" name="cardiacos_medicamentos" placeholder="Nome do medicamento" />
+    </div>
+  </div>
+</div>
+
+<!-- Diabético -->
+<div class="row">
+  <div class="cell">
+    <div class="label">É diabético?</div>
+    <div class="inline">
+      <label class="opt"><input type="radio" name="diabetico" value="S"> S</label>
+      <label class="opt"><input type="radio" name="diabetico" value="N"> N</label>
+    </div>
+  </div>
+  <div class="cell">
+    <div class="label">Medicamentos utilizados:</div>
+    <div class="control">
+      <input type="text" name="diabetico_medicamentos" placeholder="Nome do medicamento" />
+    </div>
+  </div>
+</div>
+
+<!-- Renais -->
+<div class="row">
+  <div class="cell">
+    <div class="label">Possui problemas renais?</div>
+    <div class="inline">
+      <label class="opt"><input type="radio" name="renais" value="S"> S</label>
+      <label class="opt"><input type="radio" name="renais" value="N"> N</label>
+    </div>
+  </div>
+  <div class="cell">
+    <div class="label">Medicamentos utilizados:</div>
+    <div class="control">
+      <input type="text" name="renais_medicamentos" placeholder="Nome do medicamento" />
+    </div>
+  </div>
+</div>
+
+<!-- Psicológicos -->
+<div class="row">
+  <div class="cell">
+    <div class="label">Problemas psicológicos?</div>
+    <div class="inline">
+      <label class="opt"><input type="radio" name="psicologicos" value="S"> S</label>
+      <label class="opt"><input type="radio" name="psicologicos" value="N"> N</label>
+    </div>
+  </div>
+  <div class="cell">
+    <div class="label">Medicamentos utilizados:</div>
+    <div class="control">
+      <input type="text" name="psicologicos_medicamentos" placeholder="Nome do medicamento" />
+    </div>
+  </div>
+</div>
+
+
+      <!-- Outros problemas -->
+      <div class="row single">
+        <div class="cell">
+          <div class="label">Outros problemas de saúde e outros medicamentos:</div>
+          <div class="inline" style="margin-bottom:8px;">
+            <span style="font-weight:700;">S ( )</span>
+            <span style="font-weight:700;">N ( )</span>
+          </div>
+          <div class="control"><input type="text" name="outros_problemas" /></div>
+        </div>
+      </div>
+
+      <!-- Saúde recente -->
+      <div class="row single">
+        <div class="cell">
+          <div class="label">Problemas de saúde recente:</div>
+          <div class="inline">
+            <label class="opt"><input type="radio" name="saude_recente" value="S"> S</label>
+            <label class="opt"><input type="radio" name="saude_recente" value="N"> N</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="row single">
+        <div class="cell">
+          <div class="label">Medicamentos usados recentemente (ano vigente):</div>
+          <div class="inline">
+            <label class="opt"><input type="radio" name="medicamentos_recentes" value="S"> S</label>
+            <label class="opt"><input type="radio" name="medicamentos_recentes" value="N"> N</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="row single">
+        <div class="cell">
+          <div class="label">Teve ferimentos graves ou fraturas recentes?</div>
+          <div class="inline">
+            <label class="opt"><input type="radio" name="fraturas" value="S"> S</label>
+            <label class="opt"><input type="radio" name="fraturas" value="N"> N</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="row single">
+        <div class="cell">
+          <div class="label">Passou por cirurgias?</div>
+          <div class="inline">
+            <label class="opt"><input type="radio" name="cirurgias" value="S"> S</label>
+            <label class="opt"><input type="radio" name="cirurgias" value="N"> N</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="row single">
+        <div class="cell">
+          <div class="label">Motivo de internação nos últimos cinco anos:</div>
+          <div class="control"><input type="text" name="motivo_internacao" /></div>
+        </div>
+      </div>
+
+      <!-- Tipo de sangue -->
+      <div class="row single end">
+        <div class="cell">
+          <div class="label">Tipo de Sangue:</div>
+          <div class="blood">
+            <label class="opt"><input type="radio" name="tipo_sangue" value="A+"> A+</label>
+            <label class="opt"><input type="radio" name="tipo_sangue" value="A-"> A-</label>
+            <label class="opt"><input type="radio" name="tipo_sangue" value="AB+"> AB+</label>
+            <label class="opt"><input type="radio" name="tipo_sangue" value="AB-"> AB-</label>
+            <label class="opt"><input type="radio" name="tipo_sangue" value="B+"> B+</label>
+            <label class="opt"><input type="radio" name="tipo_sangue" value="B-"> B-</label>
+            <label class="opt"><input type="radio" name="tipo_sangue" value="O+"> O+</label>
+            <label class="opt"><input type="radio" name="tipo_sangue" value="O-"> O-</label>
+            <label class="opt"><input type="radio" name="tipo_sangue" value="Não sabe"> Não sabe</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rodapé com ícones (placeholder igual ao modelo) -->
+      <div class="footer">
+        <div class="badge">Ícone</div>
+        <div class="badge">Ícone</div>
+        <div class="badge">Ícone</div>
+        <div class="badge">Ícone</div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

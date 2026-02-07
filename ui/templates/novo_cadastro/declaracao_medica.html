@@ -1,0 +1,49 @@
+﻿<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Declaracao Medica</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="branding">
+      <p class="eyebrow">Etapa 3</p>
+      <h1>Declaracao Medica</h1>
+      <p class="subtitle">Assine para validar as informacoes medicas.</p>
+    </div>
+    <main class="login-card aventura-card">
+      <form method="post" class="aventura-form">
+        {% csrf_token %}
+        <section class="section-block">
+          <div class="section-header"><span>1</span><h2>Local e data</h2></div>
+          <div class="form-row">
+            <label>Cidade<input type="text" name="cidade_data" value="{{ step_data.cidade_data|default:initial.cidade_data|default:'' }}"></label>
+            <label>Dia<input type="text" name="dia_data" value="{{ step_data.dia_data|default:initial.dia_data|default:'' }}"></label>
+            <label>Mes<input type="text" name="mes_data" value="{{ step_data.mes_data|default:initial.mes_data|default:'' }}"></label>
+            <label>Ano<input type="text" name="ano_data" value="{{ step_data.ano_data|default:initial.ano_data|default:'' }}"></label>
+          </div>
+        </section>
+        <section class="section-block">
+          <div class="section-header"><span>2</span><h2>Assinatura</h2></div>
+          <p class="panel-note">Atesto serem VERDADEIRAS todas as informacoes medicas preenchidas.</p>
+          <div class="signature-widget">
+            <canvas width="380" height="160" style="width:100%;border:1px solid #cbd5f5;border-radius:10px;background:#fff"></canvas>
+            <input type="hidden" name="assinatura_declaracao_medica" value="{{ step_data.assinatura_declaracao_medica|default:'' }}" />
+            <div class="action-row">
+              <button class="secondary" type="button" data-action="clear-sign">Limpar</button>
+              <button class="primary" type="button" data-action="save-sign">Salvar assinatura</button>
+            </div>
+            <p class="signature-status"></p>
+          </div>
+        </section>
+        <div class="status" aria-live="polite">{% for message in messages %}<p data-state="{{ message.tags }}">{{ message }}</p>{% endfor %}</div>
+        <button class="primary" type="submit">Proximo</button>
+      </form>
+    </main>
+  </div>
+  <script src="{% static 'js/novo_cadastro.js' %}" defer></script>
+</body>
+</html>

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clube de Aventureiros Pinhal Junior — Dados dos Responsáveis</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="branding">
+      <p class="eyebrow">Portal oficial</p>
+      <h1>Dados dos pais / responsável legal</h1>
+      <p class="subtitle">Preencha as informações obrigatórias para que possamos manter o cadastro do aventureiro atualizado.</p>
+    </div>
+    <main class="login-card form-card">
+      <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
+      <form class="responsavel-form" method="post" action="{% url 'accounts:responsavel' %}" data-required-fields="{{ required_fields|join:',' }}">
+        {% csrf_token %}
+        <section class="field-section">
+          <h2>Acesso ao portal</h2>
+          <label for="responsavel-username">Nome de usuário</label>
+          <input id="responsavel-username" name="username" type="text" class="{% if form.username.errors %}input-error{% endif %}" placeholder="ex.: pinhal.responsavel" value="{{ form.username.value|default:'' }}" />
+          {% if form.username.errors %}
+            <p class="field-error" data-field="username">{{ form.username.errors|join:" " }}</p>
+          {% endif %}
+          <label for="responsavel-password">Senha</label>
+          <input id="responsavel-password" name="password" type="password" class="{% if form.password.errors %}input-error{% endif %}" placeholder="••••••••" autocomplete="new-password" />
+          {% if form.password.errors %}
+            <p class="field-error" data-field="password">{{ form.password.errors|join:" " }}</p>
+          {% endif %}
+          <label for="responsavel-password-confirm">Repita a senha</label>
+          <input id="responsavel-password-confirm" name="password_confirm" type="password" class="{% if form.password_confirm.errors %}input-error{% endif %}" placeholder="••••••••" autocomplete="new-password" />
+          {% if form.password_confirm.errors %}
+            <p class="field-error" data-field="password_confirm">{{ form.password_confirm.errors|join:" " }}</p>
+          {% endif %}
+        </section>
+        <section class="field-section">
+          <h2>Pai</h2>
+          <label for="pai-nome">Nome completo</label>
+          <input id="pai-nome" name="pai_nome" type="text" class="{% if form.pai_nome.errors %}input-error{% endif %}" placeholder="Nome do pai" value="{{ form.pai_nome.value|default:'' }}" />
+          {% if form.pai_nome.errors %}
+            <p class="field-error" data-field="pai_nome">{{ form.pai_nome.errors|join:" " }}</p>
+          {% endif %}
+          <label for="pai-cpf">CPF</label>
+          <input id="pai-cpf" name="pai_cpf" type="text" class="{% if form.pai_cpf.errors %}input-error{% endif %}" placeholder="000.000.000-00" value="{{ form.pai_cpf.value|default:'' }}" />
+          {% if form.pai_cpf.errors %}
+            <p class="field-error" data-field="pai_cpf">{{ form.pai_cpf.errors|join:" " }}</p>
+          {% endif %}
+          <label for="pai-email">E-mail</label>
+          <input id="pai-email" name="pai_email" type="email" class="{% if form.pai_email.errors %}input-error{% endif %}" placeholder="pai@example.com" value="{{ form.pai_email.value|default:'' }}" />
+          {% if form.pai_email.errors %}
+            <p class="field-error" data-field="pai_email">{{ form.pai_email.errors|join:" " }}</p>
+          {% endif %}
+          <label for="pai-telefone">Telefone</label>
+          <input id="pai-telefone" name="pai_telefone" type="tel" class="{% if form.pai_telefone.errors %}input-error{% endif %}" placeholder="(99) 9999-9999" value="{{ form.pai_telefone.value|default:'' }}" />
+          {% if form.pai_telefone.errors %}
+            <p class="field-error" data-field="pai_telefone">{{ form.pai_telefone.errors|join:" " }}</p>
+          {% endif %}
+          <label for="pai-celular">Celular</label>
+          <input id="pai-celular" name="pai_celular" type="tel" class="{% if form.pai_celular.errors %}input-error{% endif %}" placeholder="(99) 9 9999-9999" value="{{ form.pai_celular.value|default:'' }}" />
+          {% if form.pai_celular.errors %}
+            <p class="field-error" data-field="pai_celular">{{ form.pai_celular.errors|join:" " }}</p>
+          {% endif %}
+        </section>
+
+        <section class="field-section">
+          <h2>Mãe</h2>
+          <label for="mae-nome">Nome completo</label>
+          <input id="mae-nome" name="mae_nome" type="text" class="{% if form.mae_nome.errors %}input-error{% endif %}" placeholder="Nome da mãe" value="{{ form.mae_nome.value|default:'' }}" />
+          {% if form.mae_nome.errors %}
+            <p class="field-error" data-field="mae_nome">{{ form.mae_nome.errors|join:" " }}</p>
+          {% endif %}
+          <label for="mae-cpf">CPF</label>
+          <input id="mae-cpf" name="mae_cpf" type="text" class="{% if form.mae_cpf.errors %}input-error{% endif %}" placeholder="000.000.000-00" value="{{ form.mae_cpf.value|default:'' }}" />
+          {% if form.mae_cpf.errors %}
+            <p class="field-error" data-field="mae_cpf">{{ form.mae_cpf.errors|join:" " }}</p>
+          {% endif %}
+          <label for="mae-email">E-mail</label>
+          <input id="mae-email" name="mae_email" type="email" class="{% if form.mae_email.errors %}input-error{% endif %}" placeholder="mae@example.com" value="{{ form.mae_email.value|default:'' }}" />
+          {% if form.mae_email.errors %}
+            <p class="field-error" data-field="mae_email">{{ form.mae_email.errors|join:" " }}</p>
+          {% endif %}
+          <label for="mae-telefone">Telefone</label>
+          <input id="mae-telefone" name="mae_telefone" type="tel" class="{% if form.mae_telefone.errors %}input-error{% endif %}" placeholder="(99) 9999-9999" value="{{ form.mae_telefone.value|default:'' }}" />
+          {% if form.mae_telefone.errors %}
+            <p class="field-error" data-field="mae_telefone">{{ form.mae_telefone.errors|join:" " }}</p>
+          {% endif %}
+          <label for="mae-celular">Celular</label>
+          <input id="mae-celular" name="mae_celular" type="tel" class="{% if form.mae_celular.errors %}input-error{% endif %}" placeholder="(99) 9 9999-9999" value="{{ form.mae_celular.value|default:'' }}" />
+          {% if form.mae_celular.errors %}
+            <p class="field-error" data-field="mae_celular">{{ form.mae_celular.errors|join:" " }}</p>
+          {% endif %}
+        </section>
+
+        <section class="field-section">
+          <h2>Responsável legal</h2>
+          <label for="resp-nome">Nome completo</label>
+          <input id="resp-nome" name="responsavel_nome" type="text" class="{% if form.responsavel_nome.errors %}input-error{% endif %}" placeholder="Nome do responsável legal" value="{{ form.responsavel_nome.value|default:'' }}" />
+          {% if form.responsavel_nome.errors %}
+            <p class="field-error" data-field="responsavel_nome">{{ form.responsavel_nome.errors|join:" " }}</p>
+          {% endif %}
+          <label for="resp-parentesco">Grau de parentesco</label>
+          <input id="resp-parentesco" name="responsavel_parentesco" type="text" class="{% if form.responsavel_parentesco.errors %}input-error{% endif %}" placeholder="Ex: Tio(a), Avó" value="{{ form.responsavel_parentesco.value|default:'' }}" />
+          {% if form.responsavel_parentesco.errors %}
+            <p class="field-error" data-field="responsavel_parentesco">{{ form.responsavel_parentesco.errors|join:" " }}</p>
+          {% endif %}
+          <label for="resp-cpf">CPF</label>
+          <input id="resp-cpf" name="responsavel_cpf" type="text" class="{% if form.responsavel_cpf.errors %}input-error{% endif %}" placeholder="000.000.000-00" value="{{ form.responsavel_cpf.value|default:'' }}" />
+          {% if form.responsavel_cpf.errors %}
+            <p class="field-error" data-field="responsavel_cpf">{{ form.responsavel_cpf.errors|join:" " }}</p>
+          {% endif %}
+          <label for="resp-email">E-mail</label>
+          <input id="resp-email" name="responsavel_email" type="email" class="{% if form.responsavel_email.errors %}input-error{% endif %}" placeholder="responsavel@example.com" value="{{ form.responsavel_email.value|default:'' }}" />
+          {% if form.responsavel_email.errors %}
+            <p class="field-error" data-field="responsavel_email">{{ form.responsavel_email.errors|join:" " }}</p>
+          {% endif %}
+          <label for="resp-telefone">Telefone</label>
+          <input id="resp-telefone" name="responsavel_telefone" type="tel" class="{% if form.responsavel_telefone.errors %}input-error{% endif %}" placeholder="(99) 9999-9999" value="{{ form.responsavel_telefone.value|default:'' }}" />
+          {% if form.responsavel_telefone.errors %}
+            <p class="field-error" data-field="responsavel_telefone">{{ form.responsavel_telefone.errors|join:" " }}</p>
+          {% endif %}
+          <label for="resp-celular">Celular</label>
+          <input id="resp-celular" name="responsavel_celular" type="tel" class="{% if form.responsavel_celular.errors %}input-error{% endif %}" placeholder="(99) 9 9999-9999" value="{{ form.responsavel_celular.value|default:'' }}" />
+          {% if form.responsavel_celular.errors %}
+            <p class="field-error" data-field="responsavel_celular">{{ form.responsavel_celular.errors|join:" " }}</p>
+          {% endif %}
+        </section>
+
+        <section class="field-section">
+          <h2>Endereço</h2>
+          <label for="endereco">Endereço</label>
+          <input id="endereco" name="endereco" type="text" class="{% if form.endereco.errors %}input-error{% endif %}" placeholder="Rua, número e complemento" value="{{ form.endereco.value|default:'' }}" />
+          {% if form.endereco.errors %}
+            <p class="field-error" data-field="endereco">{{ form.endereco.errors|join:" " }}</p>
+          {% endif %}
+          <label for="bairro">Bairro</label>
+          <input id="bairro" name="bairro" type="text" class="{% if form.bairro.errors %}input-error{% endif %}" placeholder="Bairro" value="{{ form.bairro.value|default:'' }}" />
+          {% if form.bairro.errors %}
+            <p class="field-error" data-field="bairro">{{ form.bairro.errors|join:" " }}</p>
+          {% endif %}
+          <label for="cidade">Cidade</label>
+          <input id="cidade" name="cidade" type="text" class="{% if form.cidade.errors %}input-error{% endif %}" placeholder="Pinhal Junior" value="{{ form.cidade.value|default:'' }}" />
+          {% if form.cidade.errors %}
+            <p class="field-error" data-field="cidade">{{ form.cidade.errors|join:" " }}</p>
+          {% endif %}
+          <label for="cep">CEP</label>
+          <input id="cep" name="cep" type="text" class="{% if form.cep.errors %}input-error{% endif %}" placeholder="00000-000" value="{{ form.cep.value|default:'' }}" />
+          {% if form.cep.errors %}
+            <p class="field-error" data-field="cep">{{ form.cep.errors|join:" " }}</p>
+          {% endif %}
+          <label for="estado">Estado</label>
+          <input id="estado" name="estado" type="text" class="{% if form.estado.errors %}input-error{% endif %}" placeholder="UF" value="{{ form.estado.value|default:'' }}" />
+          {% if form.estado.errors %}
+            <p class="field-error" data-field="estado">{{ form.estado.errors|join:" " }}</p>
+          {% endif %}
+        </section>
+
+        <div class="status" aria-live="polite">
+          {% for message in messages %}
+            <p data-state="{{ message.tags }}">{{ message }}</p>
+          {% endfor %}
+          {% if form and form.non_field_errors %}
+            {% for error in form.non_field_errors %}
+              <p data-state="error">{{ error }}</p>
+            {% endfor %}
+          {% endif %}
+        </div>
+        <div class="action-row">
+          <button type="button" class="secondary" id="open-signature">Assinar</button>
+          <button type="submit" class="primary">Salvar e avançar</button>
+        </div>
+        <div class="signature-preview" aria-live="polite">
+          <p>Assinatura registrada:</p>
+          <div class="signature-empty" id="signature-placeholder">Nenhuma assinatura salva ainda.</div>
+          <img id="signature-image" alt="Preview da assinatura" />
+          <span id="signature-error" class="signature-error" aria-live="assertive"></span>
+          <input type="hidden" id="signature-value" name="signature_value" />
+        </div>
+      </form>
+    </main>
+    <div id="signature-modal" class="modal" aria-hidden="true">
+      <div class="modal-content">
+        <header>
+          <h2>Assinatura do responsável</h2>
+          <button id="close-signature" aria-label="Fechar modal">×</button>
+        </header>
+        <p class="panel-note">Use o mouse ou o dedo para desenhar sua assinatura. Clique em salvar para registrar ou limpar para recomeçar.</p>
+        <span id="canvas-error" class="signature-error" aria-live="assertive"></span>
+        <canvas id="signature-canvas" width="380" height="180"></canvas>
+        <div class="modal-actions">
+          <button type="button" class="secondary" id="clear-signature">Limpar</button>
+          <button type="button" class="primary" id="save-signature">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="{% static 'js/responsavel.js' %}" defer></script>
+  <script src="{% static 'js/signature.js' %}" defer></script>
+  <script src="{% static 'js/required-asterisk.js' %}?v=5" defer></script>
+</body>
+</html>

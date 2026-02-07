@@ -17,6 +17,7 @@ from .forms import (
     AventureiroDadosForm,
     DiretoriaDadosForm,
     UserAccessForm,
+    NovoCadastroLoginForm,
 )
 from .models import (
     Responsavel,
@@ -27,6 +28,7 @@ from .models import (
     WhatsAppQueue,
     WhatsAppTemplate,
     DocumentoTemplate,
+    AventureiroFicha,
 )
 from .utils import decode_signature, decode_photo
 from .whatsapp import (
@@ -200,7 +202,7 @@ def _document_field_groups():
     return [
         {
             'title': 'Aventureiro',
-            'items': [
+            'fields': [
                 ('av_nome', 'Aventureiro - Nome completo', 'text'),
                 ('av_sexo', 'Aventureiro - Sexo', 'text'),
                 ('av_nascimento', 'Aventureiro - Data de nascimento', 'text'),
@@ -213,7 +215,7 @@ def _document_field_groups():
         },
         {
             'title': 'Documentos (Aventureiro)',
-            'items': [
+            'fields': [
                 ('av_certidao', 'Documentos - Certidao', 'text'),
                 ('av_rg', 'Documentos - RG', 'text'),
                 ('av_orgao', 'Documentos - Orgao expedidor', 'text'),
@@ -222,7 +224,7 @@ def _document_field_groups():
         },
         {
             'title': 'Saude (Aventureiro)',
-            'items': [
+            'fields': [
                 ('av_plano', 'Saude - Plano', 'text'),
                 ('av_plano_nome', 'Saude - Nome do plano', 'text'),
                 ('av_tipo_sangue', 'Saude - Tipo sanguineo', 'text'),
@@ -232,14 +234,14 @@ def _document_field_groups():
         },
         {
             'title': 'Imagens (Aventureiro)',
-            'items': [
+            'fields': [
                 ('av_foto', 'Foto 3x4 do aventureiro', 'image'),
                 ('av_assinatura', 'Assinatura do aventureiro', 'image'),
             ],
         },
         {
             'title': 'Responsavel',
-            'items': [
+            'fields': [
                 ('resp_responsavel_nome', 'Responsavel - Nome', 'text'),
                 ('resp_responsavel_cpf', 'Responsavel - CPF', 'text'),
                 ('resp_responsavel_email', 'Responsavel - E-mail', 'text'),
@@ -250,7 +252,7 @@ def _document_field_groups():
         },
         {
             'title': 'Pai',
-            'items': [
+            'fields': [
                 ('resp_pai_nome', 'Pai - Nome', 'text'),
                 ('resp_pai_email', 'Pai - E-mail', 'text'),
                 ('resp_pai_whatsapp', 'Pai - WhatsApp', 'text'),
@@ -258,7 +260,7 @@ def _document_field_groups():
         },
         {
             'title': 'Mae',
-            'items': [
+            'fields': [
                 ('resp_mae_nome', 'Mae - Nome', 'text'),
                 ('resp_mae_email', 'Mae - E-mail', 'text'),
                 ('resp_mae_whatsapp', 'Mae - WhatsApp', 'text'),
@@ -266,7 +268,7 @@ def _document_field_groups():
         },
         {
             'title': 'Endereco (Responsavel)',
-            'items': [
+            'fields': [
                 ('resp_endereco', 'Endereco - Rua/Numero/Compl.', 'text'),
                 ('resp_bairro', 'Endereco - Bairro', 'text'),
                 ('resp_cidade', 'Endereco - Cidade', 'text'),
@@ -276,7 +278,7 @@ def _document_field_groups():
         },
         {
             'title': 'Diretoria',
-            'items': [
+            'fields': [
                 ('dir_nome', 'Diretoria - Nome', 'text'),
                 ('dir_nascimento', 'Diretoria - Nascimento', 'text'),
                 ('dir_email', 'Diretoria - E-mail', 'text'),
@@ -615,11 +617,436 @@ def _enqueue_pending_aventure(session, cleaned_data):
     _set_pending_aventures(session, pending)
 
 
+NEW_FLOW_SESSION_KEY = 'novo_cadastro_aventureiro'
+
+
+def _new_flow_data(session):
+    return session.get(NEW_FLOW_SESSION_KEY, {
+        'login': {},
+        'aventures': [],
+    })
+
+
+def _set_new_flow_data(session, data):
+    session[NEW_FLOW_SESSION_KEY] = data
+    session.modified = True
+
+
+def _clear_new_flow(session):
+    if NEW_FLOW_SESSION_KEY in session:
+        del session[NEW_FLOW_SESSION_KEY]
+        session.modified = True
+
+
+def _extract_fields(post, names):
+    data = {}
+    for name in names:
+        values = post.getlist(name)
+        if not values:
+            data[name] = ''
+        elif len(values) == 1:
+            data[name] = values[0]
+        else:
+            data[name] = values
+    return data
+
+
+def _normalize_bool(value):
+    return str(value).strip().lower() in {'1', 'true', 'sim', 's', 'on', 'yes'}
+
+
+def _date_parts_today():
+    now = timezone.localtime(timezone.now())
+    return {
+        'cidade_data': '',
+        'dia_data': f'{now.day:02d}',
+        'mes_data': now.strftime('%B').capitalize(),
+        'ano_data': str(now.year),
+    }
+
+
 class RegisterView(View):
     template_name = 'register.html'
 
     def get(self, request):
         return render(request, self.template_name)
+
+
+class NovoCadastroLoginView(View):
+    template_name = 'novo_cadastro/login_inicio.html'
+
+    def get(self, request):
+        _clear_new_flow(request.session)
+        return render(request, self.template_name, {'form': NovoCadastroLoginForm()})
+
+    def post(self, request):
+        form = NovoCadastroLoginForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, 'Corrija os campos para continuar.')
+            return render(request, self.template_name, {'form': form})
+        data = _new_flow_data(request.session)
+        data['login'] = {
+            'username': form.cleaned_data['username'].strip(),
+            'password': form.cleaned_data['password'],
+        }
+        _set_new_flow_data(request.session, data)
+        return redirect('accounts:novo_cadastro_inscricao')
+
+
+class NovoCadastroInscricaoView(View):
+    template_name = 'novo_cadastro/ficha_inscricao.html'
+
+    field_names = [
+        'nome_completo', 'sexo', 'data_nascimento', 'colegio', 'serie', 'bolsa_familia',
+        'classes', 'endereco', 'bairro', 'cidade', 'cep', 'estado', 'certidao_nascimento',
+        'religiao', 'rg', 'orgao_expedidor', 'cpf_aventureiro', 'tem_whatsapp',
+        'tamanho_camiseta', 'nome_pai', 'email_pai', 'cpf_pai', 'tel_pai', 'cel_pai',
+        'nome_mae', 'email_mae', 'cpf_mae', 'tel_mae', 'cel_mae', 'nome_responsavel',
+        'parentesco', 'cpf_responsavel', 'email_responsavel', 'tel_responsavel',
+        'cel_responsavel', 'assinatura_inscricao', 'foto_3x4',
+        'cidade_data', 'dia_data', 'mes_data', 'ano_data',
+    ]
+
+    def _require_login_step(self, request):
+        data = _new_flow_data(request.session)
+        if not data.get('login'):
+            messages.error(request, 'Comece pelo login do responsável.')
+            return None
+        return data
+
+    def get(self, request):
+        data = self._require_login_step(request)
+        if data is None:
+            return redirect('accounts:novo_cadastro_login')
+        initial = _date_parts_today()
+        return render(request, self.template_name, {
+            'initial': initial,
+            'step_data': {},
+        })
+
+    def post(self, request):
+        data = self._require_login_step(request)
+        if data is None:
+            return redirect('accounts:novo_cadastro_login')
+        fields = _extract_fields(request.POST, self.field_names)
+        required = ['nome_completo', 'data_nascimento', 'nome_responsavel', 'assinatura_inscricao', 'foto_3x4']
+        missing = [name for name in required if not str(fields.get(name, '')).strip()]
+        if missing:
+            messages.error(request, 'Preencha os campos obrigatórios e assine a ficha de inscrição.')
+            initial = _date_parts_today()
+            initial.update(fields)
+            return render(request, self.template_name, {
+                'initial': initial,
+                'step_data': fields,
+            })
+        if not fields.get('cidade_data'):
+            fields['cidade_data'] = fields.get('cidade', '')
+        current = {
+            'inscricao': fields,
+        }
+        data['current'] = current
+        _set_new_flow_data(request.session, data)
+        return redirect('accounts:novo_cadastro_medica')
+
+
+class NovoCadastroMedicaView(View):
+    template_name = 'novo_cadastro/ficha_medica.html'
+
+    field_names = [
+        'plano_saude', 'qual_plano', 'cns_sus', 'doencas', 'alergia_pele', 'alergia_alimentar',
+        'alergia_medicamento', 'deficiencia', 'cardiacos', 'cardiacos_medicamentos', 'diabetico',
+        'diabetico_medicamentos', 'renais', 'renais_medicamentos', 'psicologicos',
+        'psicologicos_medicamentos', 'outros_problemas', 'saude_recente',
+        'medicamentos_recentes', 'fraturas', 'cirurgias', 'motivo_internacao', 'tipo_sangue',
+    ]
+
+    def _require_inscricao_step(self, request):
+        data = _new_flow_data(request.session)
+        if not data.get('login'):
+            return None
+        current = data.get('current') or {}
+        if not current.get('inscricao'):
+            return None
+        return data
+
+    def get(self, request):
+        data = self._require_inscricao_step(request)
+        if data is None:
+            messages.error(request, 'Complete a ficha de inscrição antes.')
+            return redirect('accounts:novo_cadastro_inscricao')
+        return render(request, self.template_name, {'step_data': {}})
+
+    def post(self, request):
+        data = self._require_inscricao_step(request)
+        if data is None:
+            messages.error(request, 'Complete a ficha de inscrição antes.')
+            return redirect('accounts:novo_cadastro_inscricao')
+        fields = _extract_fields(request.POST, self.field_names)
+        data['current']['medica'] = fields
+        _set_new_flow_data(request.session, data)
+        return redirect('accounts:novo_cadastro_declaracao')
+
+
+class NovoCadastroDeclaracaoMedicaView(View):
+    template_name = 'novo_cadastro/declaracao_medica.html'
+
+    field_names = ['cidade_data', 'dia_data', 'mes_data', 'ano_data', 'assinatura_declaracao_medica']
+
+    def _require_medica_step(self, request):
+        data = _new_flow_data(request.session)
+        current = data.get('current') or {}
+        if not current.get('inscricao') or not current.get('medica'):
+            return None
+        return data
+
+    def get(self, request):
+        data = self._require_medica_step(request)
+        if data is None:
+            messages.error(request, 'Complete as etapas anteriores.')
+            return redirect('accounts:novo_cadastro_inscricao')
+        initial = _date_parts_today()
+        initial['cidade_data'] = data.get('current', {}).get('inscricao', {}).get('cidade', '')
+        return render(request, self.template_name, {'initial': initial, 'step_data': {}})
+
+    def post(self, request):
+        data = self._require_medica_step(request)
+        if data is None:
+            messages.error(request, 'Complete as etapas anteriores.')
+            return redirect('accounts:novo_cadastro_inscricao')
+        fields = _extract_fields(request.POST, self.field_names)
+        if not fields.get('assinatura_declaracao_medica'):
+            messages.error(request, 'Assine a declaração médica para continuar.')
+            return render(request, self.template_name, {'initial': _date_parts_today(), 'step_data': fields})
+        data['current']['declaracao_medica'] = fields
+        _set_new_flow_data(request.session, data)
+        return redirect('accounts:novo_cadastro_termo')
+
+
+class NovoCadastroTermoImagemView(View):
+    template_name = 'novo_cadastro/termo_imagem.html'
+
+    field_names = [
+        'aventureiro_nacionalidade', 'responsavel_nome_termo', 'responsavel_nacionalidade_termo',
+        'responsavel_estado_civil_termo', 'responsavel_rg_termo', 'responsavel_cpf_termo',
+        'responsavel_endereco_termo', 'responsavel_numero_termo', 'responsavel_cidade_termo',
+        'responsavel_estado_termo', 'cidade_data', 'dia_data', 'mes_data', 'ano_data',
+        'assinatura_termo_imagem', 'telefone_contato_termo', 'email_contato_termo', 'nome_aventureiro_termo',
+    ]
+
+    def _require_declaracao_step(self, request):
+        data = _new_flow_data(request.session)
+        current = data.get('current') or {}
+        if not current.get('inscricao') or not current.get('medica') or not current.get('declaracao_medica'):
+            return None
+        return data
+
+    def get(self, request):
+        data = self._require_declaracao_step(request)
+        if data is None:
+            messages.error(request, 'Complete as etapas anteriores.')
+            return redirect('accounts:novo_cadastro_inscricao')
+        inscricao = data.get('current', {}).get('inscricao', {})
+        initial = _date_parts_today()
+        initial.update({
+            'nome_aventureiro_termo': inscricao.get('nome_completo', ''),
+            'responsavel_nome_termo': inscricao.get('nome_responsavel', ''),
+            'responsavel_cpf_termo': inscricao.get('cpf_responsavel', ''),
+            'responsavel_endereco_termo': inscricao.get('endereco', ''),
+            'responsavel_cidade_termo': inscricao.get('cidade', ''),
+            'responsavel_estado_termo': inscricao.get('estado', ''),
+            'email_contato_termo': inscricao.get('email_responsavel', ''),
+            'telefone_contato_termo': inscricao.get('cel_responsavel', ''),
+            'cidade_data': inscricao.get('cidade', ''),
+        })
+        return render(request, self.template_name, {'initial': initial, 'step_data': {}})
+
+    def post(self, request):
+        data = self._require_declaracao_step(request)
+        if data is None:
+            messages.error(request, 'Complete as etapas anteriores.')
+            return redirect('accounts:novo_cadastro_inscricao')
+        fields = _extract_fields(request.POST, self.field_names)
+        if not fields.get('assinatura_termo_imagem'):
+            messages.error(request, 'Assine o termo de imagem para continuar.')
+            return render(request, self.template_name, {'initial': _date_parts_today(), 'step_data': fields})
+        data['current']['termo_imagem'] = fields
+        _set_new_flow_data(request.session, data)
+        return redirect('accounts:novo_cadastro_resumo')
+
+
+class NovoCadastroResumoView(View):
+    template_name = 'novo_cadastro/resumo.html'
+
+    def _require_current_complete(self, request):
+        data = _new_flow_data(request.session)
+        current = data.get('current') or {}
+        required_keys = ['inscricao', 'medica', 'declaracao_medica', 'termo_imagem']
+        if not all(current.get(item) for item in required_keys):
+            return None
+        return data
+
+    def get(self, request):
+        data = self._require_current_complete(request)
+        if data is None:
+            messages.error(request, 'Complete todas as fichas do aventureiro.')
+            return redirect('accounts:novo_cadastro_inscricao')
+        current = data.get('current', {})
+        aventureiros = data.get('aventures', [])
+        preview = aventureiros + [current]
+        return render(request, self.template_name, {
+            'current': current,
+            'aventures_preview': preview,
+            'responsavel_nome': current.get('inscricao', {}).get('nome_responsavel', ''),
+        })
+
+    def post(self, request):
+        action = request.POST.get('action')
+        data = self._require_current_complete(request)
+        if data is None:
+            messages.error(request, 'Complete todas as fichas do aventureiro.')
+            return redirect('accounts:novo_cadastro_inscricao')
+        if action == 'add_more':
+            data['aventures'].append(data['current'])
+            data['current'] = {}
+            _set_new_flow_data(request.session, data)
+            messages.success(request, 'Aventureiro salvo temporariamente. Preencha o próximo.')
+            return redirect('accounts:novo_cadastro_inscricao')
+        if action == 'finalizar':
+            data['aventures'].append(data['current'])
+            payload = data
+            login_data = payload.get('login', {})
+            if not login_data:
+                messages.error(request, 'Sessão inválida. Reinicie o cadastro.')
+                return redirect('accounts:novo_cadastro_login')
+            user = User.objects.create_user(
+                username=login_data['username'],
+                password=login_data['password'],
+            )
+            access, _ = UserAccess.objects.get_or_create(
+                user=user,
+                defaults={'role': UserAccess.ROLE_RESPONSAVEL, 'profiles': [UserAccess.ROLE_RESPONSAVEL]},
+            )
+            access.add_profile(UserAccess.ROLE_RESPONSAVEL)
+            access.save(update_fields=['role', 'profiles', 'updated_at'])
+
+            first = payload['aventures'][0]['inscricao']
+            responsavel = Responsavel.objects.create(
+                user=user,
+                pai_nome=first.get('nome_pai', ''),
+                pai_cpf=first.get('cpf_pai', ''),
+                pai_email=first.get('email_pai', ''),
+                pai_telefone=first.get('tel_pai', ''),
+                pai_celular=first.get('cel_pai', ''),
+                mae_nome=first.get('nome_mae', ''),
+                mae_cpf=first.get('cpf_mae', ''),
+                mae_email=first.get('email_mae', ''),
+                mae_telefone=first.get('tel_mae', ''),
+                mae_celular=first.get('cel_mae', ''),
+                responsavel_nome=first.get('nome_responsavel', ''),
+                responsavel_parentesco=first.get('parentesco', ''),
+                responsavel_cpf=first.get('cpf_responsavel', ''),
+                responsavel_email=first.get('email_responsavel', ''),
+                responsavel_telefone=first.get('tel_responsavel', ''),
+                responsavel_celular=first.get('cel_responsavel', ''),
+                endereco=first.get('endereco', ''),
+                bairro=first.get('bairro', ''),
+                cidade=first.get('cidade', ''),
+                cep=first.get('cep', ''),
+                estado=first.get('estado', ''),
+            )
+            resp_signature = first.get('assinatura_inscricao')
+            if resp_signature:
+                signature_file = decode_signature(resp_signature, 'responsavel')
+                if signature_file:
+                    responsavel.signature.save(signature_file.name, signature_file, save=True)
+
+            for item in payload['aventures']:
+                inscricao = item.get('inscricao', {})
+                medica = item.get('medica', {})
+                declaracao = item.get('declaracao_medica', {})
+                termo = item.get('termo_imagem', {})
+                condicoes = {
+                    'cardiaco': {'resposta': 'sim' if str(medica.get('cardiacos', '')).upper() == 'S' else 'nao', 'detalhe': '', 'medicamento': 'sim' if medica.get('cardiacos_medicamentos') else 'nao', 'remedio': medica.get('cardiacos_medicamentos', '')},
+                    'diabetico': {'resposta': 'sim' if str(medica.get('diabetico', '')).upper() == 'S' else 'nao', 'detalhe': '', 'medicamento': 'sim' if medica.get('diabetico_medicamentos') else 'nao', 'remedio': medica.get('diabetico_medicamentos', '')},
+                    'renal': {'resposta': 'sim' if str(medica.get('renais', '')).upper() == 'S' else 'nao', 'detalhe': '', 'medicamento': 'sim' if medica.get('renais_medicamentos') else 'nao', 'remedio': medica.get('renais_medicamentos', '')},
+                    'psicologico': {'resposta': 'sim' if str(medica.get('psicologicos', '')).upper() == 'S' else 'nao', 'detalhe': '', 'medicamento': 'sim' if medica.get('psicologicos_medicamentos') else 'nao', 'remedio': medica.get('psicologicos_medicamentos', '')},
+                }
+                alergias = {
+                    'alergia_pele': {'resposta': 'sim' if medica.get('alergia_pele') else 'nao', 'descricao': medica.get('alergia_pele', '')},
+                    'alergia_alimento': {'resposta': 'sim' if medica.get('alergia_alimentar') else 'nao', 'descricao': medica.get('alergia_alimentar', '')},
+                    'alergia_medicamento': {'resposta': 'sim' if medica.get('alergia_medicamento') else 'nao', 'descricao': medica.get('alergia_medicamento', '')},
+                }
+                try:
+                    nascimento = date.fromisoformat(inscricao.get('data_nascimento', ''))
+                except ValueError:
+                    nascimento = None
+                aventureiro = Aventureiro.objects.create(
+                    responsavel=responsavel,
+                    nome=inscricao.get('nome_completo', ''),
+                    sexo='masculino' if inscricao.get('sexo') == 'M' else 'feminino' if inscricao.get('sexo') == 'F' else '',
+                    nascimento=nascimento,
+                    serie=inscricao.get('serie', ''),
+                    colegio=inscricao.get('colegio', ''),
+                    bolsa='sim' if inscricao.get('bolsa_familia') == 'sim' else 'nao',
+                    religiao=inscricao.get('religiao', ''),
+                    certidao=inscricao.get('certidao_nascimento', ''),
+                    rg=inscricao.get('rg', ''),
+                    orgao=inscricao.get('orgao_expedidor', ''),
+                    cpf=inscricao.get('cpf_aventureiro', ''),
+                    camiseta=inscricao.get('tamanho_camiseta', ''),
+                    plano='sim' if str(medica.get('plano_saude', '')).upper() == 'S' else 'nao',
+                    plano_nome=medica.get('qual_plano', ''),
+                    cns=medica.get('cns_sus', ''),
+                    doencas=medica.get('doencas', []) if isinstance(medica.get('doencas', []), list) else [medica.get('doencas', '')],
+                    condicoes=condicoes,
+                    alergias=alergias,
+                    deficiencias=medica.get('deficiencia', []) if isinstance(medica.get('deficiencia', []), list) else [medica.get('deficiencia', '')],
+                    tipo_sangue=medica.get('tipo_sangue', ''),
+                    declaracao_medica=True,
+                    autorizacao_imagem=True,
+                )
+                photo_value = inscricao.get('foto_3x4')
+                if photo_value:
+                    photo = decode_photo(photo_value)
+                    if photo:
+                        aventureiro.foto.save(photo.name, photo, save=True)
+
+                assinatura_aventureiro = inscricao.get('assinatura_inscricao')
+                if assinatura_aventureiro:
+                    signature = decode_signature(assinatura_aventureiro, 'aventura')
+                    if signature:
+                        aventureiro.assinatura.save(signature.name, signature, save=True)
+
+                ficha = AventureiroFicha.objects.create(
+                    aventureiro=aventureiro,
+                    inscricao_data=inscricao,
+                    ficha_medica_data=medica,
+                    declaracao_medica_data=declaracao,
+                    termo_imagem_data=termo,
+                )
+                if inscricao.get('assinatura_inscricao'):
+                    assinatura = decode_signature(inscricao.get('assinatura_inscricao'), 'ficha_inscricao')
+                    if assinatura:
+                        ficha.assinatura_inscricao.save(assinatura.name, assinatura, save=False)
+                if declaracao.get('assinatura_declaracao_medica'):
+                    assinatura = decode_signature(declaracao.get('assinatura_declaracao_medica'), 'declaracao_medica')
+                    if assinatura:
+                        ficha.assinatura_declaracao_medica.save(assinatura.name, assinatura, save=False)
+                if termo.get('assinatura_termo_imagem'):
+                    assinatura = decode_signature(termo.get('assinatura_termo_imagem'), 'termo_imagem')
+                    if assinatura:
+                        ficha.assinatura_termo_imagem.save(assinatura.name, assinatura, save=False)
+                ficha.save()
+
+            _dispatch_cadastro_notifications(
+                'Cadastro completo',
+                user,
+                responsavel.responsavel_nome or responsavel.mae_nome or responsavel.pai_nome,
+            )
+            _clear_new_flow(request.session)
+            messages.success(request, 'Cadastro efetuado com sucesso.')
+            return redirect('accounts:login')
+        return redirect('accounts:novo_cadastro_resumo')
 
 
 class LogoutRedirectView(View):

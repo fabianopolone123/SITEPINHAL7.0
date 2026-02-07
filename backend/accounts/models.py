@@ -270,3 +270,38 @@ class DocumentoTemplate(models.Model):
 
     def __str__(self):
         return f'{self.name} ({self.get_template_type_display()})'
+
+
+class AventureiroFicha(models.Model):
+    aventureiro = models.OneToOneField(Aventureiro, on_delete=models.CASCADE, related_name='ficha_completa')
+    inscricao_data = models.JSONField('dados da ficha de inscricao', default=dict, blank=True)
+    ficha_medica_data = models.JSONField('dados da ficha medica', default=dict, blank=True)
+    declaracao_medica_data = models.JSONField('dados da declaracao medica', default=dict, blank=True)
+    termo_imagem_data = models.JSONField('dados do termo de imagem', default=dict, blank=True)
+    assinatura_inscricao = models.ImageField(
+        'assinatura da ficha de inscricao',
+        upload_to='signatures/fichas/inscricao',
+        null=True,
+        blank=True,
+    )
+    assinatura_declaracao_medica = models.ImageField(
+        'assinatura da declaracao medica',
+        upload_to='signatures/fichas/declaracao_medica',
+        null=True,
+        blank=True,
+    )
+    assinatura_termo_imagem = models.ImageField(
+        'assinatura do termo de imagem',
+        upload_to='signatures/fichas/termo_imagem',
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'ficha completa do aventureiro'
+        verbose_name_plural = 'fichas completas dos aventureiros'
+
+    def __str__(self):
+        return f'Ficha completa - {self.aventureiro.nome}'

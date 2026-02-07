@@ -1,0 +1,93 @@
+﻿<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ficha Medica</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="branding">
+      <p class="eyebrow">Etapa 2</p>
+      <h1>Ficha Medica</h1>
+      <p class="subtitle">Preencha os dados de saude do aventureiro.</p>
+    </div>
+    <main class="login-card aventura-card">
+      <form method="post" class="aventura-form">
+        {% csrf_token %}
+        <section class="section-block">
+          <div class="section-header"><span>1</span><h2>Plano e documentos de saude</h2></div>
+          <div class="form-row">
+            <label>Plano de saude
+              <select name="plano_saude">
+                <option value="">Selecione</option>
+                <option value="S" {% if step_data.plano_saude == 'S' %}selected{% endif %}>Sim</option>
+                <option value="N" {% if step_data.plano_saude == 'N' %}selected{% endif %}>Nao</option>
+              </select>
+            </label>
+            <label>Qual plano<input type="text" name="qual_plano" value="{{ step_data.qual_plano|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>CNS/SUS<input type="text" name="cns_sus" value="{{ step_data.cns_sus|default:'' }}"></label>
+            <label>Tipo sanguineo
+              <select name="tipo_sangue">
+                <option value="">Selecione</option>
+                <option value="A+" {% if step_data.tipo_sangue == 'A+' %}selected{% endif %}>A+</option>
+                <option value="A-" {% if step_data.tipo_sangue == 'A-' %}selected{% endif %}>A-</option>
+                <option value="B+" {% if step_data.tipo_sangue == 'B+' %}selected{% endif %}>B+</option>
+                <option value="B-" {% if step_data.tipo_sangue == 'B-' %}selected{% endif %}>B-</option>
+                <option value="AB+" {% if step_data.tipo_sangue == 'AB+' %}selected{% endif %}>AB+</option>
+                <option value="AB-" {% if step_data.tipo_sangue == 'AB-' %}selected{% endif %}>AB-</option>
+                <option value="O+" {% if step_data.tipo_sangue == 'O+' %}selected{% endif %}>O+</option>
+                <option value="O-" {% if step_data.tipo_sangue == 'O-' %}selected{% endif %}>O-</option>
+                <option value="Não sabe" {% if step_data.tipo_sangue == 'Não sabe' %}selected{% endif %}>Não sabe</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header"><span>2</span><h2>Alergias e condicoes</h2></div>
+          <div class="form-row">
+            <label>Alergia pele<input type="text" name="alergia_pele" value="{{ step_data.alergia_pele|default:'' }}"></label>
+            <label>Alergia alimentar<input type="text" name="alergia_alimentar" value="{{ step_data.alergia_alimentar|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Alergia medicamento<input type="text" name="alergia_medicamento" value="{{ step_data.alergia_medicamento|default:'' }}"></label>
+            <label>Outros problemas<input type="text" name="outros_problemas" value="{{ step_data.outros_problemas|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Cardiacos
+              <select name="cardiacos"><option value="">Selecione</option><option value="S" {% if step_data.cardiacos == 'S' %}selected{% endif %}>S</option><option value="N" {% if step_data.cardiacos == 'N' %}selected{% endif %}>N</option></select>
+            </label>
+            <label>Medicamento cardiaco<input type="text" name="cardiacos_medicamentos" value="{{ step_data.cardiacos_medicamentos|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Diabetico
+              <select name="diabetico"><option value="">Selecione</option><option value="S" {% if step_data.diabetico == 'S' %}selected{% endif %}>S</option><option value="N" {% if step_data.diabetico == 'N' %}selected{% endif %}>N</option></select>
+            </label>
+            <label>Medicamento diabetes<input type="text" name="diabetico_medicamentos" value="{{ step_data.diabetico_medicamentos|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Renais
+              <select name="renais"><option value="">Selecione</option><option value="S" {% if step_data.renais == 'S' %}selected{% endif %}>S</option><option value="N" {% if step_data.renais == 'N' %}selected{% endif %}>N</option></select>
+            </label>
+            <label>Medicamento renal<input type="text" name="renais_medicamentos" value="{{ step_data.renais_medicamentos|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Psicologicos
+              <select name="psicologicos"><option value="">Selecione</option><option value="S" {% if step_data.psicologicos == 'S' %}selected{% endif %}>S</option><option value="N" {% if step_data.psicologicos == 'N' %}selected{% endif %}>N</option></select>
+            </label>
+            <label>Medicamento psicologico<input type="text" name="psicologicos_medicamentos" value="{{ step_data.psicologicos_medicamentos|default:'' }}"></label>
+          </div>
+        </section>
+
+        <div class="status" aria-live="polite">{% for message in messages %}<p data-state="{{ message.tags }}">{{ message }}</p>{% endfor %}</div>
+        <button class="primary" type="submit">Proximo</button>
+      </form>
+    </main>
+  </div>
+</body>
+</html>

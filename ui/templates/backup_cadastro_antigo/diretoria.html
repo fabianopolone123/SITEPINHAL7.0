@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastro Diretoria - Clube de Aventureiros Pinhal Junior</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="branding">
+      <p class="eyebrow">Portal oficial</p>
+      <h1>Cadastro da Diretoria</h1>
+      <p class="subtitle">Preencha todos os campos para concluir o cadastro da diretoria.</p>
+    </div>
+    <main class="login-card form-card">
+      <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
+      <form class="responsavel-form diretoria-form" method="post" action="{% url 'accounts:diretoria' %}" data-required-fields="{{ required_fields|join:',' }}">
+        {% csrf_token %}
+
+        <section class="field-section">
+          <h2>Acesso ao portal</h2>
+          <label for="dir-username">Nome de usuário</label>
+          <input id="dir-username" name="username" type="text" class="{% if form.username.errors %}input-error{% endif %}" value="{{ form.username.value|default:'' }}" />
+          {% if form.username.errors %}<p class="field-error">{{ form.username.errors|join:" " }}</p>{% endif %}
+
+          <label for="dir-password">Senha</label>
+          <input id="dir-password" name="password" type="password" class="{% if form.password.errors %}input-error{% endif %}" value="{{ form.password.value|default:'' }}" />
+          {% if form.password.errors %}<p class="field-error">{{ form.password.errors|join:" " }}</p>{% endif %}
+
+          <label for="dir-password-confirm">Repita a senha</label>
+          <input id="dir-password-confirm" name="password_confirm" type="password" class="{% if form.password_confirm.errors %}input-error{% endif %}" value="{{ form.password_confirm.value|default:'' }}" />
+          {% if form.password_confirm.errors %}<p class="field-error">{{ form.password_confirm.errors|join:" " }}</p>{% endif %}
+        </section>
+
+        <section class="field-section">
+          <h2>1. Informações Pessoais</h2>
+          <label>Nome</label><input name="nome" type="text" class="{% if form.nome.errors %}input-error{% endif %}" value="{{ form.nome.value|default:'' }}" />
+          <label>Igreja</label><input name="igreja" type="text" class="{% if form.igreja.errors %}input-error{% endif %}" value="{{ form.igreja.value|default:'' }}" />
+          <label>Endereço</label><input name="endereco" type="text" class="{% if form.endereco.errors %}input-error{% endif %}" value="{{ form.endereco.value|default:'' }}" />
+          <div class="row-grid">
+            <div>
+              <label>Distrito</label><input name="distrito" type="text" class="{% if form.distrito.errors %}input-error{% endif %}" value="{{ form.distrito.value|default:'' }}" />
+            </div>
+            <div>
+              <label>Nº</label><input name="numero" type="text" class="{% if form.numero.errors %}input-error{% endif %}" value="{{ form.numero.value|default:'' }}" />
+            </div>
+          </div>
+          <label>Bairro</label><input name="bairro" type="text" class="{% if form.bairro.errors %}input-error{% endif %}" value="{{ form.bairro.value|default:'' }}" />
+          <div class="row-grid">
+            <div><label>CEP</label><input name="cep" type="text" class="{% if form.cep.errors %}input-error{% endif %}" value="{{ form.cep.value|default:'' }}" /></div>
+            <div><label>Cidade</label><input name="cidade" type="text" class="{% if form.cidade.errors %}input-error{% endif %}" value="{{ form.cidade.value|default:'' }}" /></div>
+          </div>
+          <label>Estado</label><input name="estado" type="text" class="{% if form.estado.errors %}input-error{% endif %}" value="{{ form.estado.value|default:'' }}" />
+          <label>E-mail</label><input name="email" type="email" class="{% if form.email.errors %}input-error{% endif %}" value="{{ form.email.value|default:'' }}" />
+          <label>Watsapp</label><input name="whatsapp" type="text" class="{% if form.whatsapp.errors %}input-error{% endif %}" value="{{ form.whatsapp.value|default:'' }}" />
+          <label>Tel. Residencial (se tiver)</label><input name="telefone_residencial" type="text" value="{{ form.telefone_residencial.value|default:'' }}" />
+          <label>Tel. Comercial (se tiver)</label><input name="telefone_comercial" type="text" value="{{ form.telefone_comercial.value|default:'' }}" />
+          <label>Data de Nascimento</label><input name="nascimento" type="date" class="{% if form.nascimento.errors %}input-error{% endif %}" value="{{ form.nascimento.value|date:'Y-m-d'|default:'' }}" />
+          <label>Estado Civil</label><input name="estado_civil" type="text" class="{% if form.estado_civil.errors %}input-error{% endif %}" value="{{ form.estado_civil.value|default:'' }}" />
+          <label>CPF</label><input name="cpf" type="text" class="{% if form.cpf.errors %}input-error{% endif %}" value="{{ form.cpf.value|default:'' }}" />
+          <label>RG</label><input name="rg" type="text" class="{% if form.rg.errors %}input-error{% endif %}" value="{{ form.rg.value|default:'' }}" />
+        </section>
+
+        <section class="field-section">
+          <h2>2. Informações Familiares</h2>
+          <label>Esposa(o)</label><input name="conjuge" type="text" class="{% if form.conjuge.errors %}input-error{% endif %}" value="{{ form.conjuge.value|default:'' }}" />
+          {% if form.conjuge.errors %}<p class="field-error">{{ form.conjuge.errors|join:" " }}</p>{% endif %}
+          <label>Filho(a)</label><input name="filho_1" type="text" class="{% if form.filho_1.errors %}input-error{% endif %}" value="{{ form.filho_1.value|default:'' }}" />
+          {% if form.filho_1.errors %}<p class="field-error">{{ form.filho_1.errors|join:" " }}</p>{% endif %}
+          <label>Filho(a)</label><input name="filho_2" type="text" class="{% if form.filho_2.errors %}input-error{% endif %}" value="{{ form.filho_2.value|default:'' }}" />
+          {% if form.filho_2.errors %}<p class="field-error">{{ form.filho_2.errors|join:" " }}</p>{% endif %}
+          <label>Filho(a)</label><input name="filho_3" type="text" class="{% if form.filho_3.errors %}input-error{% endif %}" value="{{ form.filho_3.value|default:'' }}" />
+          {% if form.filho_3.errors %}<p class="field-error">{{ form.filho_3.errors|join:" " }}</p>{% endif %}
+        </section>
+
+        <section class="field-section">
+          <h2>3. Informações de Saúde</h2>
+          <p>Possui alguma dificuldade de saúde que limite sua participação total nas atividades do Clube de Aventureiros?</p>
+          <div class="radio-row {% if form.possui_limitacao_saude.errors %}input-error{% endif %}">
+            <label><input type="radio" name="possui_limitacao_saude" value="sim" {% if form.possui_limitacao_saude.value == 'sim' %}checked{% endif %} /> Sim</label>
+            <label><input type="radio" name="possui_limitacao_saude" value="nao" {% if form.possui_limitacao_saude.value == 'nao' %}checked{% endif %} /> Não</label>
+          </div>
+          <label>Em caso afirmativo, descreva:</label>
+          <textarea name="limitacao_saude_descricao" rows="3" class="{% if form.limitacao_saude_descricao.errors %}input-error{% endif %}">{{ form.limitacao_saude_descricao.value|default:'' }}</textarea>
+        </section>
+
+        <section class="field-section">
+          <h2>4. Informações Educacionais</h2>
+          <p>Escolaridade:</p>
+          <div class="radio-row {% if form.escolaridade.errors %}input-error{% endif %}">
+            <label><input type="radio" name="escolaridade" value="fundamental" {% if form.escolaridade.value == 'fundamental' %}checked{% endif %} /> Ensino Fundamental</label>
+            <label><input type="radio" name="escolaridade" value="medio" {% if form.escolaridade.value == 'medio' %}checked{% endif %} /> Ensino Médio</label>
+            <label><input type="radio" name="escolaridade" value="faculdade" {% if form.escolaridade.value == 'faculdade' %}checked{% endif %} /> Faculdade</label>
+          </div>
+        </section>
+
+        <section class="field-section">
+          <h2>Autorizações e assinatura</h2>
+          <label class="checkbox-full">
+            <input type="checkbox" name="autorizacao_imagem" value="on" {% if form.autorizacao_imagem.value %}checked{% endif %} />
+            AUTORIZO o uso de imagem em todo e qualquer material entre fotos e documentos para ser utilizado em campanhas promocionais e institucionais do CLUBE DE AVENTUREIROS sejam essas destinadas à divulgação ao público em geral. A presente autorização é concedida a título gratuito, abrangendo o uso da imagem acima mencionada em todo território nacional, das seguintes formas: (I) outdoor; (II) folhetos em geral (encartes, mala direta, catálogo, etc.); (III) folder de apresentação; (IV) anúncios em revistas e jornais em geral; (V) home Page (facebook); (VI) cartazes; (VII) mídia eletrônica (painéis, vídeos, televisão, programa para rádio, entre outros). Por esta ser a expressão da minha vontade, declaro que autorizo o uso acima descrito sem que nada haja a ser reclamado a título de direitos conexos à imagem ou a qualquer outro, e assino a presente autorização.
+          </label>
+          {% if form.autorizacao_imagem.errors %}<p class="field-error">{{ form.autorizacao_imagem.errors|join:" " }}</p>{% endif %}
+
+          <label class="checkbox-full">
+            <input type="checkbox" name="declaracao_medica" value="on" {% if form.declaracao_medica.value %}checked{% endif %} />
+            Testo serem VERDADEIRAS todas as informações médicas preenchidas e me responsabilizo por quaisquer acidentes que venha a ocorrer em decorrência do não informe de problemas médicos de qualquer natureza:
+          </label>
+          {% if form.declaracao_medica.errors %}<p class="field-error">{{ form.declaracao_medica.errors|join:" " }}</p>{% endif %}
+
+          <label for="photo-input-dir">Anexe a foto 3x4</label>
+          <input type="file" id="photo-input-dir" accept="image/*" class="{% if form.photo_value_dir.errors %}input-error{% endif %}" />
+          <div class="photo-preview">
+            <p class="photo-preview-label">Visualização</p>
+            <img id="photo-preview-img-dir" alt="Prévia da foto 3x4 da diretoria" />
+          </div>
+          <input type="hidden" id="photo-value-dir" name="photo_value_dir" value="{{ form.photo_value_dir.value|default:'' }}" />
+          {% if form.photo_value_dir.errors %}<p class="field-error">{{ form.photo_value_dir.errors|join:" " }}</p>{% endif %}
+
+          <div class="action-row">
+            <button type="button" class="secondary" id="open-signature-dir">Assinar</button>
+          </div>
+          <div class="signature-preview">
+            <span>Assinatura capturada</span>
+            <img id="signature-image-dir" alt="Prévia da assinatura da diretoria" />
+            <span id="signature-placeholder-dir" class="signature-empty">Nenhuma assinatura registrada.</span>
+            <p id="signature-error-dir" class="signature-error">
+              {% if form.signature_value_dir.errors %}{{ form.signature_value_dir.errors|join:" " }}{% endif %}
+            </p>
+          </div>
+          <input type="hidden" id="signature-value-dir" name="signature_value_dir" value="{{ form.signature_value_dir.value|default:'' }}" />
+
+          <div class="action-row">
+            <button type="submit" class="primary">Salvar e concluir</button>
+          </div>
+        </section>
+
+        {% if form.non_field_errors %}
+          <div class="status" aria-live="polite">
+            {% for error in form.non_field_errors %}
+              <p data-state="error">{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </form>
+
+      <div class="status" aria-live="polite">
+        {% for message in messages %}
+          <p data-state="{{ message.tags }}">{{ message }}</p>
+        {% endfor %}
+      </div>
+    </main>
+  </div>
+
+  <div class="modal" id="signature-modal-dir" aria-hidden="true">
+    <div class="modal-content">
+      <header>
+        <h3>Assinatura da diretoria</h3>
+        <button type="button" id="close-signature-dir" aria-label="Fechar assinatura">×</button>
+      </header>
+      <canvas id="signature-canvas-dir" width="360" height="180"></canvas>
+      <p id="canvas-error-dir" class="signature-error"></p>
+      <div class="modal-actions">
+        <button type="button" class="secondary" id="clear-signature-dir">Limpar</button>
+        <button type="button" class="primary" id="save-signature-dir">Salvar assinatura</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="{% static 'js/signature.js' %}" defer></script>
+  <script src="{% static 'js/diretoria.js' %}" defer></script>
+  <script src="{% static 'js/required-asterisk.js' %}?v=6" defer></script>
+</body>
+</html>

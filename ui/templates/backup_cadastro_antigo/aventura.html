@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ficha Cadastral e Médica – Clube de Aventureiros</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="branding">
+      <p class="eyebrow">Ficha cadastral e médica</p>
+      <h1>Clube de Aventureiros</h1>
+      <p class="subtitle">Complete cada seção numerada com os dados solicitados.</p>
+    </div>
+
+    <main class="login-card aventura-card">
+      <img src="{% static 'images/logo.jpeg' %}" alt="logo Clube de Aventureiros" class="logo" />
+      <div id="aventura-counter" class="counter-chip" data-current-number="{{ current_sequence|default:1 }}">
+        <p>Ficha cadastral aventureiro <span id="aventura-counter-value">{{ current_sequence|stringformat:"02d" }}</span></p>
+      </div>
+      <form class="aventura-form" method="post" action="{% url 'accounts:aventura' %}" data-required-fields="{{ required_fields|join:',' }}">
+        {% csrf_token %}
+        <input type="hidden" name="aventura_sequence" id="aventura-sequence" value="{{ current_sequence|default:1 }}" />
+        <input type="hidden" name="action" id="aventura-action" value="save_confirm" />
+        {% if pending_count %}
+          <p class="panel-note" id="pending-count-note">
+            {{ pending_count }} ficha{% if pending_count > 1 %}s{% endif %} aguardando revisão na confirmação.
+          </p>
+        {% endif %}
+        <section class="section-block">
+          <div class="section-header">
+            <span>1.</span>
+            <h2>Dados Pessoais e Escolares</h2>
+          </div>
+          <div class="form-row">
+          <label>Nome completo do aventureiro<input type="text" name="nome" placeholder="Nome completo do aventureiro" required class="{% if form.nome.errors %}input-error{% endif %}" value="{{ form.nome.value|default:'' }}" /></label>
+          {% if form.nome.errors %}
+            <p class="field-error" data-field="nome">{{ form.nome.errors|join:" " }}</p>
+          {% endif %}
+          </div>
+          <div class="form-row">
+            <label>Religião<input type="text" name="religiao" required class="{% if form.religiao.errors %}input-error{% endif %}" value="{{ form.religiao.value|default:'' }}" /></label>
+            {% if form.religiao.errors %}
+              <p class="field-error" data-field="religiao">{{ form.religiao.errors|join:" " }}</p>
+            {% endif %}
+            <label>Data de nascimento<input type="date" name="nascimento" required class="{% if form.nascimento.errors %}input-error{% endif %}" value="{{ form.nascimento.value|default:'' }}" /></label>
+            {% if form.nascimento.errors %}
+              <p class="field-error" data-field="nascimento">{{ form.nascimento.errors|join:" " }}</p>
+            {% endif %}
+          </div>
+          <div class="form-row">
+            <label>Série (ano)<input type="text" name="serie" placeholder="Ex.: 3º ano" required class="{% if form.serie.errors %}input-error{% endif %}" value="{{ form.serie.value|default:'' }}" /></label>
+            {% if form.serie.errors %}
+              <p class="field-error" data-field="serie">{{ form.serie.errors|join:" " }}</p>
+            {% endif %}
+            <label>Colégio<input type="text" name="colegio" required class="{% if form.colegio.errors %}input-error{% endif %}" value="{{ form.colegio.value|default:'' }}" /></label>
+            {% if form.colegio.errors %}
+              <p class="field-error" data-field="colegio">{{ form.colegio.errors|join:" " }}</p>
+            {% endif %}
+          </div>
+          <div class="radio-row {% if form.errors.sexo %}input-error{% endif %}">
+            <label><input type="radio" name="sexo" value="masculino" {% if form.sexo.value == "masculino" %}checked{% endif %} required /> Masculino</label>
+            <label><input type="radio" name="sexo" value="feminino" {% if form.sexo.value == "feminino" %}checked{% endif %} /> Feminino</label>
+          </div>
+            {% if form.errors.sexo %}
+            <p class="field-error" data-field="sexo">{{ form.errors.sexo|join:" " }}</p>
+            {% endif %}
+          <div class="radio-row {% if form.errors.bolsa %}input-error{% endif %}">
+            <label><input type="radio" name="bolsa" value="sim" {% if form.bolsa.value == "sim" %}checked{% endif %} required /> Beneficiário do Bolsa Família – Sim</label>
+            <label><input type="radio" name="bolsa" value="nao" {% if form.bolsa.value == "nao" %}checked{% endif %} /> Não</label>
+          </div>
+          {% if form.errors.bolsa %}
+            <p class="field-error" data-field="bolsa">{{ form.errors.bolsa|join:" " }}</p>
+          {% endif %}
+        </section>
+        <section class="section-block">
+          <div class="section-header">
+            <span>2.</span>
+            <h2>Classe Investida</h2>
+          </div>
+          <div class="checkbox-grid dois-colunas {% if form.tipo_sangue.errors %}input-error{% endif %}">
+            <label><input type="checkbox" name="classe" value="abelhinhas" /> Abelhinhas</label>
+            <label><input type="checkbox" name="classe" value="luminares" /> Luminares</label>
+            <label><input type="checkbox" name="classe" value="edificadores" /> Edificadores</label>
+            <label><input type="checkbox" name="classe" value="maos" /> Mãos Ajudadoras</label>
+          </div>
+        </section>
+
+        {% with doc_error=form.documentacao_error %}
+        <section class="section-block">
+          <div class="section-header">
+            <span>3.</span>
+            <h2>Documentos</h2>
+          </div>
+          <p class="panel-note panel-note--tight">
+            Informe pelo menos um dos seguintes documentos: certidão, RG (com órgão expedidor) ou CPF. Se inserir RG, o órgão expedidor também deve ser preenchido.
+          </p>
+          <div class="form-row">
+            <label>Certidão de nascimento<input type="text" name="certidao" class="{% if form.certidao.errors or doc_error %}input-error{% endif %}" value="{{ form.certidao.value|default:'' }}" /></label>
+            {% if form.certidao.errors %}
+              <p class="field-error" data-field="certidao">{{ form.certidao.errors|join:" " }}</p>
+            {% endif %}
+          </div>
+          <div class="form-row">
+            <label>RG<input type="text" name="rg" class="{% if form.rg.errors or doc_error %}input-error{% endif %}" value="{{ form.rg.value|default:'' }}" /></label>
+            {% if form.rg.errors %}
+              <p class="field-error" data-field="rg">{{ form.rg.errors|join:" " }}</p>
+            {% endif %}
+            <label>Órgão expedidor<input type="text" name="orgao" class="{% if form.orgao.errors or doc_error %}input-error{% endif %}" value="{{ form.orgao.value|default:'' }}" /></label>
+            {% if form.orgao.errors %}
+              <p class="field-error" data-field="orgao">{{ form.orgao.errors|join:" " }}</p>
+            {% endif %}
+          </div>
+          <div class="form-row">
+            <label>CPF<input type="text" name="cpf" class="{% if form.cpf.errors or doc_error %}input-error{% endif %}" value="{{ form.cpf.value|default:'' }}" /></label>
+            {% if form.cpf.errors %}
+              <p class="field-error" data-field="cpf">{{ form.cpf.errors|join:" " }}</p>
+            {% endif %}
+            <label>Tamanho da camiseta
+              <select name="camiseta" required class="{% if form.camiseta.errors %}input-error{% endif %}">
+                <option value="">Selecione</option>
+                <option value="2" {% if form.camiseta.value == "2" %}selected{% endif %}>2</option>
+                <option value="4" {% if form.camiseta.value == "4" %}selected{% endif %}>4</option>
+                <option value="6" {% if form.camiseta.value == "6" %}selected{% endif %}>6</option>
+                <option value="8" {% if form.camiseta.value == "8" %}selected{% endif %}>8</option>
+                <option value="10" {% if form.camiseta.value == "10" %}selected{% endif %}>10</option>
+                <option value="12" {% if form.camiseta.value == "12" %}selected{% endif %}>12</option>
+                <option value="P" {% if form.camiseta.value == "P" %}selected{% endif %}>P</option>
+                <option value="M" {% if form.camiseta.value == "M" %}selected{% endif %}>M</option>
+                <option value="G" {% if form.camiseta.value == "G" %}selected{% endif %}>G</option>
+                <option value="GG" {% if form.camiseta.value == "GG" %}selected{% endif %}>GG</option>
+                <option value="XG" {% if form.camiseta.value == "XG" %}selected{% endif %}>Extra GG</option>
+              </select>
+            </label>
+            {% if form.camiseta.errors %}
+              <p class="field-error" data-field="camiseta">{{ form.camiseta.errors|join:" " }}</p>
+            {% endif %}
+          </div>
+        </section>
+
+        {% endwith %}
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>4.</span>
+            <h2>Ficha Médica</h2>
+          </div>
+          <div class="radio-row {% if form.plano.errors %}input-error{% endif %}">
+            <label><input type="radio" name="plano" value="sim" {% if form.plano.value == "sim" %}checked{% endif %} required /> Possui plano de saúde</label>
+            <label><input type="radio" name="plano" value="nao" {% if form.plano.value == "nao" %}checked{% endif %} /> Não possui</label>
+          </div>
+          {% if form.plano.errors %}
+            <p class="field-error" data-field="plano">{{ form.plano.errors|join:" " }}</p>
+          {% endif %}
+          <div class="form-row">
+            <label>Se possui, qual?<input type="text" name="plano_nome" class="{% if form.plano_nome.errors %}input-error{% endif %}" value="{{ form.plano_nome.value|default:'' }}" /></label>
+            {% if form.plano_nome.errors %}
+              <p class="field-error" data-field="plano_nome">{{ form.plano_nome.errors|join:" " }}</p>
+            {% endif %}
+          </div>
+          <div class="form-row">
+            <label>CNS / Cartão SUS<input type="text" name="cns" value="{{ form.cns.value|default:'' }}" /></label>
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>5.</span>
+            <h2>Já teve ou tem?</h2>
+          </div>
+          <p class="panel-note panel-note--tight">Marque apenas as opções positivas.</p>
+          <div class="checkbox-grid extensive">
+            <label><input type="checkbox" name="doenca" value="pneumonia" /> Pneumonia</label>
+            <label><input type="checkbox" name="doenca" value="sarampo" /> Sarampo</label>
+            <label><input type="checkbox" name="doenca" value="tetano" /> Tétano</label>
+            <label><input type="checkbox" name="doenca" value="catapora" /> Catapora</label>
+            <label><input type="checkbox" name="doenca" value="meningite" /> Meningite</label>
+            <label><input type="checkbox" name="doenca" value="hepatite" /> Hepatite</label>
+            <label><input type="checkbox" name="doenca" value="dengue" /> Dengue</label>
+            <label><input type="checkbox" name="doenca" value="febre_amarela" /> Febre Amarela</label>
+            <label><input type="checkbox" name="doenca" value="h1n1" /> H1N1</label>
+            <label><input type="checkbox" name="doenca" value="colera" /> Cólera</label>
+            <label><input type="checkbox" name="doenca" value="rubeola" /> Rubéola</label>
+            <label><input type="checkbox" name="doenca" value="coqueluche" /> Coqueluche</label>
+            <label><input type="checkbox" name="doenca" value="difteria" /> Difteria</label>
+            <label><input type="checkbox" name="doenca" value="caxumba" /> Caxumba</label>
+            <label><input type="checkbox" name="doenca" value="rinite" /> Rinite</label>
+            <label><input type="checkbox" name="doenca" value="bronquite" /> Bronquite</label>
+            <label><input type="checkbox" name="doenca" value="malaria" /> Malária</label>
+            <label><input type="checkbox" name="doenca" value="variola" /> Varíola</label>
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>6.</span>
+            <h2>Condições de Saúde</h2>
+          </div>
+          <div class="question-row">
+            <span>Problemas cardíacos</span>
+            <div class="radio-group compact {% if form.errors.cardiaco %}input-error{% endif %}">
+              <label><input type="radio" name="cardiaco" value="sim" required {% if form.cardiaco.value == "sim" %}checked{% endif %} /> Sim</label>
+              <label><input type="radio" name="cardiaco" value="nao" {% if form.cardiaco.value == "nao" %}checked{% endif %} /> Não</label>
+            </div>
+          </div>
+          {% if form.errors.cardiaco %}
+            <p class="field-error" data-field="cardiaco">{{ form.errors.cardiaco|join:" " }}</p>
+          {% endif %}
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="cardiaco_detalhe" class="{% if form.errors.cardiaco_detalhe %}input-error{% endif %}" value="{{ form.cardiaco_detalhe.value|default:'' }}" /></label>
+            {% if form.errors.cardiaco_detalhe %}
+              <p class="field-error" data-field="cardiaco_detalhe">{{ form.errors.cardiaco_detalhe|join:" " }}</p>
+            {% endif %}
+          </div>
+          <div class="question-row">
+            <span>Utiliza remédios?</span>
+            <div class="radio-group compact {% if form.errors.cardiaco_medicamento %}input-error{% endif %}">
+              <label><input type="radio" name="cardiaco_medicamento" value="sim" required {% if form.cardiaco_medicamento.value == "sim" %}checked{% endif %} /> Sim</label>
+              <label><input type="radio" name="cardiaco_medicamento" value="nao" {% if form.cardiaco_medicamento.value == "nao" %}checked{% endif %} /> Não</label>
+            </div>
+          </div>
+          {% if form.errors.cardiaco_medicamento %}
+            <p class="field-error" data-field="cardiaco_medicamento">{{ form.errors.cardiaco_medicamento|join:" " }}</p>
+          {% endif %}
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="cardiaco_remedio" class="{% if form.errors.cardiaco_remedio %}input-error{% endif %}" value="{{ form.cardiaco_remedio.value|default:'' }}" /></label>
+            {% if form.errors.cardiaco_remedio %}
+              <p class="field-error" data-field="cardiaco_remedio">{{ form.errors.cardiaco_remedio|join:" " }}</p>
+            {% endif %}
+          </div>
+          <div class="question-row">
+            <span>Diabetes</span>
+            <div class="radio-group compact {% if form.errors.diabetico %}input-error{% endif %}">
+              <label><input type="radio" name="diabetico" value="sim" required {% if form.diabetico.value == "sim" %}checked{% endif %} /> Sim</label>
+              <label><input type="radio" name="diabetico" value="nao" {% if form.diabetico.value == "nao" %}checked{% endif %} /> Não</label>
+            </div>
+          </div>
+          {% if form.errors.diabetico %}
+            <p class="field-error" data-field="diabetico">{{ form.errors.diabetico|join:" " }}</p>
+          {% endif %}
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="diabetico_detalhe" class="{% if form.errors.diabetico_detalhe %}input-error{% endif %}" value="{{ form.diabetico_detalhe.value|default:'' }}" /></label>
+            {% if form.errors.diabetico_detalhe %}
+              <p class="field-error" data-field="diabetico_detalhe">{{ form.errors.diabetico_detalhe|join:" " }}</p>
+            {% endif %}
+          </div>
+          <div class="question-row">
+            <span>Utiliza remédios?</span>
+            <div class="radio-group compact {% if form.errors.diabetico_medicamento %}input-error{% endif %}">
+              <label><input type="radio" name="diabetico_medicamento" value="sim" required {% if form.diabetico_medicamento.value == "sim" %}checked{% endif %} /> Sim</label>
+              <label><input type="radio" name="diabetico_medicamento" value="nao" {% if form.diabetico_medicamento.value == "nao" %}checked{% endif %} /> Não</label>
+            </div>
+          </div>
+          {% if form.errors.diabetico_medicamento %}
+            <p class="field-error" data-field="diabetico_medicamento">{{ form.errors.diabetico_medicamento|join:" " }}</p>
+          {% endif %}
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="diabetico_remedio" class="{% if form.errors.diabetico_remedio %}input-error{% endif %}" value="{{ form.diabetico_remedio.value|default:'' }}" /></label>
+            {% if form.errors.diabetico_remedio %}
+              <p class="field-error" data-field="diabetico_remedio">{{ form.errors.diabetico_remedio|join:" " }}</p>
+            {% endif %}
+          </div>
+          <div class="question-row">
+            <span>Problemas renais</span>
+            <div class="radio-group compact {% if form.errors.renal %}input-error{% endif %}">
+              <label><input type="radio" name="renal" value="sim" required {% if form.renal.value == "sim" %}checked{% endif %} /> Sim</label>
+              <label><input type="radio" name="renal" value="nao" {% if form.renal.value == "nao" %}checked{% endif %} /> Não</label>
+            </div>
+          </div>
+          {% if form.errors.renal %}
+            <p class="field-error" data-field="renal">{{ form.errors.renal|join:" " }}</p>
+          {% endif %}
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="renal_detalhe" class="{% if form.errors.renal_detalhe %}input-error{% endif %}" value="{{ form.renal_detalhe.value|default:'' }}" /></label>
+            {% if form.errors.renal_detalhe %}
+              <p class="field-error" data-field="renal_detalhe">{{ form.errors.renal_detalhe|join:" " }}</p>
+            {% endif %}
+          </div>
+          <div class="question-row">
+            <span>Utiliza remédios?</span>
+            <div class="radio-group compact {% if form.errors.renal_medicamento %}input-error{% endif %}">
+              <label><input type="radio" name="renal_medicamento" value="sim" required {% if form.renal_medicamento.value == "sim" %}checked{% endif %} /> Sim</label>
+              <label><input type="radio" name="renal_medicamento" value="nao" {% if form.renal_medicamento.value == "nao" %}checked{% endif %} /> Não</label>
+            </div>
+          </div>
+          {% if form.errors.renal_medicamento %}
+            <p class="field-error" data-field="renal_medicamento">{{ form.errors.renal_medicamento|join:" " }}</p>
+          {% endif %}
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="renal_remedio" class="{% if form.errors.renal_remedio %}input-error{% endif %}" value="{{ form.renal_remedio.value|default:'' }}" /></label>
+            {% if form.errors.renal_remedio %}
+              <p class="field-error" data-field="renal_remedio">{{ form.errors.renal_remedio|join:" " }}</p>
+            {% endif %}
+          </div>
+          <div class="question-row">
+            <span>Problemas psicológicos</span>
+            <div class="radio-group compact {% if form.errors.psicologico %}input-error{% endif %}">
+              <label><input type="radio" name="psicologico" value="sim" required {% if form.psicologico.value == "sim" %}checked{% endif %} /> Sim</label>
+              <label><input type="radio" name="psicologico" value="nao" {% if form.psicologico.value == "nao" %}checked{% endif %} /> Não</label>
+            </div>
+          </div>
+          {% if form.errors.psicologico %}
+            <p class="field-error" data-field="psicologico">{{ form.errors.psicologico|join:" " }}</p>
+          {% endif %}
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="psicologico_detalhe" class="{% if form.errors.psicologico_detalhe %}input-error{% endif %}" value="{{ form.psicologico_detalhe.value|default:'' }}" /></label>
+            {% if form.errors.psicologico_detalhe %}
+              <p class="field-error" data-field="psicologico_detalhe">{{ form.errors.psicologico_detalhe|join:" " }}</p>
+            {% endif %}
+          </div>
+          <div class="question-row">
+            <span>Utiliza remédios?</span>
+            <div class="radio-group compact {% if form.errors.psicologico_medicamento %}input-error{% endif %}">
+              <label><input type="radio" name="psicologico_medicamento" value="sim" required {% if form.psicologico_medicamento.value == "sim" %}checked{% endif %} /> Sim</label>
+              <label><input type="radio" name="psicologico_medicamento" value="nao" {% if form.psicologico_medicamento.value == "nao" %}checked{% endif %} /> Não</label>
+            </div>
+          </div>
+          {% if form.errors.psicologico_medicamento %}
+            <p class="field-error" data-field="psicologico_medicamento">{{ form.errors.psicologico_medicamento|join:" " }}</p>
+          {% endif %}
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="psicologico_remedio" class="{% if form.errors.psicologico_remedio %}input-error{% endif %}" value="{{ form.psicologico_remedio.value|default:'' }}" /></label>
+            {% if form.errors.psicologico_remedio %}
+              <p class="field-error" data-field="psicologico_remedio">{{ form.errors.psicologico_remedio|join:" " }}</p>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>7.</span>
+            <h2>Alergias</h2>
+          </div>
+          <div class="question-row">
+            <span>Alergia cutânea (pele)</span>
+          <div class="radio-group compact {% if form.errors.alergia_pele %}input-error{% endif %}">
+              <label><input type="radio" name="alergia_pele" value="sim" required {% if form.alergia_pele.value == "sim" %}checked{% endif %} /> Sim</label>
+              <label><input type="radio" name="alergia_pele" value="nao" {% if form.alergia_pele.value == "nao" %}checked{% endif %} /> Não</label>
+            </div>
+          </div>
+          {% if form.errors.alergia_pele %}
+            <p class="field-error" data-field="alergia_pele">{{ form.errors.alergia_pele|join:" " }}</p>
+          {% endif %}
+          <div class="form-row">
+            <label>Se sim, qual?<input type="text" name="alergia_pele_descricao" class="{% if form.errors.alergia_pele_descricao %}input-error{% endif %}" /></label>
+            {% if form.errors.alergia_pele_descricao %}
+              <p class="field-error" data-field="alergia_pele_descricao">{{ form.errors.alergia_pele_descricao|join:" " }}</p>
+            {% endif %}
+          </div>
+          <div class="question-row">
+            <span>Alergia alimentar</span>
+          <div class="radio-group compact {% if form.errors.alergia_alimento %}input-error{% endif %}">
+              <label><input type="radio" name="alergia_alimento" value="sim" required {% if form.alergia_alimento.value == "sim" %}checked{% endif %} /> Sim</label>
+              <label><input type="radio" name="alergia_alimento" value="nao" {% if form.alergia_alimento.value == "nao" %}checked{% endif %} /> Não</label>
+            </div>
+          </div>
+          {% if form.errors.alergia_alimento %}
+            <p class="field-error" data-field="alergia_alimento">{{ form.errors.alergia_alimento|join:" " }}</p>
+          {% endif %}
+          <div class="form-row">
+            <label>Qual alimento?<input type="text" name="alergia_alimento_descricao" class="{% if form.errors.alergia_alimento_descricao %}input-error{% endif %}" /></label>
+            {% if form.errors.alergia_alimento_descricao %}
+              <p class="field-error" data-field="alergia_alimento_descricao">{{ form.errors.alergia_alimento_descricao|join:" " }}</p>
+            {% endif %}
+          </div>
+          <div class="question-row">
+            <span>Alergia a medicamentos</span>
+          <div class="radio-group compact {% if form.errors.alergia_medicamento %}input-error{% endif %}">
+              <label><input type="radio" name="alergia_medicamento" value="sim" required {% if form.alergia_medicamento.value == "sim" %}checked{% endif %} /> Sim</label>
+              <label><input type="radio" name="alergia_medicamento" value="nao" {% if form.alergia_medicamento.value == "nao" %}checked{% endif %} /> Não</label>
+            </div>
+          </div>
+          {% if form.errors.alergia_medicamento %}
+            <p class="field-error" data-field="alergia_medicamento">{{ form.errors.alergia_medicamento|join:" " }}</p>
+          {% endif %}
+          <div class="form-row">
+            <label>Qual medicamento?<input type="text" name="alergia_medicamento_descricao" class="{% if form.errors.alergia_medicamento_descricao %}input-error{% endif %}" /></label>
+            {% if form.errors.alergia_medicamento_descricao %}
+              <p class="field-error" data-field="alergia_medicamento_descricao">{{ form.errors.alergia_medicamento_descricao|join:" " }}</p>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>8.</span>
+            <h2>Deficiências</h2>
+          </div>
+          <div class="checkbox-grid">
+            <label><input type="checkbox" name="deficiencia" value="cadeirante" /> Cadeirante</label>
+            <label><input type="checkbox" name="deficiencia" value="visual" /> Visual</label>
+            <label><input type="checkbox" name="deficiencia" value="auditiva" /> Auditiva</label>
+            <label><input type="checkbox" name="deficiencia" value="fala" /> Fala</label>
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>9.</span>
+            <h2>Tipo Sanguíneo</h2>
+          </div>
+          <div class="checkbox-grid dois-colunas">
+            <label><input type="radio" name="tipo_sangue" value="A+" {% if form.tipo_sangue.value == "A+" %}checked{% endif %} required /> A+</label>
+            <label><input type="radio" name="tipo_sangue" value="A-" {% if form.tipo_sangue.value == "A-" %}checked{% endif %} /> A-</label>
+            <label><input type="radio" name="tipo_sangue" value="B+" {% if form.tipo_sangue.value == "B+" %}checked{% endif %} /> B+</label>
+            <label><input type="radio" name="tipo_sangue" value="B-" {% if form.tipo_sangue.value == "B-" %}checked{% endif %} /> B-</label>
+            <label><input type="radio" name="tipo_sangue" value="AB+" {% if form.tipo_sangue.value == "AB+" %}checked{% endif %} /> AB+</label>
+            <label><input type="radio" name="tipo_sangue" value="AB-" {% if form.tipo_sangue.value == "AB-" %}checked{% endif %} /> AB-</label>
+            <label><input type="radio" name="tipo_sangue" value="O+" {% if form.tipo_sangue.value == "O+" %}checked{% endif %} /> O+</label>
+            <label><input type="radio" name="tipo_sangue" value="O-" {% if form.tipo_sangue.value == "O-" %}checked{% endif %} /> O-</label>
+            <label><input type="radio" name="tipo_sangue" value="desconhecido" {% if form.tipo_sangue.value == "desconhecido" %}checked{% endif %} /> Não sabe</label>
+          </div>
+          {% if form.tipo_sangue.errors %}
+            <p class="field-error" data-field="tipo_sangue">{{ form.tipo_sangue.errors|join:" " }}</p>
+          {% endif %}
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>10.</span>
+            <h2>Declaração Médica</h2>
+          </div>
+          <p class="panel-note">
+            Declaro que todas as informações médicas acima são verdadeiras, responsabilizando-me por quaisquer acidentes decorrentes da omissão de informações de saúde.
+          </p>
+          <label class="checkbox-full">
+            <input type="checkbox" name="declaracao_medica" required {% if form.declaracao_medica.value %}checked{% endif %} />
+            Li e aceito a declaração médica acima.
+          </label>
+          {% if form.declaracao_medica.errors %}
+            <p class="field-error" data-field="declaracao_medica">{{ form.declaracao_medica.errors|join:" " }}</p>
+          {% endif %}
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>11.</span>
+            <h2>Autorização de uso de imagem</h2>
+          </div>
+          <p class="panel-note">
+            AUTORIZO o uso de imagem em todo e qualquer material entre fotos e documentos para campanhas promocionais e institucionais do Clube de Aventureiros, em todo território nacional (outdoor, folhetos, folders, anúncios, redes sociais, cartazes e mídia eletrônica). Declaro estar de acordo, sem reivindicação futura de direitos.
+          </p>
+          <label class="checkbox-full">
+            <input type="checkbox" name="autorizacao_imagem" required {% if form.autorizacao_imagem.value %}checked{% endif %} />
+            Li e aceito o termo acima.
+          </label>
+          {% if form.autorizacao_imagem.errors %}
+            <p class="field-error" data-field="autorizacao_imagem">{{ form.autorizacao_imagem.errors|join:" " }}</p>
+          {% endif %}
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <span>12.</span>
+            <h2>Foto 3x4 do aventureiro</h2>
+          </div>
+          <div class="photo-upload">
+            <label for="photo-input">Anexe a foto 3x4</label>
+            <input type="file" id="photo-input" accept="image/*" />
+            <div class="photo-preview" aria-live="polite">
+              <p class="photo-preview-label">Visualização</p>
+              <img id="photo-preview-img" alt="Prévia da foto 3x4" />
+              <span class="photo-note">A foto será salva ao confirmar todas as fichas.</span>
+            </div>
+            <input type="hidden" name="photo_value" id="photo-value" value="{{ form.photo_value.value|default:'' }}" />
+            {% if form.photo_value.errors %}
+              <p class="field-error" data-field="photo_value">{{ form.photo_value.errors|join:" " }}</p>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="signature-section">
+          <div class="section-header">
+            <span>13.</span>
+            <h2>Assinatura do responsável</h2>
+          </div>
+          <div class="signature-preview" aria-live="polite">
+            <p>Assinatura registrada:</p>
+            <div class="signature-empty" id="signature-placeholder-av">Nenhuma assinatura salva ainda.</div>
+            <img id="signature-image-av" alt="Preview da assinatura" />
+            <span id="signature-error-av" class="signature-error" aria-live="assertive"></span>
+            <input type="hidden" id="signature-value-av" name="signature_value_av" />
+          </div>
+          <div class="action-row">
+            <button type="button" class="secondary" id="open-signature-av">Assinar</button>
+          </div>
+        </section>
+
+        <div class="status" aria-live="polite">
+          {% for message in messages %}
+            <p data-state="{{ message.tags }}">{{ message }}</p>
+          {% endfor %}
+          {% if form and form.non_field_errors %}
+            {% for error in form.non_field_errors %}
+              <p data-state="error">{{ error }}</p>
+            {% endfor %}
+          {% endif %}
+        </div>
+        <div id="campo-pendente-alert" class="status-alert hidden" role="status" aria-live="assertive">
+          Há campos obrigatórios pendentes; complete-os antes de continuar.
+        </div>
+        <div class="action-row">
+          <button type="submit" class="primary" name="action" value="save_confirm">Salvar e confirmar</button>
+          <button type="submit" class="secondary" id="add-another-av" name="action" value="add_more">Adicionar outro aventureiro</button>
+        </div>
+        <p class="panel-note">Ao confirmar, você irá para a tela de revisão; finalize lá para gravar no banco.</p>
+
+        <div id="signature-modal-av" class="modal" aria-hidden="true">
+          <div class="modal-content">
+            <header>
+              <h2>Assinatura do responsável</h2>
+              <button id="close-signature-av" aria-label="Fechar modal">×</button>
+            </header>
+            <p class="panel-note">Use o mouse ou o dedo para desenhar sua assinatura. Clique em salvar para registrar ou limpar para recomeçar.</p>
+            <span id="canvas-error-av" class="signature-error" aria-live="assertive"></span>
+            <canvas id="signature-canvas-av" width="420" height="220"></canvas>
+            <div class="modal-actions">
+              <button type="button" class="secondary" id="clear-signature-av">Limpar</button>
+              <button type="button" class="primary" id="save-signature-av">Salvar</button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </main>
+  </div>
+  <script src="{% static 'js/aventura.js' %}" defer></script>
+  <script src="{% static 'js/signature.js' %}" defer></script>
+  <script src="{% static 'js/required-asterisk.js' %}?v=5" defer></script>
+</body>
+</html>

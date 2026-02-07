@@ -77,7 +77,7 @@
               {% for group in fields %}
                 <div class="doc-field-group">
                   <div class="doc-field-group-title">{{ group.title }}</div>
-                  {% for key, label, field_type in group.items %}
+                  {% for key, label, field_type in group.fields %}
                     <div
                       class="doc-field-pill"
                       draggable="true"
@@ -165,7 +165,7 @@
             </div>
           </div>
 
-          <script type="application/json" id="doc-positions-data">{{ selected_positions_json|safe }}</script>
+          {{ selected_positions|json_script:"doc-positions-data" }}
         {% else %}
           <p class="panel-note">Selecione um template para editar os campos e gerar documentos.</p>
         {% endif %}

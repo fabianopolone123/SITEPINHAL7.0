@@ -366,3 +366,22 @@ class UserAccessForm(forms.Form):
         if not profiles:
             raise forms.ValidationError('Selecione pelo menos um perfil.')
         return profiles
+
+
+class NovoCadastroLoginForm(forms.Form):
+    username = forms.CharField(max_length=150, label='Username')
+    password = forms.CharField(widget=forms.PasswordInput, label='Senha')
+    password_confirm = forms.CharField(widget=forms.PasswordInput, label='Confirmar senha')
+
+    def clean(self):
+        cleaned = super().clean()
+        username = cleaned.get('username', '').strip()
+        senha = cleaned.get('password')
+        confirm = cleaned.get('password_confirm')
+        if not username:
+            self.add_error('username', 'Informe o username.')
+        if username and User.objects.filter(username=username).exists():
+            self.add_error('username', 'Este username já existe.')
+        if senha and confirm and senha != confirm:
+            self.add_error('password_confirm', 'As senhas não conferem.')
+        return cleaned

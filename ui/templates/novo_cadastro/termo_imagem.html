@@ -1,0 +1,73 @@
+﻿<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Termo de Imagem</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="branding">
+      <p class="eyebrow">Etapa 4</p>
+      <h1>Termo de Uso de Imagem</h1>
+      <p class="subtitle">Preencha e assine o termo.</p>
+    </div>
+    <main class="login-card aventura-card">
+      <form method="post" class="aventura-form">
+        {% csrf_token %}
+        <section class="section-block">
+          <div class="section-header"><span>1</span><h2>Dados para o termo</h2></div>
+          <div class="form-row">
+            <label>Nome aventureiro<input type="text" name="nome_aventureiro_termo" value="{{ step_data.nome_aventureiro_termo|default:initial.nome_aventureiro_termo|default:'' }}"></label>
+            <label>Nacionalidade aventureiro<input type="text" name="aventureiro_nacionalidade" value="{{ step_data.aventureiro_nacionalidade|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Nome responsavel<input type="text" name="responsavel_nome_termo" value="{{ step_data.responsavel_nome_termo|default:initial.responsavel_nome_termo|default:'' }}"></label>
+            <label>Nacionalidade responsavel<input type="text" name="responsavel_nacionalidade_termo" value="{{ step_data.responsavel_nacionalidade_termo|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Estado civil<input type="text" name="responsavel_estado_civil_termo" value="{{ step_data.responsavel_estado_civil_termo|default:'' }}"></label>
+            <label>RG<input type="text" name="responsavel_rg_termo" value="{{ step_data.responsavel_rg_termo|default:'' }}"></label>
+            <label>CPF<input type="text" name="responsavel_cpf_termo" value="{{ step_data.responsavel_cpf_termo|default:initial.responsavel_cpf_termo|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Endereco<input type="text" name="responsavel_endereco_termo" value="{{ step_data.responsavel_endereco_termo|default:initial.responsavel_endereco_termo|default:'' }}"></label>
+            <label>Numero<input type="text" name="responsavel_numero_termo" value="{{ step_data.responsavel_numero_termo|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Cidade<input type="text" name="responsavel_cidade_termo" value="{{ step_data.responsavel_cidade_termo|default:initial.responsavel_cidade_termo|default:'' }}"></label>
+            <label>Estado<input type="text" name="responsavel_estado_termo" value="{{ step_data.responsavel_estado_termo|default:initial.responsavel_estado_termo|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Telefone<input type="text" name="telefone_contato_termo" value="{{ step_data.telefone_contato_termo|default:initial.telefone_contato_termo|default:'' }}"></label>
+            <label>Email<input type="email" name="email_contato_termo" value="{{ step_data.email_contato_termo|default:initial.email_contato_termo|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Cidade data<input type="text" name="cidade_data" value="{{ step_data.cidade_data|default:initial.cidade_data|default:'' }}"></label>
+            <label>Dia<input type="text" name="dia_data" value="{{ step_data.dia_data|default:initial.dia_data|default:'' }}"></label>
+            <label>Mes<input type="text" name="mes_data" value="{{ step_data.mes_data|default:initial.mes_data|default:'' }}"></label>
+            <label>Ano<input type="text" name="ano_data" value="{{ step_data.ano_data|default:initial.ano_data|default:'' }}"></label>
+          </div>
+        </section>
+        <section class="section-block">
+          <div class="section-header"><span>2</span><h2>Assinatura do termo</h2></div>
+          <div class="signature-widget">
+            <canvas width="380" height="160" style="width:100%;border:1px solid #cbd5f5;border-radius:10px;background:#fff"></canvas>
+            <input type="hidden" name="assinatura_termo_imagem" value="{{ step_data.assinatura_termo_imagem|default:'' }}" />
+            <div class="action-row">
+              <button class="secondary" type="button" data-action="clear-sign">Limpar</button>
+              <button class="primary" type="button" data-action="save-sign">Salvar assinatura</button>
+            </div>
+            <p class="signature-status"></p>
+          </div>
+        </section>
+        <div class="status" aria-live="polite">{% for message in messages %}<p data-state="{{ message.tags }}">{{ message }}</p>{% endfor %}</div>
+        <button class="primary" type="submit">Proximo</button>
+      </form>
+    </main>
+  </div>
+  <script src="{% static 'js/novo_cadastro.js' %}" defer></script>
+</body>
+</html>

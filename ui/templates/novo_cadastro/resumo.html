@@ -1,0 +1,52 @@
+﻿<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resumo do cadastro</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="branding">
+      <p class="eyebrow">Resumo</p>
+      <h1>Confirmacao das fichas</h1>
+      <p class="subtitle">Confira os itens e escolha finalizar ou adicionar mais um aventureiro.</p>
+    </div>
+    <main class="login-card">
+      <section class="section-block">
+        <div class="section-header"><span>OK</span><h2>Responsavel</h2></div>
+        <p><strong>Nome:</strong> {{ responsavel_nome|default:'-' }}</p>
+      </section>
+      <section class="section-block">
+        <div class="section-header"><span>OK</span><h2>Aventureiros ate aqui</h2></div>
+        {% for av in aventures_preview %}
+          <article class="summary-card">
+            <p><strong>{{ av.inscricao.nome_completo|default:'Sem nome' }}</strong></p>
+            <p>Ficha de inscricao <strong>✔</strong></p>
+            <p>Ficha medica <strong>✔</strong></p>
+            <p>Declaracao medica <strong>✔</strong></p>
+            <p>Termo de imagem <strong>✔</strong></p>
+          </article>
+        {% empty %}
+          <p>Nenhum aventureiro adicionado.</p>
+        {% endfor %}
+      </section>
+      <div class="status" aria-live="polite">{% for message in messages %}<p data-state="{{ message.tags }}">{{ message }}</p>{% endfor %}</div>
+      <div class="action-row">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="finalizar" />
+          <button class="primary" type="submit">Finalizar</button>
+        </form>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add_more" />
+          <button class="secondary" type="submit">Adicionar mais um aventureiro</button>
+        </form>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

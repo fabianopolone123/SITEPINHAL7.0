@@ -1,0 +1,142 @@
+﻿<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ficha de Inscricao</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="branding">
+      <p class="eyebrow">Etapa 1</p>
+      <h1>Ficha de Inscricao</h1>
+      <p class="subtitle">Preencha os dados do aventureiro e do responsavel.</p>
+    </div>
+    <main class="login-card aventura-card">
+      <form method="post" class="aventura-form">
+        {% csrf_token %}
+        <section class="section-block">
+          <div class="section-header"><span>1</span><h2>Aventureiro</h2></div>
+          <div class="form-row">
+            <label>Nome completo<input type="text" name="nome_completo" value="{{ step_data.nome_completo|default:'' }}" required></label>
+            <label>Sexo
+              <select name="sexo" required>
+                <option value="">Selecione</option>
+                <option value="M" {% if step_data.sexo == 'M' %}selected{% endif %}>Masculino</option>
+                <option value="F" {% if step_data.sexo == 'F' %}selected{% endif %}>Feminino</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Data de nascimento<input type="date" name="data_nascimento" value="{{ step_data.data_nascimento|default:'' }}" required></label>
+            <label>Colegio<input type="text" name="colegio" value="{{ step_data.colegio|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Serie<input type="text" name="serie" value="{{ step_data.serie|default:'' }}"></label>
+            <label>Bolsa Familia
+              <select name="bolsa_familia">
+                <option value="">Selecione</option>
+                <option value="sim" {% if step_data.bolsa_familia == 'sim' %}selected{% endif %}>Sim</option>
+                <option value="nao" {% if step_data.bolsa_familia == 'nao' %}selected{% endif %}>Nao</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Religiao<input type="text" name="religiao" value="{{ step_data.religiao|default:'' }}"></label>
+            <label>Tamanho camiseta<input type="text" name="tamanho_camiseta" value="{{ step_data.tamanho_camiseta|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Certidao<input type="text" name="certidao_nascimento" value="{{ step_data.certidao_nascimento|default:'' }}"></label>
+            <label>RG<input type="text" name="rg" value="{{ step_data.rg|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Orgao expedidor<input type="text" name="orgao_expedidor" value="{{ step_data.orgao_expedidor|default:'' }}"></label>
+            <label>CPF aventureiro<input type="text" name="cpf_aventureiro" value="{{ step_data.cpf_aventureiro|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Foto 3x4
+              <input type="file" id="foto-file" accept="image/*" />
+              <input type="hidden" id="foto-3x4" name="foto_3x4" value="{{ step_data.foto_3x4|default:'' }}" />
+            </label>
+            <img id="foto-preview" alt="preview" style="max-height:120px;display:none;border:1px dashed #cbd5f5;border-radius:8px;" />
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header"><span>2</span><h2>Responsavel</h2></div>
+          <div class="form-row">
+            <label>Nome do pai<input type="text" name="nome_pai" value="{{ step_data.nome_pai|default:'' }}"></label>
+            <label>Email pai<input type="email" name="email_pai" value="{{ step_data.email_pai|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>CPF pai<input type="text" name="cpf_pai" value="{{ step_data.cpf_pai|default:'' }}"></label>
+            <label>Cel pai<input type="text" name="cel_pai" value="{{ step_data.cel_pai|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Nome da mae<input type="text" name="nome_mae" value="{{ step_data.nome_mae|default:'' }}"></label>
+            <label>Email mae<input type="email" name="email_mae" value="{{ step_data.email_mae|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>CPF mae<input type="text" name="cpf_mae" value="{{ step_data.cpf_mae|default:'' }}"></label>
+            <label>Cel mae<input type="text" name="cel_mae" value="{{ step_data.cel_mae|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Nome responsavel<input type="text" name="nome_responsavel" value="{{ step_data.nome_responsavel|default:'' }}" required></label>
+            <label>Parentesco<input type="text" name="parentesco" value="{{ step_data.parentesco|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>CPF responsavel<input type="text" name="cpf_responsavel" value="{{ step_data.cpf_responsavel|default:'' }}"></label>
+            <label>Email responsavel<input type="email" name="email_responsavel" value="{{ step_data.email_responsavel|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Telefone responsavel<input type="text" name="tel_responsavel" value="{{ step_data.tel_responsavel|default:'' }}"></label>
+            <label>Celular responsavel<input type="text" name="cel_responsavel" value="{{ step_data.cel_responsavel|default:'' }}"></label>
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header"><span>3</span><h2>Endereco e data</h2></div>
+          <div class="form-row">
+            <label>Endereco<input type="text" name="endereco" value="{{ step_data.endereco|default:'' }}"></label>
+            <label>Bairro<input type="text" name="bairro" value="{{ step_data.bairro|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Cidade<input type="text" name="cidade" value="{{ step_data.cidade|default:initial.cidade_data|default:'' }}"></label>
+            <label>CEP<input type="text" name="cep" value="{{ step_data.cep|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Estado<input type="text" name="estado" value="{{ step_data.estado|default:'' }}"></label>
+            <label>Cidade no rodape<input type="text" name="cidade_data" value="{{ step_data.cidade_data|default:initial.cidade_data|default:'' }}"></label>
+          </div>
+          <div class="form-row">
+            <label>Dia<input type="text" name="dia_data" value="{{ step_data.dia_data|default:initial.dia_data|default:'' }}"></label>
+            <label>Mes<input type="text" name="mes_data" value="{{ step_data.mes_data|default:initial.mes_data|default:'' }}"></label>
+            <label>Ano<input type="text" name="ano_data" value="{{ step_data.ano_data|default:initial.ano_data|default:'' }}"></label>
+          </div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header"><span>4</span><h2>Assinatura da ficha</h2></div>
+          <div class="signature-widget">
+            <canvas width="380" height="160" style="width:100%;border:1px solid #cbd5f5;border-radius:10px;background:#fff"></canvas>
+            <input type="hidden" name="assinatura_inscricao" value="{{ step_data.assinatura_inscricao|default:'' }}" />
+            <div class="action-row">
+              <button class="secondary" type="button" data-action="clear-sign">Limpar</button>
+              <button class="primary" type="button" data-action="save-sign">Salvar assinatura</button>
+            </div>
+            <p class="signature-status"></p>
+          </div>
+        </section>
+
+        <div class="status" aria-live="polite">
+          {% for message in messages %}<p data-state="{{ message.tags }}">{{ message }}</p>{% endfor %}
+        </div>
+        <button class="primary" type="submit">Proximo</button>
+      </form>
+    </main>
+  </div>
+  <script src="{% static 'js/novo_cadastro.js' %}" defer></script>
+</body>
+</html>
