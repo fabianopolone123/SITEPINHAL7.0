@@ -84,10 +84,10 @@
           <div class="field">Tel. Residencial: <input class="line-input half" name="telefone_residencial" type="text" value="{{ step_data.telefone_residencial|default:'' }}" required /> Tel. Comercial: <input class="line-input half" name="telefone_comercial" type="text" value="{{ step_data.telefone_comercial|default:'' }}" required /></div>
           <div class="field">Data de Nascimento: <input class="line-input small" name="nascimento" type="date" value="{{ step_data.nascimento|default:'' }}" required /> Estado Civil: <input class="line-input half" name="estado_civil" type="text" value="{{ step_data.estado_civil|default:'' }}" required /></div>
           <div class="field">CPF: <input class="line-input half" name="cpf" type="text" value="{{ step_data.cpf|default:'' }}" required /> RG: <input class="line-input half" name="rg" type="text" value="{{ step_data.rg|default:'' }}" required /></div>
-          <div class="field">Esposa(o): <input class="line-input full" name="conjuge" type="text" value="{{ step_data.conjuge|default:'' }}" required /></div>
-          <div class="field">Filho(a): <input class="line-input full" name="filho_1" type="text" value="{{ step_data.filho_1|default:'' }}" required /></div>
-          <div class="field">Filho(a): <input class="line-input full" name="filho_2" type="text" value="{{ step_data.filho_2|default:'' }}" required /></div>
-          <div class="field">Filho(a): <input class="line-input full" name="filho_3" type="text" value="{{ step_data.filho_3|default:'' }}" required /></div>
+          <div class="field">Esposa(o): <input class="line-input full" name="conjuge" type="text" value="{{ step_data.conjuge|default:'' }}" data-optional="true" /></div>
+          <div class="field">Filho(a): <input class="line-input full" name="filho_1" type="text" value="{{ step_data.filho_1|default:'' }}" data-optional="true" /></div>
+          <div class="field">Filho(a): <input class="line-input full" name="filho_2" type="text" value="{{ step_data.filho_2|default:'' }}" data-optional="true" /></div>
+          <div class="field">Filho(a): <input class="line-input full" name="filho_3" type="text" value="{{ step_data.filho_3|default:'' }}" data-optional="true" /></div>
         </div>
 
         <div class="section">

@@ -1369,7 +1369,7 @@ class NovoCadastroDiretoriaCompromissoView(View):
         required = [
             'nome', 'igreja', 'endereco', 'distrito', 'numero', 'bairro', 'cep', 'cidade',
             'estado', 'email', 'whatsapp', 'telefone_residencial', 'telefone_comercial',
-            'nascimento', 'estado_civil', 'cpf', 'rg', 'conjuge', 'filho_1', 'filho_2', 'filho_3',
+            'nascimento', 'estado_civil', 'cpf', 'rg',
             'possui_limitacao_saude', 'escolaridade', 'foto_3x4', 'assinatura_compromisso',
         ]
         missing = [name for name in required if not str(fields.get(name, '')).strip()]
