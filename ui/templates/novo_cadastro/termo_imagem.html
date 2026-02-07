@@ -27,10 +27,10 @@
       <div class="main-title">Termo de Autorização de Uso de Imagem</div>
       <div class="text">
         <input class="line-input long" type="text" name="nome_aventureiro_termo" value="{{ step_data.nome_aventureiro_termo|default:initial.nome_aventureiro_termo|default:'' }}">, nacionalidade
-        <input class="line-input medium" type="text" name="aventureiro_nacionalidade" value="{{ step_data.aventureiro_nacionalidade|default:'' }}">,
+        <input class="line-input medium" type="text" name="aventureiro_nacionalidade" value="{{ step_data.aventureiro_nacionalidade|default:initial.aventureiro_nacionalidade|default:'' }}">,
         menor de idade, neste ato devidamente representado por seu (sua) responsável legal,
         <input class="line-input long" type="text" name="responsavel_nome_termo" value="{{ step_data.responsavel_nome_termo|default:initial.responsavel_nome_termo|default:'' }}">,
-        nacionalidade <input class="line-input medium" type="text" name="responsavel_nacionalidade_termo" value="{{ step_data.responsavel_nacionalidade_termo|default:'' }}">,
+        nacionalidade <input class="line-input medium" type="text" name="responsavel_nacionalidade_termo" value="{{ step_data.responsavel_nacionalidade_termo|default:initial.responsavel_nacionalidade_termo|default:'' }}">,
         estado civil <input class="line-input medium" type="text" name="responsavel_estado_civil_termo" value="{{ step_data.responsavel_estado_civil_termo|default:'' }}">,
         portador da Cédula de identidade RG nº <input class="line-input medium" type="text" name="responsavel_rg_termo" value="{{ step_data.responsavel_rg_termo|default:'' }}">,
         inscrito no CPF sob nº <input class="line-input medium" type="text" name="responsavel_cpf_termo" value="{{ step_data.responsavel_cpf_termo|default:initial.responsavel_cpf_termo|default:'' }}">,

@@ -960,7 +960,9 @@ class NovoCadastroTermoImagemView(View):
         initial = _date_parts_today()
         initial.update({
             'nome_aventureiro_termo': inscricao.get('nome_completo', ''),
+            'aventureiro_nacionalidade': 'Brasileiro',
             'responsavel_nome_termo': inscricao.get('nome_responsavel', ''),
+            'responsavel_nacionalidade_termo': 'Brasileiro',
             'responsavel_cpf_termo': inscricao.get('cpf_responsavel', ''),
             'responsavel_endereco_termo': inscricao.get('endereco', ''),
             'responsavel_cidade_termo': inscricao.get('cidade', ''),
@@ -977,9 +979,18 @@ class NovoCadastroTermoImagemView(View):
             messages.error(request, 'Complete as etapas anteriores.')
             return redirect('accounts:novo_cadastro_inscricao')
         fields = _extract_fields(request.POST, self.field_names)
+        if not str(fields.get('aventureiro_nacionalidade', '')).strip():
+            fields['aventureiro_nacionalidade'] = 'Brasileiro'
+        if not str(fields.get('responsavel_nacionalidade_termo', '')).strip():
+            fields['responsavel_nacionalidade_termo'] = 'Brasileiro'
         if not fields.get('assinatura_termo_imagem'):
             messages.error(request, 'Assine o termo de imagem para continuar.')
-            return render(request, self.template_name, {'initial': _date_parts_today(), 'step_data': fields})
+            initial = _date_parts_today()
+            initial.update({
+                'aventureiro_nacionalidade': 'Brasileiro',
+                'responsavel_nacionalidade_termo': 'Brasileiro',
+            })
+            return render(request, self.template_name, {'initial': initial, 'step_data': fields})
         data['current']['termo_imagem'] = fields
         _set_new_flow_data(request.session, data)
         return redirect('accounts:novo_cadastro_resumo')
