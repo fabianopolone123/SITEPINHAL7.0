@@ -1,49 +1,46 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 {% load static %}
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Declaracao Medica</title>
-  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Declaração Médica</title>
+  <style>
+    :root{--orange:#f3a75a;--blue:#2aa6d6;--text:#222}*{box-sizing:border-box}
+    body{margin:0;padding:24px;font-family:"Times New Roman",serif;background:#f2f4f7;color:var(--text)}
+    .page{max-width:820px;margin:0 auto;background:#fff;border:4px solid var(--orange);padding:10px;box-shadow:0 8px 20px rgba(0,0,0,.1)}
+    .inner{border:2px solid var(--blue);padding:20px 20px 40px;min-height:900px;position:relative}
+    .header{text-align:center;position:relative;padding-top:10px}.header .title1{font-weight:bold;font-size:22px}.header .title2{font-size:14px;margin-top:4px}
+    .logo{position:absolute;right:10px;top:0;width:90px;height:90px;border-radius:12px;object-fit:cover}
+    .content{margin-top:180px;text-align:center;font-size:18px}.date-line{margin-bottom:50px;font-size:18px}
+    .date-input,.long-input{border:none;border-bottom:1px solid #000;text-align:center;font-size:18px;outline:none}.date-input{width:120px}.long-input{width:260px}
+    .paragraph{margin-top:40px;max-width:620px;margin-left:auto;margin-right:auto;line-height:1.5;font-size:18px}
+    .signature{margin-top:60px;text-align:center}.signature-widget canvas{width:100%;max-width:500px;border:1px solid #cbd5f5;border-radius:10px;background:#fff;min-height:130px}
+    .action-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}.btn{padding:8px 12px;border-radius:8px;border:1px solid #cbd5f5;background:#fff;cursor:pointer}.btn.primary{background:#2c6fa3;color:#fff;border-color:#2c6fa3}
+    .footer{position:absolute;bottom:10px;left:10px;display:flex;gap:10px}.badge{width:44px;height:44px;border-radius:50%;object-fit:cover}
+    .status{margin-top:14px}.status p[data-state="error"]{color:#b91c1c}
+  </style>
 </head>
 <body>
-  <div class="page-shell">
-    <div class="branding">
-      <p class="eyebrow">Etapa 3</p>
-      <h1>Declaracao Medica</h1>
-      <p class="subtitle">Assine para validar as informacoes medicas.</p>
-    </div>
-    <main class="login-card aventura-card">
-      <form method="post" class="aventura-form">
-        {% csrf_token %}
-        <section class="section-block">
-          <div class="section-header"><span>1</span><h2>Local e data</h2></div>
-          <div class="form-row">
-            <label>Cidade<input type="text" name="cidade_data" value="{{ step_data.cidade_data|default:initial.cidade_data|default:'' }}"></label>
-            <label>Dia<input type="text" name="dia_data" value="{{ step_data.dia_data|default:initial.dia_data|default:'' }}"></label>
-            <label>Mes<input type="text" name="mes_data" value="{{ step_data.mes_data|default:initial.mes_data|default:'' }}"></label>
-            <label>Ano<input type="text" name="ano_data" value="{{ step_data.ano_data|default:initial.ano_data|default:'' }}"></label>
-          </div>
-        </section>
-        <section class="section-block">
-          <div class="section-header"><span>2</span><h2>Assinatura</h2></div>
-          <p class="panel-note">Atesto serem VERDADEIRAS todas as informacoes medicas preenchidas.</p>
+  <div class="page"><div class="inner">
+    <form method="post">{% csrf_token %}
+      <div class="header"><div class="title1">CLUBE DE AVENTUREIROS</div><div class="title2">IGREJA ADVENTISTA DO SÉTIMO DIA</div><img class="logo" src="{% static 'images/htmls/logo.jpg' %}" alt="Logo" /></div>
+      <div class="content">
+        <div class="date-line"><input class="long-input" type="text" name="cidade_data" value="{{ step_data.cidade_data|default:initial.cidade_data|default:'' }}" placeholder="Cidade" />, <input class="date-input" type="text" name="dia_data" value="{{ step_data.dia_data|default:initial.dia_data|default:'' }}" placeholder="dia" /> de <input class="long-input" type="text" name="mes_data" value="{{ step_data.mes_data|default:initial.mes_data|default:'' }}" placeholder="mês" /> de <input class="date-input" type="text" name="ano_data" value="{{ step_data.ano_data|default:initial.ano_data|default:'' }}" placeholder="ano" />.</div>
+        <div class="paragraph">Atesto serem <strong>VERDADEIRAS</strong> todas as informações médicas preenchidas e me responsabilizo por quaisquer acidentes que venha a ocorrer em decorrência do não informe de problemas médicos de qualquer natureza:</div>
+        <div class="signature">
           <div class="signature-widget">
-            <canvas width="380" height="160" style="width:100%;border:1px solid #cbd5f5;border-radius:10px;background:#fff"></canvas>
+            <canvas width="500" height="170"></canvas>
             <input type="hidden" name="assinatura_declaracao_medica" value="{{ step_data.assinatura_declaracao_medica|default:'' }}" />
-            <div class="action-row">
-              <button class="secondary" type="button" data-action="clear-sign">Limpar</button>
-              <button class="primary" type="button" data-action="save-sign">Salvar assinatura</button>
-            </div>
+            <div class="action-row"><button type="button" class="btn" data-action="clear-sign">Limpar</button><button type="button" class="btn primary" data-action="save-sign">Salvar assinatura</button></div>
             <p class="signature-status"></p>
           </div>
-        </section>
-        <div class="status" aria-live="polite">{% for message in messages %}<p data-state="{{ message.tags }}">{{ message }}</p>{% endfor %}</div>
-        <button class="primary" type="submit">Proximo</button>
-      </form>
-    </main>
-  </div>
+        </div>
+      </div>
+      <div class="status" aria-live="polite">{% for message in messages %}<p data-state="{{ message.tags }}">{{ message }}</p>{% endfor %}</div>
+      <div class="action-row"><button type="submit" class="btn primary">Próximo</button></div>
+      <div class="footer"><img class="badge" src="{% static 'images/htmls/icone1.png' %}" alt="Ícone 1" /><img class="badge" src="{% static 'images/htmls/icone2.png' %}" alt="Ícone 2" /><img class="badge" src="{% static 'images/htmls/icone3.png' %}" alt="Ícone 3" /><img class="badge" src="{% static 'images/htmls/icone4.png' %}" alt="Ícone 4" /></div>
+    </form>
+  </div></div>
   <script src="{% static 'js/novo_cadastro.js' %}" defer></script>
 </body>
 </html>

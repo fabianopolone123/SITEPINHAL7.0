@@ -1,93 +1,65 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 {% load static %}
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ficha Medica</title>
-  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ficha Médica - Clube de Aventureiros</title>
+  <style>
+    :root{--blue:#123a7a;--line:#3f4b5a;--orange:#d97706;--bg:#ffffff}*{box-sizing:border-box}
+    body{margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;background:#f2f4f7;color:#111}
+    .page{max-width:860px;margin:0 auto;background:var(--bg);border:3px solid #f3a75a;padding:10px;box-shadow:0 10px 28px rgba(0,0,0,.10)}
+    .inner{border:2px solid #2aa6d6;padding:14px;position:relative}.inner::before{content:"";position:absolute;inset:6px;border:1px solid #2aa6d6;pointer-events:none}
+    .header{display:grid;grid-template-columns:1fr 120px;gap:12px;align-items:start;padding:6px 6px 0}.club{text-align:center;line-height:1.2}
+    .club .t1{font-weight:800;font-size:22px}.club .t2{margin-top:4px;font-size:13px}.club .title{margin-top:10px;font-weight:900;font-size:42px;color:var(--orange)}
+    .logo{width:110px;height:110px;border-radius:10px;object-fit:cover;margin-left:auto}.thin-divider{height:2px;background:#9fb2c9;margin:10px 0 12px}
+    .bar{background:var(--blue);color:#fff;font-weight:900;text-align:center;padding:9px 10px;font-size:13px;margin:0 0 10px}
+    .row{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line);border-left:1px solid var(--line);border-right:1px solid var(--line)}
+    .cell{padding:10px 10px 8px;border-right:1px solid var(--line);min-height:54px}.cell:last-child{border-right:none}.row.single{grid-template-columns:1fr}.row.single .cell{border-right:none}.row.end{border-bottom:1px solid var(--line)}
+    .label{font-size:13px;font-weight:700;margin-bottom:6px}.control input[type="text"]{width:100%;border:1px solid #cfd6de;border-radius:6px;padding:8px 10px;font-size:14px;background:#fff}
+    .inline{display:flex;gap:14px;flex-wrap:wrap;align-items:center}.opt{display:flex;align-items:center;gap:6px;font-size:14px;white-space:nowrap}
+    .diseases,.blood{display:flex;flex-wrap:wrap;gap:10px 18px;padding-top:2px}
+    .footer{margin-top:12px;border-top:2px solid #000;padding-top:10px;display:flex;gap:10px;flex-wrap:wrap}.badge{width:44px;height:44px;border-radius:50%;object-fit:cover}
+    .status{margin-top:12px}.status p{margin:0 0 6px}.status p[data-state="error"]{color:#b91c1c}
+    .btn{padding:8px 12px;border-radius:8px;border:1px solid #cbd5f5;background:#fff;cursor:pointer}.btn.primary{background:#123a7a;color:#fff;border-color:#123a7a}
+    @media (max-width:740px){.header{grid-template-columns:1fr}.logo{margin:0}.club .title{font-size:34px}.row{grid-template-columns:1fr}.cell{border-right:none;border-bottom:1px solid var(--line)}.row.end .cell{border-bottom:none}}
+  </style>
 </head>
 <body>
-  <div class="page-shell">
-    <div class="branding">
-      <p class="eyebrow">Etapa 2</p>
-      <h1>Ficha Medica</h1>
-      <p class="subtitle">Preencha os dados de saude do aventureiro.</p>
-    </div>
-    <main class="login-card aventura-card">
-      <form method="post" class="aventura-form">
-        {% csrf_token %}
-        <section class="section-block">
-          <div class="section-header"><span>1</span><h2>Plano e documentos de saude</h2></div>
-          <div class="form-row">
-            <label>Plano de saude
-              <select name="plano_saude">
-                <option value="">Selecione</option>
-                <option value="S" {% if step_data.plano_saude == 'S' %}selected{% endif %}>Sim</option>
-                <option value="N" {% if step_data.plano_saude == 'N' %}selected{% endif %}>Nao</option>
-              </select>
-            </label>
-            <label>Qual plano<input type="text" name="qual_plano" value="{{ step_data.qual_plano|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>CNS/SUS<input type="text" name="cns_sus" value="{{ step_data.cns_sus|default:'' }}"></label>
-            <label>Tipo sanguineo
-              <select name="tipo_sangue">
-                <option value="">Selecione</option>
-                <option value="A+" {% if step_data.tipo_sangue == 'A+' %}selected{% endif %}>A+</option>
-                <option value="A-" {% if step_data.tipo_sangue == 'A-' %}selected{% endif %}>A-</option>
-                <option value="B+" {% if step_data.tipo_sangue == 'B+' %}selected{% endif %}>B+</option>
-                <option value="B-" {% if step_data.tipo_sangue == 'B-' %}selected{% endif %}>B-</option>
-                <option value="AB+" {% if step_data.tipo_sangue == 'AB+' %}selected{% endif %}>AB+</option>
-                <option value="AB-" {% if step_data.tipo_sangue == 'AB-' %}selected{% endif %}>AB-</option>
-                <option value="O+" {% if step_data.tipo_sangue == 'O+' %}selected{% endif %}>O+</option>
-                <option value="O-" {% if step_data.tipo_sangue == 'O-' %}selected{% endif %}>O-</option>
-                <option value="Não sabe" {% if step_data.tipo_sangue == 'Não sabe' %}selected{% endif %}>Não sabe</option>
-              </select>
-            </label>
-          </div>
-        </section>
+  <div class="page"><div class="inner">
+    <form method="post">{% csrf_token %}
+      <div class="header"><div class="club"><div class="t1">CLUBE DE AVENTUREIROS</div><div class="t2">IGREJA ADVENTISTA DO SÉTIMO DIA</div><div class="title">Ficha Médica</div></div><img class="logo" src="{% static 'images/htmls/logo.jpg' %}" alt="Logo" /></div>
+      <div class="thin-divider"></div>
+      <div class="bar">DADOS MÉDICOS DO AVENTUREIRO</div>
 
-        <section class="section-block">
-          <div class="section-header"><span>2</span><h2>Alergias e condicoes</h2></div>
-          <div class="form-row">
-            <label>Alergia pele<input type="text" name="alergia_pele" value="{{ step_data.alergia_pele|default:'' }}"></label>
-            <label>Alergia alimentar<input type="text" name="alergia_alimentar" value="{{ step_data.alergia_alimentar|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>Alergia medicamento<input type="text" name="alergia_medicamento" value="{{ step_data.alergia_medicamento|default:'' }}"></label>
-            <label>Outros problemas<input type="text" name="outros_problemas" value="{{ step_data.outros_problemas|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>Cardiacos
-              <select name="cardiacos"><option value="">Selecione</option><option value="S" {% if step_data.cardiacos == 'S' %}selected{% endif %}>S</option><option value="N" {% if step_data.cardiacos == 'N' %}selected{% endif %}>N</option></select>
-            </label>
-            <label>Medicamento cardiaco<input type="text" name="cardiacos_medicamentos" value="{{ step_data.cardiacos_medicamentos|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>Diabetico
-              <select name="diabetico"><option value="">Selecione</option><option value="S" {% if step_data.diabetico == 'S' %}selected{% endif %}>S</option><option value="N" {% if step_data.diabetico == 'N' %}selected{% endif %}>N</option></select>
-            </label>
-            <label>Medicamento diabetes<input type="text" name="diabetico_medicamentos" value="{{ step_data.diabetico_medicamentos|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>Renais
-              <select name="renais"><option value="">Selecione</option><option value="S" {% if step_data.renais == 'S' %}selected{% endif %}>S</option><option value="N" {% if step_data.renais == 'N' %}selected{% endif %}>N</option></select>
-            </label>
-            <label>Medicamento renal<input type="text" name="renais_medicamentos" value="{{ step_data.renais_medicamentos|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>Psicologicos
-              <select name="psicologicos"><option value="">Selecione</option><option value="S" {% if step_data.psicologicos == 'S' %}selected{% endif %}>S</option><option value="N" {% if step_data.psicologicos == 'N' %}selected{% endif %}>N</option></select>
-            </label>
-            <label>Medicamento psicologico<input type="text" name="psicologicos_medicamentos" value="{{ step_data.psicologicos_medicamentos|default:'' }}"></label>
-          </div>
-        </section>
+      <div class="row"><div class="cell"><div class="label">Tem plano de saúde?</div><div class="inline control"><label class="opt"><input type="radio" name="plano_saude" value="S" {% if step_data.plano_saude == 'S' %}checked{% endif %}> Sim</label><label class="opt"><input type="radio" name="plano_saude" value="N" {% if step_data.plano_saude == 'N' %}checked{% endif %}> Não</label></div></div><div class="cell"><div class="label">Se sim, qual?</div><div class="control"><input type="text" name="qual_plano" value="{{ step_data.qual_plano|default:'' }}" /></div></div></div>
+      <div class="row single"><div class="cell"><div class="label">Número da Carteira Nacional de Saúde ou SUS</div><div class="control"><input type="text" name="cns_sus" value="{{ step_data.cns_sus|default:'' }}" /></div></div></div>
+      <div class="row single"><div class="cell"><div class="label">Já teve ou tem:</div><div class="diseases">
+        <label class="opt"><input type="checkbox" name="doencas" value="Catapora"> Catapora</label><label class="opt"><input type="checkbox" name="doencas" value="Meningite"> Meningite</label><label class="opt"><input type="checkbox" name="doencas" value="Hepatite"> Hepatite</label><label class="opt"><input type="checkbox" name="doencas" value="Dengue"> Dengue</label><label class="opt"><input type="checkbox" name="doencas" value="Pneumonia"> Pneumonia</label><label class="opt"><input type="checkbox" name="doencas" value="Malária"> Malária</label>
+        <label class="opt"><input type="checkbox" name="doencas" value="Febre Amarela"> Febre Amarela</label><label class="opt"><input type="checkbox" name="doencas" value="H1N1"> H1N1</label><label class="opt"><input type="checkbox" name="doencas" value="Cólera"> Cólera</label><label class="opt"><input type="checkbox" name="doencas" value="Rubéola"> Rubéola</label><label class="opt"><input type="checkbox" name="doencas" value="Sarampo"> Sarampo</label><label class="opt"><input type="checkbox" name="doencas" value="Tétano"> Tétano</label>
+      </div></div></div>
 
-        <div class="status" aria-live="polite">{% for message in messages %}<p data-state="{{ message.tags }}">{{ message }}</p>{% endfor %}</div>
-        <button class="primary" type="submit">Proximo</button>
-      </form>
-    </main>
-  </div>
+      <div class="row single"><div class="cell"><div class="label">Possui alergia cutânea (pele)? Se sim, qual?</div><div class="control"><input type="text" name="alergia_pele" value="{{ step_data.alergia_pele|default:'' }}" /></div></div></div>
+      <div class="row single"><div class="cell"><div class="label">Possui alergia alimentar? Se sim, a qual alimento?</div><div class="control"><input type="text" name="alergia_alimentar" value="{{ step_data.alergia_alimentar|default:'' }}" /></div></div></div>
+      <div class="row single"><div class="cell"><div class="label">Possui alguma alergia a medicamentos? Se sim, a qual remédio?</div><div class="control"><input type="text" name="alergia_medicamento" value="{{ step_data.alergia_medicamento|default:'' }}" /></div></div></div>
+
+      <div class="row"><div class="cell"><div class="label">Possui problemas Cardíacos?</div><div class="inline"><label class="opt"><input type="radio" name="cardiacos" value="S" {% if step_data.cardiacos == 'S' %}checked{% endif %}> S</label><label class="opt"><input type="radio" name="cardiacos" value="N" {% if step_data.cardiacos == 'N' %}checked{% endif %}> N</label></div></div><div class="cell"><div class="label">Medicamentos utilizados:</div><div class="control"><input type="text" name="cardiacos_medicamentos" value="{{ step_data.cardiacos_medicamentos|default:'' }}" /></div></div></div>
+      <div class="row"><div class="cell"><div class="label">É diabético?</div><div class="inline"><label class="opt"><input type="radio" name="diabetico" value="S" {% if step_data.diabetico == 'S' %}checked{% endif %}> S</label><label class="opt"><input type="radio" name="diabetico" value="N" {% if step_data.diabetico == 'N' %}checked{% endif %}> N</label></div></div><div class="cell"><div class="label">Medicamentos utilizados:</div><div class="control"><input type="text" name="diabetico_medicamentos" value="{{ step_data.diabetico_medicamentos|default:'' }}" /></div></div></div>
+      <div class="row"><div class="cell"><div class="label">Possui problemas renais?</div><div class="inline"><label class="opt"><input type="radio" name="renais" value="S" {% if step_data.renais == 'S' %}checked{% endif %}> S</label><label class="opt"><input type="radio" name="renais" value="N" {% if step_data.renais == 'N' %}checked{% endif %}> N</label></div></div><div class="cell"><div class="label">Medicamentos utilizados:</div><div class="control"><input type="text" name="renais_medicamentos" value="{{ step_data.renais_medicamentos|default:'' }}" /></div></div></div>
+      <div class="row"><div class="cell"><div class="label">Problemas psicológicos?</div><div class="inline"><label class="opt"><input type="radio" name="psicologicos" value="S" {% if step_data.psicologicos == 'S' %}checked{% endif %}> S</label><label class="opt"><input type="radio" name="psicologicos" value="N" {% if step_data.psicologicos == 'N' %}checked{% endif %}> N</label></div></div><div class="cell"><div class="label">Medicamentos utilizados:</div><div class="control"><input type="text" name="psicologicos_medicamentos" value="{{ step_data.psicologicos_medicamentos|default:'' }}" /></div></div></div>
+
+      <div class="row single"><div class="cell"><div class="label">Outros problemas de saúde e outros medicamentos:</div><div class="control"><input type="text" name="outros_problemas" value="{{ step_data.outros_problemas|default:'' }}" /></div></div></div>
+      <div class="row single"><div class="cell"><div class="label">Problemas de saúde recente:</div><div class="inline"><label class="opt"><input type="radio" name="saude_recente" value="S" {% if step_data.saude_recente == 'S' %}checked{% endif %}> S</label><label class="opt"><input type="radio" name="saude_recente" value="N" {% if step_data.saude_recente == 'N' %}checked{% endif %}> N</label></div></div></div>
+      <div class="row single"><div class="cell"><div class="label">Medicamentos usados recentemente:</div><div class="inline"><label class="opt"><input type="radio" name="medicamentos_recentes" value="S" {% if step_data.medicamentos_recentes == 'S' %}checked{% endif %}> S</label><label class="opt"><input type="radio" name="medicamentos_recentes" value="N" {% if step_data.medicamentos_recentes == 'N' %}checked{% endif %}> N</label></div></div></div>
+      <div class="row single"><div class="cell"><div class="label">Teve ferimentos graves ou fraturas recentes?</div><div class="inline"><label class="opt"><input type="radio" name="fraturas" value="S" {% if step_data.fraturas == 'S' %}checked{% endif %}> S</label><label class="opt"><input type="radio" name="fraturas" value="N" {% if step_data.fraturas == 'N' %}checked{% endif %}> N</label></div></div></div>
+      <div class="row single"><div class="cell"><div class="label">Passou por cirurgias?</div><div class="inline"><label class="opt"><input type="radio" name="cirurgias" value="S" {% if step_data.cirurgias == 'S' %}checked{% endif %}> S</label><label class="opt"><input type="radio" name="cirurgias" value="N" {% if step_data.cirurgias == 'N' %}checked{% endif %}> N</label></div></div></div>
+      <div class="row single"><div class="cell"><div class="label">Motivo de internação nos últimos cinco anos:</div><div class="control"><input type="text" name="motivo_internacao" value="{{ step_data.motivo_internacao|default:'' }}" /></div></div></div>
+      <div class="row single end"><div class="cell"><div class="label">Tipo de Sangue:</div><div class="blood"><label class="opt"><input type="radio" name="tipo_sangue" value="A+" {% if step_data.tipo_sangue == 'A+' %}checked{% endif %}> A+</label><label class="opt"><input type="radio" name="tipo_sangue" value="A-" {% if step_data.tipo_sangue == 'A-' %}checked{% endif %}> A-</label><label class="opt"><input type="radio" name="tipo_sangue" value="AB+" {% if step_data.tipo_sangue == 'AB+' %}checked{% endif %}> AB+</label><label class="opt"><input type="radio" name="tipo_sangue" value="AB-" {% if step_data.tipo_sangue == 'AB-' %}checked{% endif %}> AB-</label><label class="opt"><input type="radio" name="tipo_sangue" value="B+" {% if step_data.tipo_sangue == 'B+' %}checked{% endif %}> B+</label><label class="opt"><input type="radio" name="tipo_sangue" value="B-" {% if step_data.tipo_sangue == 'B-' %}checked{% endif %}> B-</label><label class="opt"><input type="radio" name="tipo_sangue" value="O+" {% if step_data.tipo_sangue == 'O+' %}checked{% endif %}> O+</label><label class="opt"><input type="radio" name="tipo_sangue" value="O-" {% if step_data.tipo_sangue == 'O-' %}checked{% endif %}> O-</label><label class="opt"><input type="radio" name="tipo_sangue" value="Não sabe" {% if step_data.tipo_sangue == 'Não sabe' %}checked{% endif %}> Não sabe</label></div></div></div>
+
+      <div class="status" aria-live="polite">{% for message in messages %}<p data-state="{{ message.tags }}">{{ message }}</p>{% endfor %}</div>
+      <button type="submit" class="btn primary" style="margin-top:10px;">Próximo</button>
+      <div class="footer"><img class="badge" src="{% static 'images/htmls/icone1.png' %}" alt="Ícone 1" /><img class="badge" src="{% static 'images/htmls/icone2.png' %}" alt="Ícone 2" /><img class="badge" src="{% static 'images/htmls/icone3.png' %}" alt="Ícone 3" /><img class="badge" src="{% static 'images/htmls/icone4.png' %}" alt="Ícone 4" /></div>
+    </form>
+  </div></div>
 </body>
 </html>

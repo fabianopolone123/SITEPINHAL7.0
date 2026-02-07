@@ -1,142 +1,125 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 {% load static %}
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ficha de Inscricao</title>
-  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ficha de Inscrição - Clube de Aventureiros</title>
+  <style>
+    :root{--blue:#1d3f8b;--orange:#d97706;--line:#5b5b5b;--bg:#ffffff;--text:#111}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--text);background:#f2f4f7;padding:24px}
+    .page{max-width:820px;margin:0 auto;background:var(--bg);border:3px solid #f3a75a;padding:10px;box-shadow:0 8px 24px rgba(0,0,0,.08)}
+    .inner{border:2px solid #2aa6d6;padding:14px 14px 10px;position:relative}
+    .inner::before{content:"";position:absolute;inset:6px;border:1px solid #2aa6d6;pointer-events:none}
+    .top{display:grid;grid-template-columns:130px 1fr 130px;gap:12px;align-items:start;padding:10px 6px 4px}
+    .photo-box{border:1px solid var(--line);height:150px;display:flex;flex-direction:column;justify-content:center;align-items:center;font-weight:700;letter-spacing:.5px}
+    .photo-box small{font-weight:700}
+    .brand{text-align:center;line-height:1.2;padding-top:4px}
+    .brand .t1{font-weight:700;font-size:18px}.brand .t2{font-size:13px;letter-spacing:.3px}
+    .brand .title{margin-top:10px;font-weight:800;font-size:40px;color:var(--orange)}
+    .logo{width:110px;height:110px;margin-left:auto;border:1px dashed #aaa;border-radius:6px;object-fit:cover}
+    .divider{height:2px;background:#9fb2c9;margin:6px 0 12px}
+    .section-title{background:var(--blue);color:#fff;font-weight:800;text-align:center;padding:8px 10px;letter-spacing:.6px;margin:10px 0 8px;font-size:13px}
+    .grid{display:grid;gap:8px}.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}
+    .field{display:flex;flex-direction:column;gap:4px;border-bottom:1px solid var(--line);padding-bottom:6px;min-height:54px}
+    .label{font-size:12px;font-weight:700}
+    input[type="text"],input[type="email"],input[type="tel"],input[type="date"],select{width:100%;border:1px solid #cfd6de;border-radius:6px;padding:8px 10px;font-size:14px;outline:none;background:#fff}
+    .inline{display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:6px 0 2px}
+    .radio{display:flex;align-items:center;gap:6px;font-size:14px}.radio input{transform:translateY(1px)}
+    .subline{border-bottom:1px solid var(--line);padding-bottom:8px}
+    .sign{margin-top:14px;padding-top:10px;border-top:1px solid #c9d2dc}
+    .signature-widget canvas{width:100%;border:1px solid #cbd5f5;border-radius:10px;background:#fff;min-height:120px}
+    .action-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .btn{padding:8px 12px;border-radius:8px;border:1px solid #cbd5f5;background:#fff;cursor:pointer}
+    .btn.primary{background:#1d3f8b;color:#fff;border-color:#1d3f8b}
+    .footer{margin-top:10px;border-top:2px solid #000;padding-top:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .badges{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.badge{width:46px;height:46px;border-radius:50%;border:1px solid #bbb;background:#fff;object-fit:cover}
+    .status{margin-top:10px}.status p{margin:0 0 6px}
+    .status p[data-state="error"]{color:#b91c1c}.status p[data-state="success"]{color:#166534}
+    .photo-preview{max-height:140px;width:auto;border:1px dashed #cbd5f5;border-radius:8px;display:none}
+    @media (max-width:720px){.top{grid-template-columns:1fr}.logo{margin:0}.brand .title{font-size:32px}.g2,.g3{grid-template-columns:1fr}}
+  </style>
 </head>
 <body>
-  <div class="page-shell">
-    <div class="branding">
-      <p class="eyebrow">Etapa 1</p>
-      <h1>Ficha de Inscricao</h1>
-      <p class="subtitle">Preencha os dados do aventureiro e do responsavel.</p>
-    </div>
-    <main class="login-card aventura-card">
-      <form method="post" class="aventura-form">
-        {% csrf_token %}
-        <section class="section-block">
-          <div class="section-header"><span>1</span><h2>Aventureiro</h2></div>
-          <div class="form-row">
-            <label>Nome completo<input type="text" name="nome_completo" value="{{ step_data.nome_completo|default:'' }}" required></label>
-            <label>Sexo
-              <select name="sexo" required>
-                <option value="">Selecione</option>
-                <option value="M" {% if step_data.sexo == 'M' %}selected{% endif %}>Masculino</option>
-                <option value="F" {% if step_data.sexo == 'F' %}selected{% endif %}>Feminino</option>
-              </select>
-            </label>
-          </div>
-          <div class="form-row">
-            <label>Data de nascimento<input type="date" name="data_nascimento" value="{{ step_data.data_nascimento|default:'' }}" required></label>
-            <label>Colegio<input type="text" name="colegio" value="{{ step_data.colegio|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>Serie<input type="text" name="serie" value="{{ step_data.serie|default:'' }}"></label>
-            <label>Bolsa Familia
-              <select name="bolsa_familia">
-                <option value="">Selecione</option>
-                <option value="sim" {% if step_data.bolsa_familia == 'sim' %}selected{% endif %}>Sim</option>
-                <option value="nao" {% if step_data.bolsa_familia == 'nao' %}selected{% endif %}>Nao</option>
-              </select>
-            </label>
-          </div>
-          <div class="form-row">
-            <label>Religiao<input type="text" name="religiao" value="{{ step_data.religiao|default:'' }}"></label>
-            <label>Tamanho camiseta<input type="text" name="tamanho_camiseta" value="{{ step_data.tamanho_camiseta|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>Certidao<input type="text" name="certidao_nascimento" value="{{ step_data.certidao_nascimento|default:'' }}"></label>
-            <label>RG<input type="text" name="rg" value="{{ step_data.rg|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>Orgao expedidor<input type="text" name="orgao_expedidor" value="{{ step_data.orgao_expedidor|default:'' }}"></label>
-            <label>CPF aventureiro<input type="text" name="cpf_aventureiro" value="{{ step_data.cpf_aventureiro|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>Foto 3x4
-              <input type="file" id="foto-file" accept="image/*" />
-              <input type="hidden" id="foto-3x4" name="foto_3x4" value="{{ step_data.foto_3x4|default:'' }}" />
-            </label>
-            <img id="foto-preview" alt="preview" style="max-height:120px;display:none;border:1px dashed #cbd5f5;border-radius:8px;" />
-          </div>
-        </section>
-
-        <section class="section-block">
-          <div class="section-header"><span>2</span><h2>Responsavel</h2></div>
-          <div class="form-row">
-            <label>Nome do pai<input type="text" name="nome_pai" value="{{ step_data.nome_pai|default:'' }}"></label>
-            <label>Email pai<input type="email" name="email_pai" value="{{ step_data.email_pai|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>CPF pai<input type="text" name="cpf_pai" value="{{ step_data.cpf_pai|default:'' }}"></label>
-            <label>Cel pai<input type="text" name="cel_pai" value="{{ step_data.cel_pai|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>Nome da mae<input type="text" name="nome_mae" value="{{ step_data.nome_mae|default:'' }}"></label>
-            <label>Email mae<input type="email" name="email_mae" value="{{ step_data.email_mae|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>CPF mae<input type="text" name="cpf_mae" value="{{ step_data.cpf_mae|default:'' }}"></label>
-            <label>Cel mae<input type="text" name="cel_mae" value="{{ step_data.cel_mae|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>Nome responsavel<input type="text" name="nome_responsavel" value="{{ step_data.nome_responsavel|default:'' }}" required></label>
-            <label>Parentesco<input type="text" name="parentesco" value="{{ step_data.parentesco|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>CPF responsavel<input type="text" name="cpf_responsavel" value="{{ step_data.cpf_responsavel|default:'' }}"></label>
-            <label>Email responsavel<input type="email" name="email_responsavel" value="{{ step_data.email_responsavel|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>Telefone responsavel<input type="text" name="tel_responsavel" value="{{ step_data.tel_responsavel|default:'' }}"></label>
-            <label>Celular responsavel<input type="text" name="cel_responsavel" value="{{ step_data.cel_responsavel|default:'' }}"></label>
-          </div>
-        </section>
-
-        <section class="section-block">
-          <div class="section-header"><span>3</span><h2>Endereco e data</h2></div>
-          <div class="form-row">
-            <label>Endereco<input type="text" name="endereco" value="{{ step_data.endereco|default:'' }}"></label>
-            <label>Bairro<input type="text" name="bairro" value="{{ step_data.bairro|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>Cidade<input type="text" name="cidade" value="{{ step_data.cidade|default:initial.cidade_data|default:'' }}"></label>
-            <label>CEP<input type="text" name="cep" value="{{ step_data.cep|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>Estado<input type="text" name="estado" value="{{ step_data.estado|default:'' }}"></label>
-            <label>Cidade no rodape<input type="text" name="cidade_data" value="{{ step_data.cidade_data|default:initial.cidade_data|default:'' }}"></label>
-          </div>
-          <div class="form-row">
-            <label>Dia<input type="text" name="dia_data" value="{{ step_data.dia_data|default:initial.dia_data|default:'' }}"></label>
-            <label>Mes<input type="text" name="mes_data" value="{{ step_data.mes_data|default:initial.mes_data|default:'' }}"></label>
-            <label>Ano<input type="text" name="ano_data" value="{{ step_data.ano_data|default:initial.ano_data|default:'' }}"></label>
-          </div>
-        </section>
-
-        <section class="section-block">
-          <div class="section-header"><span>4</span><h2>Assinatura da ficha</h2></div>
-          <div class="signature-widget">
-            <canvas width="380" height="160" style="width:100%;border:1px solid #cbd5f5;border-radius:10px;background:#fff"></canvas>
-            <input type="hidden" name="assinatura_inscricao" value="{{ step_data.assinatura_inscricao|default:'' }}" />
-            <div class="action-row">
-              <button class="secondary" type="button" data-action="clear-sign">Limpar</button>
-              <button class="primary" type="button" data-action="save-sign">Salvar assinatura</button>
-            </div>
-            <p class="signature-status"></p>
-          </div>
-        </section>
-
-        <div class="status" aria-live="polite">
-          {% for message in messages %}<p data-state="{{ message.tags }}">{{ message }}</p>{% endfor %}
+  <div class="page"><div class="inner">
+    <form method="post">
+      {% csrf_token %}
+      <div class="top">
+        <div class="photo-box">
+          <div>FOTO</div><small>3X4</small>
+          <input type="file" id="foto-file" accept="image/*" />
+          <input type="hidden" id="foto-3x4" name="foto_3x4" value="{{ step_data.foto_3x4|default:'' }}" />
         </div>
-        <button class="primary" type="submit">Proximo</button>
-      </form>
-    </main>
-  </div>
+        <div class="brand">
+          <div class="t1">CLUBE DE AVENTUREIROS</div>
+          <div class="t2">IGREJA ADVENTISTA DO SÉTIMO DIA</div>
+          <div class="title">Ficha de Inscrição</div>
+        </div>
+        <img class="logo" src="{% static 'images/htmls/logo.jpg' %}" alt="Logo" />
+      </div>
+      <img id="foto-preview" class="photo-preview" alt="Preview da foto" />
+      <div class="divider"></div>
+
+      <div class="section-title">DADOS DO AVENTUREIRO</div>
+      <div class="grid g2">
+        <div class="field" style="grid-column:1 / -1;"><div class="label">Nome Completo:</div><input type="text" name="nome_completo" value="{{ step_data.nome_completo|default:'' }}" required /></div>
+        <div class="field"><div class="label">Sexo:</div><div class="inline"><label class="radio"><input type="radio" name="sexo" value="M" {% if step_data.sexo == 'M' %}checked{% endif %}> Masculino</label><label class="radio"><input type="radio" name="sexo" value="F" {% if step_data.sexo == 'F' %}checked{% endif %}> Feminino</label></div></div>
+        <div class="field"><div class="label">Data de nascimento:</div><input type="date" name="data_nascimento" value="{{ step_data.data_nascimento|default:'' }}" required /></div>
+      </div>
+      <div class="grid g2" style="margin-top:8px;"><div class="field"><div class="label">Colégio:</div><input type="text" name="colegio" value="{{ step_data.colegio|default:'' }}" /></div><div class="field"><div class="label">Série (ano):</div><input type="text" name="serie" value="{{ step_data.serie|default:'' }}" /></div></div>
+      <div class="grid g2" style="margin-top:8px;"><div class="field" style="grid-column:1 / -1;"><div class="label">Beneficiado pela Bolsa Família:</div><div class="inline"><label class="radio"><input type="radio" name="bolsa_familia" value="sim" {% if step_data.bolsa_familia == 'sim' %}checked{% endif %}> Sim</label><label class="radio"><input type="radio" name="bolsa_familia" value="nao" {% if step_data.bolsa_familia == 'nao' %}checked{% endif %}> Não</label></div></div></div>
+      <div class="grid" style="margin-top:8px;"><div class="field"><div class="label">Classes Investidas:</div><div class="inline"><label class="radio"><input type="checkbox" name="classes" value="Abelhinhas"> Abelhinhas</label><label class="radio"><input type="checkbox" name="classes" value="Luminares"> Luminares</label><label class="radio"><input type="checkbox" name="classes" value="Edificadores"> Edificadores</label><label class="radio"><input type="checkbox" name="classes" value="Maos Ajudadoras"> Mãos Ajudadoras</label></div></div></div>
+      <div class="grid g2" style="margin-top:8px;"><div class="field"><div class="label">Endereço:</div><input type="text" name="endereco" value="{{ step_data.endereco|default:'' }}" /></div><div class="field"><div class="label">Bairro:</div><input type="text" name="bairro" value="{{ step_data.bairro|default:'' }}" /></div></div>
+      <div class="grid g3" style="margin-top:8px;"><div class="field"><div class="label">Cidade:</div><input type="text" name="cidade" value="{{ step_data.cidade|default:'' }}" /></div><div class="field"><div class="label">CEP:</div><input type="text" name="cep" value="{{ step_data.cep|default:'' }}" /></div><div class="field"><div class="label">Estado:</div><input type="text" name="estado" value="{{ step_data.estado|default:'' }}" /></div></div>
+      <div class="grid g2" style="margin-top:8px;"><div class="field"><div class="label">Certidão de nascimento:</div><input type="text" name="certidao_nascimento" value="{{ step_data.certidao_nascimento|default:'' }}" /></div><div class="field"><div class="label">Religião:</div><input type="text" name="religiao" value="{{ step_data.religiao|default:'' }}" /></div></div>
+      <div class="grid g3" style="margin-top:8px;"><div class="field"><div class="label">R.G.:</div><input type="text" name="rg" value="{{ step_data.rg|default:'' }}" /></div><div class="field"><div class="label">Órgão Expedidor:</div><input type="text" name="orgao_expedidor" value="{{ step_data.orgao_expedidor|default:'' }}" /></div><div class="field"><div class="label">CPF:</div><input type="text" name="cpf_aventureiro" value="{{ step_data.cpf_aventureiro|default:'' }}" /></div></div>
+      <div class="grid g2" style="margin-top:8px;"><div class="field"><div class="label">Pai / Mãe tem WhatsApp:</div><div class="inline"><label class="radio"><input type="radio" name="tem_whatsapp" value="sim" {% if step_data.tem_whatsapp == 'sim' %}checked{% endif %}> Sim</label><label class="radio"><input type="radio" name="tem_whatsapp" value="nao" {% if step_data.tem_whatsapp == 'nao' %}checked{% endif %}> Não</label></div></div><div class="field"><div class="label">Tamanho da Camiseta:</div><input type="text" name="tamanho_camiseta" value="{{ step_data.tamanho_camiseta|default:'' }}" /></div></div>
+
+      <div class="section-title">DADOS DOS PAIS/RESPONSÁVEL LEGAL</div>
+      <div class="subline"><div class="label" style="font-size:14px;font-weight:800;">Pai:</div></div>
+      <div class="grid g2" style="margin-top:8px;"><div class="field"><div class="label">Nome:</div><input type="text" name="nome_pai" value="{{ step_data.nome_pai|default:'' }}" /></div><div class="field"><div class="label">E-mail:</div><input type="email" name="email_pai" value="{{ step_data.email_pai|default:'' }}" /></div></div>
+      <div class="grid g2" style="margin-top:8px;"><div class="field"><div class="label">CPF:</div><input type="text" name="cpf_pai" value="{{ step_data.cpf_pai|default:'' }}" /></div><div class="field"><div class="label">Celular:</div><input type="tel" name="cel_pai" value="{{ step_data.cel_pai|default:'' }}" /></div></div>
+      <div class="grid g2" style="margin-top:8px;"><div class="field"><div class="label">Telefone:</div><input type="tel" name="tel_pai" value="{{ step_data.tel_pai|default:'' }}" /></div><div class="field"></div></div>
+
+      <div class="subline" style="margin-top:10px;"><div class="label" style="font-size:14px;font-weight:800;">Mãe:</div></div>
+      <div class="grid g2" style="margin-top:8px;"><div class="field"><div class="label">Nome:</div><input type="text" name="nome_mae" value="{{ step_data.nome_mae|default:'' }}" /></div><div class="field"><div class="label">E-mail:</div><input type="email" name="email_mae" value="{{ step_data.email_mae|default:'' }}" /></div></div>
+      <div class="grid g2" style="margin-top:8px;"><div class="field"><div class="label">CPF:</div><input type="text" name="cpf_mae" value="{{ step_data.cpf_mae|default:'' }}" /></div><div class="field"><div class="label">Celular:</div><input type="tel" name="cel_mae" value="{{ step_data.cel_mae|default:'' }}" /></div></div>
+      <div class="grid g2" style="margin-top:8px;"><div class="field"><div class="label">Telefone:</div><input type="tel" name="tel_mae" value="{{ step_data.tel_mae|default:'' }}" /></div><div class="field"></div></div>
+
+      <div class="subline" style="margin-top:10px;"><div class="label" style="font-size:14px;font-weight:800;">Responsável Legal:</div></div>
+      <div class="grid g2" style="margin-top:8px;"><div class="field"><div class="label">Nome:</div><input type="text" name="nome_responsavel" value="{{ step_data.nome_responsavel|default:'' }}" required /></div><div class="field"><div class="label">Grau de parentesco:</div><input type="text" name="parentesco" value="{{ step_data.parentesco|default:'' }}" /></div></div>
+      <div class="grid g2" style="margin-top:8px;"><div class="field"><div class="label">CPF:</div><input type="text" name="cpf_responsavel" value="{{ step_data.cpf_responsavel|default:'' }}" /></div><div class="field"><div class="label">E-mail:</div><input type="email" name="email_responsavel" value="{{ step_data.email_responsavel|default:'' }}" /></div></div>
+      <div class="grid g2" style="margin-top:8px;"><div class="field"><div class="label">Telefone:</div><input type="tel" name="tel_responsavel" value="{{ step_data.tel_responsavel|default:'' }}" /></div><div class="field"><div class="label">Celular:</div><input type="tel" name="cel_responsavel" value="{{ step_data.cel_responsavel|default:'' }}" /></div></div>
+
+      <div class="sign">
+        <div class="grid g3">
+          <div class="field"><div class="label">Cidade</div><input type="text" name="cidade_data" value="{{ step_data.cidade_data|default:initial.cidade_data|default:'' }}" /></div>
+          <div class="field"><div class="label">Dia</div><input type="text" name="dia_data" value="{{ step_data.dia_data|default:initial.dia_data|default:'' }}" /></div>
+          <div class="field"><div class="label">Mês/Ano</div><input type="text" name="mes_data" value="{{ step_data.mes_data|default:initial.mes_data|default:'' }}" /><input type="hidden" name="ano_data" value="{{ step_data.ano_data|default:initial.ano_data|default:'' }}" /></div>
+        </div>
+        <div class="signature-widget" style="margin-top:12px;">
+          <p>Atesto serem <b>VERDADEIRAS</b> todas as informações acima preenchidas:</p>
+          <canvas width="380" height="160"></canvas>
+          <input type="hidden" name="assinatura_inscricao" value="{{ step_data.assinatura_inscricao|default:'' }}" />
+          <div class="action-row"><button type="button" class="btn" data-action="clear-sign">Limpar</button><button type="button" class="btn primary" data-action="save-sign">Salvar assinatura</button></div>
+          <p class="signature-status"></p>
+        </div>
+      </div>
+
+      <div class="status" aria-live="polite">{% for message in messages %}<p data-state="{{ message.tags }}">{{ message }}</p>{% endfor %}</div>
+      <div class="action-row" style="margin-top:8px;"><button type="submit" class="btn primary">Próximo</button></div>
+
+      <div class="footer">
+        <div class="badges" aria-label="Ícones ilustrativos">
+          <img class="badge" src="{% static 'images/htmls/icone1.png' %}" alt="Ícone 1" />
+          <img class="badge" src="{% static 'images/htmls/icone2.png' %}" alt="Ícone 2" />
+          <img class="badge" src="{% static 'images/htmls/icone3.png' %}" alt="Ícone 3" />
+          <img class="badge" src="{% static 'images/htmls/icone4.png' %}" alt="Ícone 4" />
+        </div>
+      </div>
+    </form>
+  </div></div>
   <script src="{% static 'js/novo_cadastro.js' %}" defer></script>
 </body>
 </html>
