@@ -89,6 +89,34 @@
     injectRequiredStyles();
     var forms = document.querySelectorAll('form');
     forms.forEach(function (form) {
+      var radioGroups = {};
+      var checkboxGroups = {};
+      var fieldsForGlobalRequired = form.querySelectorAll('input, select, textarea');
+      fieldsForGlobalRequired.forEach(function (field) {
+        var tag = (field.tagName || '').toLowerCase();
+        var type = (field.type || '').toLowerCase();
+        if (tag === 'button') return;
+        if (type === 'hidden' || type === 'submit' || type === 'button' || type === 'reset') return;
+        if (type === 'file') return;
+        if (type === 'radio') {
+          if (!field.name) return;
+          if (!radioGroups[field.name]) {
+            field.required = true;
+            radioGroups[field.name] = true;
+          }
+          return;
+        }
+        if (type === 'checkbox') {
+          if (!field.name) return;
+          if (!checkboxGroups[field.name]) {
+            field.required = true;
+            checkboxGroups[field.name] = true;
+          }
+          return;
+        }
+        field.required = true;
+      });
+
       var requiredFields = form.querySelectorAll('input[required], select[required], textarea[required]');
       requiredFields.forEach(function (field) {
         var label = nearestLabel(field);
