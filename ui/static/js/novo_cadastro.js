@@ -46,6 +46,16 @@
       ctx.lineCap = 'round';
       var drawing = false;
 
+      function getCanvasPoint(event) {
+        var rect = canvas.getBoundingClientRect();
+        var scaleX = canvas.width / rect.width;
+        var scaleY = canvas.height / rect.height;
+        return {
+          x: (event.clientX - rect.left) * scaleX,
+          y: (event.clientY - rect.top) * scaleY,
+        };
+      }
+
       function clearCanvas() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         hidden.value = '';
@@ -55,13 +65,15 @@
       canvas.addEventListener('pointerdown', function (event) {
         drawing = true;
         canvas.setPointerCapture(event.pointerId);
+        var point = getCanvasPoint(event);
         ctx.beginPath();
-        ctx.moveTo(event.offsetX, event.offsetY);
+        ctx.moveTo(point.x, point.y);
       });
 
       canvas.addEventListener('pointermove', function (event) {
         if (!drawing) return;
-        ctx.lineTo(event.offsetX, event.offsetY);
+        var point = getCanvasPoint(event);
+        ctx.lineTo(point.x, point.y);
         ctx.stroke();
       });
 
