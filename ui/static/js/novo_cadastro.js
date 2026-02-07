@@ -89,38 +89,41 @@
     injectRequiredStyles();
     var forms = document.querySelectorAll('form');
     forms.forEach(function (form) {
+      var requiredMode = (form.getAttribute('data-required-mode') || 'global').toLowerCase();
       var radioGroups = {};
       var checkboxGroups = {};
-      var fieldsForGlobalRequired = form.querySelectorAll('input, select, textarea');
-      fieldsForGlobalRequired.forEach(function (field) {
-        var tag = (field.tagName || '').toLowerCase();
-        var type = (field.type || '').toLowerCase();
-        var name = (field.name || '').toLowerCase();
-        if (tag === 'button') return;
-        if (type === 'hidden' || type === 'submit' || type === 'button' || type === 'reset') return;
-        if (type === 'file') return;
-        if (field.hasAttribute('data-optional') || name === 'classes') {
-          field.required = false;
-          return;
-        }
-        if (type === 'radio') {
-          if (!field.name) return;
-          if (!radioGroups[field.name]) {
-            field.required = true;
-            radioGroups[field.name] = true;
+      if (requiredMode !== 'explicit') {
+        var fieldsForGlobalRequired = form.querySelectorAll('input, select, textarea');
+        fieldsForGlobalRequired.forEach(function (field) {
+          var tag = (field.tagName || '').toLowerCase();
+          var type = (field.type || '').toLowerCase();
+          var name = (field.name || '').toLowerCase();
+          if (tag === 'button') return;
+          if (type === 'hidden' || type === 'submit' || type === 'button' || type === 'reset') return;
+          if (type === 'file') return;
+          if (field.hasAttribute('data-optional') || name === 'classes') {
+            field.required = false;
+            return;
           }
-          return;
-        }
-        if (type === 'checkbox') {
-          if (!field.name) return;
-          if (!checkboxGroups[field.name]) {
-            field.required = true;
-            checkboxGroups[field.name] = true;
+          if (type === 'radio') {
+            if (!field.name) return;
+            if (!radioGroups[field.name]) {
+              field.required = true;
+              radioGroups[field.name] = true;
+            }
+            return;
           }
-          return;
-        }
-        field.required = true;
-      });
+          if (type === 'checkbox') {
+            if (!field.name) return;
+            if (!checkboxGroups[field.name]) {
+              field.required = true;
+              checkboxGroups[field.name] = true;
+            }
+            return;
+          }
+          field.required = true;
+        });
+      }
 
       var requiredFields = form.querySelectorAll('input[required], select[required], textarea[required]');
       requiredFields.forEach(function (field) {

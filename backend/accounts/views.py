@@ -776,10 +776,13 @@ class NovoCadastroInscricaoView(View):
         data = self._require_login_step(request)
         if data is None:
             return redirect('accounts:novo_cadastro_login')
+        current = data.get('current') or {}
+        step_data = current.get('inscricao') or {}
         initial = _date_parts_today()
+        initial.update(step_data)
         return render(request, self.template_name, {
             'initial': initial,
-            'step_data': {},
+            'step_data': step_data,
         })
 
     def post(self, request):
@@ -833,7 +836,9 @@ class NovoCadastroMedicaView(View):
         if data is None:
             messages.error(request, 'Complete a ficha de inscrição antes.')
             return redirect('accounts:novo_cadastro_inscricao')
-        return render(request, self.template_name, {'step_data': {}})
+        current = data.get('current') or {}
+        step_data = current.get('medica') or {}
+        return render(request, self.template_name, {'step_data': step_data})
 
     def post(self, request):
         data = self._require_inscricao_step(request)
@@ -841,6 +846,9 @@ class NovoCadastroMedicaView(View):
             messages.error(request, 'Complete a ficha de inscrição antes.')
             return redirect('accounts:novo_cadastro_inscricao')
         fields = _extract_fields(request.POST, self.field_names)
+        if not str(fields.get('plano_saude', '')).strip():
+            messages.error(request, 'Informe se tem plano de saúde para continuar.')
+            return render(request, self.template_name, {'step_data': fields})
         data['current']['medica'] = fields
         _set_new_flow_data(request.session, data)
         return redirect('accounts:novo_cadastro_declaracao')

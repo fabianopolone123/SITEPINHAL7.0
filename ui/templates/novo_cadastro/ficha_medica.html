@@ -27,12 +27,12 @@
 </head>
 <body>
   <div class="page"><div class="inner">
-    <form method="post">{% csrf_token %}
+    <form method="post" data-required-mode="explicit">{% csrf_token %}
       <div class="header"><div class="club"><div class="t1">CLUBE DE AVENTUREIROS</div><div class="t2">IGREJA ADVENTISTA DO SÉTIMO DIA</div><div class="title">Ficha Médica</div></div><img class="logo" src="{% static 'images/logo_htmls.jpg' %}?v=2" alt="Logo" /></div>
       <div class="thin-divider"></div>
       <div class="bar">DADOS MÉDICOS DO AVENTUREIRO</div>
 
-      <div class="row"><div class="cell"><div class="label">Tem plano de saúde?</div><div class="inline control"><label class="opt"><input type="radio" name="plano_saude" value="S" {% if step_data.plano_saude == 'S' %}checked{% endif %}> Sim</label><label class="opt"><input type="radio" name="plano_saude" value="N" {% if step_data.plano_saude == 'N' %}checked{% endif %}> Não</label></div></div><div class="cell"><div class="label">Se sim, qual?</div><div class="control"><input type="text" name="qual_plano" value="{{ step_data.qual_plano|default:'' }}" /></div></div></div>
+      <div class="row"><div class="cell"><div class="label">Tem plano de saúde?</div><div class="inline control"><label class="opt"><input type="radio" name="plano_saude" value="S" required {% if step_data.plano_saude == 'S' %}checked{% endif %}> Sim</label><label class="opt"><input type="radio" name="plano_saude" value="N" required {% if step_data.plano_saude == 'N' %}checked{% endif %}> Não</label></div></div><div class="cell"><div class="label">Se sim, qual?</div><div class="control"><input type="text" name="qual_plano" value="{{ step_data.qual_plano|default:'' }}" /></div></div></div>
       <div class="row single"><div class="cell"><div class="label">Número da Carteira Nacional de Saúde ou SUS</div><div class="control"><input type="text" name="cns_sus" value="{{ step_data.cns_sus|default:'' }}" /></div></div></div>
       <div class="row single"><div class="cell"><div class="label">Já teve ou tem:</div><div class="diseases">
         <label class="opt"><input type="checkbox" name="doencas" value="Catapora"> Catapora</label><label class="opt"><input type="checkbox" name="doencas" value="Meningite"> Meningite</label><label class="opt"><input type="checkbox" name="doencas" value="Hepatite"> Hepatite</label><label class="opt"><input type="checkbox" name="doencas" value="Dengue"> Dengue</label><label class="opt"><input type="checkbox" name="doencas" value="Pneumonia"> Pneumonia</label><label class="opt"><input type="checkbox" name="doencas" value="Malária"> Malária</label>
@@ -57,7 +57,10 @@
       <div class="row single end"><div class="cell"><div class="label">Tipo de Sangue:</div><div class="blood"><label class="opt"><input type="radio" name="tipo_sangue" value="A+" {% if step_data.tipo_sangue == 'A+' %}checked{% endif %}> A+</label><label class="opt"><input type="radio" name="tipo_sangue" value="A-" {% if step_data.tipo_sangue == 'A-' %}checked{% endif %}> A-</label><label class="opt"><input type="radio" name="tipo_sangue" value="AB+" {% if step_data.tipo_sangue == 'AB+' %}checked{% endif %}> AB+</label><label class="opt"><input type="radio" name="tipo_sangue" value="AB-" {% if step_data.tipo_sangue == 'AB-' %}checked{% endif %}> AB-</label><label class="opt"><input type="radio" name="tipo_sangue" value="B+" {% if step_data.tipo_sangue == 'B+' %}checked{% endif %}> B+</label><label class="opt"><input type="radio" name="tipo_sangue" value="B-" {% if step_data.tipo_sangue == 'B-' %}checked{% endif %}> B-</label><label class="opt"><input type="radio" name="tipo_sangue" value="O+" {% if step_data.tipo_sangue == 'O+' %}checked{% endif %}> O+</label><label class="opt"><input type="radio" name="tipo_sangue" value="O-" {% if step_data.tipo_sangue == 'O-' %}checked{% endif %}> O-</label><label class="opt"><input type="radio" name="tipo_sangue" value="Não sabe" {% if step_data.tipo_sangue == 'Não sabe' %}checked{% endif %}> Não sabe</label></div></div></div>
 
       <div class="status" aria-live="polite">{% for message in messages %}<p data-state="{{ message.tags }}">{{ message }}</p>{% endfor %}</div>
-      <button type="submit" class="btn primary" style="margin-top:10px;">Próximo</button>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+        <a href="{% url 'accounts:novo_cadastro_inscricao' %}" class="btn">Voltar</a>
+        <button type="submit" class="btn primary">Próximo</button>
+      </div>
       <div class="footer"><img class="badge" src="{% static 'images/icone1.png' %}?v=2" alt="Ícone 1" /><img class="badge" src="{% static 'images/icone2.png' %}?v=2" alt="Ícone 2" /><img class="badge" src="{% static 'images/icone3.png' %}?v=2" alt="Ícone 3" /><img class="badge" src="{% static 'images/icone4.png' %}?v=2" alt="Ícone 4" /></div>
     </form>
   </div></div>
