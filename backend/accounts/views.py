@@ -723,6 +723,33 @@ def _apply_date_defaults(fields):
     return fields
 
 
+def _inscricao_parent_fields_from_last_aventureiro(data):
+    aventureiros = data.get('aventures') or []
+    if not aventureiros:
+        return {}
+    last = aventureiros[-1] or {}
+    inscricao = last.get('inscricao') or {}
+    keys = [
+        'nome_pai',
+        'email_pai',
+        'cpf_pai',
+        'tel_pai',
+        'cel_pai',
+        'nome_mae',
+        'email_mae',
+        'cpf_mae',
+        'tel_mae',
+        'cel_mae',
+        'nome_responsavel',
+        'parentesco',
+        'cpf_responsavel',
+        'email_responsavel',
+        'tel_responsavel',
+        'cel_responsavel',
+    ]
+    return {key: inscricao.get(key, '') for key in keys}
+
+
 class RegisterView(View):
     template_name = 'register.html'
 
@@ -778,6 +805,8 @@ class NovoCadastroInscricaoView(View):
             return redirect('accounts:novo_cadastro_login')
         current = data.get('current') or {}
         step_data = current.get('inscricao') or {}
+        if not step_data:
+            step_data = _inscricao_parent_fields_from_last_aventureiro(data)
         initial = _date_parts_today()
         initial.update(step_data)
         return render(request, self.template_name, {
