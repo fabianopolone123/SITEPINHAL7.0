@@ -679,11 +679,47 @@ def _date_parts_today():
     }
 
 
+def _normalize_month_pt(value):
+    raw = str(value or '').strip()
+    if not raw:
+        return ''
+    normalized = raw.lower()
+    mapping = {
+        'january': 'Janeiro',
+        'february': 'Fevereiro',
+        'march': 'Março',
+        'april': 'Abril',
+        'may': 'Maio',
+        'june': 'Junho',
+        'july': 'Julho',
+        'august': 'Agosto',
+        'september': 'Setembro',
+        'october': 'Outubro',
+        'november': 'Novembro',
+        'december': 'Dezembro',
+        'janeiro': 'Janeiro',
+        'fevereiro': 'Fevereiro',
+        'marco': 'Março',
+        'março': 'Março',
+        'abril': 'Abril',
+        'maio': 'Maio',
+        'junho': 'Junho',
+        'julho': 'Julho',
+        'agosto': 'Agosto',
+        'setembro': 'Setembro',
+        'outubro': 'Outubro',
+        'novembro': 'Novembro',
+        'dezembro': 'Dezembro',
+    }
+    return mapping.get(normalized, raw)
+
+
 def _apply_date_defaults(fields):
     defaults = _date_parts_today()
     for key in ('cidade_data', 'dia_data', 'mes_data', 'ano_data'):
         if not str(fields.get(key, '')).strip():
             fields[key] = defaults[key]
+    fields['mes_data'] = _normalize_month_pt(fields.get('mes_data'))
     return fields
 
 
