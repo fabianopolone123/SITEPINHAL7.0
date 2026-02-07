@@ -29,8 +29,9 @@
         <div class="paragraph">Atesto serem <strong>VERDADEIRAS</strong> todas as informações médicas preenchidas e me responsabilizo por quaisquer acidentes que venha a ocorrer em decorrência do não informe de problemas médicos de qualquer natureza:</div>
         <div class="signature">
           <div class="signature-widget">
+            <p class="required-sign-label">Assinatura</p>
             <canvas width="500" height="170"></canvas>
-            <input type="hidden" name="assinatura_declaracao_medica" value="{{ step_data.assinatura_declaracao_medica|default:'' }}" />
+            <input type="hidden" name="assinatura_declaracao_medica" value="{{ step_data.assinatura_declaracao_medica|default:'' }}" data-required="true" data-required-target=".required-sign-label" />
             <div class="action-row"><button type="button" class="btn" data-action="clear-sign">Limpar</button><button type="button" class="btn primary" data-action="save-sign">Salvar assinatura</button></div>
             <p class="signature-status"></p>
           </div>

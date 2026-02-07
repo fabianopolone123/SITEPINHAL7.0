@@ -53,9 +53,10 @@
           <div class="photo-box">
             <div id="photo-placeholder" class="photo-placeholder"><div>FOTO</div><small>3X4</small></div>
             <img id="foto-preview" class="photo-preview" alt="Preview da foto" />
-            <input type="hidden" id="foto-3x4" name="foto_3x4" value="{{ step_data.foto_3x4|default:'' }}" />
+            <input type="hidden" id="foto-3x4" name="foto_3x4" value="{{ step_data.foto_3x4|default:'' }}" data-required="true" data-required-target=".required-photo-label" />
           </div>
           <div class="photo-upload">
+            <div class="label required-photo-label">Anexar foto 3x4</div>
             <input type="file" id="foto-file" accept="image/*" />
           </div>
         </div>
@@ -106,9 +107,9 @@
           <div class="field"><div class="label">Mês/Ano</div><input type="text" name="mes_data" value="{{ step_data.mes_data|default:initial.mes_data|default:'' }}" /><input type="hidden" name="ano_data" value="{{ step_data.ano_data|default:initial.ano_data|default:'' }}" /></div>
         </div>
         <div class="signature-widget" style="margin-top:12px;">
-          <p>Atesto serem <b>VERDADEIRAS</b> todas as informações acima preenchidas:</p>
+          <p class="required-sign-label">Atesto serem <b>VERDADEIRAS</b> todas as informações acima preenchidas:</p>
           <canvas width="380" height="160"></canvas>
-          <input type="hidden" name="assinatura_inscricao" value="{{ step_data.assinatura_inscricao|default:'' }}" />
+          <input type="hidden" name="assinatura_inscricao" value="{{ step_data.assinatura_inscricao|default:'' }}" data-required="true" data-required-target=".required-sign-label" />
           <div class="action-row"><button type="button" class="btn" data-action="clear-sign">Limpar</button><button type="button" class="btn primary" data-action="save-sign">Salvar assinatura</button></div>
           <p class="signature-status"></p>
         </div>
