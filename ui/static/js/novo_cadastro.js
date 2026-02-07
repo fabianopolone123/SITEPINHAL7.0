@@ -3,6 +3,7 @@
     var input = document.getElementById('foto-file');
     var hidden = document.getElementById('foto-3x4');
     var preview = document.getElementById('foto-preview');
+    var placeholder = document.getElementById('photo-placeholder');
     if (!input || !hidden) return;
     input.addEventListener('change', function () {
       var file = input.files && input.files[0];
@@ -14,12 +15,18 @@
           preview.src = hidden.value;
           preview.style.display = 'block';
         }
+        if (placeholder) {
+          placeholder.style.display = 'none';
+        }
       };
       reader.readAsDataURL(file);
     });
     if (hidden.value && preview) {
       preview.src = hidden.value;
       preview.style.display = 'block';
+    }
+    if (hidden.value && placeholder) {
+      placeholder.style.display = 'none';
     }
   }
 
