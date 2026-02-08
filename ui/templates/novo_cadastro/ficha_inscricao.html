@@ -47,7 +47,7 @@
 </head>
 <body>
   <div class="page"><div class="inner">
-    <form method="post" data-doc-check-url="{% url 'accounts:novo_cadastro_verificar_documento' %}">
+    <form method="post" data-doc-check-url="{% url 'accounts:novo_cadastro_verificar_documento' %}" data-required-mode="explicit">
       {% csrf_token %}
       <div class="top">
         <div class="top-left">
