@@ -172,20 +172,15 @@ class AventureiroForm(forms.ModelForm):
     def _validate_doc_requirements(self, cleaned):
         certidao = cleaned.get('certidao')
         rg = cleaned.get('rg')
-        orgao = cleaned.get('orgao')
         cpf = cleaned.get('cpf')
 
-        has_rg_with_orgao = bool(rg and orgao)
+        has_rg = bool(rg)
         has_certidao = bool(certidao)
         has_cpf = bool(cpf)
 
-        if not (has_certidao or has_rg_with_orgao or has_cpf):
+        if not (has_certidao or has_rg or has_cpf):
             self.documentacao_error = True
-            raise forms.ValidationError('Informe pelo menos uma documentação válida: certidão, RG (com órgão) ou CPF.')
-        if rg and not orgao:
-            self.add_error('orgao', 'Informe o órgão expedidor junto com o RG.')
-        if orgao and not rg:
-            self.add_error('rg', 'Informe o número do RG que pertence ao órgão expedidor.')
+            raise forms.ValidationError('Informe pelo menos uma documentação válida: certidão, RG ou CPF.')
 
     def _validate_plano(self, cleaned):
         plano = cleaned.get('plano')

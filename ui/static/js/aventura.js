@@ -166,22 +166,11 @@ const validarAventuraAtual = () => {
 
   const certidao = formData.get('certidao')?.trim();
   const rg = formData.get('rg')?.trim();
-  const orgao = formData.get('orgao')?.trim();
   const cpf = formData.get('cpf')?.trim();
-  const hasDoc = certidao || cpf || (rg && orgao);
+  const hasDoc = certidao || cpf || rg;
   if (!hasDoc) {
     ['certidao', 'rg', 'orgao', 'cpf'].forEach((name) => addFieldError(adventureForm.querySelector(`[name="${name}"]`)));
     if (valid) setStatusError('Informe ao menos uma documentação válida.');
-    valid = false;
-  }
-  if (rg && !orgao) {
-    addFieldError(adventureForm.querySelector('[name="orgao"]'));
-    if (valid) setStatusError('Informe o órgão expedidor junto com o RG.');
-    valid = false;
-  }
-  if (orgao && !rg) {
-    addFieldError(adventureForm.querySelector('[name="rg"]'));
-    if (valid) setStatusError('Informe o número do RG que pertence ao órgão expedidor.');
     valid = false;
   }
 

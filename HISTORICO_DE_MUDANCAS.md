@@ -85,3 +85,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Criadas APIs de atualizacao e consulta em tempo real (`/presenca/toggle/` e `/presenca/status/`) com polling a cada 2s para sincronizar marcacoes entre dispositivos abertos ao mesmo tempo.
 - Melhorado visual das caixas `Evento` e `Buscar aventureiro` com cards destacados para leitura rapida no celular.
 - Adicionado destaque por cor dos eventos na tela de presenca (`Hoje`, `Amanha`, `Em X dias`, `Ha X dias`) com badges e lista visual clicavel.
+
+## 08/02/2026 - Cadastro de aventureiro: RG e orgao expedidor opcionais
+
+- Removida a obrigatoriedade de preencher RG junto com orgao expedidor no cadastro de aventureiro.
+- Validacao de documentos ajustada para aceitar qualquer um entre `certidao`, `RG` ou `CPF`.
+- JavaScript do formulario legado (`ui/static/js/aventura.js`) atualizado para nao bloquear envio quando RG estiver sem orgao expedidor.
+- Texto explicativo da secao de documentos atualizado nos templates `ui/templates/aventura.html` e `ui/templates/backup_cadastro_antigo/aventura.html`.
