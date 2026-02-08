@@ -48,7 +48,7 @@ from django.http import HttpResponse, JsonResponse
 from django.db import IntegrityError, transaction
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
-from datetime import date
+from datetime import date, datetime
 
 User = get_user_model()
 
@@ -2186,6 +2186,8 @@ class EventosView(LoginRequiredMixin, View):
         if action == 'create_event':
             name = (request.POST.get('name') or '').strip()
             event_type = (request.POST.get('event_type') or '').strip()
+            event_date_raw = (request.POST.get('event_date') or '').strip()
+            event_time_raw = (request.POST.get('event_time') or '').strip()
             # New UI sends field_name[] + field_type[] (schema of event fields).
             # Keep backward compatibility with old payload field_label[].
             labels = request.POST.getlist('field_name[]') or request.POST.getlist('field_label[]')
@@ -2212,10 +2214,20 @@ class EventosView(LoginRequiredMixin, View):
 
             if not name:
                 messages.error(request, 'Informe o nome do evento.')
+            elif not event_date_raw or not event_time_raw:
+                messages.error(request, 'Data e hora do evento são obrigatórias.')
             else:
+                try:
+                    event_date_value = date.fromisoformat(event_date_raw)
+                    event_time_value = datetime.strptime(event_time_raw, '%H:%M').time()
+                except ValueError:
+                    messages.error(request, 'Data ou hora do evento inválida.')
+                    return render(request, self.template_name, self._context(request))
                 Evento.objects.create(
                     name=name,
                     event_type=event_type,
+                    event_date=event_date_value,
+                    event_time=event_time_value,
                     fields_data=fields_data,
                     created_by=request.user,
                 )

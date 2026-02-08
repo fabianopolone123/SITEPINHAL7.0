@@ -114,8 +114,10 @@
             <h4>{{ evento.name }}</h4>
             <p class="event-meta">
               Tipo: {{ evento.event_type|default:"-" }} |
+              Data do evento: {{ evento.event_date|date:"d/m/Y"|default:"-" }} |
+              Hora do evento: {{ evento.event_time|time:"H:i"|default:"-" }} |
               Criado por: {{ evento.created_by.username|default:"sistema" }} |
-              Data: {{ evento.created_at|date:"d/m/Y H:i" }}
+              Data do cadastro: {{ evento.created_at|date:"d/m/Y H:i" }}
             </p>
             {% if evento.fields_data %}
               <ul class="event-fields-list">
@@ -162,6 +164,14 @@
           <label>
             Tipo do evento (opcional)
             <input type="text" name="event_type" placeholder="Ex.: reunião, vendas, acampamento" />
+          </label>
+          <label>
+            Data do evento *
+            <input type="date" name="event_date" required />
+          </label>
+          <label>
+            Hora do evento *
+            <input type="time" name="event_time" required />
           </label>
         </div>
 
