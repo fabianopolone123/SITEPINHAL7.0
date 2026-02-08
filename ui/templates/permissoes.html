@@ -4,15 +4,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Permissões - Controle de acessos</title>
+  <title>Permissoes - Controle de acessos</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    .row-locked {
+      opacity: 0.65;
+      background: rgba(17, 24, 39, 0.08);
+    }
+    .row-locked td {
+      border-color: rgba(17, 24, 39, 0.14);
+    }
+    .badge-lock {
+      display: inline-block;
+      margin-top: 0.2rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      color: #fff;
+      background: #c2410c;
+    }
+  </style>
 </head>
 <body class="painel-page">
   {% include '_painel_sidebar.html' %}
   <main class="painel-content">
     <header class="painel-header">
-      <h2>Permissões</h2>
-      <p>Controle quem entra em cada menu do sistema por grupo e por usuário.</p>
+      <h2>Permissoes</h2>
+      <p>Controle quem entra em cada menu por grupo e por usuario.</p>
     </header>
 
     <section class="painel-card">
@@ -20,35 +38,35 @@
         {% for message in messages %}
           <p data-state="{{ message.tags }}">{{ message }}</p>
         {% empty %}
-          <p data-state="info">Faça os ajustes e clique em salvar no bloco correspondente.</p>
+          <p data-state="info">Ajuste os blocos abaixo e salve cada etapa.</p>
         {% endfor %}
       </div>
     </section>
 
     <section class="painel-card">
-      <h3>Legenda rápida</h3>
-      <p class="panel-note"><strong>1)</strong> Primeiro configure os <strong>menus por grupo</strong>.</p>
-      <p class="panel-note"><strong>2)</strong> Depois vincule os <strong>usuários nos grupos</strong>.</p>
-      <p class="panel-note"><strong>3)</strong> Se precisar de exceção, use <strong>permissões por usuário</strong>.</p>
-      <p class="panel-note"><strong>Regra:</strong> quando um usuário tem menus marcados no bloco de exceção, essas marcações prevalecem sobre o grupo.</p>
+      <h3>Como funciona</h3>
+      <p class="panel-note"><strong>1)</strong> Configure os menus por grupo.</p>
+      <p class="panel-note"><strong>2)</strong> Vincule os usuarios aos grupos.</p>
+      <p class="panel-note"><strong>3)</strong> Use excecao por usuario so quando precisar.</p>
+      <p class="panel-note"><strong>Regra de prioridade:</strong> se um usuario tiver excecao individual marcada, ela prevalece sobre o grupo e a linha de grupos fica bloqueada para evitar conflito.</p>
     </section>
 
     <section class="painel-card">
-      <h3>Criar novo grupo</h3>
-      <p class="panel-note">Exemplo: código <code>secretario</code> e nome <code>Secretário</code>.</p>
+      <h3>Criar grupo</h3>
+      <p class="panel-note">Exemplo: codigo <code>secretario</code> e nome <code>Secretario</code>.</p>
       <form method="post" class="action-row">
         {% csrf_token %}
         <input type="hidden" name="action" value="create_group" />
-        <input type="text" name="group_code" placeholder="Código do grupo (ex: secretario)" />
+        <input type="text" name="group_code" placeholder="Codigo do grupo (ex: secretario)" />
         <input type="text" name="group_name" placeholder="Nome exibido do grupo" />
         <button type="submit" class="primary">Criar grupo</button>
       </form>
-      <p class="panel-note">Grupos padrão: Diretor, Responsável, Professor.</p>
+      <p class="panel-note">Grupos padrao: Diretor, Responsavel, Professor.</p>
     </section>
 
     <section class="painel-card">
       <h3>Menus liberados por grupo</h3>
-      <p class="panel-note">Marcado = o grupo pode ver esse botão no menu lateral.</p>
+      <p class="panel-note">Marcado = grupo enxerga o botao no menu lateral.</p>
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="save_group_menus" />
@@ -99,8 +117,8 @@
     </section>
 
     <section class="painel-card">
-      <h3>Usuários em cada grupo</h3>
-      <p class="panel-note">Marque os grupos aos quais cada usuário pertence.</p>
+      <h3>Usuarios por grupo</h3>
+      <p class="panel-note">Se o usuario tiver excecao individual marcada no bloco abaixo, esta linha fica bloqueada.</p>
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="save_memberships" />
@@ -108,7 +126,7 @@
           <table class="users-table">
             <thead>
               <tr>
-                <th>Usuário</th>
+                <th>Usuario</th>
                 {% for group in groups %}
                   <th>{{ group.name }}</th>
                 {% endfor %}
@@ -116,34 +134,36 @@
             </thead>
             <tbody>
               {% for item in users %}
-                <tr>
+                <tr data-membership-row="{{ item.user.pk }}" class="{% if item.menu_allow %}row-locked{% endif %}">
                   <td>
                     <strong>{{ item.user.username }}</strong><br />
                     <small>{{ item.nome_completo }}</small>
+                    <br />
+                    <small class="badge-lock" data-membership-badge="{{ item.user.pk }}" {% if not item.menu_allow %}hidden{% endif %}>Bloqueado por excecao individual</small>
                   </td>
                   {% for group in groups %}
                     <td>
                       <label title="{{ group.name }}">
-                        <input type="checkbox" name="ug{{ item.user.pk }}_{{ group.pk }}" {% if group.pk in item.group_ids %}checked{% endif %} />
+                        <input type="checkbox" name="ug{{ item.user.pk }}_{{ group.pk }}" data-membership-input="{{ item.user.pk }}" {% if group.pk in item.group_ids %}checked{% endif %} {% if item.menu_allow %}disabled{% endif %} />
                       </label>
                     </td>
                   {% endfor %}
                 </tr>
               {% empty %}
-                <tr><td colspan="20">Nenhum usuário encontrado.</td></tr>
+                <tr><td colspan="20">Nenhum usuario encontrado.</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
         <div class="action-row">
-          <button type="submit" class="primary">Salvar vínculos de grupo</button>
+          <button type="submit" class="primary">Salvar vinculos de grupo</button>
         </div>
       </form>
     </section>
 
     <section class="painel-card">
-      <h3>Exceção por usuário (sobrescreve grupo)</h3>
-      <p class="panel-note">Use somente quando um usuário precisar de acesso diferente do grupo.</p>
+      <h3>Excecao por usuario (sobrescreve grupo)</h3>
+      <p class="panel-note">Marcou qualquer menu aqui, a linha de grupo desse usuario fica travada para evitar alteracao contraditoria.</p>
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="save_user_overrides" />
@@ -151,7 +171,7 @@
           <table class="users-table">
             <thead>
               <tr>
-                <th>Usuário</th>
+                <th>Usuario</th>
                 {% for key, label in menu_items %}
                   <th>{{ label }}</th>
                 {% endfor %}
@@ -159,7 +179,7 @@
             </thead>
             <tbody>
               {% for item in users %}
-                <tr>
+                <tr data-override-row="{{ item.user.pk }}">
                   <td>
                     <strong>{{ item.user.username }}</strong><br />
                     <small>{{ item.nome_completo }}</small>
@@ -167,22 +187,60 @@
                   {% for key, label in menu_items %}
                     <td>
                       <label title="{{ label }}">
-                        <input type="checkbox" name="ux{{ item.user.pk }}_{{ key }}" {% if key in item.menu_allow %}checked{% endif %} />
+                        <input type="checkbox" name="ux{{ item.user.pk }}_{{ key }}" data-override-input="{{ item.user.pk }}" {% if key in item.menu_allow %}checked{% endif %} />
                       </label>
                     </td>
                   {% endfor %}
                 </tr>
               {% empty %}
-                <tr><td colspan="20">Nenhum usuário encontrado.</td></tr>
+                <tr><td colspan="20">Nenhum usuario encontrado.</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
         <div class="action-row">
-          <button type="submit" class="primary">Salvar exceções por usuário</button>
+          <button type="submit" class="primary">Salvar excecoes por usuario</button>
         </div>
       </form>
     </section>
   </main>
+
+  <script>
+    (function () {
+      const lockMembershipRow = (userId, shouldLock) => {
+        const row = document.querySelector('[data-membership-row="' + userId + '"]');
+        if (!row) return;
+        const inputs = row.querySelectorAll('[data-membership-input="' + userId + '"]');
+        const badge = row.querySelector('[data-membership-badge="' + userId + '"]');
+        row.classList.toggle('row-locked', shouldLock);
+        inputs.forEach((input) => {
+          input.disabled = shouldLock;
+        });
+        if (badge) {
+          badge.hidden = !shouldLock;
+        }
+      };
+
+      const syncLockForUser = (userId) => {
+        const overrideInputs = document.querySelectorAll('[data-override-input="' + userId + '"]');
+        let hasOverride = false;
+        overrideInputs.forEach((input) => {
+          if (input.checked) hasOverride = true;
+        });
+        lockMembershipRow(userId, hasOverride);
+      };
+
+      const allOverrideInputs = document.querySelectorAll('[data-override-input]');
+      const userIds = new Set();
+      allOverrideInputs.forEach((input) => {
+        userIds.add(input.getAttribute('data-override-input'));
+        input.addEventListener('change', () => {
+          syncLockForUser(input.getAttribute('data-override-input'));
+        });
+      });
+
+      userIds.forEach((userId) => syncLockForUser(userId));
+    })();
+  </script>
 </body>
 </html>
