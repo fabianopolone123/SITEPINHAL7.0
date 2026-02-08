@@ -137,17 +137,17 @@
             </thead>
             <tbody>
               {% for item in users %}
-                <tr data-membership-row="{{ item.user.pk }}" class="{% if item.override_active %}row-locked{% endif %}">
+                <tr data-membership-row="{{ item.user.pk }}">
                   <td>
                     <strong>{{ item.user.username }}</strong><br />
                     <small>{{ item.nome_completo }}</small>
                     <br />
-                    <small class="badge-lock {% if not item.has_user_marks %}is-hidden{% endif %}" data-membership-badge="{{ item.user.pk }}">Bloqueado por excecao individual</small>
+                    <small class="badge-lock is-hidden" data-membership-badge="{{ item.user.pk }}">Bloqueado por excecao individual</small>
                   </td>
                   {% for group in groups %}
                     <td>
                       <label title="{{ group.name }}">
-                        <input type="checkbox" name="ug{{ item.user.pk }}_{{ group.pk }}" data-membership-input="{{ item.user.pk }}" {% if group.pk in item.group_ids %}checked{% endif %} {% if item.override_active %}disabled{% endif %} />
+                        <input type="checkbox" name="ug{{ item.user.pk }}_{{ group.pk }}" data-membership-input="{{ item.user.pk }}" {% if group.pk in item.group_ids %}checked{% endif %} />
                       </label>
                     </td>
                   {% endfor %}
@@ -182,7 +182,7 @@
             </thead>
             <tbody>
               {% for item in users %}
-                <tr data-override-row="{{ item.user.pk }}" data-override-active="{% if item.override_active %}1{% else %}0{% endif %}" data-override-marked="{% if item.has_user_marks %}1{% else %}0{% endif %}">
+                <tr data-override-row="{{ item.user.pk }}">
                   <td>
                     <strong>{{ item.user.username }}</strong><br />
                     <small>{{ item.nome_completo }}</small>
@@ -242,13 +242,7 @@
         });
       });
 
-      // Estado inicial vem do backend (override real), para evitar bloquear todos no carregamento.
-      userIds.forEach((userId) => {
-        const row = document.querySelector('[data-override-row="' + userId + '"]');
-        const isActive = row && row.getAttribute('data-override-active') === '1';
-        const hasMarks = row && row.getAttribute('data-override-marked') === '1';
-        lockMembershipRow(userId, isActive, hasMarks);
-      });
+      userIds.forEach((userId) => syncLockForUser(userId));
     })();
   </script>
 </body>
