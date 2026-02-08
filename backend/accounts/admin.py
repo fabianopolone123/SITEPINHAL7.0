@@ -8,6 +8,7 @@ from .models import (
     WhatsAppPreference,
     WhatsAppQueue,
     WhatsAppTemplate,
+    EventoPresenca,
 )
 
 
@@ -81,3 +82,10 @@ class WhatsAppQueueAdmin(admin.ModelAdmin):
 class WhatsAppTemplateAdmin(admin.ModelAdmin):
     list_display = ('notification_type', 'updated_at')
     search_fields = ('notification_type',)
+
+
+@admin.register(EventoPresenca)
+class EventoPresencaAdmin(admin.ModelAdmin):
+    list_display = ('evento', 'aventureiro', 'presente', 'updated_by', 'updated_at')
+    search_fields = ('evento__name', 'aventureiro__nome', 'aventureiro__responsavel__user__username')
+    list_filter = ('presente', 'evento')

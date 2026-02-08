@@ -438,3 +438,27 @@ class EventoPreset(models.Model):
 
     def __str__(self):
         return self.preset_name
+
+
+class EventoPresenca(models.Model):
+    evento = models.ForeignKey(Evento, on_delete=models.CASCADE, related_name='presencas')
+    aventureiro = models.ForeignKey(Aventureiro, on_delete=models.CASCADE, related_name='presencas_evento')
+    presente = models.BooleanField('presente', default=False)
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='presencas_atualizadas',
+    )
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'presença em evento'
+        verbose_name_plural = 'presenças em evento'
+        unique_together = ('evento', 'aventureiro')
+        ordering = ('aventureiro__nome',)
+
+    def __str__(self):
+        status = 'presente' if self.presente else 'ausente'
+        return f'{self.evento.name} - {self.aventureiro.nome} ({status})'

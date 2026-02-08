@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Presença</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    .attendance-toolbar {
+      display: grid;
+      gap: 0.65rem;
+      grid-template-columns: 1fr;
+    }
+    .attendance-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+    }
+    .attendance-chip {
+      border: 1px solid #1d4ed8;
+      color: #1d4ed8;
+      background: #eff6ff;
+      border-radius: 999px;
+      padding: 0.2rem 0.55rem;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+    .attendance-list {
+      display: grid;
+      gap: 0.55rem;
+      margin-top: 0.8rem;
+    }
+    .attendance-row {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 0.65rem;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.7rem;
+      align-items: center;
+      background: #fff;
+    }
+    .attendance-row.present {
+      border-color: #16a34a;
+      background: #f0fdf4;
+    }
+    .attendance-name {
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .attendance-meta {
+      font-size: 0.82rem;
+      color: #475569;
+    }
+    .presence-toggle {
+      min-width: 110px;
+      border-radius: 999px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 700;
+      padding: 0.55rem 0.75rem;
+      cursor: pointer;
+    }
+    .presence-toggle.is-present {
+      background: #16a34a;
+      border-color: #15803d;
+      color: #fff;
+    }
+    .presence-toggle:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+    @media (max-width: 800px) {
+      .attendance-row {
+        grid-template-columns: 1fr;
+      }
+      .presence-toggle {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body class="painel-page">
+  {{ presencas_json|json_script:"presencas-init-data" }}
+  {% include '_painel_sidebar.html' %}
+  <main class="painel-content">
+    <header class="painel-header">
+      <h2>Presença</h2>
+      <p>Selecione o evento e marque presença de forma rápida no celular.</p>
+    </header>
+
+    <section class="painel-card">
+      <div class="status" aria-live="polite">
+        {% for message in messages %}
+          <p data-state="{{ message.tags }}">{{ message }}</p>
+        {% empty %}
+          <p data-state="info">Eventos de hoje e amanhã aparecem primeiro.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="painel-card">
+      <div class="attendance-toolbar">
+        <label for="evento-select">
+          Evento
+          <select id="evento-select">
+            {% for row in eventos %}
+              <option value="{{ row.evento.id }}" {% if selected_event and selected_event.id == row.evento.id %}selected{% endif %}>
+                {{ row.relative_label }} | {{ row.evento.name }} | {{ row.evento.event_date|date:"d/m/Y"|default:"sem data" }} {{ row.evento.event_time|time:"H:i"|default:"" }}
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+        <label for="attendance-search">
+          Buscar aventureiro
+          <input type="text" id="attendance-search" placeholder="Digite nome, responsável ou username" />
+        </label>
+      </div>
+      {% if selected_event %}
+        <div class="attendance-summary">
+          <strong id="current-event-name">{{ selected_event.name }}</strong>
+          <span class="attendance-chip" id="attendance-counter">{{ present_count }}/{{ total_count }} presentes</span>
+          <small id="last-sync-label">Sincronizando...</small>
+        </div>
+        <div class="attendance-list" id="attendance-list">
+          {% for av in aventureiros %}
+            <article class="attendance-row" data-aventureiro-id="{{ av.id }}" data-search="{{ av.nome|lower }} {{ av.responsavel.responsavel_nome|default:''|lower }} {{ av.responsavel.user.username|lower }}">
+              <div>
+                <div class="attendance-name">{{ av.nome }}</div>
+                <div class="attendance-meta">
+                  Responsável: {{ av.responsavel.responsavel_nome|default:"-" }} | Usuário: {{ av.responsavel.user.username }}
+                </div>
+              </div>
+              <button type="button" class="presence-toggle" data-aventureiro-id="{{ av.id }}">
+                Ausente
+              </button>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="panel-note">Nenhum evento cadastrado ainda.</p>
+      {% endif %}
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const eventSelect = document.getElementById('evento-select');
+      const searchInput = document.getElementById('attendance-search');
+      const listNode = document.getElementById('attendance-list');
+      const counterNode = document.getElementById('attendance-counter');
+      const lastSyncNode = document.getElementById('last-sync-label');
+      const initNode = document.getElementById('presencas-init-data');
+      let presencas = {};
+
+      const parseInitData = () => {
+        if (!initNode) return {};
+        try {
+          const parsed = JSON.parse(initNode.textContent || '{}');
+          return (parsed && typeof parsed === 'object') ? parsed : {};
+        } catch (_error) {
+          return {};
+        }
+      };
+
+      const getCookie = (name) => {
+        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+        return match ? decodeURIComponent(match[2]) : '';
+      };
+
+      const selectedEventId = () => (eventSelect ? (eventSelect.value || '').trim() : '');
+
+      const applyRowState = (row, payload) => {
+        if (!row) return;
+        const button = row.querySelector('.presence-toggle');
+        const isPresent = !!(payload && payload.presente);
+        row.classList.toggle('present', isPresent);
+        if (button) {
+          button.classList.toggle('is-present', isPresent);
+          button.textContent = isPresent ? 'Presente' : 'Ausente';
+        }
+      };
+
+      const refreshCounter = () => {
+        if (!counterNode || !listNode) return;
+        const rows = listNode.querySelectorAll('.attendance-row');
+        const present = listNode.querySelectorAll('.attendance-row.present').length;
+        counterNode.textContent = present + '/' + rows.length + ' presentes';
+      };
+
+      const applyAllRows = () => {
+        if (!listNode) return;
+        const rows = listNode.querySelectorAll('.attendance-row');
+        rows.forEach((row) => {
+          const avId = row.getAttribute('data-aventureiro-id');
+          applyRowState(row, presencas[String(avId)] || { presente: false });
+        });
+        refreshCounter();
+      };
+
+      const filterRows = () => {
+        if (!listNode || !searchInput) return;
+        const term = (searchInput.value || '').trim().toLowerCase();
+        listNode.querySelectorAll('.attendance-row').forEach((row) => {
+          const haystack = row.getAttribute('data-search') || '';
+          row.style.display = (!term || haystack.includes(term)) ? '' : 'none';
+        });
+      };
+
+      const updateLastSync = () => {
+        if (!lastSyncNode) return;
+        const now = new Date();
+        lastSyncNode.textContent = 'Atualizado às ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      };
+
+      const fetchPresence = () => {
+        const eventId = selectedEventId();
+        if (!eventId || !listNode) return Promise.resolve();
+        return fetch("{% url 'accounts:presenca_status_api' %}?evento_id=" + encodeURIComponent(eventId), {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (!data || !data.ok) return;
+            presencas = data.presencas || {};
+            applyAllRows();
+            updateLastSync();
+          })
+          .catch(() => {});
+      };
+
+      const sendToggle = (button) => {
+        const eventId = selectedEventId();
+        const avId = button.getAttribute('data-aventureiro-id');
+        if (!eventId || !avId) return;
+        const current = presencas[String(avId)] || { presente: false };
+        const nextPresent = !current.presente;
+        button.disabled = true;
+        const formData = new FormData();
+        formData.append('evento_id', eventId);
+        formData.append('aventureiro_id', avId);
+        formData.append('presente', nextPresent ? '1' : '0');
+        fetch("{% url 'accounts:presenca_toggle_api' %}", {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (!data || !data.ok) return;
+            presencas[String(avId)] = {
+              presente: !!data.presente,
+              updated_at: data.updated_at || '',
+              updated_by: data.updated_by || '',
+            };
+            applyAllRows();
+            updateLastSync();
+          })
+          .catch(() => {})
+          .finally(() => {
+            button.disabled = false;
+          });
+      };
+
+      if (eventSelect) {
+        eventSelect.addEventListener('change', () => {
+          const eventId = selectedEventId();
+          if (!eventId) return;
+          const url = new URL(window.location.href);
+          url.searchParams.set('evento', eventId);
+          window.location.href = url.toString();
+        });
+      }
+
+      if (searchInput) {
+        searchInput.addEventListener('input', filterRows);
+      }
+
+      if (listNode) {
+        listNode.addEventListener('click', (event) => {
+          const button = event.target.closest('.presence-toggle');
+          if (!button) return;
+          sendToggle(button);
+        });
+      }
+
+      presencas = parseInitData();
+      applyAllRows();
+      filterRows();
+      fetchPresence();
+      setInterval(fetchPresence, 2000);
+    })();
+  </script>
+</body>
+</html>

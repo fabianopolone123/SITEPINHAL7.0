@@ -35,6 +35,7 @@ from .models import (
     DocumentoInscricaoGerado,
     Evento,
     EventoPreset,
+    EventoPresenca,
 )
 from .utils import decode_signature, decode_photo
 from .whatsapp import (
@@ -49,7 +50,7 @@ from django.http import HttpResponse, JsonResponse
 from django.db import IntegrityError, transaction
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 User = get_user_model()
 
@@ -58,6 +59,7 @@ MENU_ITEMS = [
     ('meus_dados', 'Meus dados'),
     ('aventureiros', 'Aventureiros'),
     ('eventos', 'Eventos'),
+    ('presenca', 'Presença'),
     ('usuarios', 'Usuários'),
     ('whatsapp', 'WhatsApp'),
     ('documentos_inscricao', 'Documentos inscrição'),
@@ -110,7 +112,7 @@ def _effective_menu_permissions(user):
     if access.role:
         profiles.add(access.role)
     if UserAccess.ROLE_DIRETOR in profiles:
-        allowed.update({'aventureiros', 'eventos', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes'})
+        allowed.update({'aventureiros', 'eventos', 'presenca', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes'})
     for group in user.access_groups.all():
         allowed.update(_normalize_menu_keys(group.menu_permissions))
     return sorted(allowed)
@@ -171,7 +173,7 @@ def _user_display_data(user):
 
 def _ensure_default_access_groups():
     defaults = [
-        ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes']),
+        ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('responsavel', 'Responsavel', ['inicio', 'meus_dados']),
         ('professor', 'Professor', ['inicio', 'meus_dados']),
     ]
@@ -2345,6 +2347,176 @@ class EventosView(LoginRequiredMixin, View):
                 messages.success(request, 'Pré-configuração removida com sucesso.')
 
         return render(request, self.template_name, self._context(request))
+
+
+class PresencaView(LoginRequiredMixin, View):
+    template_name = 'presenca.html'
+
+    def _guard(self, request):
+        if not _has_menu_permission(request.user, 'presenca'):
+            messages.error(request, 'Seu perfil não possui permissão para acessar presença.')
+            return redirect('accounts:painel')
+        return None
+
+    def _relative_event_time_label(self, event_date):
+        if not event_date:
+            return 'Sem data'
+        today = timezone.localdate()
+        delta = (event_date - today).days
+        if delta == 0:
+            return 'Hoje'
+        if delta == 1:
+            return 'Amanhã'
+        if delta == -1:
+            return 'Ontem'
+        if delta > 1:
+            return f'Em {delta} dias'
+        return f'Há {abs(delta)} dias'
+
+    def _ordered_events(self):
+        today = timezone.localdate()
+        tomorrow = today + timedelta(days=1)
+        events = list(Evento.objects.select_related('created_by').all())
+
+        def _event_sort_key(evento):
+            if evento.event_date == today:
+                priority = 0
+            elif evento.event_date == tomorrow:
+                priority = 1
+            elif evento.event_date and evento.event_date > tomorrow:
+                priority = 2
+            elif evento.event_date:
+                priority = 3
+            else:
+                priority = 4
+            return (
+                priority,
+                evento.event_date or date.max,
+                evento.event_time or datetime.max.time(),
+                (evento.name or '').lower(),
+            )
+
+        events.sort(key=_event_sort_key)
+        return events
+
+    def _presence_map(self, evento_id):
+        rows = EventoPresenca.objects.filter(evento_id=evento_id).select_related('updated_by')
+        data = {}
+        for row in rows:
+            data[str(row.aventureiro_id)] = {
+                'presente': bool(row.presente),
+                'updated_at': timezone.localtime(row.updated_at).isoformat(),
+                'updated_by': row.updated_by.username if row.updated_by else '',
+            }
+        return data
+
+    def get(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+
+        eventos = self._ordered_events()
+        selected_event = None
+        selected_event_id = (request.GET.get('evento') or '').strip()
+        if selected_event_id.isdigit():
+            selected_event = next((item for item in eventos if item.id == int(selected_event_id)), None)
+        if not selected_event and eventos:
+            selected_event = eventos[0]
+
+        aventureiros = list(
+            Aventureiro.objects
+            .select_related('responsavel', 'responsavel__user')
+            .order_by('nome')
+        )
+        presencas_map = self._presence_map(selected_event.id) if selected_event else {}
+        present_count = sum(1 for value in presencas_map.values() if value.get('presente'))
+
+        event_rows = []
+        for evento in eventos:
+            event_rows.append({
+                'evento': evento,
+                'relative_label': self._relative_event_time_label(evento.event_date),
+            })
+
+        context = {
+            'eventos': event_rows,
+            'selected_event': selected_event,
+            'aventureiros': aventureiros,
+            'presencas_json': presencas_map,
+            'present_count': present_count,
+            'total_count': len(aventureiros),
+        }
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
+
+
+class PresencaStatusApiView(LoginRequiredMixin, View):
+    def get(self, request):
+        if not _has_menu_permission(request.user, 'presenca'):
+            return JsonResponse({'ok': False, 'error': 'Sem permissão para acessar presença.'}, status=403)
+        event_id_raw = (request.GET.get('evento_id') or '').strip()
+        if not event_id_raw.isdigit():
+            return JsonResponse({'ok': False, 'error': 'Evento inválido.'}, status=400)
+        evento = Evento.objects.filter(pk=int(event_id_raw)).first()
+        if not evento:
+            return JsonResponse({'ok': False, 'error': 'Evento não encontrado.'}, status=404)
+
+        rows = EventoPresenca.objects.filter(evento=evento).select_related('updated_by')
+        data = {}
+        for row in rows:
+            data[str(row.aventureiro_id)] = {
+                'presente': bool(row.presente),
+                'updated_at': timezone.localtime(row.updated_at).isoformat(),
+                'updated_by': row.updated_by.username if row.updated_by else '',
+            }
+
+        return JsonResponse({
+            'ok': True,
+            'evento_id': evento.id,
+            'presencas': data,
+            'present_count': sum(1 for value in data.values() if value.get('presente')),
+            'server_time': timezone.localtime(timezone.now()).isoformat(),
+        })
+
+
+class PresencaToggleApiView(LoginRequiredMixin, View):
+    def post(self, request):
+        if not _has_menu_permission(request.user, 'presenca'):
+            return JsonResponse({'ok': False, 'error': 'Sem permissão para marcar presença.'}, status=403)
+
+        event_id_raw = (request.POST.get('evento_id') or '').strip()
+        aventureiro_id_raw = (request.POST.get('aventureiro_id') or '').strip()
+        presente_raw = (request.POST.get('presente') or '').strip().lower()
+        if not event_id_raw.isdigit() or not aventureiro_id_raw.isdigit():
+            return JsonResponse({'ok': False, 'error': 'Parâmetros inválidos.'}, status=400)
+        if presente_raw not in {'1', '0', 'true', 'false', 'yes', 'no', 'on', 'off'}:
+            return JsonResponse({'ok': False, 'error': 'Valor de presença inválido.'}, status=400)
+        presente_value = presente_raw in {'1', 'true', 'yes', 'on'}
+
+        evento = Evento.objects.filter(pk=int(event_id_raw)).first()
+        aventureiro = Aventureiro.objects.filter(pk=int(aventureiro_id_raw)).first()
+        if not evento or not aventureiro:
+            return JsonResponse({'ok': False, 'error': 'Evento ou aventureiro não encontrado.'}, status=404)
+
+        presenca, _created = EventoPresenca.objects.update_or_create(
+            evento=evento,
+            aventureiro=aventureiro,
+            defaults={
+                'presente': presente_value,
+                'updated_by': request.user,
+            },
+        )
+        present_count = EventoPresenca.objects.filter(evento=evento, presente=True).count()
+
+        return JsonResponse({
+            'ok': True,
+            'evento_id': evento.id,
+            'aventureiro_id': aventureiro.id,
+            'presente': bool(presenca.presente),
+            'updated_at': timezone.localtime(presenca.updated_at).isoformat(),
+            'updated_by': request.user.username,
+            'present_count': present_count,
+        })
 
 
 class UsuariosView(LoginRequiredMixin, View):
