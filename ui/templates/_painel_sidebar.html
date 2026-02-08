@@ -41,6 +41,7 @@
       {% if 'aventureiros' in menu_permissions %}<li><a href="{% url 'accounts:aventureiros_gerais' %}">Aventureiros</a></li>{% endif %}
       {% if 'eventos' in menu_permissions %}<li><a href="{% url 'accounts:eventos' %}">Eventos</a></li>{% endif %}
       {% if 'presenca' in menu_permissions %}<li><a href="{% url 'accounts:presenca' %}">Presença</a></li>{% endif %}
+      {% if 'auditoria' in menu_permissions %}<li><a href="{% url 'accounts:auditoria' %}">Auditoria</a></li>{% endif %}
       {% if 'usuarios' in menu_permissions %}<li><a href="{% url 'accounts:usuarios' %}">Usuários</a></li>{% endif %}
       {% if 'whatsapp' in menu_permissions %}<li><a href="{% url 'accounts:whatsapp' %}">WhatsApp</a></li>{% endif %}
       {% if 'documentos_inscricao' in menu_permissions %}<li><a href="{% url 'accounts:documentos_inscricao' %}">Documentos inscrição</a></li>{% endif %}

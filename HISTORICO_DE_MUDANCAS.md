@@ -175,3 +175,22 @@ Arquivo oficial de registro das entregas concluidas.
   - novo tipo `confirmacao` em `WhatsAppQueue` e `WhatsAppTemplate`.
 - Validacao backend do compromisso da diretoria atualizada para nao exigir `telefone_residencial`.
 - Removida tambem a obrigatoriedade de `telefone_comercial` no mesmo fluxo (HTML + validacao backend).
+
+## 08/02/2026 - Auditoria (perfil Diretor)
+
+- Adicionado novo menu `Auditoria` no painel do perfil Diretor, com permissao dedicada.
+- Criado modelo `AuditLog` com migracao `0022_auditlog.py` para registrar:
+  - quem (usuario/username/perfil),
+  - onde (tela/rota),
+  - o que fez (acao),
+  - data e hora,
+  - metadados tecnicos (metodo HTTP, path, IP e user agent).
+- Criada tela `auditoria/` com busca por usuario, acao, local e detalhes.
+- Adicionado logging automatico de autenticacao:
+  - login no sistema,
+  - logout do sistema.
+- Adicionado logging automatico de operacoes autenticadas `POST/PUT/PATCH/DELETE` via middleware.
+- Adicionado log explicito de marcacao de presenca (evento, aventureiro e status presente/ausente).
+- Adicionado log explicito de administracao de usuarios:
+  - unificacao de logins,
+  - alteracao de permissoes/perfis.

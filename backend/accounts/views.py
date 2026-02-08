@@ -37,7 +37,9 @@ from .models import (
     Evento,
     EventoPreset,
     EventoPresenca,
+    AuditLog,
 )
+from .audit import record_audit
 from .utils import decode_signature, decode_photo
 from .whatsapp import (
     queue_stats,
@@ -49,6 +51,7 @@ from .whatsapp import (
 )
 from django.http import HttpResponse, JsonResponse
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 from datetime import date, datetime, timedelta
@@ -61,6 +64,7 @@ MENU_ITEMS = [
     ('aventureiros', 'Aventureiros'),
     ('eventos', 'Eventos'),
     ('presenca', 'Presença'),
+    ('auditoria', 'Auditoria'),
     ('usuarios', 'Usuários'),
     ('whatsapp', 'WhatsApp'),
     ('documentos_inscricao', 'Documentos inscrição'),
@@ -166,7 +170,7 @@ def _effective_menu_permissions(user, active_profile=''):
     if active_profile and active_profile in profiles:
         profiles = {active_profile}
     if UserAccess.ROLE_DIRETOR in profiles or UserAccess.ROLE_DIRETORIA in profiles:
-        allowed.update({'aventureiros', 'eventos', 'presenca', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes'})
+        allowed.update({'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes'})
     allowed_group_codes = _group_codes_for_profile(active_profile) if active_profile else set()
     for group in user.access_groups.all():
         if active_profile and group.code in {'diretor', 'responsavel', 'professor'} and group.code not in allowed_group_codes:
@@ -257,7 +261,7 @@ def _user_display_data(user):
 
 def _ensure_default_access_groups():
     defaults = [
-        ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes']),
+        ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('responsavel', 'Responsavel', ['inicio', 'meus_dados']),
         ('professor', 'Professor', ['inicio', 'meus_dados']),
     ]
@@ -3014,6 +3018,16 @@ class PresencaToggleApiView(LoginRequiredMixin, View):
             },
         )
         present_count = EventoPresenca.objects.filter(evento=evento, presente=True).count()
+        record_audit(
+            action='Marcação de presença',
+            user=request.user,
+            request=request,
+            location='Presença',
+            details=(
+                f'Evento="{evento.name}" | Aventureiro="{aventureiro.nome}" | '
+                f'Status={"Presente" if presente_value else "Ausente"}'
+            ),
+        )
 
         return JsonResponse({
             'ok': True,
@@ -3024,6 +3038,32 @@ class PresencaToggleApiView(LoginRequiredMixin, View):
             'updated_by': request.user.username,
             'present_count': present_count,
         })
+
+
+class AuditoriaView(LoginRequiredMixin, View):
+    template_name = 'auditoria.html'
+
+    def get(self, request):
+        if not _has_menu_permission(request, 'auditoria'):
+            messages.error(request, 'Seu perfil não possui permissão para acessar auditoria.')
+            return redirect('accounts:painel')
+
+        query = (request.GET.get('q') or '').strip()
+        logs = AuditLog.objects.select_related('user').all()
+        if query:
+            logs = logs.filter(
+                Q(username__icontains=query)
+                | Q(action__icontains=query)
+                | Q(location__icontains=query)
+                | Q(details__icontains=query)
+            )
+        logs = logs[:500]
+        context = {
+            'logs': logs,
+            'query': query,
+        }
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
 
 
 class UsuariosView(LoginRequiredMixin, View):
@@ -3731,6 +3771,13 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
             if not ok:
                 messages.error(request, error_message)
                 return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
+            record_audit(
+                action='Unificacao de usuarios',
+                user=request.user,
+                request=request,
+                location='Usuarios',
+                details=f'"{source_user.username}" incorporado em "{target_user.username}"',
+            )
             messages.success(
                 request,
                 f'Unifica��o conclu�da: "{source_user.username}" foi incorporado em "{target_user.username}".',
@@ -3746,6 +3793,17 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
             access.save(update_fields=['role', 'profiles', 'updated_at'])
             target_user.is_active = form.cleaned_data['is_active']
             target_user.save(update_fields=['is_active'])
+            record_audit(
+                action='Alteracao de permissoes',
+                user=request.user,
+                request=request,
+                location='Usuarios',
+                details=(
+                    f'Usuario "{target_user.username}" | '
+                    f'Perfis={",".join(profiles)} | '
+                    f'Ativo={"sim" if target_user.is_active else "nao"}'
+                ),
+            )
             messages.success(request, 'Permiss�es atualizadas com sucesso.')
             return redirect('accounts:usuarios')
         return render(request, self.template_name, self._base_context(request, target_user, form))

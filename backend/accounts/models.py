@@ -265,6 +265,30 @@ class WhatsAppTemplate(models.Model):
         return f'{self.get_notification_type_display()}'
 
 
+class AuditLog(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
+    username = models.CharField('username', max_length=150, blank=True)
+    profile = models.CharField('perfil', max_length=64, blank=True)
+    location = models.CharField('onde', max_length=255, blank=True)
+    action = models.CharField('o que fez', max_length=255)
+    details = models.TextField('detalhes', blank=True)
+    method = models.CharField('metodo', max_length=12, blank=True)
+    path = models.CharField('caminho', max_length=255, blank=True)
+    ip_address = models.CharField('ip', max_length=64, blank=True)
+    user_agent = models.CharField('user agent', max_length=255, blank=True)
+    created_at = models.DateTimeField('data/hora', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'log de auditoria'
+        verbose_name_plural = 'logs de auditoria'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        when = timezone.localtime(self.created_at).strftime('%d/%m/%Y %H:%M')
+        who = self.username or (self.user.username if self.user else 'anonimo')
+        return f'[{when}] {who} - {self.action}'
+
+
 class DocumentoTemplate(models.Model):
     TYPE_RESPONSAVEL = 'responsavel'
     TYPE_AVENTUREIRO = 'aventureiro'

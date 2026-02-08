@@ -1,0 +1,65 @@
+﻿<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auditoria</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body class="painel-page">
+  {% include '_painel_sidebar.html' %}
+  <main class="painel-content">
+    <header class="painel-header">
+      <h2>Auditoria</h2>
+      <p>Registro das acoes no sistema: quem, onde, o que fez e quando.</p>
+    </header>
+
+    <section class="painel-card">
+      <form method="get" class="action-row">
+        <input
+          type="text"
+          name="q"
+          value="{{ query|default:'' }}"
+          placeholder="Buscar por usuario, acao, onde ou detalhes"
+        />
+        <button type="submit" class="primary">Buscar</button>
+      </form>
+    </section>
+
+    <section class="painel-card">
+      <div class="table-scroll">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>Quem</th>
+              <th>Onde</th>
+              <th>O que fez</th>
+              <th>Data/Hora</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in logs %}
+              <tr>
+                <td>{{ item.username|default:"-" }}</td>
+                <td>{{ item.location|default:item.path|default:"-" }}</td>
+                <td>
+                  <strong>{{ item.action }}</strong>
+                  {% if item.details %}
+                    <div class="wa-name">{{ item.details }}</div>
+                  {% endif %}
+                </td>
+                <td>{{ item.created_at|date:"d/m/Y H:i:s" }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4">Nenhum log encontrado.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

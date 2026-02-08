@@ -9,6 +9,7 @@ from .models import (
     WhatsAppQueue,
     WhatsAppTemplate,
     EventoPresenca,
+    AuditLog,
 )
 
 
@@ -89,3 +90,10 @@ class EventoPresencaAdmin(admin.ModelAdmin):
     list_display = ('evento', 'aventureiro', 'presente', 'updated_by', 'updated_at')
     search_fields = ('evento__name', 'aventureiro__nome', 'aventureiro__responsavel__user__username')
     list_filter = ('presente', 'evento')
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'username', 'profile', 'location', 'action')
+    search_fields = ('username', 'location', 'action', 'details', 'path', 'ip_address')
+    list_filter = ('method', 'created_at')
