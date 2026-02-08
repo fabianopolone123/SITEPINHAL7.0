@@ -2209,6 +2209,7 @@ class PermissoesView(LoginRequiredMixin, View):
             for group_id in user_group_ids:
                 group_permissions.update(groups_by_id.get(group_id, set()))
             menu_allow = set(_normalize_menu_keys(access.menu_allow))
+            has_user_marks = bool(menu_allow)
             override_active = bool(menu_allow and (menu_allow != group_permissions))
             rows.append({
                 'access': access,
@@ -2217,6 +2218,7 @@ class PermissoesView(LoginRequiredMixin, View):
                 'foto_url': display['foto_url'],
                 'group_ids': user_group_ids,
                 'menu_allow': menu_allow,
+                'has_user_marks': has_user_marks,
                 'override_active': override_active,
             })
         rows.sort(key=lambda row: (_profile_order_weight(row['access']), row['user'].username.lower()))

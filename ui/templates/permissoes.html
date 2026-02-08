@@ -139,7 +139,7 @@
                     <strong>{{ item.user.username }}</strong><br />
                     <small>{{ item.nome_completo }}</small>
                     <br />
-                    <small class="badge-lock" data-membership-badge="{{ item.user.pk }}" {% if not item.override_active %}hidden{% endif %}>Bloqueado por excecao individual</small>
+                    <small class="badge-lock" data-membership-badge="{{ item.user.pk }}" {% if not item.has_user_marks %}hidden{% endif %}>Bloqueado por excecao individual</small>
                   </td>
                   {% for group in groups %}
                     <td>
@@ -179,7 +179,7 @@
             </thead>
             <tbody>
               {% for item in users %}
-                <tr data-override-row="{{ item.user.pk }}" data-override-active="{% if item.override_active %}1{% else %}0{% endif %}">
+                <tr data-override-row="{{ item.user.pk }}" data-override-active="{% if item.override_active %}1{% else %}0{% endif %}" data-override-marked="{% if item.has_user_marks %}1{% else %}0{% endif %}">
                   <td>
                     <strong>{{ item.user.username }}</strong><br />
                     <small>{{ item.nome_completo }}</small>
@@ -207,7 +207,7 @@
 
   <script>
     (function () {
-      const lockMembershipRow = (userId, shouldLock) => {
+      const lockMembershipRow = (userId, shouldLock, hasMarks) => {
         const row = document.querySelector('[data-membership-row="' + userId + '"]');
         if (!row) return;
         const inputs = row.querySelectorAll('[data-membership-input="' + userId + '"]');
@@ -217,7 +217,7 @@
           input.disabled = shouldLock;
         });
         if (badge) {
-          badge.hidden = !shouldLock;
+          badge.hidden = !hasMarks;
         }
       };
 
@@ -227,7 +227,7 @@
         overrideInputs.forEach((input) => {
           if (input.checked) hasOverride = true;
         });
-        lockMembershipRow(userId, hasOverride);
+        lockMembershipRow(userId, hasOverride, hasOverride);
       };
 
       const allOverrideInputs = document.querySelectorAll('[data-override-input]');
@@ -243,7 +243,8 @@
       userIds.forEach((userId) => {
         const row = document.querySelector('[data-override-row="' + userId + '"]');
         const isActive = row && row.getAttribute('data-override-active') === '1';
-        lockMembershipRow(userId, isActive);
+        const hasMarks = row && row.getAttribute('data-override-marked') === '1';
+        lockMembershipRow(userId, isActive, hasMarks);
       });
     })();
   </script>
