@@ -40,6 +40,7 @@
     .footer { position:absolute; bottom:10px; left:10px; display:flex; gap:10px; }
     .badge { width:44px; height:44px; border-radius:50%; object-fit:cover; }
     .required-sign-label.required-marked::after { content:" *"; color:#b91c1c; font-weight:700; }
+    .field-label.required-marked::after { content:" *"; color:#b91c1c; font-weight:700; }
     @media (max-width: 768px) {
       body { padding:8px; }
       .header { grid-template-columns:1fr; }
@@ -75,19 +76,19 @@
 
         <div class="section">
           <div class="section-title">Informações Pessoais</div>
-          <div class="field">Nome: <input class="line-input full" name="nome" type="text" value="{{ step_data.nome|default:'' }}" required /></div>
-          <div class="field">Igreja: <input class="line-input half" name="igreja" type="text" value="{{ step_data.igreja|default:'' }}" required /> Distrito: <input class="line-input half" name="distrito" type="text" value="{{ step_data.distrito|default:'' }}" required /></div>
-          <div class="field">Endereço: <input class="line-input half" name="endereco" type="text" value="{{ step_data.endereco|default:'' }}" required /> Nº: <input class="line-input small" name="numero" type="text" value="{{ step_data.numero|default:'' }}" required /></div>
-          <div class="field">Bairro: <input class="line-input half" name="bairro" type="text" value="{{ step_data.bairro|default:'' }}" required /> Cidade: <input class="line-input half" name="cidade" type="text" value="{{ step_data.cidade|default:'' }}" required /></div>
-          <div class="field">CEP: <input class="line-input half" name="cep" type="text" value="{{ step_data.cep|default:'' }}" required /> Estado: <input class="line-input small" name="estado" type="text" value="{{ step_data.estado|default:'' }}" required /></div>
-          <div class="field">E-mail: <input class="line-input half" name="email" type="email" value="{{ step_data.email|default:'' }}" required /> WhatsApp: <input class="line-input half" name="whatsapp" type="text" value="{{ step_data.whatsapp|default:'' }}" required /></div>
-          <div class="field">Tel. Residencial (se tiver): <input class="line-input half" name="telefone_residencial" type="text" value="{{ step_data.telefone_residencial|default:'' }}" data-optional="true" /> Tel. Comercial (se tiver): <input class="line-input half" name="telefone_comercial" type="text" value="{{ step_data.telefone_comercial|default:'' }}" data-optional="true" /></div>
-          <div class="field">Data de Nascimento: <input class="line-input small" name="nascimento" type="date" value="{{ step_data.nascimento|default:'' }}" required /> Estado Civil: <input class="line-input half" name="estado_civil" type="text" value="{{ step_data.estado_civil|default:'' }}" required /></div>
-          <div class="field">CPF: <input class="line-input half" name="cpf" type="text" value="{{ step_data.cpf|default:'' }}" required /> RG: <input class="line-input half" name="rg" type="text" value="{{ step_data.rg|default:'' }}" required /></div>
-          <div class="field">Esposa(o): <input class="line-input full" name="conjuge" type="text" value="{{ step_data.conjuge|default:'' }}" data-optional="true" /></div>
-          <div class="field">Filho(a): <input class="line-input full" name="filho_1" type="text" value="{{ step_data.filho_1|default:'' }}" data-optional="true" /></div>
-          <div class="field">Filho(a): <input class="line-input full" name="filho_2" type="text" value="{{ step_data.filho_2|default:'' }}" data-optional="true" /></div>
-          <div class="field">Filho(a): <input class="line-input full" name="filho_3" type="text" value="{{ step_data.filho_3|default:'' }}" data-optional="true" /></div>
+          <div class="field"><span class="field-label required-marked">Nome:</span> <input class="line-input full" name="nome" type="text" value="{{ step_data.nome|default:'' }}" required /></div>
+          <div class="field"><span class="field-label required-marked">Igreja:</span> <input class="line-input half" name="igreja" type="text" value="{{ step_data.igreja|default:'' }}" required /> <span class="field-label required-marked">Distrito:</span> <input class="line-input half" name="distrito" type="text" value="{{ step_data.distrito|default:'' }}" required /></div>
+          <div class="field"><span class="field-label required-marked">Endereço:</span> <input class="line-input half" name="endereco" type="text" value="{{ step_data.endereco|default:'' }}" required /> <span class="field-label required-marked">Nº:</span> <input class="line-input small" name="numero" type="text" value="{{ step_data.numero|default:'' }}" required /></div>
+          <div class="field"><span class="field-label required-marked">Bairro:</span> <input class="line-input half" name="bairro" type="text" value="{{ step_data.bairro|default:'' }}" required /> <span class="field-label required-marked">Cidade:</span> <input class="line-input half" name="cidade" type="text" value="{{ step_data.cidade|default:'' }}" required /></div>
+          <div class="field"><span class="field-label required-marked">CEP:</span> <input class="line-input half" name="cep" type="text" value="{{ step_data.cep|default:'' }}" required /> <span class="field-label required-marked">Estado:</span> <input class="line-input small" name="estado" type="text" value="{{ step_data.estado|default:'' }}" required /></div>
+          <div class="field"><span class="field-label required-marked">E-mail:</span> <input class="line-input half" name="email" type="email" value="{{ step_data.email|default:'' }}" required /> <span class="field-label required-marked">WhatsApp:</span> <input class="line-input half" name="whatsapp" type="text" value="{{ step_data.whatsapp|default:'' }}" required /></div>
+          <div class="field"><span class="field-label">Tel. Residencial (se tiver):</span> <input class="line-input half" name="telefone_residencial" type="text" value="{{ step_data.telefone_residencial|default:'' }}" data-optional="true" /> <span class="field-label">Tel. Comercial (se tiver):</span> <input class="line-input half" name="telefone_comercial" type="text" value="{{ step_data.telefone_comercial|default:'' }}" data-optional="true" /></div>
+          <div class="field"><span class="field-label required-marked">Data de Nascimento:</span> <input class="line-input small" name="nascimento" type="date" value="{{ step_data.nascimento|default:'' }}" required /> <span class="field-label required-marked">Estado Civil:</span> <input class="line-input half" name="estado_civil" type="text" value="{{ step_data.estado_civil|default:'' }}" required /></div>
+          <div class="field"><span class="field-label required-marked">CPF:</span> <input class="line-input half" name="cpf" type="text" value="{{ step_data.cpf|default:'' }}" required /> <span class="field-label required-marked">RG:</span> <input class="line-input half" name="rg" type="text" value="{{ step_data.rg|default:'' }}" required /></div>
+          <div class="field"><span class="field-label">Esposa(o):</span> <input class="line-input full" name="conjuge" type="text" value="{{ step_data.conjuge|default:'' }}" data-optional="true" /></div>
+          <div class="field"><span class="field-label">Filho(a):</span> <input class="line-input full" name="filho_1" type="text" value="{{ step_data.filho_1|default:'' }}" data-optional="true" /></div>
+          <div class="field"><span class="field-label">Filho(a):</span> <input class="line-input full" name="filho_2" type="text" value="{{ step_data.filho_2|default:'' }}" data-optional="true" /></div>
+          <div class="field"><span class="field-label">Filho(a):</span> <input class="line-input full" name="filho_3" type="text" value="{{ step_data.filho_3|default:'' }}" data-optional="true" /></div>
         </div>
 
         <div class="section">

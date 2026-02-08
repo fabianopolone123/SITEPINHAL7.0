@@ -158,5 +158,6 @@ Arquivo oficial de registro das entregas concluidas.
 - Removido o marcador oculto de obrigatoriedade de escolaridade no template desse passo.
 - No mesmo formulario, o `required mode` passou para `explicit`, garantindo asterisco apenas nos campos realmente obrigatorios.
 - `telefone_residencial` e `telefone_comercial` ficaram claramente opcionais no HTML (`se tiver` + `data-optional`), sem marcacao de obrigatorio.
+- Ajustado visual da secao `Informacoes Pessoais`: os rótulos dos campos obrigatorios agora exibem `*` diretamente no template, inclusive em linhas com multiplos campos.
 - Validacao backend do compromisso da diretoria atualizada para nao exigir `telefone_residencial`.
 - Removida tambem a obrigatoriedade de `telefone_comercial` no mesmo fluxo (HTML + validacao backend).
