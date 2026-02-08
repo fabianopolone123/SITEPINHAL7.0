@@ -1721,7 +1721,7 @@ class NovoCadastroDiretoriaCompromissoView(View):
 
         required = [
             'nome', 'igreja', 'endereco', 'distrito', 'numero', 'bairro', 'cep', 'cidade',
-            'estado', 'email', 'whatsapp', 'telefone_residencial', 'telefone_comercial',
+            'estado', 'email', 'whatsapp', 'telefone_comercial',
             'nascimento', 'estado_civil', 'cpf', 'rg',
             'possui_limitacao_saude', 'escolaridade', 'foto_3x4', 'assinatura_compromisso',
         ]

@@ -114,3 +114,8 @@ Arquivo oficial de registro das entregas concluidas.
   - redefinicao da senha com confirmacao em dois campos.
 - Incluida protecao basica no fluxo: expiracao do codigo em 10 minutos e limite de tentativas invalidas antes de exigir novo envio.
 - Criado template dedicado `ui/templates/password_recovery.html`.
+
+## 08/02/2026 - Cadastro diretoria: telefone residencial opcional
+
+- Removida a obrigatoriedade de `telefone_residencial` no fluxo novo da diretoria (`novo_diretoria/compromisso_voluntariado.html`).
+- Validacao backend do compromisso da diretoria atualizada para nao exigir `telefone_residencial`.
