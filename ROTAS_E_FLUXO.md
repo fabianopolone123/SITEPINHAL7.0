@@ -1,38 +1,77 @@
-# Rotas e Fluxo – MVP
+# Rotas e Fluxo - mapa atual
 
-Este documento descreve apenas o fluxo atual do sistema.
+## Publicas
 
----
+- `/` -> redireciona para login
+- `/login/` -> login
+- `/logout/` -> logout + redireciona para login
+- `/register/` -> escolha do tipo de cadastro
 
-## 🖥️ Rotas de UI
+## Novo cadastro - Aventureiro
 
-Prefixo: /
+- `/novo-cadastro/login/`
+- `/novo-cadastro/inscricao/`
+- `/novo-cadastro/verificar-documento/` (validacao de documento)
+- `/novo-cadastro/medica/`
+- `/novo-cadastro/declaracao-medica/`
+- `/novo-cadastro/termo-imagem/`
+- `/novo-cadastro/resumo/`
 
-/login        → login do usuário
-/register     → cadastro
-/logout       → logout
-/dashboard    → área protegida
+Fluxo:
 
-## Novas rotas Django
+1. cria login do responsavel (temporario na sessao);
+2. preenche fichas em etapas;
+3. pode adicionar outro aventureiro;
+4. finaliza e grava no banco.
 
-- `/responsavel` → formulário do responsável (cria `User`, `Responsavel` e salva assinatura).
-- `/aventura` → ficha médica do aventureiro; exige login e persiste doenças/condições/alergias + assinatura.
-- `/confirmacao` → painel final que agrupa o responsável autenticado e os aventureiros salvos.
+## Novo cadastro - Diretoria
 
-Renderização feita com templates Django.
+- `/novo-cadastro-diretoria/login/`
+- `/novo-cadastro-diretoria/compromisso/`
+- `/novo-cadastro-diretoria/termo-imagem/`
+- `/novo-cadastro-diretoria/resumo/`
 
----
+## Rotas legadas (mantidas)
 
-## 🔒 Proteção
+- `/responsavel/`
+- `/diretoria/`
+- `/aventura/`
+- `/confirmacao/`
 
-- /dashboard exige login
-- Usuário não autenticado é redirecionado para /login
+Alias legados explicitos:
 
----
+- `/legacy/responsavel/`
+- `/legacy/diretoria/`
+- `/legacy/aventura/`
+- `/legacy/confirmacao/`
 
-## 🔌 API (futuro)
+## Painel e modulos logados
 
-Quando necessário:
-- Prefixo: /api/
-- Usar Django REST Framework
-- Somente quando UI não for suficiente
+- `/painel/`
+- `/meus-dados/`
+- `/meus-dados/responsavel/`
+- `/meus-dados/responsavel/editar/`
+- `/meus-dados/diretoria/`
+- `/meus-dados/diretoria/editar/`
+- `/meus-dados/aventureiro/<id>/`
+- `/meus-dados/aventureiro/<id>/editar/`
+
+- `/aventureiros-gerais/`
+- `/aventureiros-gerais/<id>/`
+
+- `/usuarios/`
+- `/usuarios/<id>/`
+- `/usuarios/<id>/editar/`
+
+- `/permissoes/`
+- `/whatsapp/`
+- `/documentos/`
+- `/documentos/inscricao-gerado/<id>/`
+- `/documentos/gerar/<template_id>/<kind>/<pk>/`
+- `/eventos/`
+
+## Regras resumidas de permissao
+
+1. Usuario autenticado precisa ter menu liberado para acessar cada modulo.
+2. Permissoes base podem vir de grupo.
+3. Excecao individual (`menu_allow`) pode sobrescrever.

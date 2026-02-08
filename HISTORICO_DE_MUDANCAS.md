@@ -146,3 +146,12 @@ Ele Ã© a memÃ³ria oficial do sistema.
 - [x] Tela de login ajustada: "Pinhal Júnior" com acento e subtítulo simplificado para "Bem-vindo".
 - [x] Campos obrigatórios dos formulários (responsável, diretoria e aventureiro) agora exibem `*` automaticamente ao lado do rótulo.
 - [x] Correção do asterisco de obrigatório: adicionado script (`required-asterisk.js`) para marcar campos obrigatórios em responsavel/diretoria/aventureiro de forma compatível com navegadores sem suporte pleno a `:has`.
+
+---
+
+## 08/02/2026 - Documentacao consolidada para continuidade
+- [x] README atualizado com orientacao central e regra operacional obrigatoria (implementar -> commit -> push -> historico).
+- [x] SISTEMA_ATUAL.md consolidado com modulos ativos, entidades principais, regras de fluxo e operacao.
+- [x] ROTAS_E_FLUXO.md revisado com mapa real de rotas publicas, novo cadastro, legado e painel logado.
+- [x] CONTRIBUTING.md reescrito com padrao de commit obrigatorio: `<arquivo_principal>: <descricao objetiva>`.
+- [x] Definido processo oficial: nenhuma tarefa e considerada concluida sem commit, push e registro no HISTORICO_DE_MUDANCAS.md.

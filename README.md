@@ -1,35 +1,36 @@
 # Clube de Aventureiros Pinhal Junior
 
-Projeto Django com fluxo de cadastro:
+Sistema Django para cadastro (responsavel, aventureiro e diretoria), painel interno, permissoes por menu, notificacoes WhatsApp, documentos e eventos.
 
-1. **Responsável** (`/responsavel/`): cria o `User` + `Responsavel` (com assinatura).
-2. **Aventureiro(s)** (`/aventura/`): valida e **guarda as fichas em sessão** (pendentes), incluindo assinatura e foto 3x4 (dataURL).
-3. **Confirmação** (`/confirmacao/`): revisa tudo e, ao clicar em **"Salvar tudo"**, grava no banco os aventureiros vinculados ao responsável e salva os arquivos (assinaturas/fotos) em `MEDIA_ROOT`.
+## Documentacao principal
 
-## Estrutura
+- `SISTEMA_ATUAL.md`: estado consolidado do sistema (modulos, entidades, regras e operacao).
+- `ROTAS_E_FLUXO.md`: mapa de rotas e fluxo funcional atual.
+- `CONTRIBUTING.md`: padrao de desenvolvimento, commits e checklist obrigatorio.
+- `HISTORICO_DE_MUDANCAS.md`: memoria oficial de tudo que foi entregue.
 
-- `backend/`: Django (models, forms, views, settings)
-- `ui/templates/`: templates HTML usados pelo Django
-- `ui/static/`: CSS/JS/imagens
-- `media/`: arquivos gerados (assinaturas/fotos) no ambiente local
-
-## Rodar localmente (Windows/PowerShell)
+## Rodar localmente (Windows / PowerShell)
 
 ```powershell
 cd SITEPINHAL7.0
 python -m venv .venv
-.venv\\Scripts\\Activate.ps1
-pip install -r backend\\requirements.txt
-python backend\\manage.py migrate
-python backend\\manage.py runserver
+.venv\Scripts\Activate.ps1
+pip install -r backend\requirements.txt
+python backend\manage.py migrate
+python backend\manage.py runserver
 ```
 
-Acesse:
-- `http://127.0.0.1:8000/` (tela inicial / seleção)
-- `http://127.0.0.1:8000/responsavel/`
-- `http://127.0.0.1:8000/aventura/`
-- `http://127.0.0.1:8000/confirmacao/`
+## Deploy VPS (resumo)
 
-## Deploy (VPS Linux)
+- Arquivos de deploy em `deploy/`.
+- Script principal: `deploy/deploy.sh` (alias comum no VPS: `sitepinhal-deploy`).
+- Fluxo esperado do deploy: atualizar codigo, aplicar migracoes, coletar estaticos e reiniciar servicos.
 
-Há exemplos de configuração em `deploy/` (env, systemd e nginx).
+## Regra operacional obrigatoria
+
+Toda alteracao deve seguir este ciclo:
+
+1. implementar e validar;
+2. criar commit;
+3. fazer push para o remoto;
+4. registrar a entrega no `HISTORICO_DE_MUDANCAS.md`.
