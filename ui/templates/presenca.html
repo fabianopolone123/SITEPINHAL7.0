@@ -139,6 +139,40 @@
       align-items: center;
       background: #fff;
     }
+    .attendance-person {
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      gap: 0.65rem;
+      align-items: center;
+      min-width: 0;
+    }
+    .attendance-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      object-fit: cover;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+    }
+    .attendance-avatar-placeholder {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      border: 1px dashed #cbd5e1;
+      background: #f8fafc;
+      color: #64748b;
+      font-size: 0.72rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      line-height: 1.1;
+      padding: 0.2rem;
+    }
+    .attendance-person-info {
+      min-width: 0;
+    }
     .attendance-row.present {
       border-color: #16a34a;
       background: #f0fdf4;
@@ -146,6 +180,9 @@
     .attendance-name {
       font-weight: 700;
       color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .attendance-meta {
       font-size: 0.82rem;
@@ -245,10 +282,17 @@
         <div class="attendance-list" id="attendance-list">
           {% for av in aventureiros %}
             <article class="attendance-row" data-aventureiro-id="{{ av.id }}" data-search="{{ av.nome|lower }} {{ av.responsavel.responsavel_nome|default:''|lower }} {{ av.responsavel.user.username|lower }}">
-              <div>
-                <div class="attendance-name">{{ av.nome }}</div>
-                <div class="attendance-meta">
-                  Responsável: {{ av.responsavel.responsavel_nome|default:"-" }} | Usuário: {{ av.responsavel.user.username }}
+              <div class="attendance-person">
+                {% if av.foto %}
+                  <img src="{{ av.foto.url }}" alt="Foto de {{ av.nome }}" class="attendance-avatar" loading="lazy" />
+                {% else %}
+                  <div class="attendance-avatar-placeholder">Sem foto</div>
+                {% endif %}
+                <div class="attendance-person-info">
+                  <div class="attendance-name">{{ av.nome }}</div>
+                  <div class="attendance-meta">
+                    Responsável: {{ av.responsavel.responsavel_nome|default:"-" }} | Usuário: {{ av.responsavel.user.username }}
+                  </div>
                 </div>
               </div>
               <button type="button" class="presence-toggle" data-aventureiro-id="{{ av.id }}">
