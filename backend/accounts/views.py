@@ -2373,6 +2373,19 @@ class PresencaView(LoginRequiredMixin, View):
             return f'Em {delta} dias'
         return f'Há {abs(delta)} dias'
 
+    def _event_status_key(self, event_date):
+        if not event_date:
+            return 'sem_data'
+        today = timezone.localdate()
+        delta = (event_date - today).days
+        if delta == 0:
+            return 'hoje'
+        if delta == 1:
+            return 'amanha'
+        if delta > 1:
+            return 'futuro'
+        return 'passado'
+
     def _ordered_events(self):
         today = timezone.localdate()
         tomorrow = today + timedelta(days=1)
@@ -2436,11 +2449,16 @@ class PresencaView(LoginRequiredMixin, View):
             event_rows.append({
                 'evento': evento,
                 'relative_label': self._relative_event_time_label(evento.event_date),
+                'status_key': self._event_status_key(evento.event_date),
             })
+        selected_event_row = None
+        if selected_event:
+            selected_event_row = next((row for row in event_rows if row['evento'].id == selected_event.id), None)
 
         context = {
             'eventos': event_rows,
             'selected_event': selected_event,
+            'selected_event_row': selected_event_row,
             'aventureiros': aventureiros,
             'presencas_json': presencas_map,
             'present_count': present_count,

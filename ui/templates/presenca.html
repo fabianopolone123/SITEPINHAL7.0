@@ -12,12 +12,71 @@
       gap: 0.65rem;
       grid-template-columns: 1fr;
     }
+    .attendance-control-card {
+      border: 1px solid #dbeafe;
+      background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+      border-radius: 12px;
+      padding: 0.7rem;
+    }
+    .attendance-control-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #1e3a8a;
+      font-weight: 800;
+      margin-bottom: 0.35rem;
+    }
+    .event-highlight-list {
+      display: grid;
+      gap: 0.45rem;
+      margin: 0.75rem 0 0.35rem;
+    }
+    .event-highlight-item {
+      border: 1px solid #cbd5e1;
+      border-left-width: 5px;
+      border-radius: 10px;
+      background: #fff;
+      padding: 0.5rem 0.65rem;
+      display: grid;
+      gap: 0.2rem;
+      text-decoration: none;
+      color: #0f172a;
+    }
+    .event-highlight-item.is-selected {
+      box-shadow: 0 0 0 2px #2563eb inset;
+      background: #eff6ff;
+    }
+    .event-highlight-meta {
+      font-size: 0.82rem;
+      color: #475569;
+    }
+    .status-hoje {
+      border-left-color: #16a34a;
+      background: #f0fdf4;
+    }
+    .status-amanha {
+      border-left-color: #2563eb;
+      background: #eff6ff;
+    }
+    .status-futuro {
+      border-left-color: #f59e0b;
+      background: #fffbeb;
+    }
+    .status-passado {
+      border-left-color: #64748b;
+      background: #f8fafc;
+    }
+    .status-sem_data {
+      border-left-color: #94a3b8;
+      background: #f8fafc;
+    }
     .attendance-summary {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 0.65rem;
       flex-wrap: wrap;
+      margin-top: 0.6rem;
     }
     .attendance-chip {
       border: 1px solid #1d4ed8;
@@ -27,6 +86,43 @@
       padding: 0.2rem 0.55rem;
       font-weight: 700;
       font-size: 0.85rem;
+    }
+    .event-status-badge {
+      display: inline-flex;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 0.12rem 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 800;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #1f2937;
+      margin-bottom: 0.2rem;
+    }
+    .event-status-badge.status-hoje {
+      border-color: #16a34a;
+      color: #166534;
+      background: #dcfce7;
+    }
+    .event-status-badge.status-amanha {
+      border-color: #2563eb;
+      color: #1d4ed8;
+      background: #dbeafe;
+    }
+    .event-status-badge.status-futuro {
+      border-color: #f59e0b;
+      color: #92400e;
+      background: #fef3c7;
+    }
+    .event-status-badge.status-passado {
+      border-color: #94a3b8;
+      color: #334155;
+      background: #e2e8f0;
+    }
+    .event-status-badge.status-sem_data {
+      border-color: #94a3b8;
+      color: #334155;
+      background: #e2e8f0;
     }
     .attendance-list {
       display: grid;
@@ -105,24 +201,44 @@
 
     <section class="painel-card">
       <div class="attendance-toolbar">
-        <label for="evento-select">
-          Evento
-          <select id="evento-select">
-            {% for row in eventos %}
-              <option value="{{ row.evento.id }}" {% if selected_event and selected_event.id == row.evento.id %}selected{% endif %}>
-                {{ row.relative_label }} | {{ row.evento.name }} | {{ row.evento.event_date|date:"d/m/Y"|default:"sem data" }} {{ row.evento.event_time|time:"H:i"|default:"" }}
-              </option>
-            {% endfor %}
-          </select>
-        </label>
-        <label for="attendance-search">
-          Buscar aventureiro
-          <input type="text" id="attendance-search" placeholder="Digite nome, responsável ou username" />
-        </label>
+        <div class="attendance-control-card">
+          <div class="attendance-control-title">Evento</div>
+          <label for="evento-select">
+            <select id="evento-select">
+              {% for row in eventos %}
+                <option value="{{ row.evento.id }}" {% if selected_event and selected_event.id == row.evento.id %}selected{% endif %}>
+                  {{ row.relative_label }} | {{ row.evento.name }} | {{ row.evento.event_date|date:"d/m/Y"|default:"sem data" }} {{ row.evento.event_time|time:"H:i"|default:"" }}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+        <div class="attendance-control-card">
+          <div class="attendance-control-title">Buscar aventureiro</div>
+          <label for="attendance-search">
+            <input type="text" id="attendance-search" placeholder="Digite nome, responsável ou username" />
+          </label>
+        </div>
       </div>
+
+      <div class="event-highlight-list">
+        {% for row in eventos %}
+          <a href="?evento={{ row.evento.id }}" class="event-highlight-item status-{{ row.status_key }} {% if selected_event and selected_event.id == row.evento.id %}is-selected{% endif %}">
+            <span class="event-status-badge status-{{ row.status_key }}">{{ row.relative_label }}</span>
+            <strong>{{ row.evento.name }}</strong>
+            <span class="event-highlight-meta">{{ row.evento.event_date|date:"d/m/Y"|default:"sem data" }} {{ row.evento.event_time|time:"H:i"|default:"" }}</span>
+          </a>
+        {% endfor %}
+      </div>
+
       {% if selected_event %}
         <div class="attendance-summary">
-          <strong id="current-event-name">{{ selected_event.name }}</strong>
+          <div>
+            {% if selected_event_row %}
+              <span class="event-status-badge status-{{ selected_event_row.status_key }}">{{ selected_event_row.relative_label }}</span>
+            {% endif %}
+            <strong id="current-event-name">{{ selected_event.name }}</strong>
+          </div>
           <span class="attendance-chip" id="attendance-counter">{{ present_count }}/{{ total_count }} presentes</span>
           <small id="last-sync-label">Sincronizando...</small>
         </div>
