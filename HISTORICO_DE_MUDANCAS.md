@@ -119,3 +119,4 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Removida a obrigatoriedade de `telefone_residencial` no fluxo novo da diretoria (`novo_diretoria/compromisso_voluntariado.html`).
 - Validacao backend do compromisso da diretoria atualizada para nao exigir `telefone_residencial`.
+- Removida tambem a obrigatoriedade de `telefone_comercial` no mesmo fluxo (HTML + validacao backend).
