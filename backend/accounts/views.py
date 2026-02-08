@@ -1879,7 +1879,7 @@ class NovoCadastroDiretoriaCompromissoView(View):
             'nome', 'igreja', 'endereco', 'distrito', 'numero', 'bairro', 'cep', 'cidade',
             'estado', 'email', 'whatsapp',
             'nascimento', 'estado_civil', 'cpf', 'rg',
-            'possui_limitacao_saude', 'escolaridade', 'foto_3x4', 'assinatura_compromisso',
+            'possui_limitacao_saude', 'foto_3x4', 'assinatura_compromisso',
         ]
         missing = [name for name in required if not str(fields.get(name, '')).strip()]
         if not fields.get('declaracao_medica'):

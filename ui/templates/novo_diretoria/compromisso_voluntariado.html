@@ -108,7 +108,6 @@
             <label><input type="radio" name="escolaridade" value="fundamental" {% if step_data.escolaridade == 'fundamental' %}checked{% endif %} /> Ensino Fundamental</label>
             <label><input type="radio" name="escolaridade" value="medio" {% if step_data.escolaridade == 'medio' %}checked{% endif %} /> Ensino Médio</label>
             <label><input type="radio" name="escolaridade" value="faculdade" {% if step_data.escolaridade == 'faculdade' %}checked{% endif %} /> Faculdade</label>
-            <input type="hidden" id="escolaridade-required" value="{{ step_data.escolaridade|default:'' }}" data-required="true" data-required-target=".escolaridade-label" />
           </div>
         </div>
 
@@ -154,20 +153,5 @@
     </div>
   </div>
   <script src="{% static 'js/novo_cadastro.js' %}" defer></script>
-  <script>
-    (function () {
-      var radios = document.querySelectorAll('input[name="escolaridade"]');
-      var hidden = document.getElementById('escolaridade-required');
-      if (!radios.length || !hidden) return;
-      function sync() {
-        var checked = document.querySelector('input[name="escolaridade"]:checked');
-        hidden.value = checked ? checked.value : '';
-      }
-      radios.forEach(function (radio) {
-        radio.addEventListener('change', sync);
-      });
-      sync();
-    })();
-  </script>
 </body>
 </html>

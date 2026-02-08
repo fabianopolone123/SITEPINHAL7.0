@@ -150,5 +150,11 @@ Arquivo oficial de registro das entregas concluidas.
 - Ajustado pre-preenchimento da ficha de inscricao:
   - quando abrir `Adicionar aventureiro` sem dados temporarios, a tela agora puxa automaticamente os dados do responsavel ja existente (pai/mae/responsavel e contatos).
 - Ajustada API de verificacao em tempo real de documentos para respeitar essa mesma regra no fluxo de responsavel existente.
+
+## 08/02/2026 - Cadastro diretoria: escolaridade opcional
+
+- No formulario `novo_diretoria/compromisso_voluntariado`, a secao `Informacoes Educacionais` deixou de ser obrigatoria.
+- Removida a validacao obrigatoria de `escolaridade` no backend do passo `NovoCadastroDiretoriaCompromissoView`.
+- Removido o marcador oculto de obrigatoriedade de escolaridade no template desse passo.
 - Validacao backend do compromisso da diretoria atualizada para nao exigir `telefone_residencial`.
 - Removida tambem a obrigatoriedade de `telefone_comercial` no mesmo fluxo (HTML + validacao backend).
