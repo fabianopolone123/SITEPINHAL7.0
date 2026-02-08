@@ -140,5 +140,6 @@ Arquivo oficial de registro das entregas concluidas.
 - No fluxo de diretoria (`novo_diretoria`), o CPF agora bloqueia apenas quando ja existe em `Diretoria`.
 - Mantida validacao de RG/certidao conforme regras anteriores.
 - Tela de `Presenca` atualizada com miniatura da foto do aventureiro em cada linha para identificacao rapida, com fallback visual `Sem foto` quando nao houver imagem.
+- Ajustado fallback da miniatura em `Presenca`: quando `av.foto` nao existir, usa `inscricao_data.foto_3x4` da ficha completa (data URL), corrigindo casos em que a foto nao aparecia na lista.
 - Validacao backend do compromisso da diretoria atualizada para nao exigir `telefone_residencial`.
 - Removida tambem a obrigatoriedade de `telefone_comercial` no mesmo fluxo (HTML + validacao backend).

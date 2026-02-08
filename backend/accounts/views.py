@@ -2822,9 +2822,18 @@ class PresencaView(LoginRequiredMixin, View):
 
         aventureiros = list(
             Aventureiro.objects
-            .select_related('responsavel', 'responsavel__user')
+            .select_related('responsavel', 'responsavel__user', 'ficha_completa')
             .order_by('nome')
         )
+        for av in aventureiros:
+            foto_url = av.foto.url if av.foto else ''
+            if not foto_url:
+                ficha = getattr(av, 'ficha_completa', None)
+                inscricao_data = (ficha.inscricao_data if ficha else {}) or {}
+                inline_photo = str(inscricao_data.get('foto_3x4') or '').strip()
+                if inline_photo.startswith('data:image/'):
+                    foto_url = inline_photo
+            av.presenca_foto_url = foto_url
         presencas_map = self._presence_map(selected_event.id) if selected_event else {}
         present_count = sum(1 for value in presencas_map.values() if value.get('presente'))
 
@@ -3622,4 +3631,3 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
             messages.success(request, 'Permiss�es atualizadas com sucesso.')
             return redirect('accounts:usuarios')
         return render(request, self.template_name, self._base_context(request, target_user, form))
-

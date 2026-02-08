@@ -283,8 +283,8 @@
           {% for av in aventureiros %}
             <article class="attendance-row" data-aventureiro-id="{{ av.id }}" data-search="{{ av.nome|lower }} {{ av.responsavel.responsavel_nome|default:''|lower }} {{ av.responsavel.user.username|lower }}">
               <div class="attendance-person">
-                {% if av.foto %}
-                  <img src="{{ av.foto.url }}" alt="Foto de {{ av.nome }}" class="attendance-avatar" loading="lazy" />
+                {% if av.presenca_foto_url %}
+                  <img src="{{ av.presenca_foto_url }}" alt="Foto de {{ av.nome }}" class="attendance-avatar" loading="lazy" />
                 {% else %}
                   <div class="attendance-avatar-placeholder">Sem foto</div>
                 {% endif %}
