@@ -73,3 +73,4 @@ Arquivo oficial de registro das entregas concluidas.
 - Tela `Eventos` ajustada para mostrar o campo "Nome para salvar esta configuracao" apenas ao clicar em `Salvar pre-configuracao`.
 - Botao `Salvar pre-configuracao` passou a funcionar em duas etapas: primeiro revela o campo com foco; no segundo clique envia o formulario.
 - Ao clicar em `Salvar evento`, o campo de nome da pre-configuracao e ocultado novamente.
+- Ajustado reset de estado do modal: ao abrir/fechar `Criar novo evento`, o campo de nome da pre-configuracao volta a ficar oculto para nao reaparecer indevidamente.

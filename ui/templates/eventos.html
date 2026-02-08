@@ -309,11 +309,14 @@
       const presets = parsePresetsData();
 
       const openModal = () => {
+        hidePresetNameField();
+        actionInput.value = 'create_event';
         modal.classList.add('show');
         modal.setAttribute('aria-hidden', 'false');
       };
 
       const closeModal = () => {
+        hidePresetNameField();
         modal.classList.remove('show');
         modal.setAttribute('aria-hidden', 'true');
       };
