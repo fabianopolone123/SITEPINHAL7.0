@@ -31,6 +31,7 @@ from .models import (
     DocumentoTemplate,
     AventureiroFicha,
     DiretoriaFicha,
+    AccessGroup,
     DocumentoInscricaoGerado,
 )
 from .utils import decode_signature, decode_photo
@@ -49,6 +50,18 @@ from io import BytesIO
 from datetime import date
 
 User = get_user_model()
+
+MENU_ITEMS = [
+    ('inicio', 'Início'),
+    ('meus_dados', 'Meus dados'),
+    ('aventureiros', 'Aventureiros'),
+    ('usuarios', 'Usuários'),
+    ('whatsapp', 'WhatsApp'),
+    ('documentos_inscricao', 'Documentos inscrição'),
+    ('permissoes', 'Permissões'),
+]
+
+MENU_KEYS = {item[0] for item in MENU_ITEMS}
 
 
 def _get_pending_aventures(session):
@@ -74,11 +87,40 @@ def _is_diretor(user):
     return _ensure_user_access(user).has_profile(UserAccess.ROLE_DIRETOR)
 
 
+def _normalize_menu_keys(values):
+    current = set()
+    for item in values or []:
+        key = str(item or '').strip()
+        if key in MENU_KEYS:
+            current.add(key)
+    return sorted(current)
+
+
+def _effective_menu_permissions(user):
+    access = _ensure_user_access(user)
+    allowed = {'inicio', 'meus_dados'}
+    profiles = set(access.profiles or [])
+    if access.role:
+        profiles.add(access.role)
+    if UserAccess.ROLE_DIRETOR in profiles:
+        allowed.update({'aventureiros', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes'})
+    for group in user.access_groups.all():
+        allowed.update(_normalize_menu_keys(group.menu_permissions))
+    allowed.update(_normalize_menu_keys(access.menu_allow))
+    allowed.difference_update(_normalize_menu_keys(access.menu_deny))
+    return sorted(allowed)
+
+
+def _has_menu_permission(user, menu_key):
+    return menu_key in _effective_menu_permissions(user)
+
+
 def _sidebar_context(request):
     access = _ensure_user_access(request.user)
     return {
         'is_diretor': access.has_profile(UserAccess.ROLE_DIRETOR),
         'current_profiles': access.get_profiles_display(),
+        'menu_permissions': _effective_menu_permissions(request.user),
     }
 
 
@@ -91,6 +133,13 @@ def _profile_order_weight(access):
     if UserAccess.ROLE_RESPONSAVEL in profiles:
         return 1
     return 2
+
+
+def _require_menu_or_redirect(request, menu_key, message):
+    if not _has_menu_permission(request.user, menu_key):
+        messages.error(request, message)
+        return redirect('accounts:painel')
+    return None
 
 
 def _user_display_data(user):
@@ -113,6 +162,22 @@ def _user_display_data(user):
         'nome_completo': nome_completo or user.username,
         'foto_url': foto_url,
     }
+
+
+def _ensure_default_access_groups():
+    defaults = [
+        ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes']),
+        ('responsavel', 'Responsavel', ['inicio', 'meus_dados']),
+        ('professor', 'Professor', ['inicio', 'meus_dados']),
+    ]
+    for code, name, menus in defaults:
+        group, _ = AccessGroup.objects.get_or_create(
+            code=code,
+            defaults={'name': name, 'menu_permissions': menus},
+        )
+        if not group.menu_permissions:
+            group.menu_permissions = menus
+            group.save(update_fields=['menu_permissions', 'updated_at'])
 
 
 
@@ -2003,7 +2068,7 @@ class AventureirosGeraisView(LoginRequiredMixin, View):
     template_name = 'aventureiros_gerais.html'
 
     def get(self, request):
-        if not _is_diretor(request.user):
+        if not _has_menu_permission(request.user, 'aventureiros'):
             messages.error(request, 'Seu perfil não possui permissão para acessar aventureiros gerais.')
             return redirect('accounts:painel')
         aventureiros = Aventureiro.objects.select_related('responsavel', 'responsavel__user').order_by('nome')
@@ -2016,7 +2081,7 @@ class AventureiroGeralDetalheView(LoginRequiredMixin, View):
     template_name = 'meus_dados_aventureiro.html'
 
     def get(self, request, pk):
-        if not _is_diretor(request.user):
+        if not _has_menu_permission(request.user, 'aventureiros'):
             messages.error(request, 'Seu perfil não possui permissão para visualizar esse aventureiro.')
             return redirect('accounts:painel')
         aventureiro = get_object_or_404(Aventureiro, pk=pk)
@@ -2071,7 +2136,7 @@ class UsuariosView(LoginRequiredMixin, View):
     template_name = 'usuarios.html'
 
     def get(self, request):
-        if not _is_diretor(request.user):
+        if not _has_menu_permission(request.user, 'usuarios'):
             messages.error(request, 'Seu perfil não possui permissão para acessar usuários.')
             return redirect('accounts:painel')
 
@@ -2092,6 +2157,122 @@ class UsuariosView(LoginRequiredMixin, View):
         context = {'users': user_rows}
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
+
+
+class PermissoesView(LoginRequiredMixin, View):
+    template_name = 'permissoes.html'
+
+    def _guard(self, request):
+        if not _has_menu_permission(request.user, 'permissoes'):
+            messages.error(request, 'Seu perfil não possui permissão para acessar permissões.')
+            return redirect('accounts:painel')
+        return None
+
+    def _build_context(self, request):
+        _ensure_default_access_groups()
+        groups = list(AccessGroup.objects.prefetch_related('users').order_by('name'))
+        accesses = list(
+            UserAccess.objects
+            .select_related('user', 'user__responsavel', 'user__diretoria')
+            .order_by('user__username')
+        )
+        rows = []
+        for access in accesses:
+            display = _user_display_data(access.user)
+            user_group_ids = set(access.user.access_groups.values_list('id', flat=True))
+            rows.append({
+                'access': access,
+                'user': access.user,
+                'nome_completo': display['nome_completo'],
+                'foto_url': display['foto_url'],
+                'group_ids': user_group_ids,
+                'menu_allow': set(_normalize_menu_keys(access.menu_allow)),
+                'menu_deny': set(_normalize_menu_keys(access.menu_deny)),
+            })
+        rows.sort(key=lambda row: (_profile_order_weight(row['access']), row['user'].username.lower()))
+
+        context = {
+            'groups': groups,
+            'users': rows,
+            'menu_items': MENU_ITEMS,
+        }
+        context.update(_sidebar_context(request))
+        return context
+
+    def get(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+        return render(request, self.template_name, self._build_context(request))
+
+    def post(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+
+        _ensure_default_access_groups()
+        action = request.POST.get('action', '').strip()
+
+        if action == 'create_group':
+            code = str(request.POST.get('group_code', '')).strip().lower()
+            name = str(request.POST.get('group_name', '')).strip()
+            if not code or not name:
+                messages.error(request, 'Informe código e nome do grupo.')
+            elif AccessGroup.objects.filter(code=code).exists():
+                messages.error(request, 'Já existe um grupo com esse código.')
+            else:
+                AccessGroup.objects.create(code=code, name=name, menu_permissions=['inicio', 'meus_dados'])
+                messages.success(request, f'Grupo "{name}" criado com sucesso.')
+
+        elif action == 'save_group_menus':
+            groups = AccessGroup.objects.all()
+            for group in groups:
+                selected = []
+                for key, _label in MENU_ITEMS:
+                    if request.POST.get(f'g{group.pk}_menu_{key}'):
+                        selected.append(key)
+                group.menu_permissions = _normalize_menu_keys(selected)
+                group.save(update_fields=['menu_permissions', 'updated_at'])
+            messages.success(request, 'Permissões de menu dos grupos atualizadas.')
+
+        elif action == 'save_memberships':
+            groups = list(AccessGroup.objects.all())
+            users = list(User.objects.all())
+            for user in users:
+                selected_group_ids = []
+                for group in groups:
+                    if request.POST.get(f'ug{user.pk}_{group.pk}'):
+                        selected_group_ids.append(group.pk)
+                user.access_groups.set(selected_group_ids)
+            messages.success(request, 'Vínculo de usuários e grupos atualizado.')
+
+        elif action == 'save_user_overrides':
+            accesses = UserAccess.objects.select_related('user').all()
+            for access in accesses:
+                allow = []
+                deny = []
+                for key, _label in MENU_ITEMS:
+                    if request.POST.get(f'ua{access.user.pk}_{key}'):
+                        allow.append(key)
+                    if request.POST.get(f'ud{access.user.pk}_{key}'):
+                        deny.append(key)
+                access.menu_allow = _normalize_menu_keys(allow)
+                access.menu_deny = _normalize_menu_keys(deny)
+                access.save(update_fields=['menu_allow', 'menu_deny', 'updated_at'])
+            messages.success(request, 'Exceções de menu por usuário atualizadas.')
+
+        elif action == 'delete_group':
+            group_id = request.POST.get('group_id')
+            group = AccessGroup.objects.filter(pk=group_id).first()
+            if not group:
+                messages.error(request, 'Grupo não encontrado.')
+            elif group.code in {'diretor', 'responsavel', 'professor'}:
+                messages.error(request, 'Não é possível excluir grupos padrão.')
+            else:
+                group.delete()
+                messages.success(request, 'Grupo removido com sucesso.')
+
+        return render(request, self.template_name, self._build_context(request))
 
 
 def _documento_tipo_label(doc_type):
@@ -2131,8 +2312,8 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
     template_name = 'documentos_inscricao.html'
 
     def _guard(self, request):
-        if not _is_diretor(request.user):
-            messages.error(request, 'Seu perfil n?o possui permiss?o para acessar documentos.')
+        if not _has_menu_permission(request.user, 'documentos_inscricao'):
+            messages.error(request, 'Seu perfil nao possui permissao para acessar documentos.')
             return redirect('accounts:painel')
         return None
 
@@ -2255,7 +2436,7 @@ class DocumentoInscricaoVisualizarView(LoginRequiredMixin, View):
     template_name = 'documento_inscricao_visualizar.html'
 
     def get(self, request, pk):
-        if not _is_diretor(request.user):
+        if not _has_menu_permission(request.user, 'documentos_inscricao'):
             messages.error(request, 'Seu perfil não possui permissão para visualizar documentos gerados.')
             return redirect('accounts:painel')
         documento = get_object_or_404(
@@ -2269,8 +2450,8 @@ class DocumentoInscricaoVisualizarView(LoginRequiredMixin, View):
 
 class DocumentoGerarView(LoginRequiredMixin, View):
     def get(self, request, template_id, kind, pk):
-        if not _is_diretor(request.user):
-            messages.error(request, 'Seu perfil n?o possui permiss?o para gerar documentos.')
+        if not _has_menu_permission(request.user, 'documentos_inscricao'):
+            messages.error(request, 'Seu perfil nao possui permissao para gerar documentos.')
             return redirect('accounts:painel')
         template = get_object_or_404(DocumentoTemplate, pk=template_id)
         if kind == DocumentoTemplate.TYPE_RESPONSAVEL:
@@ -2293,7 +2474,7 @@ class WhatsAppView(LoginRequiredMixin, View):
     template_name = 'whatsapp.html'
 
     def _director_guard(self, request):
-        if not _is_diretor(request.user):
+        if not _has_menu_permission(request.user, 'whatsapp'):
             messages.error(request, 'Seu perfil não possui permissão para acessar WhatsApp.')
             return redirect('accounts:painel')
         return None
@@ -2484,7 +2665,7 @@ class UsuarioDetalheView(LoginRequiredMixin, View):
     template_name = 'usuario_detalhe.html'
 
     def get(self, request, pk):
-        if not _is_diretor(request.user):
+        if not _has_menu_permission(request.user, 'usuarios'):
             messages.error(request, 'Seu perfil não possui permissão para acessar usuários.')
             return redirect('accounts:painel')
         target_user = get_object_or_404(User, pk=pk)
@@ -2510,7 +2691,7 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
     template_name = 'usuario_permissoes_editar.html'
 
     def get(self, request, pk):
-        if not _is_diretor(request.user):
+        if not _has_menu_permission(request.user, 'usuarios'):
             messages.error(request, 'Seu perfil não possui permissão para editar usuários.')
             return redirect('accounts:painel')
         target_user = get_object_or_404(User, pk=pk)
@@ -2530,7 +2711,7 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
         return render(request, self.template_name, context)
 
     def post(self, request, pk):
-        if not _is_diretor(request.user):
+        if not _has_menu_permission(request.user, 'usuarios'):
             messages.error(request, 'Seu perfil não possui permissão para editar usuários.')
             return redirect('accounts:painel')
         target_user = get_object_or_404(User, pk=pk)

@@ -16,16 +16,20 @@ class UserAccess(models.Model):
     ROLE_RESPONSAVEL = 'responsavel'
     ROLE_DIRETORIA = 'diretoria'
     ROLE_DIRETOR = 'diretor'
+    ROLE_PROFESSOR = 'professor'
 
     ROLE_CHOICES = [
         (ROLE_RESPONSAVEL, 'Responsável'),
         (ROLE_DIRETORIA, 'Diretoria'),
         (ROLE_DIRETOR, 'Diretor'),
+        (ROLE_PROFESSOR, 'Professor'),
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='access')
     role = models.CharField('perfil de acesso', max_length=32, choices=ROLE_CHOICES, default=ROLE_RESPONSAVEL)
     profiles = models.JSONField('perfis de acesso', default=list, blank=True)
+    menu_allow = models.JSONField('menus liberados por usuário', default=list, blank=True)
+    menu_deny = models.JSONField('menus bloqueados por usuário', default=list, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
@@ -277,6 +281,23 @@ class DocumentoTemplate(models.Model):
 
     def __str__(self):
         return f'{self.name} ({self.get_template_type_display()})'
+
+
+class AccessGroup(models.Model):
+    code = models.CharField('código', max_length=64, unique=True)
+    name = models.CharField('nome', max_length=128, unique=True)
+    users = models.ManyToManyField(User, blank=True, related_name='access_groups', verbose_name='usuários')
+    menu_permissions = models.JSONField('menus permitidos', default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'grupo de acesso'
+        verbose_name_plural = 'grupos de acesso'
+        ordering = ('name',)
+
+    def __str__(self):
+        return self.name
 
 
 class AventureiroFicha(models.Model):
