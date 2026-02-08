@@ -134,17 +134,17 @@
             </thead>
             <tbody>
               {% for item in users %}
-                <tr data-membership-row="{{ item.user.pk }}" class="{% if item.menu_allow %}row-locked{% endif %}">
+                <tr data-membership-row="{{ item.user.pk }}" class="{% if item.override_active %}row-locked{% endif %}">
                   <td>
                     <strong>{{ item.user.username }}</strong><br />
                     <small>{{ item.nome_completo }}</small>
                     <br />
-                    <small class="badge-lock" data-membership-badge="{{ item.user.pk }}" {% if not item.menu_allow %}hidden{% endif %}>Bloqueado por excecao individual</small>
+                    <small class="badge-lock" data-membership-badge="{{ item.user.pk }}" {% if not item.override_active %}hidden{% endif %}>Bloqueado por excecao individual</small>
                   </td>
                   {% for group in groups %}
                     <td>
                       <label title="{{ group.name }}">
-                        <input type="checkbox" name="ug{{ item.user.pk }}_{{ group.pk }}" data-membership-input="{{ item.user.pk }}" {% if group.pk in item.group_ids %}checked{% endif %} {% if item.menu_allow %}disabled{% endif %} />
+                        <input type="checkbox" name="ug{{ item.user.pk }}_{{ group.pk }}" data-membership-input="{{ item.user.pk }}" {% if group.pk in item.group_ids %}checked{% endif %} {% if item.override_active %}disabled{% endif %} />
                       </label>
                     </td>
                   {% endfor %}
@@ -179,7 +179,7 @@
             </thead>
             <tbody>
               {% for item in users %}
-                <tr data-override-row="{{ item.user.pk }}">
+                <tr data-override-row="{{ item.user.pk }}" data-override-active="{% if item.override_active %}1{% else %}0{% endif %}">
                   <td>
                     <strong>{{ item.user.username }}</strong><br />
                     <small>{{ item.nome_completo }}</small>
@@ -239,7 +239,12 @@
         });
       });
 
-      userIds.forEach((userId) => syncLockForUser(userId));
+      // Estado inicial vem do backend (override real), para evitar bloquear todos no carregamento.
+      userIds.forEach((userId) => {
+        const row = document.querySelector('[data-override-row="' + userId + '"]');
+        const isActive = row && row.getAttribute('data-override-active') === '1';
+        lockMembershipRow(userId, isActive);
+      });
     })();
   </script>
 </body>

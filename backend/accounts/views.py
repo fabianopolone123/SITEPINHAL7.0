@@ -2190,6 +2190,7 @@ class PermissoesView(LoginRequiredMixin, View):
         _ensure_default_access_groups()
         groups = list(AccessGroup.objects.prefetch_related('users').order_by('name'))
         group_map = {group.code: group for group in groups}
+        groups_by_id = {group.pk: set(_normalize_menu_keys(group.menu_permissions)) for group in groups}
         accesses = list(
             UserAccess.objects
             .select_related('user', 'user__responsavel', 'user__diretoria')
@@ -2204,13 +2205,19 @@ class PermissoesView(LoginRequiredMixin, View):
                     access.user.access_groups.set(default_ids)
             display = _user_display_data(access.user)
             user_group_ids = set(access.user.access_groups.values_list('id', flat=True))
+            group_permissions = set()
+            for group_id in user_group_ids:
+                group_permissions.update(groups_by_id.get(group_id, set()))
+            menu_allow = set(_normalize_menu_keys(access.menu_allow))
+            override_active = bool(menu_allow and (menu_allow != group_permissions))
             rows.append({
                 'access': access,
                 'user': access.user,
                 'nome_completo': display['nome_completo'],
                 'foto_url': display['foto_url'],
                 'group_ids': user_group_ids,
-                'menu_allow': set(_normalize_menu_keys(access.menu_allow)),
+                'menu_allow': menu_allow,
+                'override_active': override_active,
             })
         rows.sort(key=lambda row: (_profile_order_weight(row['access']), row['user'].username.lower()))
 
