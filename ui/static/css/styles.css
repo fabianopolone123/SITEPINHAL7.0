@@ -1014,30 +1014,38 @@ a.secondary {
   align-items: center;
   gap: 0.35rem;
   width: fit-content;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #bfdbfe;
-  background: rgba(30, 64, 175, 0.22);
-  border: 1px solid rgba(147, 197, 253, 0.3);
+  letter-spacing: 0.11em;
+  color: #dbeafe;
+  background: rgba(37, 99, 235, 0.22);
+  border: 1px solid rgba(147, 197, 253, 0.35);
   border-radius: 999px;
-  padding: 0.25rem 0.55rem;
+  padding: 0.2rem 0.55rem;
   margin-bottom: 0.35rem;
 }
 
 .painel-profile-value {
-  font-size: 0.93rem;
-  font-weight: 700;
-  color: #e2e8f0;
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(51, 65, 85, 0.92));
-  border: 1px solid rgba(147, 197, 253, 0.3);
-  border-left: 3px solid #60a5fa;
-  border-radius: 12px;
-  padding: 0.55rem 0.75rem;
-  line-height: 1.3;
+  position: relative;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: #f8fafc;
+  background:
+    linear-gradient(120deg, rgba(59, 130, 246, 0.22), rgba(14, 165, 233, 0.06)),
+    rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(147, 197, 253, 0.38);
+  border-left: 4px solid #38bdf8;
+  border-radius: 14px;
+  padding: 0.7rem 0.85rem;
+  line-height: 1.35;
   margin-bottom: 1rem;
-  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.2);
+  box-shadow:
+    inset 0 0 0 1px rgba(15, 23, 42, 0.2),
+    0 10px 20px rgba(2, 6, 23, 0.35);
+  text-transform: none;
+  word-break: break-word;
 }
 
 .painel-menu-title {
