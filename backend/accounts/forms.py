@@ -170,17 +170,8 @@ class AventureiroForm(forms.ModelForm):
                 self.add_error(field, message)
 
     def _validate_doc_requirements(self, cleaned):
-        certidao = cleaned.get('certidao')
-        rg = cleaned.get('rg')
-        cpf = cleaned.get('cpf')
-
-        has_rg = bool(rg)
-        has_certidao = bool(certidao)
-        has_cpf = bool(cpf)
-
-        if not (has_certidao or has_rg or has_cpf):
-            self.documentacao_error = True
-            raise forms.ValidationError('Informe pelo menos uma documentação válida: certidão, RG ou CPF.')
+        # Documentos do aventureiro são opcionais neste fluxo.
+        return
 
     def _validate_plano(self, cleaned):
         plano = cleaned.get('plano')

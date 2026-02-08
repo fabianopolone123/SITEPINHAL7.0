@@ -164,16 +164,6 @@ const validarAventuraAtual = () => {
     valid = false;
   }
 
-  const certidao = formData.get('certidao')?.trim();
-  const rg = formData.get('rg')?.trim();
-  const cpf = formData.get('cpf')?.trim();
-  const hasDoc = certidao || cpf || rg;
-  if (!hasDoc) {
-    ['certidao', 'rg', 'orgao', 'cpf'].forEach((name) => addFieldError(adventureForm.querySelector(`[name="${name}"]`)));
-    if (valid) setStatusError('Informe ao menos uma documentação válida.');
-    valid = false;
-  }
-
   if (!plano) {
     addFieldError(adventureForm.querySelector('[name="plano"]')?.closest('.radio-row'));
     if (valid) setStatusError('Informe se possui plano de saúde.');
