@@ -130,5 +130,14 @@ Arquivo oficial de registro das entregas concluidas.
   - combina perfis, grupos e overrides de menu,
   - inativa o login secundario e remove possibilidade de autenticar com ele.
 - Incluida validacao de seguranca para bloquear unificacao quando os dois logins ja possuem o mesmo tipo de cadastro (`Responsavel` com `Responsavel` ou `Diretoria` com `Diretoria`).
+
+## 08/02/2026 - CPF entre perfis: Responsavel x Diretoria
+
+- Ajustada validacao de CPF para permitir cadastro cruzado entre perfis (`Responsavel` e `Diretoria`) para a mesma pessoa.
+- No fluxo de inscricao (`novo_cadastro`), a checagem de duplicidade passou a usar escopo proprio:
+  - `cpf_aventureiro` valida apenas contra `Aventureiro`;
+  - `cpf_pai`, `cpf_mae` e `cpf_responsavel` validam apenas contra `Responsavel`.
+- No fluxo de diretoria (`novo_diretoria`), o CPF agora bloqueia apenas quando ja existe em `Diretoria`.
+- Mantida validacao de RG/certidao conforme regras anteriores.
 - Validacao backend do compromisso da diretoria atualizada para nao exigir `telefone_residencial`.
 - Removida tambem a obrigatoriedade de `telefone_comercial` no mesmo fluxo (HTML + validacao backend).

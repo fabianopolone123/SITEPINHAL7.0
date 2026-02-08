@@ -908,12 +908,28 @@ def _normalize_inscricao_docs(fields):
     return fields
 
 
-def _find_duplicate_document(field_name, normalized_value):
+def _find_duplicate_document(field_name, normalized_value, scope='global'):
     value = str(normalized_value or '').strip()
     if not value:
         return None
 
-    if field_name in {'cpf_aventureiro', 'cpf_pai', 'cpf_mae', 'cpf_responsavel'}:
+    if field_name in {'cpf_aventureiro', 'cpf_pai', 'cpf_mae', 'cpf_responsavel', 'cpf_diretoria'}:
+        if scope == 'inscricao':
+            if field_name == 'cpf_aventureiro' and Aventureiro.objects.filter(cpf=value).exists():
+                return 'CPF já cadastrado em aventureiro.'
+            if field_name in {'cpf_pai', 'cpf_mae', 'cpf_responsavel'}:
+                if Responsavel.objects.filter(pai_cpf=value).exists():
+                    return 'CPF já cadastrado como CPF do pai.'
+                if Responsavel.objects.filter(mae_cpf=value).exists():
+                    return 'CPF já cadastrado como CPF da mãe.'
+                if Responsavel.objects.filter(responsavel_cpf=value).exists():
+                    return 'CPF já cadastrado como CPF do responsável.'
+            return None
+        if scope == 'diretoria' or field_name == 'cpf_diretoria':
+            if Diretoria.objects.filter(cpf=value).exists():
+                return 'CPF já cadastrado em diretoria.'
+            return None
+
         if Aventureiro.objects.filter(cpf=value).exists():
             return 'CPF já cadastrado em aventureiro.'
         if Diretoria.objects.filter(cpf=value).exists():
@@ -1306,7 +1322,7 @@ class NovoCadastroInscricaoView(View):
         _apply_date_defaults(fields)
         duplicate_fields = ['cpf_aventureiro', 'cpf_pai', 'cpf_mae', 'cpf_responsavel', 'rg', 'certidao_nascimento']
         for field_name in duplicate_fields:
-            duplicate_message = _find_duplicate_document(field_name, fields.get(field_name))
+            duplicate_message = _find_duplicate_document(field_name, fields.get(field_name), scope='inscricao')
             if duplicate_message:
                 messages.error(request, duplicate_message)
                 initial = _date_parts_today()
@@ -1351,7 +1367,7 @@ class VerificarDocumentoView(View):
         else:
             return JsonResponse({'ok': False, 'error': 'Campo não suportado.'}, status=400)
 
-        duplicate_message = _find_duplicate_document(field, normalized)
+        duplicate_message = _find_duplicate_document(field, normalized, scope='inscricao')
         return JsonResponse({
             'ok': True,
             'field': field,
@@ -1828,7 +1844,7 @@ class NovoCadastroDiretoriaCompromissoView(View):
             messages.error(request, 'Preencha todos os campos obrigatórios do compromisso.')
             return render(request, self.template_name, {'step_data': fields})
 
-        cpf_duplicate = _find_duplicate_document('cpf_aventureiro', fields.get('cpf'))
+        cpf_duplicate = _find_duplicate_document('cpf_diretoria', fields.get('cpf'), scope='diretoria')
         if cpf_duplicate:
             messages.error(request, cpf_duplicate)
             return render(request, self.template_name, {'step_data': fields})
@@ -3606,6 +3622,4 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
             messages.success(request, 'Permiss�es atualizadas com sucesso.')
             return redirect('accounts:usuarios')
         return render(request, self.template_name, self._base_context(request, target_user, form))
-
-
 
