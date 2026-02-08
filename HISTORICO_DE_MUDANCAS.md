@@ -141,5 +141,14 @@ Arquivo oficial de registro das entregas concluidas.
 - Mantida validacao de RG/certidao conforme regras anteriores.
 - Tela de `Presenca` atualizada com miniatura da foto do aventureiro em cada linha para identificacao rapida, com fallback visual `Sem foto` quando nao houver imagem.
 - Ajustado fallback da miniatura em `Presenca`: quando `av.foto` nao existir, usa `inscricao_data.foto_3x4` da ficha completa (data URL), corrigindo casos em que a foto nao aparecia na lista.
+
+## 08/02/2026 - Fluxo adicionar aventureiro (responsavel logado)
+
+- Corrigido bloqueio indevido de CPF no fluxo `Adicionar aventureiro` para responsavel ja cadastrado:
+  - nesse fluxo, nao bloqueia mais `cpf_pai`, `cpf_mae` e `cpf_responsavel` por duplicidade.
+- Mantida validacao de duplicidade para `cpf_aventureiro`, `rg` e `certidao_nascimento`.
+- Ajustado pre-preenchimento da ficha de inscricao:
+  - quando abrir `Adicionar aventureiro` sem dados temporarios, a tela agora puxa automaticamente os dados do responsavel ja existente (pai/mae/responsavel e contatos).
+- Ajustada API de verificacao em tempo real de documentos para respeitar essa mesma regra no fluxo de responsavel existente.
 - Validacao backend do compromisso da diretoria atualizada para nao exigir `telefone_residencial`.
 - Removida tambem a obrigatoriedade de `telefone_comercial` no mesmo fluxo (HTML + validacao backend).

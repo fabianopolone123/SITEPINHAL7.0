@@ -1052,6 +1052,29 @@ def _inscricao_parent_fields_from_last_aventureiro(data):
     return {key: inscricao.get(key, '') for key in keys}
 
 
+def _inscricao_parent_fields_from_responsavel(responsavel):
+    if not responsavel:
+        return {}
+    return {
+        'nome_pai': responsavel.pai_nome or '',
+        'email_pai': responsavel.pai_email or '',
+        'cpf_pai': responsavel.pai_cpf or '',
+        'tel_pai': responsavel.pai_telefone or '',
+        'cel_pai': responsavel.pai_celular or '',
+        'nome_mae': responsavel.mae_nome or '',
+        'email_mae': responsavel.mae_email or '',
+        'cpf_mae': responsavel.mae_cpf or '',
+        'tel_mae': responsavel.mae_telefone or '',
+        'cel_mae': responsavel.mae_celular or '',
+        'nome_responsavel': responsavel.responsavel_nome or '',
+        'parentesco': responsavel.responsavel_parentesco or '',
+        'cpf_responsavel': responsavel.responsavel_cpf or '',
+        'email_responsavel': responsavel.responsavel_email or '',
+        'tel_responsavel': responsavel.responsavel_telefone or '',
+        'cel_responsavel': responsavel.responsavel_celular or '',
+    }
+
+
 class RegisterView(View):
     template_name = 'register.html'
 
@@ -1305,6 +1328,16 @@ class NovoCadastroInscricaoView(View):
         step_data = current.get('inscricao') or {}
         if not step_data:
             step_data = _inscricao_parent_fields_from_last_aventureiro(data)
+        if not step_data and data.get('existing_responsavel_id'):
+            responsavel = (
+                Responsavel.objects
+                .filter(
+                    pk=data.get('existing_responsavel_id'),
+                    user_id=data.get('existing_user_id'),
+                )
+                .first()
+            )
+            step_data = _inscricao_parent_fields_from_responsavel(responsavel)
         initial = _date_parts_today()
         initial.update(step_data)
         return render(request, self.template_name, {
@@ -1320,7 +1353,10 @@ class NovoCadastroInscricaoView(View):
         fields = _extract_fields(request.POST, self.field_names)
         _normalize_inscricao_docs(fields)
         _apply_date_defaults(fields)
-        duplicate_fields = ['cpf_aventureiro', 'cpf_pai', 'cpf_mae', 'cpf_responsavel', 'rg', 'certidao_nascimento']
+        is_existing_responsavel_flow = bool(data.get('existing_responsavel_id'))
+        duplicate_fields = ['cpf_aventureiro', 'rg', 'certidao_nascimento']
+        if not is_existing_responsavel_flow:
+            duplicate_fields.extend(['cpf_pai', 'cpf_mae', 'cpf_responsavel'])
         for field_name in duplicate_fields:
             duplicate_message = _find_duplicate_document(field_name, fields.get(field_name), scope='inscricao')
             if duplicate_message:
@@ -1360,6 +1396,9 @@ class VerificarDocumentoView(View):
         if not field:
             return JsonResponse({'ok': False, 'error': 'Campo inválido.'}, status=400)
 
+        data = _new_flow_data(request.session)
+        is_existing_responsavel_flow = bool(data.get('existing_responsavel_id'))
+
         if field in {'cpf_aventureiro', 'cpf_pai', 'cpf_mae', 'cpf_responsavel'}:
             normalized = _normalize_cpf(value)
         elif field in {'rg', 'certidao_nascimento'}:
@@ -1367,7 +1406,12 @@ class VerificarDocumentoView(View):
         else:
             return JsonResponse({'ok': False, 'error': 'Campo não suportado.'}, status=400)
 
-        duplicate_message = _find_duplicate_document(field, normalized, scope='inscricao')
+        duplicate_message = ''
+        if not (
+            is_existing_responsavel_flow
+            and field in {'cpf_pai', 'cpf_mae', 'cpf_responsavel'}
+        ):
+            duplicate_message = _find_duplicate_document(field, normalized, scope='inscricao')
         return JsonResponse({
             'ok': True,
             'field': field,
