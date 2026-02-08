@@ -102,3 +102,15 @@ Arquivo oficial de registro das entregas concluidas.
 - Criada rota de atalho `meus-dados/responsavel/adicionar-aventureiro/` para abrir o fluxo normal de cadastro de aventureiro a partir do perfil do responsavel.
 - Fluxo novo ajustado para reutilizar usuario/responsavel ja autenticado quando iniciado por esse atalho, evitando criar conta duplicada ao finalizar.
 - Finalizacao desse caminho agora retorna para `Meus dados` com mensagem de sucesso.
+
+## 08/02/2026 - Recuperacao de senha por CPF + WhatsApp
+
+- Adicionado link `Recuperar senha` na tela inicial de login.
+- Implementada rota `recuperar-senha/` com fluxo em etapas:
+  - consulta por CPF,
+  - exibicao do username encontrado,
+  - envio de codigo numerico de 4 digitos para o WhatsApp cadastrado,
+  - validacao do codigo,
+  - redefinicao da senha com confirmacao em dois campos.
+- Incluida protecao basica no fluxo: expiracao do codigo em 10 minutos e limite de tentativas invalidas antes de exigir novo envio.
+- Criado template dedicado `ui/templates/password_recovery.html`.

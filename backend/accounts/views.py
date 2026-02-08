@@ -1,7 +1,8 @@
-﻿import copy
+import copy
 import json
 import os
 import re
+from random import randint
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -722,6 +723,7 @@ def _enqueue_pending_aventure(session, cleaned_data):
 
 NEW_FLOW_SESSION_KEY = 'novo_cadastro_aventureiro'
 NEW_DIRETORIA_FLOW_SESSION_KEY = 'novo_cadastro_diretoria'
+PASSWORD_RECOVERY_SESSION_KEY = 'password_recovery'
 
 
 def _new_flow_data(session):
@@ -754,6 +756,21 @@ def _set_new_diretoria_flow_data(session, data):
 def _clear_new_diretoria_flow(session):
     if NEW_DIRETORIA_FLOW_SESSION_KEY in session:
         del session[NEW_DIRETORIA_FLOW_SESSION_KEY]
+        session.modified = True
+
+
+def _password_recovery_data(session):
+    return session.get(PASSWORD_RECOVERY_SESSION_KEY, {})
+
+
+def _set_password_recovery_data(session, data):
+    session[PASSWORD_RECOVERY_SESSION_KEY] = data
+    session.modified = True
+
+
+def _clear_password_recovery(session):
+    if PASSWORD_RECOVERY_SESSION_KEY in session:
+        del session[PASSWORD_RECOVERY_SESSION_KEY]
         session.modified = True
 
 
@@ -928,6 +945,202 @@ class RegisterView(View):
 
     def get(self, request):
         return render(request, self.template_name)
+
+
+class PasswordRecoveryView(View):
+    template_name = 'password_recovery.html'
+    code_ttl_minutes = 10
+    max_attempts = 5
+
+    def _mask_phone(self, phone):
+        digits = ''.join(ch for ch in str(phone or '') if ch.isdigit())
+        if len(digits) < 4:
+            return '***'
+        return f'***{digits[-4:]}'
+
+    def _find_user_by_cpf(self, cpf_digits):
+        if not cpf_digits:
+            return None
+        responsavel = Responsavel.objects.select_related('user').filter(responsavel_cpf=cpf_digits).first()
+        if responsavel and responsavel.user:
+            return responsavel.user
+        for item in Responsavel.objects.select_related('user').exclude(responsavel_cpf=''):
+            if _normalize_cpf(item.responsavel_cpf) == cpf_digits:
+                return item.user
+        diretoria = Diretoria.objects.select_related('user').filter(cpf=cpf_digits).first()
+        if diretoria and diretoria.user:
+            return diretoria.user
+        for item in Diretoria.objects.select_related('user').exclude(cpf=''):
+            if _normalize_cpf(item.cpf) == cpf_digits:
+                return item.user
+        return None
+
+    def _context(self, recovery_data):
+        stage = recovery_data.get('stage') or 'lookup'
+        return {
+            'stage': stage,
+            'cpf': recovery_data.get('cpf', ''),
+            'username': recovery_data.get('username', ''),
+            'phone_masked': recovery_data.get('phone_masked', ''),
+            'code_sent': bool(recovery_data.get('code_sent')),
+        }
+
+    def get(self, request):
+        recovery_data = _password_recovery_data(request.session)
+        if not recovery_data:
+            recovery_data = {'stage': 'lookup'}
+            _set_password_recovery_data(request.session, recovery_data)
+        return render(request, self.template_name, self._context(recovery_data))
+
+    def post(self, request):
+        action = (request.POST.get('action') or '').strip()
+        recovery_data = _password_recovery_data(request.session)
+        if not recovery_data:
+            recovery_data = {'stage': 'lookup'}
+
+        if action == 'lookup_cpf':
+            cpf_digits = _normalize_cpf(request.POST.get('cpf'))
+            user = self._find_user_by_cpf(cpf_digits)
+            if not user:
+                messages.error(request, 'CPF não encontrado.')
+                recovery_data = {'stage': 'lookup', 'cpf': cpf_digits}
+                _set_password_recovery_data(request.session, recovery_data)
+                return render(request, self.template_name, self._context(recovery_data))
+            phone_number = normalize_phone_number(resolve_user_phone(user))
+            if not phone_number:
+                messages.error(request, 'Não foi encontrado WhatsApp válido para este cadastro.')
+                recovery_data = {'stage': 'lookup', 'cpf': cpf_digits}
+                _set_password_recovery_data(request.session, recovery_data)
+                return render(request, self.template_name, self._context(recovery_data))
+
+            recovery_data = {
+                'stage': 'confirm_send',
+                'cpf': cpf_digits,
+                'user_id': user.id,
+                'username': user.username,
+                'phone': phone_number,
+                'phone_masked': self._mask_phone(phone_number),
+                'attempts': 0,
+                'verified': False,
+            }
+            _set_password_recovery_data(request.session, recovery_data)
+            return render(request, self.template_name, self._context(recovery_data))
+
+        if action == 'send_code':
+            user_id = recovery_data.get('user_id')
+            phone_number = recovery_data.get('phone')
+            if not user_id or not phone_number:
+                messages.error(request, 'Fluxo de recuperação inválido. Informe o CPF novamente.')
+                _clear_password_recovery(request.session)
+                return redirect('accounts:password_recovery')
+            user = User.objects.filter(pk=user_id).first()
+            if not user:
+                messages.error(request, 'Usuário não encontrado. Informe o CPF novamente.')
+                _clear_password_recovery(request.session)
+                return redirect('accounts:password_recovery')
+
+            code = str(randint(1000, 9999))
+            message_text = (
+                'Pinhal Junior - Recuperacao de senha\n'
+                f'Usuario: {user.username}\n'
+                f'Codigo: {code}\n'
+                f'Valido por {self.code_ttl_minutes} minutos.'
+            )
+            success, _provider_id, error_message = send_wapi_text(phone_number, message_text)
+            if not success:
+                messages.error(request, f'Falha ao enviar código por WhatsApp: {error_message}')
+                recovery_data['stage'] = 'confirm_send'
+                _set_password_recovery_data(request.session, recovery_data)
+                return render(request, self.template_name, self._context(recovery_data))
+
+            expires_at = timezone.localtime(timezone.now() + timedelta(minutes=self.code_ttl_minutes)).isoformat()
+            recovery_data.update({
+                'stage': 'verify_code',
+                'code': code,
+                'expires_at': expires_at,
+                'code_sent': True,
+                'attempts': 0,
+                'verified': False,
+            })
+            _set_password_recovery_data(request.session, recovery_data)
+            messages.success(request, 'Código enviado no WhatsApp cadastrado.')
+            return render(request, self.template_name, self._context(recovery_data))
+
+        if action == 'verify_code':
+            typed_code = ''.join(ch for ch in str(request.POST.get('code') or '') if ch.isdigit())[:4]
+            expected_code = str(recovery_data.get('code') or '')
+            expires_at_raw = str(recovery_data.get('expires_at') or '')
+            if not expected_code or not expires_at_raw:
+                messages.error(request, 'Código não gerado. Solicite um novo envio.')
+                recovery_data['stage'] = 'confirm_send'
+                _set_password_recovery_data(request.session, recovery_data)
+                return render(request, self.template_name, self._context(recovery_data))
+            try:
+                expires_at = datetime.fromisoformat(expires_at_raw)
+            except ValueError:
+                expires_at = timezone.localtime(timezone.now()) - timedelta(seconds=1)
+            now = timezone.localtime(timezone.now())
+            if now > expires_at:
+                messages.error(request, 'Código expirado. Clique em recuperar para gerar novo código.')
+                recovery_data['stage'] = 'confirm_send'
+                recovery_data['code_sent'] = False
+                recovery_data['verified'] = False
+                recovery_data.pop('code', None)
+                recovery_data.pop('expires_at', None)
+                _set_password_recovery_data(request.session, recovery_data)
+                return render(request, self.template_name, self._context(recovery_data))
+            if typed_code != expected_code:
+                attempts = int(recovery_data.get('attempts') or 0) + 1
+                recovery_data['attempts'] = attempts
+                if attempts >= self.max_attempts:
+                    messages.error(request, 'Muitas tentativas inválidas. Solicite um novo código.')
+                    recovery_data['stage'] = 'confirm_send'
+                    recovery_data['code_sent'] = False
+                    recovery_data['verified'] = False
+                    recovery_data.pop('code', None)
+                    recovery_data.pop('expires_at', None)
+                else:
+                    messages.error(request, f'Código inválido. Tentativas restantes: {self.max_attempts - attempts}.')
+                    recovery_data['stage'] = 'verify_code'
+                _set_password_recovery_data(request.session, recovery_data)
+                return render(request, self.template_name, self._context(recovery_data))
+
+            recovery_data['stage'] = 'reset_password'
+            recovery_data['verified'] = True
+            _set_password_recovery_data(request.session, recovery_data)
+            messages.success(request, 'Código validado. Defina sua nova senha.')
+            return render(request, self.template_name, self._context(recovery_data))
+
+        if action == 'reset_password':
+            if not recovery_data.get('verified'):
+                messages.error(request, 'Valide o código antes de redefinir a senha.')
+                recovery_data['stage'] = 'verify_code'
+                _set_password_recovery_data(request.session, recovery_data)
+                return render(request, self.template_name, self._context(recovery_data))
+            password = str(request.POST.get('password') or '')
+            password_confirm = str(request.POST.get('password_confirm') or '')
+            if len(password) < 6:
+                messages.error(request, 'A senha precisa ter pelo menos 6 caracteres.')
+                recovery_data['stage'] = 'reset_password'
+                _set_password_recovery_data(request.session, recovery_data)
+                return render(request, self.template_name, self._context(recovery_data))
+            if password != password_confirm:
+                messages.error(request, 'As senhas não conferem.')
+                recovery_data['stage'] = 'reset_password'
+                _set_password_recovery_data(request.session, recovery_data)
+                return render(request, self.template_name, self._context(recovery_data))
+            user = User.objects.filter(pk=recovery_data.get('user_id')).first()
+            if not user:
+                messages.error(request, 'Usuário não encontrado.')
+                _clear_password_recovery(request.session)
+                return redirect('accounts:password_recovery')
+            user.set_password(password)
+            user.save(update_fields=['password'])
+            _clear_password_recovery(request.session)
+            messages.success(request, 'Senha redefinida com sucesso. Faça login com a nova senha.')
+            return redirect('accounts:login')
+
+        return render(request, self.template_name, self._context(recovery_data))
 
 
 class NovoCadastroLoginView(View):

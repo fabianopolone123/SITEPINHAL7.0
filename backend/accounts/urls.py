@@ -4,6 +4,7 @@ from django.contrib.auth.views import LoginView
 
 from .views import (
     RegisterView,
+    PasswordRecoveryView,
     NovoCadastroLoginView,
     NovoCadastroInscricaoView,
     VerificarDocumentoView,
@@ -51,6 +52,7 @@ urlpatterns = [
     # Página inicial -> login
     path('', RedirectView.as_view(pattern_name='accounts:login', permanent=False)),
     path('register/', RegisterView.as_view(), name='register'),
+    path('recuperar-senha/', PasswordRecoveryView.as_view(), name='password_recovery'),
     path('novo-cadastro/login/', NovoCadastroLoginView.as_view(), name='novo_cadastro_login'),
     path('novo-cadastro/verificar-documento/', VerificarDocumentoView.as_view(), name='novo_cadastro_verificar_documento'),
     path('novo-cadastro/inscricao/', NovoCadastroInscricaoView.as_view(), name='novo_cadastro_inscricao'),
