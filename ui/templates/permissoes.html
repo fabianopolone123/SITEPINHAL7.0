@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Permissoes - Controle de acessos</title>
+  <title>Permissões - Controle de acessos</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
   <style>
     .row-locked {
@@ -51,8 +51,8 @@
   {% include '_painel_sidebar.html' %}
   <main class="painel-content">
     <header class="painel-header">
-      <h2>Permissoes</h2>
-      <p>Controle quem entra em cada menu por grupo e por usuario.</p>
+      <h2>Permissões</h2>
+      <p>Controle quem entra em cada menu por grupo e por usuário.</p>
     </header>
 
     <section class="painel-card">
@@ -68,27 +68,27 @@
     <section class="painel-card">
       <h3>Como funciona</h3>
       <p class="panel-note"><strong>1)</strong> Configure os menus por grupo.</p>
-      <p class="panel-note"><strong>2)</strong> Vincule os usuarios aos grupos.</p>
-      <p class="panel-note"><strong>3)</strong> Use excecao por usuario so quando precisar.</p>
-      <p class="panel-note"><strong>Regra de prioridade:</strong> se um usuario tiver excecao individual marcada, ela prevalece sobre o grupo e a linha de grupos fica bloqueada para evitar conflito.</p>
+      <p class="panel-note"><strong>2)</strong> Vincule os usuários aos grupos.</p>
+      <p class="panel-note"><strong>3)</strong> Use exceção por usuário só quando precisar.</p>
+      <p class="panel-note"><strong>Regra de prioridade:</strong> se um usuário tiver exceção individual marcada, ela prevalece sobre o grupo e a linha de grupos fica bloqueada para evitar conflito.</p>
     </section>
 
     <section class="painel-card">
       <h3>Criar grupo</h3>
-      <p class="panel-note">Exemplo: codigo <code>secretario</code> e nome <code>Secretario</code>.</p>
+      <p class="panel-note">Exemplo: código <code>secretario</code> e nome <code>Secretário</code>.</p>
       <form method="post" class="action-row">
         {% csrf_token %}
         <input type="hidden" name="action" value="create_group" />
-        <input type="text" name="group_code" placeholder="Codigo do grupo (ex: secretario)" />
+        <input type="text" name="group_code" placeholder="Código do grupo (ex: secretario)" />
         <input type="text" name="group_name" placeholder="Nome exibido do grupo" />
         <button type="submit" class="primary">Criar grupo</button>
       </form>
-      <p class="panel-note">Grupos padrao: Diretor, Responsavel, Professor.</p>
+      <p class="panel-note">Grupos padrão: Diretor, Responsável, Professor.</p>
     </section>
 
     <section class="painel-card">
       <h3>Menus liberados por grupo</h3>
-      <p class="panel-note">Marcado = grupo enxerga o botao no menu lateral.</p>
+      <p class="panel-note">Marcado = grupo enxerga o botão no menu lateral.</p>
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="save_group_menus" />
@@ -139,19 +139,19 @@
     </section>
 
     <section class="painel-card">
-      <h3>Usuarios por grupo</h3>
-      <p class="panel-note">Se o usuario tiver excecao individual marcada no bloco abaixo, esta linha fica bloqueada.</p>
+      <h3>Usuários por grupo</h3>
+      <p class="panel-note">Se o usuário tiver exceção individual marcada no bloco abaixo, esta linha fica bloqueada.</p>
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="save_memberships" />
         <div class="table-search">
-          <input id="search-memberships" type="search" placeholder="Pesquisar usuario..." aria-label="Pesquisar usuario em usuarios por grupo" />
+          <input id="search-memberships" type="search" placeholder="Pesquisar usuário..." aria-label="Pesquisar usuário em usuários por grupo" />
         </div>
         <div class="table-scroll table-scroll-fixed">
           <table class="users-table">
             <thead>
               <tr>
-                <th>Usuario</th>
+                <th>Usuário</th>
                 {% for group in groups %}
                   <th>{{ group.name }}</th>
                 {% endfor %}
@@ -164,7 +164,7 @@
                     <strong>{{ item.user.username }}</strong><br />
                     <small>{{ item.nome_completo }}</small>
                     <br />
-                    <small class="badge-lock is-hidden" data-membership-badge="{{ item.user.pk }}">Bloqueado por excecao individual</small>
+                    <small class="badge-lock is-hidden" data-membership-badge="{{ item.user.pk }}">Bloqueado por exceção individual</small>
                   </td>
                   {% for group in groups %}
                     <td>
@@ -175,31 +175,31 @@
                   {% endfor %}
                 </tr>
               {% empty %}
-                <tr><td colspan="20">Nenhum usuario encontrado.</td></tr>
+                <tr><td colspan="20">Nenhum usuário encontrado.</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
         <div class="action-row">
-          <button type="submit" class="primary">Salvar vinculos de grupo</button>
+          <button type="submit" class="primary">Salvar vínculos de grupo</button>
         </div>
       </form>
     </section>
 
     <section class="painel-card">
-      <h3>Excecao por usuario (sobrescreve grupo)</h3>
-      <p class="panel-note">Marcou qualquer menu aqui, a linha de grupo desse usuario fica travada para evitar alteracao contraditoria.</p>
+      <h3>Exceção por usuário (sobrescreve grupo)</h3>
+      <p class="panel-note">Marcou qualquer menu aqui, a linha de grupo desse usuário fica travada para evitar alteração contraditória.</p>
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="save_user_overrides" />
         <div class="table-search">
-          <input id="search-overrides" type="search" placeholder="Pesquisar usuario..." aria-label="Pesquisar usuario em excecao por usuario" />
+          <input id="search-overrides" type="search" placeholder="Pesquisar usuário..." aria-label="Pesquisar usuário em exceção por usuário" />
         </div>
         <div class="table-scroll table-scroll-fixed">
           <table class="users-table">
             <thead>
               <tr>
-                <th>Usuario</th>
+                <th>Usuário</th>
                 {% for key, label in menu_items %}
                   <th>{{ label }}</th>
                 {% endfor %}
@@ -221,13 +221,13 @@
                   {% endfor %}
                 </tr>
               {% empty %}
-                <tr><td colspan="20">Nenhum usuario encontrado.</td></tr>
+                <tr><td colspan="20">Nenhum usuário encontrado.</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
         <div class="action-row">
-          <button type="submit" class="primary">Salvar excecoes por usuario</button>
+          <button type="submit" class="primary">Salvar exceções por usuário</button>
         </div>
       </form>
     </section>

@@ -17,13 +17,13 @@
 
   <nav class="painel-menu" aria-label="Menu principal">
     <ul>
-      {% if 'inicio' in menu_permissions %}<li><a href="{% url 'accounts:painel' %}">Inicio</a></li>{% endif %}
+      {% if 'inicio' in menu_permissions %}<li><a href="{% url 'accounts:painel' %}">Início</a></li>{% endif %}
       {% if 'meus_dados' in menu_permissions %}<li><a href="{% url 'accounts:meus_dados' %}">Meus dados</a></li>{% endif %}
       {% if 'aventureiros' in menu_permissions %}<li><a href="{% url 'accounts:aventureiros_gerais' %}">Aventureiros</a></li>{% endif %}
-      {% if 'usuarios' in menu_permissions %}<li><a href="{% url 'accounts:usuarios' %}">Usuarios</a></li>{% endif %}
+      {% if 'usuarios' in menu_permissions %}<li><a href="{% url 'accounts:usuarios' %}">Usuários</a></li>{% endif %}
       {% if 'whatsapp' in menu_permissions %}<li><a href="{% url 'accounts:whatsapp' %}">WhatsApp</a></li>{% endif %}
-      {% if 'documentos_inscricao' in menu_permissions %}<li><a href="{% url 'accounts:documentos_inscricao' %}">Documentos inscricao</a></li>{% endif %}
-      {% if 'permissoes' in menu_permissions %}<li><a href="{% url 'accounts:permissoes' %}">Permissoes</a></li>{% endif %}
+      {% if 'documentos_inscricao' in menu_permissions %}<li><a href="{% url 'accounts:documentos_inscricao' %}">Documentos inscrição</a></li>{% endif %}
+      {% if 'permissoes' in menu_permissions %}<li><a href="{% url 'accounts:permissoes' %}">Permissões</a></li>{% endif %}
       <li><a href="{% url 'accounts:logout' %}">Sair</a></li>
     </ul>
   </nav>
