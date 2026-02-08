@@ -219,7 +219,7 @@
               {% endfor %}
             </select>
           </label>
-          <label>
+          <label id="preset-name-label" hidden>
             Nome para salvar esta configuração
             <input type="text" name="preset_name" id="preset-name" placeholder="Ex.: Reunião padrão do clube" />
           </label>
@@ -289,6 +289,8 @@
       const saveEventBtn = document.getElementById('save-event-btn');
       const savePresetBtn = document.getElementById('save-preset-btn');
       const presetSelect = document.getElementById('preset-select');
+      const presetNameLabel = document.getElementById('preset-name-label');
+      const presetNameInput = document.getElementById('preset-name');
       const presetsNode = document.getElementById('event-presets-data');
       const parsePresetsData = () => {
         if (!presetsNode) return [];
@@ -314,6 +316,22 @@
       const closeModal = () => {
         modal.classList.remove('show');
         modal.setAttribute('aria-hidden', 'true');
+      };
+
+      const showPresetNameField = () => {
+        if (presetNameLabel) presetNameLabel.hidden = false;
+        if (presetNameInput) {
+          presetNameInput.required = true;
+          presetNameInput.focus();
+        }
+      };
+
+      const hidePresetNameField = () => {
+        if (presetNameLabel) presetNameLabel.hidden = true;
+        if (presetNameInput) {
+          presetNameInput.required = false;
+          presetNameInput.value = '';
+        }
       };
 
       const createFieldRow = (nameValue, typeValue) => {
@@ -399,17 +417,23 @@
       if (saveEventBtn) {
         saveEventBtn.addEventListener('click', () => {
           actionInput.value = 'create_event';
+          hidePresetNameField();
         });
       }
 
       if (savePresetBtn) {
         savePresetBtn.addEventListener('click', () => {
+          if (presetNameLabel && presetNameLabel.hidden) {
+            showPresetNameField();
+            return;
+          }
           actionInput.value = 'save_preset';
           form.requestSubmit();
         });
       }
 
       clearFieldsToDefault();
+      hidePresetNameField();
 
       const deleteButtons = document.querySelectorAll('.js-confirm-delete-event');
       deleteButtons.forEach((button) => {

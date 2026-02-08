@@ -67,3 +67,9 @@ Arquivo oficial de registro das entregas concluidas.
 - Ajustado `presets_json` no backend para envio em formato estruturado (sem dupla serializacao).
 - Adicionado parse defensivo no JavaScript de `ui/templates/eventos.html` para garantir leitura dos presets.
 - Documento `ARQUITETURA_DE_PASTAS.md` alinhado ao estado real: inclusao de `backend/accounts/migrations/` e `backend/accounts/management/commands/`, e remocao da referencia a `asgi`.
+
+## 08/02/2026 - Eventos: exibicao condicional de nome da pre-configuracao
+
+- Tela `Eventos` ajustada para mostrar o campo "Nome para salvar esta configuracao" apenas ao clicar em `Salvar pre-configuracao`.
+- Botao `Salvar pre-configuracao` passou a funcionar em duas etapas: primeiro revela o campo com foco; no segundo clique envia o formulario.
+- Ao clicar em `Salvar evento`, o campo de nome da pre-configuracao e ocultado novamente.
