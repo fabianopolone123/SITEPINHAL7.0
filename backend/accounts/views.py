@@ -33,6 +33,7 @@ from .models import (
     DiretoriaFicha,
     AccessGroup,
     DocumentoInscricaoGerado,
+    Evento,
 )
 from .utils import decode_signature, decode_photo
 from .whatsapp import (
@@ -55,6 +56,7 @@ MENU_ITEMS = [
     ('inicio', 'Início'),
     ('meus_dados', 'Meus dados'),
     ('aventureiros', 'Aventureiros'),
+    ('eventos', 'Eventos'),
     ('usuarios', 'Usuários'),
     ('whatsapp', 'WhatsApp'),
     ('documentos_inscricao', 'Documentos inscrição'),
@@ -107,7 +109,7 @@ def _effective_menu_permissions(user):
     if access.role:
         profiles.add(access.role)
     if UserAccess.ROLE_DIRETOR in profiles:
-        allowed.update({'aventureiros', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes'})
+        allowed.update({'aventureiros', 'eventos', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes'})
     for group in user.access_groups.all():
         allowed.update(_normalize_menu_keys(group.menu_permissions))
     return sorted(allowed)
@@ -168,7 +170,7 @@ def _user_display_data(user):
 
 def _ensure_default_access_groups():
     defaults = [
-        ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes']),
+        ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('responsavel', 'Responsavel', ['inicio', 'meus_dados']),
         ('professor', 'Professor', ['inicio', 'meus_dados']),
     ]
@@ -177,8 +179,11 @@ def _ensure_default_access_groups():
             code=code,
             defaults={'name': name, 'menu_permissions': menus},
         )
-        if not group.menu_permissions:
-            group.menu_permissions = menus
+        current = set(_normalize_menu_keys(group.menu_permissions))
+        required = set(_normalize_menu_keys(menus))
+        merged = sorted(current | required)
+        if group.menu_permissions != merged:
+            group.menu_permissions = merged
             group.save(update_fields=['menu_permissions', 'updated_at'])
 
 
@@ -2148,6 +2153,73 @@ class AventureiroGeralDetalheView(LoginRequiredMixin, View):
         }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
+
+
+class EventosView(LoginRequiredMixin, View):
+    template_name = 'eventos.html'
+
+    def _guard(self, request):
+        if not _has_menu_permission(request.user, 'eventos'):
+            messages.error(request, 'Seu perfil não possui permissão para acessar eventos.')
+            return redirect('accounts:painel')
+        return None
+
+    def _context(self, request):
+        context = {
+            'eventos': Evento.objects.select_related('created_by').all(),
+        }
+        context.update(_sidebar_context(request))
+        return context
+
+    def get(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+        return render(request, self.template_name, self._context(request))
+
+    def post(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+
+        action = (request.POST.get('action') or '').strip()
+        if action == 'create_event':
+            name = (request.POST.get('name') or '').strip()
+            event_type = (request.POST.get('event_type') or '').strip()
+            labels = request.POST.getlist('field_label[]')
+            values = request.POST.getlist('field_value[]')
+            fields_data = []
+            for index, label in enumerate(labels):
+                current_label = (label or '').strip()
+                current_value = (values[index] if index < len(values) else '').strip()
+                if not (current_label or current_value):
+                    continue
+                if not current_label:
+                    messages.error(request, 'Preencha o nome de todos os campos adicionados.')
+                    return render(request, self.template_name, self._context(request))
+                fields_data.append({'label': current_label, 'value': current_value})
+
+            if not name:
+                messages.error(request, 'Informe o nome do evento.')
+            else:
+                Evento.objects.create(
+                    name=name,
+                    event_type=event_type,
+                    fields_data=fields_data,
+                    created_by=request.user,
+                )
+                messages.success(request, 'Evento cadastrado com sucesso.')
+
+        elif action == 'delete_event':
+            event_id = request.POST.get('event_id')
+            evento = Evento.objects.filter(pk=event_id).first()
+            if not evento:
+                messages.error(request, 'Evento não encontrado.')
+            else:
+                evento.delete()
+                messages.success(request, 'Evento removido com sucesso.')
+
+        return render(request, self.template_name, self._context(request))
 
 
 class UsuariosView(LoginRequiredMixin, View):

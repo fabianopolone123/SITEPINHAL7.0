@@ -387,3 +387,26 @@ class DocumentoInscricaoGerado(models.Model):
 
     def __str__(self):
         return f'{self.get_doc_type_display()} - {self.aventureiro.nome}'
+
+
+class Evento(models.Model):
+    name = models.CharField('nome do evento', max_length=255)
+    event_type = models.CharField('tipo do evento', max_length=128, blank=True)
+    fields_data = models.JSONField('campos do evento', default=list, blank=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='eventos_criados',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        verbose_name = 'evento'
+        verbose_name_plural = 'eventos'
+
+    def __str__(self):
+        return self.name
