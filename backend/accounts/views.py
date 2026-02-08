@@ -2186,18 +2186,29 @@ class EventosView(LoginRequiredMixin, View):
         if action == 'create_event':
             name = (request.POST.get('name') or '').strip()
             event_type = (request.POST.get('event_type') or '').strip()
-            labels = request.POST.getlist('field_label[]')
+            # New UI sends field_name[] + field_type[] (schema of event fields).
+            # Keep backward compatibility with old payload field_label[].
+            labels = request.POST.getlist('field_name[]') or request.POST.getlist('field_label[]')
+            field_types = request.POST.getlist('field_type[]')
             values = request.POST.getlist('field_value[]')
             fields_data = []
+            allowed_types = {'texto', 'data', 'hora', 'numero', 'booleano'}
             for index, label in enumerate(labels):
                 current_label = (label or '').strip()
+                current_type = (field_types[index] if index < len(field_types) else 'texto').strip().lower() or 'texto'
                 current_value = (values[index] if index < len(values) else '').strip()
                 if not (current_label or current_value):
                     continue
                 if not current_label:
                     messages.error(request, 'Preencha o nome de todos os campos adicionados.')
                     return render(request, self.template_name, self._context(request))
-                fields_data.append({'label': current_label, 'value': current_value})
+                if current_type not in allowed_types:
+                    messages.error(request, f'Tipo de campo inválido: {current_type}.')
+                    return render(request, self.template_name, self._context(request))
+                fields_data.append({
+                    'name': current_label,
+                    'type': current_type,
+                })
 
             if not name:
                 messages.error(request, 'Informe o nome do evento.')

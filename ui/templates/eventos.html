@@ -7,6 +7,12 @@
   <title>Eventos</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
   <style>
+    .event-top-actions {
+      margin-top: 0.85rem;
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
     .event-fields {
       display: grid;
       gap: 0.6rem;
@@ -14,7 +20,7 @@
     }
     .event-field-row {
       display: grid;
-      grid-template-columns: minmax(140px, 220px) minmax(200px, 1fr) auto;
+      grid-template-columns: minmax(180px, 1fr) minmax(120px, 180px) auto;
       gap: 0.55rem;
       align-items: center;
     }
@@ -46,8 +52,28 @@
       display: grid;
       gap: 0.35rem;
     }
-    .event-fields-list li strong {
-      color: #0f172a;
+    .event-field-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.2rem 0.55rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      background: #f8fafc;
+      width: fit-content;
+      font-size: 0.86rem;
+    }
+    .event-field-type {
+      color: #1d4ed8;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.03em;
+    }
+    .event-modal .modal-content {
+      width: min(860px, 96vw);
+      max-height: 88vh;
+      overflow: auto;
     }
     @media (max-width: 900px) {
       .event-field-row {
@@ -64,7 +90,10 @@
   <main class="painel-content">
     <header class="painel-header">
       <h2>Eventos</h2>
-      <p>Cadastre eventos como reuniões, vendas, acampamentos e personalize os campos de cada um.</p>
+      <p>Cadastre eventos e monte os campos de cada evento (ex.: Local, Data, Hora, Comentário).</p>
+      <div class="event-top-actions">
+        <button type="button" class="primary" id="open-create-event">Criar novo evento</button>
+      </div>
     </header>
 
     <section class="painel-card">
@@ -72,49 +101,9 @@
         {% for message in messages %}
           <p data-state="{{ message.tags }}">{{ message }}</p>
         {% empty %}
-          <p data-state="info">Crie um novo evento e adicione os campos que quiser.</p>
+          <p data-state="info">Clique em "Criar novo evento" para começar.</p>
         {% endfor %}
       </div>
-    </section>
-
-    <section class="painel-card">
-      <h3>Criar novo evento</h3>
-      <form method="post" id="event-form">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="create_event" />
-        <div class="action-row">
-          <input type="text" name="name" placeholder="Nome do evento (ex: Acampamento de inverno)" required />
-          <input type="text" name="event_type" placeholder="Tipo (ex: reuniao, vendas, acampamento)" />
-        </div>
-
-        <div class="event-fields" id="event-fields">
-          <div class="event-field-row">
-            <input type="text" name="field_label[]" placeholder="Campo (ex: Local)" />
-            <input type="text" name="field_value[]" placeholder="Valor (ex: Clube Central)" />
-            <button type="button" class="secondary remove-field" disabled>Remover</button>
-          </div>
-          <div class="event-field-row">
-            <input type="text" name="field_label[]" placeholder="Campo (ex: Data)" />
-            <input type="text" name="field_value[]" placeholder="Valor (ex: 20/02/2026)" />
-            <button type="button" class="secondary remove-field" disabled>Remover</button>
-          </div>
-          <div class="event-field-row">
-            <input type="text" name="field_label[]" placeholder="Campo (ex: Hora)" />
-            <input type="text" name="field_value[]" placeholder="Valor (ex: 19:30)" />
-            <button type="button" class="secondary remove-field" disabled>Remover</button>
-          </div>
-          <div class="event-field-row">
-            <input type="text" name="field_label[]" placeholder="Campo (ex: Observacoes)" />
-            <input type="text" name="field_value[]" placeholder="Valor (ex: Levar uniforme completo)" />
-            <button type="button" class="secondary remove-field" disabled>Remover</button>
-          </div>
-        </div>
-
-        <div class="action-row">
-          <button type="button" class="secondary" id="add-field">Adicionar campo</button>
-          <button type="submit" class="primary">Salvar evento</button>
-        </div>
-      </form>
     </section>
 
     <section class="painel-card">
@@ -131,7 +120,10 @@
             {% if evento.fields_data %}
               <ul class="event-fields-list">
                 {% for campo in evento.fields_data %}
-                  <li><strong>{{ campo.label }}:</strong> {{ campo.value|default:"-" }}</li>
+                  <li class="event-field-pill">
+                    <span>{{ campo.name|default:campo.label|default:"Campo" }}</span>
+                    <span class="event-field-type">{{ campo.type|default:"texto" }}</span>
+                  </li>
                 {% endfor %}
               </ul>
             {% else %}
@@ -151,15 +143,90 @@
     </section>
   </main>
 
+  <div class="modal event-modal" id="event-modal" aria-hidden="true">
+    <div class="modal-content">
+      <header>
+        <h3>Criar novo evento</h3>
+        <button type="button" id="close-event-modal" aria-label="Fechar">×</button>
+      </header>
+
+      <form method="post" id="event-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="create_event" />
+
+        <div class="field-section">
+          <label>
+            Nome do evento *
+            <input type="text" name="name" placeholder="Ex.: Reunião mensal de pais" required />
+          </label>
+          <label>
+            Tipo do evento (opcional)
+            <input type="text" name="event_type" placeholder="Ex.: reunião, vendas, acampamento" />
+          </label>
+        </div>
+
+        <div class="field-section">
+          <h3>Campos do evento</h3>
+          <p class="panel-note">Use o botão + para adicionar os campos que esse evento precisa.</p>
+
+          <div class="event-fields" id="event-fields">
+            <div class="event-field-row">
+              <input type="text" name="field_name[]" placeholder="Nome do campo (ex.: Local)" />
+              <select name="field_type[]">
+                <option value="texto">Texto</option>
+                <option value="data">Data</option>
+                <option value="hora">Hora</option>
+                <option value="numero">Número</option>
+                <option value="booleano">Sim/Não</option>
+              </select>
+              <button type="button" class="secondary remove-field" disabled>Remover</button>
+            </div>
+          </div>
+
+          <div class="action-row">
+            <button type="button" class="secondary" id="add-field">+ Adicionar campo</button>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button type="submit" class="primary">Salvar evento</button>
+          <button type="button" class="secondary" id="cancel-event-modal">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     (function () {
+      const modal = document.getElementById('event-modal');
+      const openBtn = document.getElementById('open-create-event');
+      const closeBtn = document.getElementById('close-event-modal');
+      const cancelBtn = document.getElementById('cancel-event-modal');
       const fieldsContainer = document.getElementById('event-fields');
       const addButton = document.getElementById('add-field');
+
+      const openModal = () => {
+        modal.classList.add('show');
+        modal.setAttribute('aria-hidden', 'false');
+      };
+
+      const closeModal = () => {
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+      };
+
+      if (openBtn) openBtn.addEventListener('click', openModal);
+      if (closeBtn) closeBtn.addEventListener('click', closeModal);
+      if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) closeModal();
+      });
+
       if (!fieldsContainer || !addButton) return;
 
       const attachRemoveHandlers = () => {
         const rows = fieldsContainer.querySelectorAll('.event-field-row');
-        rows.forEach((row, index) => {
+        rows.forEach((row) => {
           const btn = row.querySelector('.remove-field');
           if (!btn) return;
           btn.disabled = rows.length <= 1;
@@ -174,8 +241,14 @@
         const row = document.createElement('div');
         row.className = 'event-field-row';
         row.innerHTML = '' +
-          '<input type="text" name="field_label[]" placeholder="Campo (ex: Local)" />' +
-          '<input type="text" name="field_value[]" placeholder="Valor" />' +
+          '<input type="text" name="field_name[]" placeholder="Nome do campo" />' +
+          '<select name="field_type[]">' +
+            '<option value="texto">Texto</option>' +
+            '<option value="data">Data</option>' +
+            '<option value="hora">Hora</option>' +
+            '<option value="numero">Número</option>' +
+            '<option value="booleano">Sim/Não</option>' +
+          '</select>' +
           '<button type="button" class="secondary remove-field">Remover</button>';
         fieldsContainer.appendChild(row);
         attachRemoveHandlers();
