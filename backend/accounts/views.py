@@ -102,7 +102,58 @@ def _normalize_menu_keys(values):
     return sorted(current)
 
 
-def _effective_menu_permissions(user):
+def _available_profiles(access):
+    known = {choice[0] for choice in UserAccess.ROLE_CHOICES}
+    profiles = list(access.profiles or [])
+    if access.role:
+        profiles.append(access.role)
+    deduped = []
+    seen = set()
+    for item in profiles:
+        if item in known and item not in seen:
+            deduped.append(item)
+            seen.add(item)
+    order = {
+        UserAccess.ROLE_DIRETOR: 0,
+        UserAccess.ROLE_DIRETORIA: 1,
+        UserAccess.ROLE_RESPONSAVEL: 2,
+        UserAccess.ROLE_PROFESSOR: 3,
+    }
+    deduped.sort(key=lambda item: (order.get(item, 99), item))
+    return deduped
+
+
+def _profile_display_name(profile):
+    return dict(UserAccess.ROLE_CHOICES).get(profile, profile or '')
+
+
+def _group_codes_for_profile(profile):
+    if profile == UserAccess.ROLE_DIRETOR:
+        return {'diretor'}
+    if profile == UserAccess.ROLE_DIRETORIA:
+        return {'diretor'}
+    if profile == UserAccess.ROLE_RESPONSAVEL:
+        return {'responsavel'}
+    if profile == UserAccess.ROLE_PROFESSOR:
+        return {'professor'}
+    return set()
+
+
+def _get_active_profile(request, access=None):
+    access = access or _ensure_user_access(request.user)
+    profiles = _available_profiles(access)
+    if not profiles:
+        request.session.pop('active_profile', None)
+        return ''
+    selected = str(request.session.get('active_profile') or '').strip()
+    if selected in profiles:
+        return selected
+    selected = profiles[0]
+    request.session['active_profile'] = selected
+    return selected
+
+
+def _effective_menu_permissions(user, active_profile=''):
     access = _ensure_user_access(user)
     user_override = _normalize_menu_keys(access.menu_allow)
     if user_override:
@@ -112,23 +163,42 @@ def _effective_menu_permissions(user):
     profiles = set(access.profiles or [])
     if access.role:
         profiles.add(access.role)
-    if UserAccess.ROLE_DIRETOR in profiles:
+    if active_profile and active_profile in profiles:
+        profiles = {active_profile}
+    if UserAccess.ROLE_DIRETOR in profiles or UserAccess.ROLE_DIRETORIA in profiles:
         allowed.update({'aventureiros', 'eventos', 'presenca', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes'})
+    allowed_group_codes = _group_codes_for_profile(active_profile) if active_profile else set()
     for group in user.access_groups.all():
+        if active_profile and group.code in {'diretor', 'responsavel', 'professor'} and group.code not in allowed_group_codes:
+            continue
         allowed.update(_normalize_menu_keys(group.menu_permissions))
     return sorted(allowed)
 
 
-def _has_menu_permission(user, menu_key):
-    return menu_key in _effective_menu_permissions(user)
+def _has_menu_permission(user_or_request, menu_key):
+    if hasattr(user_or_request, 'user'):
+        request = user_or_request
+        active_profile = _get_active_profile(request)
+        return menu_key in _effective_menu_permissions(request.user, active_profile=active_profile)
+    return menu_key in _effective_menu_permissions(user_or_request)
 
 
 def _sidebar_context(request):
     access = _ensure_user_access(request.user)
+    active_profile = _get_active_profile(request, access=access)
+    profile_options = [
+        {'value': profile, 'label': _profile_display_name(profile)}
+        for profile in _available_profiles(access)
+    ]
     return {
         'is_diretor': access.has_profile(UserAccess.ROLE_DIRETOR),
+        'active_profile': active_profile,
+        'active_profile_label': _profile_display_name(active_profile),
+        'profile_options': profile_options,
+        'profile_switch_enabled': len(profile_options) > 1,
+        'current_path': request.get_full_path(),
         'current_profiles': access.get_profiles_display(),
-        'menu_permissions': _effective_menu_permissions(request.user),
+        'menu_permissions': _effective_menu_permissions(request.user, active_profile=active_profile),
     }
 
 
@@ -144,10 +214,23 @@ def _profile_order_weight(access):
 
 
 def _require_menu_or_redirect(request, menu_key, message):
-    if not _has_menu_permission(request.user, menu_key):
+    if not _has_menu_permission(request, menu_key):
         messages.error(request, message)
         return redirect('accounts:painel')
     return None
+
+
+class AlterarPerfilAtivoView(LoginRequiredMixin, View):
+    def post(self, request):
+        access = _ensure_user_access(request.user)
+        available = set(_available_profiles(access))
+        selected = str(request.POST.get('active_profile') or '').strip()
+        if selected in available:
+            request.session['active_profile'] = selected
+        next_url = str(request.POST.get('next_url') or '').strip()
+        if next_url.startswith('/'):
+            return redirect(next_url)
+        return redirect('accounts:painel')
 
 
 def _user_display_data(user):
@@ -205,6 +288,19 @@ def _default_group_codes_for_access(access):
     if UserAccess.ROLE_PROFESSOR in profiles:
         codes.add('professor')
     return codes
+
+
+def _primary_role_from_profiles(profiles):
+    current = set(profiles or [])
+    if UserAccess.ROLE_DIRETOR in current:
+        return UserAccess.ROLE_DIRETOR
+    if UserAccess.ROLE_DIRETORIA in current:
+        return UserAccess.ROLE_DIRETORIA
+    if UserAccess.ROLE_RESPONSAVEL in current:
+        return UserAccess.ROLE_RESPONSAVEL
+    if UserAccess.ROLE_PROFESSOR in current:
+        return UserAccess.ROLE_PROFESSOR
+    return UserAccess.ROLE_RESPONSAVEL
 
 
 
@@ -2366,7 +2462,7 @@ class AventureirosGeraisView(LoginRequiredMixin, View):
     template_name = 'aventureiros_gerais.html'
 
     def get(self, request):
-        if not _has_menu_permission(request.user, 'aventureiros'):
+        if not _has_menu_permission(request, 'aventureiros'):
             messages.error(request, 'Seu perfil não possui permissão para acessar aventureiros gerais.')
             return redirect('accounts:painel')
         aventureiros = Aventureiro.objects.select_related('responsavel', 'responsavel__user').order_by('nome')
@@ -2379,7 +2475,7 @@ class AventureiroGeralDetalheView(LoginRequiredMixin, View):
     template_name = 'meus_dados_aventureiro.html'
 
     def get(self, request, pk):
-        if not _has_menu_permission(request.user, 'aventureiros'):
+        if not _has_menu_permission(request, 'aventureiros'):
             messages.error(request, 'Seu perfil não possui permissão para visualizar esse aventureiro.')
             return redirect('accounts:painel')
         aventureiro = get_object_or_404(Aventureiro, pk=pk)
@@ -2434,7 +2530,7 @@ class EventosView(LoginRequiredMixin, View):
     template_name = 'eventos.html'
 
     def _guard(self, request):
-        if not _has_menu_permission(request.user, 'eventos'):
+        if not _has_menu_permission(request, 'eventos'):
             messages.error(request, 'Seu perfil não possui permissão para acessar eventos.')
             return redirect('accounts:painel')
         return None
@@ -2625,7 +2721,7 @@ class PresencaView(LoginRequiredMixin, View):
     template_name = 'presenca.html'
 
     def _guard(self, request):
-        if not _has_menu_permission(request.user, 'presenca'):
+        if not _has_menu_permission(request, 'presenca'):
             messages.error(request, 'Seu perfil não possui permissão para acessar presença.')
             return redirect('accounts:painel')
         return None
@@ -2742,7 +2838,7 @@ class PresencaView(LoginRequiredMixin, View):
 
 class PresencaStatusApiView(LoginRequiredMixin, View):
     def get(self, request):
-        if not _has_menu_permission(request.user, 'presenca'):
+        if not _has_menu_permission(request, 'presenca'):
             return JsonResponse({'ok': False, 'error': 'Sem permissão para acessar presença.'}, status=403)
         event_id_raw = (request.GET.get('evento_id') or '').strip()
         if not event_id_raw.isdigit():
@@ -2771,7 +2867,7 @@ class PresencaStatusApiView(LoginRequiredMixin, View):
 
 class PresencaToggleApiView(LoginRequiredMixin, View):
     def post(self, request):
-        if not _has_menu_permission(request.user, 'presenca'):
+        if not _has_menu_permission(request, 'presenca'):
             return JsonResponse({'ok': False, 'error': 'Sem permissão para marcar presença.'}, status=403)
 
         event_id_raw = (request.POST.get('evento_id') or '').strip()
@@ -2813,7 +2909,7 @@ class UsuariosView(LoginRequiredMixin, View):
     template_name = 'usuarios.html'
 
     def get(self, request):
-        if not _has_menu_permission(request.user, 'usuarios'):
+        if not _has_menu_permission(request, 'usuarios'):
             messages.error(request, 'Seu perfil não possui permissão para acessar usuários.')
             return redirect('accounts:painel')
 
@@ -2840,7 +2936,7 @@ class PermissoesView(LoginRequiredMixin, View):
     template_name = 'permissoes.html'
 
     def _guard(self, request):
-        if not _has_menu_permission(request.user, 'permissoes'):
+        if not _has_menu_permission(request, 'permissoes'):
             messages.error(request, 'Seu perfil não possui permissão para acessar permissões.')
             return redirect('accounts:painel')
         return None
@@ -3000,7 +3096,7 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
     template_name = 'documentos_inscricao.html'
 
     def _guard(self, request):
-        if not _has_menu_permission(request.user, 'documentos_inscricao'):
+        if not _has_menu_permission(request, 'documentos_inscricao'):
             messages.error(request, 'Seu perfil nao possui permissao para acessar documentos.')
             return redirect('accounts:painel')
         return None
@@ -3124,7 +3220,7 @@ class DocumentoInscricaoVisualizarView(LoginRequiredMixin, View):
     template_name = 'documento_inscricao_visualizar.html'
 
     def get(self, request, pk):
-        if not _has_menu_permission(request.user, 'documentos_inscricao'):
+        if not _has_menu_permission(request, 'documentos_inscricao'):
             messages.error(request, 'Seu perfil não possui permissão para visualizar documentos gerados.')
             return redirect('accounts:painel')
         documento = get_object_or_404(
@@ -3138,7 +3234,7 @@ class DocumentoInscricaoVisualizarView(LoginRequiredMixin, View):
 
 class DocumentoGerarView(LoginRequiredMixin, View):
     def get(self, request, template_id, kind, pk):
-        if not _has_menu_permission(request.user, 'documentos_inscricao'):
+        if not _has_menu_permission(request, 'documentos_inscricao'):
             messages.error(request, 'Seu perfil nao possui permissao para gerar documentos.')
             return redirect('accounts:painel')
         template = get_object_or_404(DocumentoTemplate, pk=template_id)
@@ -3162,7 +3258,7 @@ class WhatsAppView(LoginRequiredMixin, View):
     template_name = 'whatsapp.html'
 
     def _director_guard(self, request):
-        if not _has_menu_permission(request.user, 'whatsapp'):
+        if not _has_menu_permission(request, 'whatsapp'):
             messages.error(request, 'Seu perfil não possui permissão para acessar WhatsApp.')
             return redirect('accounts:painel')
         return None
@@ -3353,7 +3449,7 @@ class UsuarioDetalheView(LoginRequiredMixin, View):
     template_name = 'usuario_detalhe.html'
 
     def get(self, request, pk):
-        if not _has_menu_permission(request.user, 'usuarios'):
+        if not _has_menu_permission(request, 'usuarios'):
             messages.error(request, 'Seu perfil não possui permissão para acessar usuários.')
             return redirect('accounts:painel')
         target_user = get_object_or_404(User, pk=pk)
@@ -3377,54 +3473,139 @@ class UsuarioDetalheView(LoginRequiredMixin, View):
 
 class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
     template_name = 'usuario_permissoes_editar.html'
+    merge_lookup_limit = 200
+
+    def _merge_candidates(self, target_user):
+        return (
+            User.objects
+            .exclude(pk=target_user.pk)
+            .order_by('username')
+            .values_list('username', flat=True)[: self.merge_lookup_limit]
+        )
+
+    def _base_context(self, request, target_user, form):
+        display = _user_display_data(target_user)
+        context = {
+            'form': form,
+            'target_user': target_user,
+            'nome_completo': display['nome_completo'],
+            'foto_url': display['foto_url'],
+            'merge_candidates': self._merge_candidates(target_user),
+        }
+        context.update(_sidebar_context(request))
+        return context
+
+    def _merge_users(self, target_user, source_user):
+        if source_user.pk == target_user.pk:
+            return False, 'Selecione outro usu�rio para unificar.'
+
+        source_responsavel = getattr(source_user, 'responsavel', None)
+        source_diretoria = getattr(source_user, 'diretoria', None)
+        target_responsavel = getattr(target_user, 'responsavel', None)
+        target_diretoria = getattr(target_user, 'diretoria', None)
+
+        if source_responsavel and target_responsavel:
+            return False, 'N�o foi poss�vel unificar: ambos j� possuem cadastro de respons�vel.'
+        if source_diretoria and target_diretoria:
+            return False, 'N�o foi poss�vel unificar: ambos j� possuem cadastro de diretoria.'
+
+        with transaction.atomic():
+            source_access = _ensure_user_access(source_user)
+            target_access = _ensure_user_access(target_user)
+
+            if source_responsavel:
+                source_responsavel.user = target_user
+                source_responsavel.save(update_fields=['user'])
+            if source_diretoria:
+                source_diretoria.user = target_user
+                source_diretoria.save(update_fields=['user'])
+
+            profiles = set(target_access.profiles or [])
+            profiles.update(source_access.profiles or [])
+            if target_access.role:
+                profiles.add(target_access.role)
+            if source_access.role:
+                profiles.add(source_access.role)
+            known = {choice[0] for choice in UserAccess.ROLE_CHOICES}
+            merged_profiles = sorted(item for item in profiles if item in known)
+            if not merged_profiles:
+                merged_profiles = [UserAccess.ROLE_RESPONSAVEL]
+
+            target_access.profiles = merged_profiles
+            target_access.role = _primary_role_from_profiles(merged_profiles)
+            target_access.menu_allow = sorted(set(_normalize_menu_keys(target_access.menu_allow)) | set(_normalize_menu_keys(source_access.menu_allow)))
+            target_access.menu_deny = sorted(set(_normalize_menu_keys(target_access.menu_deny)) | set(_normalize_menu_keys(source_access.menu_deny)))
+            target_access.save(update_fields=['role', 'profiles', 'menu_allow', 'menu_deny', 'updated_at'])
+
+            target_group_ids = set(target_user.access_groups.values_list('id', flat=True))
+            source_group_ids = set(source_user.access_groups.values_list('id', flat=True))
+            merged_group_ids = sorted(target_group_ids | source_group_ids)
+            if merged_group_ids:
+                target_user.access_groups.set(merged_group_ids)
+            source_user.access_groups.clear()
+
+            source_user.is_active = False
+            source_user.set_unusable_password()
+            source_user.save(update_fields=['is_active', 'password'])
+
+            source_access.profiles = []
+            source_access.menu_allow = []
+            source_access.menu_deny = []
+            source_access.role = UserAccess.ROLE_RESPONSAVEL
+            source_access.save(update_fields=['role', 'profiles', 'menu_allow', 'menu_deny', 'updated_at'])
+
+        return True, ''
 
     def get(self, request, pk):
-        if not _has_menu_permission(request.user, 'usuarios'):
-            messages.error(request, 'Seu perfil não possui permissão para editar usuários.')
+        if not _has_menu_permission(request, 'usuarios'):
+            messages.error(request, 'Seu perfil n�o possui permiss�o para editar usu�rios.')
             return redirect('accounts:painel')
         target_user = get_object_or_404(User, pk=pk)
         access = _ensure_user_access(target_user)
-        display = _user_display_data(target_user)
         profiles = list(access.profiles or [])
         if not profiles and access.role:
             profiles = [access.role]
         form = UserAccessForm(initial={'profiles': profiles, 'is_active': target_user.is_active})
-        context = {
-            'form': form,
-            'target_user': target_user,
-            'nome_completo': display['nome_completo'],
-            'foto_url': display['foto_url'],
-        }
-        context.update(_sidebar_context(request))
-        return render(request, self.template_name, context)
+        return render(request, self.template_name, self._base_context(request, target_user, form))
 
     def post(self, request, pk):
-        if not _has_menu_permission(request.user, 'usuarios'):
-            messages.error(request, 'Seu perfil não possui permissão para editar usuários.')
+        if not _has_menu_permission(request, 'usuarios'):
+            messages.error(request, 'Seu perfil n�o possui permiss�o para editar usu�rios.')
             return redirect('accounts:painel')
         target_user = get_object_or_404(User, pk=pk)
+        action = str(request.POST.get('action') or '').strip()
+
+        if action == 'merge_user':
+            source_username = str(request.POST.get('merge_username') or '').strip()
+            if not source_username:
+                messages.error(request, 'Informe o username que ser� unificado.')
+                return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
+            source_user = User.objects.filter(username=source_username).first()
+            if not source_user:
+                messages.error(request, 'Usu�rio para unifica��o n�o encontrado.')
+                return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
+            ok, error_message = self._merge_users(target_user, source_user)
+            if not ok:
+                messages.error(request, error_message)
+                return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
+            messages.success(
+                request,
+                f'Unifica��o conclu�da: "{source_user.username}" foi incorporado em "{target_user.username}".',
+            )
+            return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
+
         access = _ensure_user_access(target_user)
-        display = _user_display_data(target_user)
         form = UserAccessForm(request.POST)
         if form.is_valid():
             profiles = list(dict.fromkeys(form.cleaned_data['profiles']))
             access.profiles = profiles
-            if UserAccess.ROLE_DIRETOR in profiles:
-                access.role = UserAccess.ROLE_DIRETOR
-            elif UserAccess.ROLE_DIRETORIA in profiles:
-                access.role = UserAccess.ROLE_DIRETORIA
-            else:
-                access.role = UserAccess.ROLE_RESPONSAVEL
+            access.role = _primary_role_from_profiles(profiles)
             access.save(update_fields=['role', 'profiles', 'updated_at'])
             target_user.is_active = form.cleaned_data['is_active']
             target_user.save(update_fields=['is_active'])
-            messages.success(request, 'Permissões atualizadas com sucesso.')
+            messages.success(request, 'Permiss�es atualizadas com sucesso.')
             return redirect('accounts:usuarios')
-        context = {
-            'form': form,
-            'target_user': target_user,
-            'nome_completo': display['nome_completo'],
-            'foto_url': display['foto_url'],
-        }
-        context.update(_sidebar_context(request))
-        return render(request, self.template_name, context)
+        return render(request, self.template_name, self._base_context(request, target_user, form))
+
+
+

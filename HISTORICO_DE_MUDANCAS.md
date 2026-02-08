@@ -118,5 +118,17 @@ Arquivo oficial de registro das entregas concluidas.
 ## 08/02/2026 - Cadastro diretoria: telefone residencial opcional
 
 - Removida a obrigatoriedade de `telefone_residencial` no fluxo novo da diretoria (`novo_diretoria/compromisso_voluntariado.html`).
+
+## 08/02/2026 - Unificacao de login e selecao de perfil ativo
+
+- Adicionado seletor de `perfil ativo` na sidebar (`ui/templates/_painel_sidebar.html`) para usuarios com perfis multiplos.
+- Criada rota `perfil/alternar/` e view `AlterarPerfilAtivoView` para salvar perfil ativo na sessao.
+- Menus do painel agora sao calculados considerando o perfil ativo selecionado.
+- Tela de edicao de usuario (`ui/templates/usuario_permissoes_editar.html`) recebeu novo bloco `Unificar login`.
+- Implementada unificacao em `UsuarioPermissaoEditarView`:
+  - incorpora dados de `Responsavel` e/ou `Diretoria` do login secundario no login principal,
+  - combina perfis, grupos e overrides de menu,
+  - inativa o login secundario e remove possibilidade de autenticar com ele.
+- Incluida validacao de seguranca para bloquear unificacao quando os dois logins ja possuem o mesmo tipo de cadastro (`Responsavel` com `Responsavel` ou `Diretoria` com `Diretoria`).
 - Validacao backend do compromisso da diretoria atualizada para nao exigir `telefone_residencial`.
 - Removida tambem a obrigatoriedade de `telefone_comercial` no mesmo fluxo (HTML + validacao backend).

@@ -5,12 +5,31 @@
       <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
     </div>
     <h1>Painel</h1>
-    <p class="painel-profile-title">Perfil</p>
+    <p class="painel-profile-title">Perfil ativo</p>
     <p class="painel-profile-value">
-      {% if current_profiles %}
-        {{ current_profiles|join:", " }}
+      {% if active_profile_label %}
+        {{ active_profile_label }}
       {% else %}
         Sem perfil
+      {% endif %}
+    </p>
+    {% if profile_switch_enabled %}
+      <form method="post" action="{% url 'accounts:alternar_perfil' %}" class="painel-profile-switch">
+        {% csrf_token %}
+        <input type="hidden" name="next_url" value="{{ current_path }}" />
+        <label for="active-profile-select">Trocar perfil</label>
+        <select id="active-profile-select" name="active_profile" onchange="this.form.submit()">
+          {% for option in profile_options %}
+            <option value="{{ option.value }}"{% if option.value == active_profile %} selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    {% endif %}
+    <p class="painel-profile-all">
+      {% if current_profiles %}
+        Perfis vinculados: {{ current_profiles|join:", " }}
+      {% else %}
+        Sem perfis vinculados
       {% endif %}
     </p>
   </div>

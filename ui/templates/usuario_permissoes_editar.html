@@ -18,6 +18,7 @@
 
     <form method="post" class="login-card form-card">
       {% csrf_token %}
+      <input type="hidden" name="action" value="save_permissions" />
 
       {% if foto_url %}
         <p><img class="confirmation-photo" src="{{ foto_url }}" alt="Foto de {{ nome_completo }}" /></p>
@@ -36,6 +37,21 @@
       {% if form.is_active.errors %}<p class="field-error">{{ form.is_active.errors|join:" " }}</p>{% endif %}
 
       <button type="submit" class="primary">Salvar permissões</button>
+    </form>
+
+    <form method="post" class="login-card form-card">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="merge_user" />
+      <h3>Unificar login</h3>
+      <p>Use quando a mesma pessoa estiver cadastrada em dois logins diferentes.</p>
+      <label for="merge-username">Username para unificar neste login</label>
+      <input id="merge-username" type="text" name="merge_username" list="merge-candidates" placeholder="Digite o username" required />
+      <datalist id="merge-candidates">
+        {% for username in merge_candidates %}
+          <option value="{{ username }}"></option>
+        {% endfor %}
+      </datalist>
+      <button type="submit" class="secondary">Unificar usuário</button>
     </form>
   </main>
 </body>
