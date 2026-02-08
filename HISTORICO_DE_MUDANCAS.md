@@ -159,5 +159,19 @@ Arquivo oficial de registro das entregas concluidas.
 - No mesmo formulario, o `required mode` passou para `explicit`, garantindo asterisco apenas nos campos realmente obrigatorios.
 - `telefone_residencial` e `telefone_comercial` ficaram claramente opcionais no HTML (`se tiver` + `data-optional`), sem marcacao de obrigatorio.
 - Ajustado visual da secao `Informacoes Pessoais`: os rótulos dos campos obrigatorios agora exibem `*` diretamente no template, inclusive em linhas com multiplos campos.
+
+## 08/02/2026 - WhatsApp: confirmação automática de inscrição
+
+- Adicionada nova categoria de notificação WhatsApp: `Confirmacao de inscricao`.
+- Ao concluir cadastro (novo fluxo e legado) de:
+  - `Responsavel + Aventureiro`, e
+  - `Diretoria`,
+  o sistema envia mensagem automática para o WhatsApp do próprio inscrito com confirmação e orientação de login no `pinhaljunior.com.br`.
+- Adicionada nova opção no módulo `WhatsApp`:
+  - coluna com caixinha `Confirmacao inscricao` por usuário (liga/desliga recebimento),
+  - novo template `Mensagem de Confirmacao` com placeholders próprios.
+- Persistência atualizada com migração `0021_whatsapp_confirmacao_notificacao.py`:
+  - novo campo `notify_confirmacao` em `WhatsAppPreference`,
+  - novo tipo `confirmacao` em `WhatsAppQueue` e `WhatsAppTemplate`.
 - Validacao backend do compromisso da diretoria atualizada para nao exigir `telefone_residencial`.
 - Removida tambem a obrigatoriedade de `telefone_comercial` no mesmo fluxo (HTML + validacao backend).

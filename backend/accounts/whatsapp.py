@@ -27,6 +27,15 @@ DEFAULT_DIRETORIA_MESSAGE = (
     '🕒 Data/Hora: {data_hora}'
 )
 
+DEFAULT_CONFIRMACAO_MESSAGE = (
+    '✅ Inscrição confirmada no Pinhal Junior!\n'
+    'Olá, {nome}.\n'
+    'Seu cadastro foi concluído com sucesso ({tipo_cadastro}).\n'
+    'Para entrar no sistema, acesse: {login_url}\n'
+    'Username: {username}\n'
+    'Se precisar de ajuda, fale com a diretoria.'
+)
+
 DEFAULT_TESTE_MESSAGE = (
     '✅ Mensagem de teste do sistema Pinhal Junior.\n'
     'Se voce recebeu este aviso, o canal WhatsApp esta ativo.'
@@ -186,6 +195,7 @@ def get_template_message(notification_type):
     defaults = {
         WhatsAppTemplate.TYPE_CADASTRO: DEFAULT_CADASTRO_MESSAGE,
         WhatsAppTemplate.TYPE_DIRETORIA: DEFAULT_DIRETORIA_MESSAGE,
+        WhatsAppTemplate.TYPE_CONFIRMACAO: DEFAULT_CONFIRMACAO_MESSAGE,
         WhatsAppTemplate.TYPE_TESTE: DEFAULT_TESTE_MESSAGE,
     }
     default_message = defaults.get(notification_type, DEFAULT_TESTE_MESSAGE)

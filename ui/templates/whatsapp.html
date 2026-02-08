@@ -29,6 +29,7 @@
       <p><strong>Fila:</strong> pendentes {{ queue.pending }} | enviados {{ queue.sent }} | falhas {{ queue.failed }}</p>
       <p><strong>Atualizado em:</strong> {{ queue.updated_at }}</p>
       <p class="panel-note">As notificações de cadastro são enviadas automaticamente quando um novo cadastro é concluído.</p>
+      <p class="panel-note">A confirmação de inscrição também é automática e vai para o WhatsApp do próprio inscrito (uma vez por conclusão).</p>
     </section>
 
     <section class="painel-card message-template-wrap">
@@ -44,12 +45,19 @@
           <textarea name="template_diretoria" form="whatsapp-form" rows="6">{{ diretoria_template|default:'' }}</textarea>
         </label>
         <label class="message-template-card">
+          <span class="message-template-title">Mensagem de Confirmação</span>
+          <textarea name="template_confirmacao" form="whatsapp-form" rows="6">{{ confirmacao_template|default:'' }}</textarea>
+        </label>
+        <label class="message-template-card">
           <span class="message-template-title">Mensagem de Teste</span>
           <textarea name="template_teste" form="whatsapp-form" rows="6">{{ teste_template|default:'' }}</textarea>
         </label>
       </div>
       <p class="panel-note">
         Placeholders para cadastro: <code>{tipo_cadastro}</code>, <code>{username}</code>, <code>{nome}</code>, <code>{responsavel_nome}</code>, <code>{aventureiros}</code>, <code>{data_hora}</code>.
+      </p>
+      <p class="panel-note">
+        Placeholders para confirmação: <code>{tipo_cadastro}</code>, <code>{username}</code>, <code>{nome}</code>, <code>{login_url}</code>, <code>{data_hora}</code>.
       </p>
     </section>
 
@@ -63,6 +71,7 @@
             <th>Telefone</th>
             <th>Cadastro responsável</th>
             <th>Cadastro diretoria</th>
+            <th>Confirmação inscrição</th>
             <th>Teste</th>
           </tr>
         </thead>
@@ -85,11 +94,12 @@
               </td>
               <td data-label="Cadastro responsável"><input type="checkbox" name="u{{ item.user.pk }}_cadastro" {% if item.pref.notify_cadastro %}checked{% endif %} /></td>
               <td data-label="Cadastro diretoria"><input type="checkbox" name="u{{ item.user.pk }}_diretoria" {% if item.pref.notify_diretoria %}checked{% endif %} /></td>
+              <td data-label="Confirmação inscrição"><input type="checkbox" name="u{{ item.user.pk }}_confirmacao" {% if item.pref.notify_confirmacao %}checked{% endif %} /></td>
               <td data-label="Teste"><input type="checkbox" name="u{{ item.user.pk }}_send_test" /></td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="5">Nenhum usuário disponível.</td>
+              <td colspan="6">Nenhum usuário disponível.</td>
             </tr>
           {% endfor %}
         </tbody>

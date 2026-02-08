@@ -66,9 +66,9 @@ class UserAccessAdmin(admin.ModelAdmin):
 
 @admin.register(WhatsAppPreference)
 class WhatsAppPreferenceAdmin(admin.ModelAdmin):
-    list_display = ('user', 'phone_number', 'notify_cadastro', 'notify_financeiro', 'notify_geral', 'updated_at')
+    list_display = ('user', 'phone_number', 'notify_cadastro', 'notify_diretoria', 'notify_confirmacao', 'notify_financeiro', 'notify_geral', 'updated_at')
     search_fields = ('user__username', 'phone_number')
-    list_filter = ('notify_cadastro', 'notify_financeiro', 'notify_geral')
+    list_filter = ('notify_cadastro', 'notify_diretoria', 'notify_confirmacao', 'notify_financeiro', 'notify_geral')
 
 
 @admin.register(WhatsAppQueue)

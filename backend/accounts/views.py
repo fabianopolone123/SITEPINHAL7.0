@@ -772,6 +772,46 @@ def _dispatch_cadastro_notifications(tipo_cadastro, user, nome):
         queue_item.save(update_fields=['status', 'attempts', 'provider_message_id', 'sent_at', 'last_error'])
 
 
+def _dispatch_signup_confirmation(user, tipo_cadastro, nome):
+    if not user:
+        return
+    pref, _ = WhatsAppPreference.objects.get_or_create(user=user)
+    if not pref.notify_confirmacao:
+        return
+    phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(user))
+    if not phone_number:
+        return
+
+    login_url = os.environ.get('PINHAL_LOGIN_URL', 'https://pinhaljunior.com.br/').strip() or 'https://pinhaljunior.com.br/'
+    payload = {
+        'tipo_cadastro': tipo_cadastro,
+        'username': user.username,
+        'nome': nome or user.username,
+        'login_url': login_url,
+        'data_hora': timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M'),
+    }
+    template_text = get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO)
+    text = render_message(template_text, payload)
+    queue_item = WhatsAppQueue.objects.create(
+        user=user,
+        phone_number=phone_number,
+        notification_type=WhatsAppQueue.TYPE_CONFIRMACAO,
+        message_text=text,
+        status=WhatsAppQueue.STATUS_PENDING,
+    )
+    success, provider_id, error_message = send_wapi_text(phone_number, text)
+    queue_item.attempts = 1
+    if success:
+        queue_item.status = WhatsAppQueue.STATUS_SENT
+        queue_item.provider_message_id = provider_id
+        queue_item.sent_at = timezone.now()
+        queue_item.last_error = ''
+    else:
+        queue_item.status = WhatsAppQueue.STATUS_FAILED
+        queue_item.last_error = error_message
+    queue_item.save(update_fields=['status', 'attempts', 'provider_message_id', 'sent_at', 'last_error'])
+
+
 def _serialize_field_value(value):
     if isinstance(value, date):
         return value.isoformat()
@@ -1811,6 +1851,11 @@ class NovoCadastroResumoView(View):
                 user,
                 responsavel.responsavel_nome or responsavel.mae_nome or responsavel.pai_nome,
             )
+            _dispatch_signup_confirmation(
+                user,
+                'Cadastro de responsável e aventureiro',
+                responsavel.responsavel_nome or responsavel.mae_nome or responsavel.pai_nome,
+            )
             _clear_new_flow(request.session)
             if use_existing_user:
                 messages.success(request, 'Aventureiro adicionado com sucesso.')
@@ -2106,6 +2151,7 @@ class NovoCadastroDiretoriaResumoView(View):
             return redirect('accounts:novo_diretoria_resumo')
 
         _dispatch_cadastro_notifications('Diretoria', user, diretoria.nome)
+        _dispatch_signup_confirmation(user, 'Cadastro de diretoria', diretoria.nome)
         _clear_new_diretoria_flow(request.session)
         messages.success(request, 'Cadastro da diretoria concluído com sucesso. Faça login para continuar.')
         return redirect('accounts:login')
@@ -2160,6 +2206,7 @@ class DiretoriaView(View):
         if form.is_valid():
             diretoria = form.save()
             _dispatch_cadastro_notifications('Diretoria', diretoria.user, diretoria.nome)
+            _dispatch_signup_confirmation(diretoria.user, 'Cadastro de diretoria', diretoria.nome)
             messages.success(request, 'Cadastro da diretoria concluído com sucesso. Faça login para continuar.')
             return redirect('accounts:login')
         messages.error(request, 'Há campos obrigatórios pendentes; corrija e envie novamente.')
@@ -2259,6 +2306,11 @@ class ConfirmacaoView(LoginRequiredMixin, View):
         _dispatch_cadastro_notifications(
             'Cadastro completo',
             request.user,
+            responsavel.responsavel_nome or responsavel.mae_nome or responsavel.pai_nome,
+        )
+        _dispatch_signup_confirmation(
+            request.user,
+            'Cadastro de responsável e aventureiro',
             responsavel.responsavel_nome or responsavel.mae_nome or responsavel.pai_nome,
         )
         _clear_pending_aventures(request.session)
@@ -3358,12 +3410,14 @@ class WhatsAppView(LoginRequiredMixin, View):
             return guard
         cadastro_template = get_template_message(WhatsAppTemplate.TYPE_CADASTRO)
         diretoria_template = get_template_message(WhatsAppTemplate.TYPE_DIRETORIA)
+        confirmacao_template = get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO)
         teste_template = get_template_message(WhatsAppTemplate.TYPE_TESTE)
         context = {
             'rows': self._users_context(),
             'queue': queue_stats(),
             'cadastro_template': cadastro_template,
             'diretoria_template': diretoria_template,
+            'confirmacao_template': confirmacao_template,
             'teste_template': teste_template,
         }
         context.update(_sidebar_context(request))
@@ -3376,6 +3430,7 @@ class WhatsAppView(LoginRequiredMixin, View):
         rows = self._users_context()
         cadastro_enabled = []
         diretoria_enabled = []
+        confirmacao_enabled = []
         for row in rows:
             user = row['user']
             pref = row['pref']
@@ -3383,6 +3438,7 @@ class WhatsAppView(LoginRequiredMixin, View):
             pref.phone_number = normalize_phone_number(request.POST.get(f'{prefix}_phone', '').strip())
             pref.notify_cadastro = bool(request.POST.get(f'{prefix}_cadastro'))
             pref.notify_diretoria = bool(request.POST.get(f'{prefix}_diretoria'))
+            pref.notify_confirmacao = bool(request.POST.get(f'{prefix}_confirmacao'))
             pref.notify_financeiro = False
             pref.notify_geral = False
             pref.save(
@@ -3390,6 +3446,7 @@ class WhatsAppView(LoginRequiredMixin, View):
                     'phone_number',
                     'notify_cadastro',
                     'notify_diretoria',
+                    'notify_confirmacao',
                     'notify_financeiro',
                     'notify_geral',
                     'updated_at',
@@ -3399,6 +3456,8 @@ class WhatsAppView(LoginRequiredMixin, View):
                 cadastro_enabled.append(user.username)
             if pref.notify_diretoria:
                 diretoria_enabled.append(user.username)
+            if pref.notify_confirmacao:
+                confirmacao_enabled.append(user.username)
 
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_CADASTRO,
@@ -3407,6 +3466,10 @@ class WhatsAppView(LoginRequiredMixin, View):
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_DIRETORIA,
             defaults={'message_text': request.POST.get('template_diretoria', '').strip()},
+        )
+        WhatsAppTemplate.objects.update_or_create(
+            notification_type=WhatsAppTemplate.TYPE_CONFIRMACAO,
+            defaults={'message_text': request.POST.get('template_confirmacao', '').strip()},
         )
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_TESTE,
@@ -3426,6 +3489,7 @@ class WhatsAppView(LoginRequiredMixin, View):
                     'queue': queue_stats(),
                     'cadastro_template': get_template_message(WhatsAppTemplate.TYPE_CADASTRO),
                     'diretoria_template': get_template_message(WhatsAppTemplate.TYPE_DIRETORIA),
+                    'confirmacao_template': get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO),
                     'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
                 }
                 context.update(_sidebar_context(request))
@@ -3502,12 +3566,22 @@ class WhatsAppView(LoginRequiredMixin, View):
             )
         else:
             messages.info(request, 'Nenhum contato está marcado para receber notificação de Diretoria.')
+        if confirmacao_enabled:
+            preview = ', '.join(confirmacao_enabled[:6])
+            suffix = '...' if len(confirmacao_enabled) > 6 else ''
+            messages.info(
+                request,
+                f'Confirmação de inscrição marcada para: {preview}{suffix}',
+            )
+        else:
+            messages.info(request, 'Nenhum contato está marcado para receber confirmação de inscrição.')
 
         context = {
             'rows': self._users_context(),
             'queue': queue_stats(),
             'cadastro_template': get_template_message(WhatsAppTemplate.TYPE_CADASTRO),
             'diretoria_template': get_template_message(WhatsAppTemplate.TYPE_DIRETORIA),
+            'confirmacao_template': get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO),
             'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
         }
         context.update(_sidebar_context(request))
