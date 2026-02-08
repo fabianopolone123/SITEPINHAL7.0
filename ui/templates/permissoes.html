@@ -26,6 +26,25 @@
     .badge-lock.is-hidden {
       display: none;
     }
+    .table-search {
+      margin: 0.5rem 0 0.75rem;
+      max-width: 420px;
+    }
+    .table-search input {
+      width: 100%;
+    }
+    .table-scroll-fixed {
+      max-height: 420px;
+      overflow: auto;
+    }
+    @media (max-width: 768px) {
+      .table-search {
+        max-width: 100%;
+      }
+      .table-scroll-fixed {
+        max-height: 55vh;
+      }
+    }
   </style>
 </head>
 <body class="painel-page">
@@ -125,7 +144,10 @@
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="save_memberships" />
-        <div class="table-scroll">
+        <div class="table-search">
+          <input id="search-memberships" type="search" placeholder="Pesquisar usuario..." aria-label="Pesquisar usuario em usuarios por grupo" />
+        </div>
+        <div class="table-scroll table-scroll-fixed">
           <table class="users-table">
             <thead>
               <tr>
@@ -170,7 +192,10 @@
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="save_user_overrides" />
-        <div class="table-scroll">
+        <div class="table-search">
+          <input id="search-overrides" type="search" placeholder="Pesquisar usuario..." aria-label="Pesquisar usuario em excecao por usuario" />
+        </div>
+        <div class="table-scroll table-scroll-fixed">
           <table class="users-table">
             <thead>
               <tr>
@@ -210,6 +235,13 @@
 
   <script>
     (function () {
+      const normalizeText = (value) =>
+        (value || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .trim();
+
       const lockMembershipRow = (userId, shouldLock, hasMarks) => {
         const row = document.querySelector('[data-membership-row="' + userId + '"]');
         if (!row) return;
@@ -243,6 +275,23 @@
       });
 
       userIds.forEach((userId) => syncLockForUser(userId));
+
+      const applySearch = (inputId, rowSelector) => {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        const rows = Array.from(document.querySelectorAll(rowSelector));
+        const filter = () => {
+          const query = normalizeText(input.value);
+          rows.forEach((row) => {
+            const text = normalizeText(row.textContent);
+            row.style.display = !query || text.includes(query) ? '' : 'none';
+          });
+        };
+        input.addEventListener('input', filter);
+      };
+
+      applySearch('search-memberships', '[data-membership-row]');
+      applySearch('search-overrides', '[data-override-row]');
     })();
   </script>
 </body>
