@@ -1276,46 +1276,83 @@ class NovoCadastroResumoView(View):
             elif data.get('current'):
                 messages.info(request, 'A ficha atual incompleta foi ignorada. Somente os aventureiros completos foram finalizados.')
             payload = data
-            login_data = payload.get('login', {})
-            if not login_data:
-                messages.error(request, 'Sessão inválida. Reinicie o cadastro.')
-                return redirect('accounts:novo_cadastro_login')
-            user = User.objects.create_user(
-                username=login_data['username'],
-                password=login_data['password'],
-            )
-            access, _ = UserAccess.objects.get_or_create(
-                user=user,
-                defaults={'role': UserAccess.ROLE_RESPONSAVEL, 'profiles': [UserAccess.ROLE_RESPONSAVEL]},
-            )
-            access.add_profile(UserAccess.ROLE_RESPONSAVEL)
-            access.save(update_fields=['role', 'profiles', 'updated_at'])
+            if not payload.get('aventures'):
+                messages.error(request, 'Nenhum aventureiro completo para finalizar.')
+                return redirect('accounts:novo_cadastro_inscricao')
 
+            use_existing_user = bool(payload.get('existing_user_id'))
             first = payload['aventures'][0]['inscricao']
-            responsavel = Responsavel.objects.create(
-                user=user,
-                pai_nome=first.get('nome_pai', ''),
-                pai_cpf=first.get('cpf_pai', ''),
-                pai_email=first.get('email_pai', ''),
-                pai_telefone=first.get('tel_pai', ''),
-                pai_celular=first.get('cel_pai', ''),
-                mae_nome=first.get('nome_mae', ''),
-                mae_cpf=first.get('cpf_mae', ''),
-                mae_email=first.get('email_mae', ''),
-                mae_telefone=first.get('tel_mae', ''),
-                mae_celular=first.get('cel_mae', ''),
-                responsavel_nome=first.get('nome_responsavel', ''),
-                responsavel_parentesco=first.get('parentesco', ''),
-                responsavel_cpf=first.get('cpf_responsavel', ''),
-                responsavel_email=first.get('email_responsavel', ''),
-                responsavel_telefone=first.get('tel_responsavel', ''),
-                responsavel_celular=first.get('cel_responsavel', ''),
-                endereco=first.get('endereco', ''),
-                bairro=first.get('bairro', ''),
-                cidade=first.get('cidade', ''),
-                cep=first.get('cep', ''),
-                estado=first.get('estado', ''),
-            )
+
+            if use_existing_user:
+                if not request.user.is_authenticated or request.user.id != payload.get('existing_user_id'):
+                    messages.error(request, 'Sessão inválida para adicionar aventureiro. Faça login novamente.')
+                    return redirect('accounts:login')
+                user = request.user
+                responsavel = getattr(user, 'responsavel', None)
+                if not responsavel:
+                    messages.error(request, 'Conta sem perfil de responsável para adicionar aventureiro.')
+                    return redirect('accounts:meus_dados')
+                responsavel.pai_nome = first.get('nome_pai', '')
+                responsavel.pai_cpf = first.get('cpf_pai', '')
+                responsavel.pai_email = first.get('email_pai', '')
+                responsavel.pai_telefone = first.get('tel_pai', '')
+                responsavel.pai_celular = first.get('cel_pai', '')
+                responsavel.mae_nome = first.get('nome_mae', '')
+                responsavel.mae_cpf = first.get('cpf_mae', '')
+                responsavel.mae_email = first.get('email_mae', '')
+                responsavel.mae_telefone = first.get('tel_mae', '')
+                responsavel.mae_celular = first.get('cel_mae', '')
+                responsavel.responsavel_nome = first.get('nome_responsavel', '')
+                responsavel.responsavel_parentesco = first.get('parentesco', '')
+                responsavel.responsavel_cpf = first.get('cpf_responsavel', '')
+                responsavel.responsavel_email = first.get('email_responsavel', '')
+                responsavel.responsavel_telefone = first.get('tel_responsavel', '')
+                responsavel.responsavel_celular = first.get('cel_responsavel', '')
+                responsavel.endereco = first.get('endereco', '')
+                responsavel.bairro = first.get('bairro', '')
+                responsavel.cidade = first.get('cidade', '')
+                responsavel.cep = first.get('cep', '')
+                responsavel.estado = first.get('estado', '')
+                responsavel.save()
+            else:
+                login_data = payload.get('login', {})
+                if not login_data:
+                    messages.error(request, 'Sessão inválida. Reinicie o cadastro.')
+                    return redirect('accounts:novo_cadastro_login')
+                user = User.objects.create_user(
+                    username=login_data['username'],
+                    password=login_data['password'],
+                )
+                access, _ = UserAccess.objects.get_or_create(
+                    user=user,
+                    defaults={'role': UserAccess.ROLE_RESPONSAVEL, 'profiles': [UserAccess.ROLE_RESPONSAVEL]},
+                )
+                access.add_profile(UserAccess.ROLE_RESPONSAVEL)
+                access.save(update_fields=['role', 'profiles', 'updated_at'])
+                responsavel = Responsavel.objects.create(
+                    user=user,
+                    pai_nome=first.get('nome_pai', ''),
+                    pai_cpf=first.get('cpf_pai', ''),
+                    pai_email=first.get('email_pai', ''),
+                    pai_telefone=first.get('tel_pai', ''),
+                    pai_celular=first.get('cel_pai', ''),
+                    mae_nome=first.get('nome_mae', ''),
+                    mae_cpf=first.get('cpf_mae', ''),
+                    mae_email=first.get('email_mae', ''),
+                    mae_telefone=first.get('tel_mae', ''),
+                    mae_celular=first.get('cel_mae', ''),
+                    responsavel_nome=first.get('nome_responsavel', ''),
+                    responsavel_parentesco=first.get('parentesco', ''),
+                    responsavel_cpf=first.get('cpf_responsavel', ''),
+                    responsavel_email=first.get('email_responsavel', ''),
+                    responsavel_telefone=first.get('tel_responsavel', ''),
+                    responsavel_celular=first.get('cel_responsavel', ''),
+                    endereco=first.get('endereco', ''),
+                    bairro=first.get('bairro', ''),
+                    cidade=first.get('cidade', ''),
+                    cep=first.get('cep', ''),
+                    estado=first.get('estado', ''),
+                )
             resp_signature = first.get('assinatura_inscricao')
             if resp_signature:
                 signature_file = decode_signature(resp_signature, 'responsavel')
@@ -1406,6 +1443,9 @@ class NovoCadastroResumoView(View):
                 responsavel.responsavel_nome or responsavel.mae_nome or responsavel.pai_nome,
             )
             _clear_new_flow(request.session)
+            if use_existing_user:
+                messages.success(request, 'Aventureiro adicionado com sucesso.')
+                return redirect('accounts:meu_responsavel')
             messages.success(request, 'Cadastro efetuado com sucesso.')
             return redirect('accounts:login')
         return redirect('accounts:novo_cadastro_resumo')
@@ -1930,6 +1970,25 @@ class MeuResponsavelDetalheView(LoginRequiredMixin, View):
         context = {'responsavel': responsavel}
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
+
+
+class MeuResponsavelAdicionarAventureiroView(LoginRequiredMixin, View):
+    def get(self, request):
+        responsavel, redirect_response = _require_responsavel_or_redirect(request)
+        if redirect_response:
+            return redirect_response
+        _clear_new_flow(request.session)
+        data = _new_flow_data(request.session)
+        data['login'] = {
+            'username': request.user.username,
+            # Existing responsible users reuse current account in finalization.
+            'password': '',
+        }
+        data['existing_user_id'] = request.user.id
+        data['existing_responsavel_id'] = responsavel.id
+        _set_new_flow_data(request.session, data)
+        messages.info(request, 'Preencha os dados do aventureiro para adicionar ao seu cadastro.')
+        return redirect('accounts:novo_cadastro_inscricao')
 
 
 class MeuResponsavelEditarView(LoginRequiredMixin, View):

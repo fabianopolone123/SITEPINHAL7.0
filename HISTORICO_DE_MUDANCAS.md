@@ -95,3 +95,10 @@ Arquivo oficial de registro das entregas concluidas.
 - No fluxo novo (`/novo-cadastro/inscricao/`), o formulario passou para `data-required-mode=\"explicit\"` em `ui/templates/novo_cadastro/ficha_inscricao.html`, evitando que `RG` e `Orgao Expedidor` recebam `*` automaticamente.
 - Removida tambem a obrigatoriedade de `Certidao de nascimento` e `CPF` no cadastro de aventureiro (documentos totalmente opcionais neste fluxo).
 - Adicionado `data-optional=\"true\"` nos campos de documentos do fluxo novo para impedir marcacao automatica de `*` em cenarios de cache antigo.
+
+## 08/02/2026 - Perfil Responsavel: botao para adicionar aventureiro no fluxo novo
+
+- Adicionado botao `Adicionar aventureiro` em `ui/templates/meus_dados_responsavel.html`.
+- Criada rota de atalho `meus-dados/responsavel/adicionar-aventureiro/` para abrir o fluxo normal de cadastro de aventureiro a partir do perfil do responsavel.
+- Fluxo novo ajustado para reutilizar usuario/responsavel ja autenticado quando iniciado por esse atalho, evitando criar conta duplicada ao finalizar.
+- Finalizacao desse caminho agora retorna para `Meus dados` com mensagem de sucesso.
