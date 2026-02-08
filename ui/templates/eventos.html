@@ -187,7 +187,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="action" value="delete_event" />
                 <input type="hidden" name="event_id" value="{{ evento.id }}" />
-                <button type="submit" class="secondary">Excluir evento</button>
+                <button type="submit" class="secondary js-confirm-delete-event">Excluir evento</button>
               </form>
             </article>
           {% endwith %}
@@ -396,6 +396,16 @@
       }
 
       clearFieldsToDefault();
+
+      const deleteButtons = document.querySelectorAll('.js-confirm-delete-event');
+      deleteButtons.forEach((button) => {
+        button.addEventListener('click', (event) => {
+          const ok = window.confirm('Tem certeza que deseja excluir este evento?');
+          if (!ok) {
+            event.preventDefault();
+          }
+        });
+      });
     })();
   </script>
 </body>

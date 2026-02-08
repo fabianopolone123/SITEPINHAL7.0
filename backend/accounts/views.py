@@ -2323,6 +2323,16 @@ class EventosView(LoginRequiredMixin, View):
             if not evento:
                 messages.error(request, 'Evento não encontrado.')
             else:
+                if evento.event_date and evento.event_time:
+                    event_dt = datetime.combine(evento.event_date, evento.event_time)
+                    if timezone.is_naive(event_dt):
+                        event_dt = timezone.make_aware(event_dt, timezone.get_current_timezone())
+                    if timezone.now() >= event_dt:
+                        messages.error(
+                            request,
+                            'Este evento não pode ser excluído porque a data/hora já foi atingida.',
+                        )
+                        return render(request, self.template_name, self._context(request))
                 evento.delete()
                 messages.success(request, 'Evento removido com sucesso.')
         elif action == 'delete_preset':
