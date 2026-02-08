@@ -290,7 +290,21 @@
       const savePresetBtn = document.getElementById('save-preset-btn');
       const presetSelect = document.getElementById('preset-select');
       const presetsNode = document.getElementById('event-presets-data');
-      const presets = presetsNode ? JSON.parse(presetsNode.textContent || '[]') : [];
+      const parsePresetsData = () => {
+        if (!presetsNode) return [];
+        try {
+          const parsed = JSON.parse(presetsNode.textContent || '[]');
+          if (Array.isArray(parsed)) return parsed;
+          if (typeof parsed === 'string') {
+            const parsedAgain = JSON.parse(parsed || '[]');
+            return Array.isArray(parsedAgain) ? parsedAgain : [];
+          }
+        } catch (error) {
+          return [];
+        }
+        return [];
+      };
+      const presets = parsePresetsData();
 
       const openModal = () => {
         modal.classList.add('show');

@@ -2204,7 +2204,7 @@ class EventosView(LoginRequiredMixin, View):
         context = {
             'eventos': event_rows,
             'presets': presets,
-            'presets_json': json.dumps(presets_json),
+            'presets_json': presets_json,
         }
         context.update(_sidebar_context(request))
         return context

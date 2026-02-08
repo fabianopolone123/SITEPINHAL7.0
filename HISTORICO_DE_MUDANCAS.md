@@ -60,3 +60,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Documentacao principal consolidada (`README`, `SISTEMA_ATUAL`, `ROTAS_E_FLUXO`, `CONTRIBUTING`).
 - Correcao de arquivos `.md` com problemas de codificacao (UTF-8/ANSI).
 - Reorganizacao deste historico em formato consolidado por fases para evitar texto corrompido.
+
+## 08/02/2026 - Ajustes em eventos e arquitetura
+
+- Corrigido carregamento de pre-configuracoes na tela `Eventos` para perfil Diretor, evitando falha ao selecionar preset apos salvar.
+- Ajustado `presets_json` no backend para envio em formato estruturado (sem dupla serializacao).
+- Adicionado parse defensivo no JavaScript de `ui/templates/eventos.html` para garantir leitura dos presets.
+- Documento `ARQUITETURA_DE_PASTAS.md` alinhado ao estado real: inclusao de `backend/accounts/migrations/` e `backend/accounts/management/commands/`, e remocao da referencia a `asgi`.

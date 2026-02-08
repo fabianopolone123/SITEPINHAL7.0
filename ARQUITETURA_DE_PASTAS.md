@@ -21,6 +21,9 @@ Este documento define a organizacao base do projeto para manter clareza e facili
 SITEPINHAL7.0/
   backend/
     accounts/
+      migrations/
+      management/
+        commands/
     config/
     manage.py
     requirements.txt
@@ -39,8 +42,10 @@ SITEPINHAL7.0/
 
 ## Pastas e responsabilidades
 
-- `backend/accounts/`: regras de negocio, modelos, formularios, views e urls.
-- `backend/config/`: configuracoes globais do Django (settings, urls, wsgi/asgi).
+- `backend/accounts/`: regras de negocio, modelos, formularios, views, urls e comandos de gerenciamento.
+- `backend/accounts/migrations/`: historico versionado de evolucao do schema do banco.
+- `backend/accounts/management/commands/`: comandos customizados executados via `manage.py`.
+- `backend/config/`: configuracoes globais do Django (settings, urls e wsgi).
 - `ui/templates/`: telas em HTML.
 - `ui/static/`: CSS, JavaScript e imagens estaticas.
 - `media/`: arquivos enviados/gerados (fotos, assinaturas, documentos).
