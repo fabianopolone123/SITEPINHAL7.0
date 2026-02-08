@@ -16,14 +16,29 @@
     </header>
 
     <section class="painel-card">
-      <form method="get" class="action-row">
-        <input
-          type="text"
-          name="q"
-          value="{{ query|default:'' }}"
-          placeholder="Buscar por usuario, acao, onde ou detalhes"
-        />
-        <button type="submit" class="primary">Buscar</button>
+      <form method="get" class="action-row" style="display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
+        <input type="text" name="q" value="{{ query|default:'' }}" placeholder="Busca geral" />
+        <input type="text" name="usuario" value="{{ filters.usuario|default:'' }}" placeholder="Usuario" />
+        <select name="acao">
+          <option value="">Acao (todas)</option>
+          {% for action_name in action_options %}
+            <option value="{{ action_name }}" {% if filters.acao == action_name %}selected{% endif %}>{{ action_name }}</option>
+          {% endfor %}
+        </select>
+        <input type="text" name="assunto" value="{{ filters.assunto|default:'' }}" placeholder="Assunto" />
+        <input type="text" name="onde" value="{{ filters.onde|default:'' }}" placeholder="Onde (tela/rota)" />
+        <select name="metodo">
+          <option value="">Metodo (todos)</option>
+          {% for method_name in method_options %}
+            <option value="{{ method_name }}" {% if filters.metodo == method_name %}selected{% endif %}>{{ method_name }}</option>
+          {% endfor %}
+        </select>
+        <input type="date" name="data_inicio" value="{{ filters.data_inicio|default:'' }}" />
+        <input type="date" name="data_fim" value="{{ filters.data_fim|default:'' }}" />
+        <div style="display:flex; gap:8px;">
+          <button type="submit" class="primary">Filtrar</button>
+          <a href="{% url 'accounts:auditoria' %}" class="secondary" style="display:inline-flex; align-items:center; text-decoration:none; padding:10px 12px;">Limpar</a>
+        </div>
       </form>
     </section>
 
@@ -35,6 +50,7 @@
               <th>Quem</th>
               <th>Onde</th>
               <th>O que fez</th>
+              <th>Metodo</th>
               <th>Data/Hora</th>
             </tr>
           </thead>
@@ -49,11 +65,12 @@
                     <div class="wa-name">{{ item.details }}</div>
                   {% endif %}
                 </td>
+                <td>{{ item.method|default:"-" }}</td>
                 <td>{{ item.created_at|date:"d/m/Y H:i:s" }}</td>
               </tr>
             {% empty %}
               <tr>
-                <td colspan="4">Nenhum log encontrado.</td>
+                <td colspan="5">Nenhum log encontrado.</td>
               </tr>
             {% endfor %}
           </tbody>

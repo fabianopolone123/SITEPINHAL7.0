@@ -194,3 +194,17 @@ Arquivo oficial de registro das entregas concluidas.
 - Adicionado log explicito de administracao de usuarios:
   - unificacao de logins,
   - alteracao de permissoes/perfis.
+
+## 08/02/2026 - Auditoria: filtros e abrangencia de registro
+
+- Tela `Auditoria` ampliada com filtros por:
+  - busca geral (`q`),
+  - usuario,
+  - acao,
+  - assunto,
+  - onde (tela/rota),
+  - metodo HTTP,
+  - periodo (`data_inicio` e `data_fim`).
+- Adicionado botao `Limpar` para resetar filtros rapidamente.
+- Tabela de auditoria agora exibe tambem a coluna `Metodo`.
+- Middleware de auditoria passou a registrar tambem acessos de tela por `GET` autenticado (com filtros de ruido para APIs e endpoints de polling), alem das operacoes de escrita (`POST/PUT/PATCH/DELETE`).

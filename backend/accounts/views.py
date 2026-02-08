@@ -3049,18 +3049,61 @@ class AuditoriaView(LoginRequiredMixin, View):
             return redirect('accounts:painel')
 
         query = (request.GET.get('q') or '').strip()
+        user_query = (request.GET.get('usuario') or '').strip()
+        action_filter = (request.GET.get('acao') or '').strip()
+        location_filter = (request.GET.get('onde') or '').strip()
+        subject_filter = (request.GET.get('assunto') or '').strip()
+        method_filter = (request.GET.get('metodo') or '').strip().upper()
+        date_from = (request.GET.get('data_inicio') or '').strip()
+        date_to = (request.GET.get('data_fim') or '').strip()
+
         logs = AuditLog.objects.select_related('user').all()
+
         if query:
             logs = logs.filter(
                 Q(username__icontains=query)
                 | Q(action__icontains=query)
                 | Q(location__icontains=query)
                 | Q(details__icontains=query)
+                | Q(path__icontains=query)
             )
-        logs = logs[:500]
+        if user_query:
+            logs = logs.filter(username__icontains=user_query)
+        if action_filter:
+            logs = logs.filter(action=action_filter)
+        if location_filter:
+            logs = logs.filter(Q(location__icontains=location_filter) | Q(path__icontains=location_filter))
+        if subject_filter:
+            logs = logs.filter(
+                Q(details__icontains=subject_filter)
+                | Q(action__icontains=subject_filter)
+                | Q(location__icontains=subject_filter)
+            )
+        if method_filter:
+            logs = logs.filter(method=method_filter)
+        if date_from:
+            logs = logs.filter(created_at__date__gte=date_from)
+        if date_to:
+            logs = logs.filter(created_at__date__lte=date_to)
+
+        logs = logs.order_by('-created_at')[:500]
+        action_options = list(
+            AuditLog.objects.exclude(action='').values_list('action', flat=True).distinct().order_by('action')[:200]
+        )
         context = {
             'logs': logs,
             'query': query,
+            'filters': {
+                'usuario': user_query,
+                'acao': action_filter,
+                'onde': location_filter,
+                'assunto': subject_filter,
+                'metodo': method_filter,
+                'data_inicio': date_from,
+                'data_fim': date_to,
+            },
+            'action_options': action_options,
+            'method_options': ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
         }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
