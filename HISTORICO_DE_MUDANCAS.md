@@ -156,5 +156,7 @@ Arquivo oficial de registro das entregas concluidas.
 - No formulario `novo_diretoria/compromisso_voluntariado`, a secao `Informacoes Educacionais` deixou de ser obrigatoria.
 - Removida a validacao obrigatoria de `escolaridade` no backend do passo `NovoCadastroDiretoriaCompromissoView`.
 - Removido o marcador oculto de obrigatoriedade de escolaridade no template desse passo.
+- No mesmo formulario, o `required mode` passou para `explicit`, garantindo asterisco apenas nos campos realmente obrigatorios.
+- `telefone_residencial` e `telefone_comercial` ficaram claramente opcionais no HTML (`se tiver` + `data-optional`), sem marcacao de obrigatorio.
 - Validacao backend do compromisso da diretoria atualizada para nao exigir `telefone_residencial`.
 - Removida tambem a obrigatoriedade de `telefone_comercial` no mesmo fluxo (HTML + validacao backend).
