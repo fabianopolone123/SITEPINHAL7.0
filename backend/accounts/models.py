@@ -412,3 +412,29 @@ class Evento(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class EventoPreset(models.Model):
+    preset_name = models.CharField('nome da pré-configuração', max_length=160)
+    event_name = models.CharField('nome padrão do evento', max_length=255, blank=True)
+    event_type = models.CharField('tipo padrão do evento', max_length=128, blank=True)
+    event_date = models.DateField('data padrão', null=True, blank=True)
+    event_time = models.TimeField('hora padrão', null=True, blank=True)
+    fields_data = models.JSONField('campos padrão', default=list, blank=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='eventos_presets_criados',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        ordering = ('preset_name',)
+        verbose_name = 'pré-configuração de evento'
+        verbose_name_plural = 'pré-configurações de evento'
+
+    def __str__(self):
+        return self.preset_name

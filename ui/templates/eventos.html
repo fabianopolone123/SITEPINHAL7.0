@@ -13,6 +13,18 @@
       gap: 0.75rem;
       flex-wrap: wrap;
     }
+    .event-status-chip {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0.2rem 0.55rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #1e293b;
+      background: #e2e8f0;
+      border: 1px solid #cbd5e1;
+      margin-bottom: 0.45rem;
+    }
     .event-fields {
       display: grid;
       gap: 0.6rem;
@@ -70,6 +82,21 @@
       font-size: 0.75rem;
       letter-spacing: 0.03em;
     }
+    .preset-list {
+      display: grid;
+      gap: 0.45rem;
+    }
+    .preset-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 0.45rem 0.65rem;
+      background: #fff;
+      font-size: 0.9rem;
+    }
     .event-modal .modal-content {
       width: min(860px, 96vw);
       max-height: 88vh;
@@ -86,6 +113,7 @@
   </style>
 </head>
 <body class="painel-page">
+  {{ presets_json|json_script:"event-presets-data" }}
   {% include '_painel_sidebar.html' %}
   <main class="painel-content">
     <header class="painel-header">
@@ -107,37 +135,62 @@
     </section>
 
     <section class="painel-card">
+      <h3>Pré-configurações salvas</h3>
+      <div class="preset-list">
+        {% for preset in presets %}
+          <div class="preset-item">
+            <span>
+              <strong>{{ preset.preset_name }}</strong>
+              {% if preset.event_name %} | Evento: {{ preset.event_name }}{% endif %}
+            </span>
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="delete_preset" />
+              <input type="hidden" name="preset_id" value="{{ preset.id }}" />
+              <button type="submit" class="secondary">Excluir</button>
+            </form>
+          </div>
+        {% empty %}
+          <p class="panel-note">Nenhuma pré-configuração salva.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="painel-card">
       <h3>Eventos cadastrados</h3>
       <div class="event-list">
-        {% for evento in eventos %}
-          <article class="event-item">
-            <h4>{{ evento.name }}</h4>
-            <p class="event-meta">
-              Tipo: {{ evento.event_type|default:"-" }} |
-              Data do evento: {{ evento.event_date|date:"d/m/Y"|default:"-" }} |
-              Hora do evento: {{ evento.event_time|time:"H:i"|default:"-" }} |
-              Criado por: {{ evento.created_by.username|default:"sistema" }} |
-              Data do cadastro: {{ evento.created_at|date:"d/m/Y H:i" }}
-            </p>
-            {% if evento.fields_data %}
-              <ul class="event-fields-list">
-                {% for campo in evento.fields_data %}
-                  <li class="event-field-pill">
-                    <span>{{ campo.name|default:campo.label|default:"Campo" }}</span>
-                    <span class="event-field-type">{{ campo.type|default:"texto" }}</span>
-                  </li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <p class="panel-note">Sem campos adicionais.</p>
-            {% endif %}
-            <form method="post" class="action-row">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="delete_event" />
-              <input type="hidden" name="event_id" value="{{ evento.id }}" />
-              <button type="submit" class="secondary">Excluir evento</button>
-            </form>
-          </article>
+        {% for row in eventos %}
+          {% with evento=row.evento %}
+            <article class="event-item">
+              <span class="event-status-chip">{{ row.relative_label }}</span>
+              <h4>{{ evento.name }}</h4>
+              <p class="event-meta">
+                Tipo: {{ evento.event_type|default:"-" }} |
+                Data do evento: {{ evento.event_date|date:"d/m/Y"|default:"-" }} |
+                Hora do evento: {{ evento.event_time|time:"H:i"|default:"-" }} |
+                Criado por: {{ evento.created_by.username|default:"sistema" }} |
+                Data do cadastro: {{ evento.created_at|date:"d/m/Y H:i" }}
+              </p>
+              {% if evento.fields_data %}
+                <ul class="event-fields-list">
+                  {% for campo in evento.fields_data %}
+                    <li class="event-field-pill">
+                      <span>{{ campo.name|default:campo.label|default:"Campo" }}</span>
+                      <span class="event-field-type">{{ campo.type|default:"texto" }}</span>
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <p class="panel-note">Sem campos adicionais.</p>
+              {% endif %}
+              <form method="post" class="action-row">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete_event" />
+                <input type="hidden" name="event_id" value="{{ evento.id }}" />
+                <button type="submit" class="secondary">Excluir evento</button>
+              </form>
+            </article>
+          {% endwith %}
         {% empty %}
           <p class="panel-note">Nenhum evento cadastrado até agora.</p>
         {% endfor %}
@@ -154,24 +207,40 @@
 
       <form method="post" id="event-form">
         {% csrf_token %}
-        <input type="hidden" name="action" value="create_event" />
+        <input type="hidden" name="action" id="event-action" value="create_event" />
+
+        <div class="field-section">
+          <label>
+            Carregar pré-configuração
+            <select id="preset-select">
+              <option value="">-- selecionar --</option>
+              {% for preset in presets %}
+                <option value="{{ preset.id }}">{{ preset.preset_name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            Nome para salvar esta configuração
+            <input type="text" name="preset_name" id="preset-name" placeholder="Ex.: Reunião padrão do clube" />
+          </label>
+        </div>
 
         <div class="field-section">
           <label>
             Nome do evento *
-            <input type="text" name="name" placeholder="Ex.: Reunião mensal de pais" required />
+            <input type="text" name="name" id="event-name" placeholder="Ex.: Reunião mensal de pais" required />
           </label>
           <label>
             Tipo do evento (opcional)
-            <input type="text" name="event_type" placeholder="Ex.: reunião, vendas, acampamento" />
+            <input type="text" name="event_type" id="event-type" placeholder="Ex.: reunião, vendas, acampamento" />
           </label>
           <label>
             Data do evento *
-            <input type="date" name="event_date" required />
+            <input type="date" name="event_date" id="event-date" required />
           </label>
           <label>
             Hora do evento *
-            <input type="time" name="event_time" required />
+            <input type="time" name="event_time" id="event-time" required />
           </label>
         </div>
 
@@ -199,7 +268,8 @@
         </div>
 
         <div class="action-row">
-          <button type="submit" class="primary">Salvar evento</button>
+          <button type="submit" class="primary" id="save-event-btn">Salvar evento</button>
+          <button type="button" class="secondary" id="save-preset-btn">Salvar pré-configuração</button>
           <button type="button" class="secondary" id="cancel-event-modal">Cancelar</button>
         </div>
       </form>
@@ -214,6 +284,13 @@
       const cancelBtn = document.getElementById('cancel-event-modal');
       const fieldsContainer = document.getElementById('event-fields');
       const addButton = document.getElementById('add-field');
+      const form = document.getElementById('event-form');
+      const actionInput = document.getElementById('event-action');
+      const saveEventBtn = document.getElementById('save-event-btn');
+      const savePresetBtn = document.getElementById('save-preset-btn');
+      const presetSelect = document.getElementById('preset-select');
+      const presetsNode = document.getElementById('event-presets-data');
+      const presets = presetsNode ? JSON.parse(presetsNode.textContent || '[]') : [];
 
       const openModal = () => {
         modal.classList.add('show');
@@ -225,14 +302,50 @@
         modal.setAttribute('aria-hidden', 'true');
       };
 
-      if (openBtn) openBtn.addEventListener('click', openModal);
-      if (closeBtn) closeBtn.addEventListener('click', closeModal);
-      if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
-      modal.addEventListener('click', (event) => {
-        if (event.target === modal) closeModal();
-      });
+      const createFieldRow = (nameValue, typeValue) => {
+        const row = document.createElement('div');
+        row.className = 'event-field-row';
+        row.innerHTML = '' +
+          '<input type="text" name="field_name[]" placeholder="Nome do campo" />' +
+          '<select name="field_type[]">' +
+            '<option value="texto">Texto</option>' +
+            '<option value="data">Data</option>' +
+            '<option value="hora">Hora</option>' +
+            '<option value="numero">Número</option>' +
+            '<option value="booleano">Sim/Não</option>' +
+          '</select>' +
+          '<button type="button" class="secondary remove-field">Remover</button>';
+        const input = row.querySelector('input[name="field_name[]"]');
+        const select = row.querySelector('select[name="field_type[]"]');
+        if (input) input.value = nameValue || '';
+        if (select && typeValue) select.value = typeValue;
+        return row;
+      };
 
-      if (!fieldsContainer || !addButton) return;
+      const clearFieldsToDefault = () => {
+        fieldsContainer.innerHTML = '';
+        fieldsContainer.appendChild(createFieldRow('', 'texto'));
+        attachRemoveHandlers();
+      };
+
+      const loadPreset = (presetId) => {
+        const preset = presets.find((item) => String(item.id) === String(presetId));
+        if (!preset) return;
+        document.getElementById('event-name').value = preset.event_name || '';
+        document.getElementById('event-type').value = preset.event_type || '';
+        document.getElementById('event-date').value = preset.event_date || '';
+        document.getElementById('event-time').value = preset.event_time || '';
+        fieldsContainer.innerHTML = '';
+        const rows = Array.isArray(preset.fields_data) ? preset.fields_data : [];
+        if (!rows.length) {
+          fieldsContainer.appendChild(createFieldRow('', 'texto'));
+        } else {
+          rows.forEach((field) => {
+            fieldsContainer.appendChild(createFieldRow(field.name || field.label || '', field.type || 'texto'));
+          });
+        }
+        attachRemoveHandlers();
+      };
 
       const attachRemoveHandlers = () => {
         const rows = fieldsContainer.querySelectorAll('.event-field-row');
@@ -247,24 +360,42 @@
         });
       };
 
+      if (openBtn) openBtn.addEventListener('click', openModal);
+      if (closeBtn) closeBtn.addEventListener('click', closeModal);
+      if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) closeModal();
+      });
+
+      if (!fieldsContainer || !addButton || !form || !actionInput) return;
+
       addButton.addEventListener('click', () => {
-        const row = document.createElement('div');
-        row.className = 'event-field-row';
-        row.innerHTML = '' +
-          '<input type="text" name="field_name[]" placeholder="Nome do campo" />' +
-          '<select name="field_type[]">' +
-            '<option value="texto">Texto</option>' +
-            '<option value="data">Data</option>' +
-            '<option value="hora">Hora</option>' +
-            '<option value="numero">Número</option>' +
-            '<option value="booleano">Sim/Não</option>' +
-          '</select>' +
-          '<button type="button" class="secondary remove-field">Remover</button>';
-        fieldsContainer.appendChild(row);
+        fieldsContainer.appendChild(createFieldRow('', 'texto'));
         attachRemoveHandlers();
       });
 
-      attachRemoveHandlers();
+      if (presetSelect) {
+        presetSelect.addEventListener('change', (event) => {
+          const selected = (event.target.value || '').trim();
+          if (!selected) return;
+          loadPreset(selected);
+        });
+      }
+
+      if (saveEventBtn) {
+        saveEventBtn.addEventListener('click', () => {
+          actionInput.value = 'create_event';
+        });
+      }
+
+      if (savePresetBtn) {
+        savePresetBtn.addEventListener('click', () => {
+          actionInput.value = 'save_preset';
+          form.requestSubmit();
+        });
+      }
+
+      clearFieldsToDefault();
     })();
   </script>
 </body>

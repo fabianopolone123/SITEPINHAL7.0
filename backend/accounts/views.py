@@ -34,6 +34,7 @@ from .models import (
     AccessGroup,
     DocumentoInscricaoGerado,
     Evento,
+    EventoPreset,
 )
 from .utils import decode_signature, decode_photo
 from .whatsapp import (
@@ -2164,9 +2165,46 @@ class EventosView(LoginRequiredMixin, View):
             return redirect('accounts:painel')
         return None
 
+    def _relative_event_time_label(self, event_date):
+        if not event_date:
+            return 'Sem data'
+        today = timezone.localdate()
+        delta = (event_date - today).days
+        if delta == 0:
+            return 'Hoje'
+        if delta == 1:
+            return 'Amanhã'
+        if delta == -1:
+            return 'Ontem'
+        if delta > 1:
+            return f'Em {delta} dias'
+        return f'Há {abs(delta)} dias'
+
     def _context(self, request):
+        eventos = list(Evento.objects.select_related('created_by').all())
+        event_rows = []
+        for evento in eventos:
+            event_rows.append({
+                'evento': evento,
+                'relative_label': self._relative_event_time_label(evento.event_date),
+            })
+        presets = list(EventoPreset.objects.select_related('created_by').all())
+        presets_json = [
+            {
+                'id': preset.id,
+                'preset_name': preset.preset_name,
+                'event_name': preset.event_name or '',
+                'event_type': preset.event_type or '',
+                'event_date': preset.event_date.isoformat() if preset.event_date else '',
+                'event_time': preset.event_time.strftime('%H:%M') if preset.event_time else '',
+                'fields_data': preset.fields_data or [],
+            }
+            for preset in presets
+        ]
         context = {
-            'eventos': Evento.objects.select_related('created_by').all(),
+            'eventos': event_rows,
+            'presets': presets,
+            'presets_json': json.dumps(presets_json),
         }
         context.update(_sidebar_context(request))
         return context
@@ -2182,14 +2220,7 @@ class EventosView(LoginRequiredMixin, View):
         if guard:
             return guard
 
-        action = (request.POST.get('action') or '').strip()
-        if action == 'create_event':
-            name = (request.POST.get('name') or '').strip()
-            event_type = (request.POST.get('event_type') or '').strip()
-            event_date_raw = (request.POST.get('event_date') or '').strip()
-            event_time_raw = (request.POST.get('event_time') or '').strip()
-            # New UI sends field_name[] + field_type[] (schema of event fields).
-            # Keep backward compatibility with old payload field_label[].
+        def _parse_event_schema():
             labels = request.POST.getlist('field_name[]') or request.POST.getlist('field_label[]')
             field_types = request.POST.getlist('field_type[]')
             values = request.POST.getlist('field_value[]')
@@ -2203,25 +2234,49 @@ class EventosView(LoginRequiredMixin, View):
                     continue
                 if not current_label:
                     messages.error(request, 'Preencha o nome de todos os campos adicionados.')
-                    return render(request, self.template_name, self._context(request))
+                    return None
                 if current_type not in allowed_types:
                     messages.error(request, f'Tipo de campo inválido: {current_type}.')
-                    return render(request, self.template_name, self._context(request))
+                    return None
                 fields_data.append({
                     'name': current_label,
                     'type': current_type,
                 })
+            return fields_data
+
+        def _parse_date_and_time(event_date_raw, event_time_raw, required):
+            event_date_raw = (event_date_raw or '').strip()
+            event_time_raw = (event_time_raw or '').strip()
+            if required and (not event_date_raw or not event_time_raw):
+                messages.error(request, 'Data e hora do evento são obrigatórias.')
+                return None, None
+            if not event_date_raw and not event_time_raw:
+                return None, None
+            try:
+                parsed_date = date.fromisoformat(event_date_raw) if event_date_raw else None
+                parsed_time = datetime.strptime(event_time_raw, '%H:%M').time() if event_time_raw else None
+            except ValueError:
+                messages.error(request, 'Data ou hora do evento inválida.')
+                return None, None
+            return parsed_date, parsed_time
+
+        action = (request.POST.get('action') or '').strip()
+        if action == 'create_event':
+            name = (request.POST.get('name') or '').strip()
+            event_type = (request.POST.get('event_type') or '').strip()
+            event_date_raw = (request.POST.get('event_date') or '').strip()
+            event_time_raw = (request.POST.get('event_time') or '').strip()
+            fields_data = _parse_event_schema()
+            if fields_data is None:
+                return render(request, self.template_name, self._context(request))
 
             if not name:
                 messages.error(request, 'Informe o nome do evento.')
-            elif not event_date_raw or not event_time_raw:
-                messages.error(request, 'Data e hora do evento são obrigatórias.')
             else:
-                try:
-                    event_date_value = date.fromisoformat(event_date_raw)
-                    event_time_value = datetime.strptime(event_time_raw, '%H:%M').time()
-                except ValueError:
-                    messages.error(request, 'Data ou hora do evento inválida.')
+                event_date_value, event_time_value = _parse_date_and_time(
+                    event_date_raw, event_time_raw, required=True
+                )
+                if event_date_value is None or event_time_value is None:
                     return render(request, self.template_name, self._context(request))
                 Evento.objects.create(
                     name=name,
@@ -2233,6 +2288,35 @@ class EventosView(LoginRequiredMixin, View):
                 )
                 messages.success(request, 'Evento cadastrado com sucesso.')
 
+        elif action == 'save_preset':
+            preset_name = (request.POST.get('preset_name') or '').strip()
+            event_name = (request.POST.get('name') or '').strip()
+            event_type = (request.POST.get('event_type') or '').strip()
+            event_date_raw = (request.POST.get('event_date') or '').strip()
+            event_time_raw = (request.POST.get('event_time') or '').strip()
+            fields_data = _parse_event_schema()
+            if fields_data is None:
+                return render(request, self.template_name, self._context(request))
+            if not preset_name:
+                messages.error(request, 'Informe o nome da pré-configuração.')
+                return render(request, self.template_name, self._context(request))
+            event_date_value, event_time_value = _parse_date_and_time(
+                event_date_raw, event_time_raw, required=False
+            )
+            if (event_date_raw or event_time_raw) and not (event_date_value or event_time_value):
+                return render(request, self.template_name, self._context(request))
+
+            EventoPreset.objects.create(
+                preset_name=preset_name,
+                event_name=event_name,
+                event_type=event_type,
+                event_date=event_date_value,
+                event_time=event_time_value,
+                fields_data=fields_data,
+                created_by=request.user,
+            )
+            messages.success(request, 'Pré-configuração salva com sucesso.')
+
         elif action == 'delete_event':
             event_id = request.POST.get('event_id')
             evento = Evento.objects.filter(pk=event_id).first()
@@ -2241,6 +2325,14 @@ class EventosView(LoginRequiredMixin, View):
             else:
                 evento.delete()
                 messages.success(request, 'Evento removido com sucesso.')
+        elif action == 'delete_preset':
+            preset_id = request.POST.get('preset_id')
+            preset = EventoPreset.objects.filter(pk=preset_id).first()
+            if not preset:
+                messages.error(request, 'Pré-configuração não encontrada.')
+            else:
+                preset.delete()
+                messages.success(request, 'Pré-configuração removida com sucesso.')
 
         return render(request, self.template_name, self._context(request))
 
