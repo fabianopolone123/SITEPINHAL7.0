@@ -208,3 +208,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Adicionado botao `Limpar` para resetar filtros rapidamente.
 - Tabela de auditoria agora exibe tambem a coluna `Metodo`.
 - Middleware de auditoria passou a registrar tambem acessos de tela por `GET` autenticado (com filtros de ruido para APIs e endpoints de polling), alem das operacoes de escrita (`POST/PUT/PATCH/DELETE`).
+
+## 08/02/2026 - Auditoria: remocao de ruído de navegador
+
+- Middleware de auditoria ajustado para ignorar requisicoes de navegador que nao sao acao funcional do usuario:
+  - `/favicon.ico`
+  - `/robots.txt`
+- Com isso, eventos como `Acesso de tela: /favicon.ico` deixam de aparecer no log.

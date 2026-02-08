@@ -18,6 +18,8 @@ class AuditLogMiddleware:
             path.startswith('/admin/')
             or path.startswith('/static/')
             or path.startswith('/media/')
+            or path == '/favicon.ico'
+            or path == '/robots.txt'
         ):
             return response
 
