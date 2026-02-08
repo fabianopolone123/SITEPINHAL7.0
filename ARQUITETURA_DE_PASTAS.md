@@ -1,57 +1,53 @@
-# Arquitetura de Pastas – MVP Simples e Evolutivo
+# Arquitetura de Pastas - MVP Simples e Evolutivo
 
-Este documento define a organização mínima do projeto no MVP.
-A arquitetura pode evoluir conforme o sistema cresce.
+Este documento define a organizacao base do projeto para manter clareza e facilitar evolucao.
 
----
+## Objetivo
 
-## 🎯 Objetivo
+- Comecar simples (cadastro, login e painel).
+- Manter separacao de responsabilidades.
+- Facilitar manutencao e deploy.
 
-- Começar simples (login + cadastro + painel)
-- Manter clareza
-- Permitir crescimento sem reescrita
-- Evitar overengineering no início
-
----
-
-## 🧱 Stack Base
+## Stack base
 
 - Backend: Django
-- UI: Django Templates
-- API: Django REST Framework (quando necessário)
-- Banco: PostgreSQL
+- Frontend: Django Templates + JS/CSS
+- Banco: SQLite (atual), com possibilidade de migracao futura
 - Deploy: VPS Ubuntu + Gunicorn + Nginx
 
----
+## Estrutura principal
 
-## 📁 Estrutura Inicial (MVP)
+```text
+SITEPINHAL7.0/
+  backend/
+    accounts/
+    config/
+    manage.py
+    requirements.txt
+  ui/
+    static/
+    templates/
+  deploy/
+    deploy.sh
+  media/
+  README.md
+  SISTEMA_ATUAL.md
+  ROTAS_E_FLUXO.md
+  CONTRIBUTING.md
+  HISTORICO_DE_MUDANCAS.md
+```
 
-/project-root
-│
-├── README.md
-├── ARQUITETURA_DE_PASTAS.md
-├── HISTORICO_DE_MUDANCAS.md
-│
-├── backend/
-│   ├── manage.py
-│   ├── config/
-│   │   ├── settings.py
-│   │   ├── urls.py
-│   │   └── wsgi.py
-│   │
-│   ├── apps/
-│   │   └── accounts/        # login, cadastro, usuários
-│   │
-│   ├── ui/
-│   │   ├── templates/
-│   │   │   ├── base.html
-│   │   │   ├── login.html
-│   │   │   ├── register.html
-│   │   │   └── dashboard.html
-│   │   └── static/
-│   │
-│   └── common/              # utils simples (opcional)
-│
-└── infra/
-    ├── nginx/
-    └── systemd/
+## Pastas e responsabilidades
+
+- `backend/accounts/`: regras de negocio, modelos, formularios, views e urls.
+- `backend/config/`: configuracoes globais do Django (settings, urls, wsgi/asgi).
+- `ui/templates/`: telas em HTML.
+- `ui/static/`: CSS, JavaScript e imagens estaticas.
+- `media/`: arquivos enviados/gerados (fotos, assinaturas, documentos).
+- `deploy/`: scripts e configuracoes de deploy.
+
+## Regras de arquitetura
+
+1. Nao remover fluxo antigo sem backup.
+2. Novas features devem entrar sem quebrar rotas legadas.
+3. Alteracoes estruturais precisam ser registradas no historico.

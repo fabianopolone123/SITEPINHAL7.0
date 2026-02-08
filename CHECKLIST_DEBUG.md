@@ -1,37 +1,35 @@
-# Checklist de Debug – MVP
+# Checklist de Debug
 
-Este checklist existe para evitar correções no escuro.
-No MVP, seja prático.
+Checklist rapido para investigacao de problemas sem perder contexto.
 
----
+## 1. Reproducao
 
-## 1️⃣ O que aconteceu?
-- O que o usuário fez?
+- O que o usuario fez?
 - O que era esperado?
 - O que aconteceu de fato?
 
----
+## 2. Contexto
 
-## 2️⃣ Onde ocorreu?
-- Qual página?
-- Qual rota?
-- Qual usuário?
+- Qual rota/tela?
+- Qual perfil de usuario?
+- Erro apareceu no navegador, backend ou ambos?
 
----
+## 3. Validacao tecnica
 
-## 3️⃣ Verificações rápidas
-- Console do navegador (F12)
-- Logs do Django
-- Última alteração feita (git log -1)
+- Console do navegador (F12).
+- Logs do Django/Gunicorn.
+- Ultimo commit aplicado.
+- Estado de migracoes (`python backend/manage.py showmigrations`).
 
----
+## 4. Correcao
 
-## 4️⃣ Correção
-- Corrigir a causa real
-- Evitar gambiarras
-- Manter o código legível
+- Corrigir causa raiz.
+- Evitar workaround que gere regressao.
+- Garantir que o fluxo principal permanece funcional.
 
----
+## 5. Fechamento obrigatorio
 
-## 5️⃣ Registro (OBRIGATÓRIO)
-- Atualizar HISTORICO_DE_MUDANCAS.md
+1. Validar com `python backend/manage.py check`.
+2. Commitar.
+3. Push.
+4. Registrar no `HISTORICO_DE_MUDANCAS.md`.
