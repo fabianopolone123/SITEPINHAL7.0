@@ -98,6 +98,10 @@ def _normalize_menu_keys(values):
 
 def _effective_menu_permissions(user):
     access = _ensure_user_access(user)
+    user_override = _normalize_menu_keys(access.menu_allow)
+    if user_override:
+        return user_override
+
     allowed = {'inicio', 'meus_dados'}
     profiles = set(access.profiles or [])
     if access.role:
@@ -106,8 +110,6 @@ def _effective_menu_permissions(user):
         allowed.update({'aventureiros', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes'})
     for group in user.access_groups.all():
         allowed.update(_normalize_menu_keys(group.menu_permissions))
-    allowed.update(_normalize_menu_keys(access.menu_allow))
-    allowed.difference_update(_normalize_menu_keys(access.menu_deny))
     return sorted(allowed)
 
 
@@ -178,6 +180,22 @@ def _ensure_default_access_groups():
         if not group.menu_permissions:
             group.menu_permissions = menus
             group.save(update_fields=['menu_permissions', 'updated_at'])
+
+
+def _default_group_codes_for_access(access):
+    profiles = set(access.profiles or [])
+    if access.role:
+        profiles.add(access.role)
+    codes = set()
+    if UserAccess.ROLE_DIRETOR in profiles:
+        codes.add('diretor')
+    if UserAccess.ROLE_DIRETORIA in profiles:
+        codes.add('diretor')
+    if UserAccess.ROLE_RESPONSAVEL in profiles:
+        codes.add('responsavel')
+    if UserAccess.ROLE_PROFESSOR in profiles:
+        codes.add('professor')
+    return codes
 
 
 
@@ -2171,6 +2189,7 @@ class PermissoesView(LoginRequiredMixin, View):
     def _build_context(self, request):
         _ensure_default_access_groups()
         groups = list(AccessGroup.objects.prefetch_related('users').order_by('name'))
+        group_map = {group.code: group for group in groups}
         accesses = list(
             UserAccess.objects
             .select_related('user', 'user__responsavel', 'user__diretoria')
@@ -2178,6 +2197,11 @@ class PermissoesView(LoginRequiredMixin, View):
         )
         rows = []
         for access in accesses:
+            if not access.user.access_groups.exists():
+                default_codes = _default_group_codes_for_access(access)
+                default_ids = [group_map[code].pk for code in default_codes if code in group_map]
+                if default_ids:
+                    access.user.access_groups.set(default_ids)
             display = _user_display_data(access.user)
             user_group_ids = set(access.user.access_groups.values_list('id', flat=True))
             rows.append({
@@ -2187,7 +2211,6 @@ class PermissoesView(LoginRequiredMixin, View):
                 'foto_url': display['foto_url'],
                 'group_ids': user_group_ids,
                 'menu_allow': set(_normalize_menu_keys(access.menu_allow)),
-                'menu_deny': set(_normalize_menu_keys(access.menu_deny)),
             })
         rows.sort(key=lambda row: (_profile_order_weight(row['access']), row['user'].username.lower()))
 
@@ -2250,16 +2273,13 @@ class PermissoesView(LoginRequiredMixin, View):
             accesses = UserAccess.objects.select_related('user').all()
             for access in accesses:
                 allow = []
-                deny = []
                 for key, _label in MENU_ITEMS:
-                    if request.POST.get(f'ua{access.user.pk}_{key}'):
+                    if request.POST.get(f'ux{access.user.pk}_{key}'):
                         allow.append(key)
-                    if request.POST.get(f'ud{access.user.pk}_{key}'):
-                        deny.append(key)
                 access.menu_allow = _normalize_menu_keys(allow)
-                access.menu_deny = _normalize_menu_keys(deny)
+                access.menu_deny = []
                 access.save(update_fields=['menu_allow', 'menu_deny', 'updated_at'])
-            messages.success(request, 'Exceções de menu por usuário atualizadas.')
+            messages.success(request, 'Permissões por usuário atualizadas.')
 
         elif action == 'delete_group':
             group_id = request.POST.get('group_id')
