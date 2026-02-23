@@ -308,12 +308,9 @@ def _ensure_default_access_groups():
             code=code,
             defaults={'name': name, 'menu_permissions': menus},
         )
-        current = set(_normalize_menu_keys(group.menu_permissions))
-        required = set(_normalize_menu_keys(menus))
-        merged = sorted(current | required)
-        if group.menu_permissions != merged:
-            group.menu_permissions = merged
-            group.save(update_fields=['menu_permissions', 'updated_at'])
+        if group.name != name:
+            group.name = name
+            group.save(update_fields=['name', 'updated_at'])
 
 
 def _default_group_codes_for_access(access):

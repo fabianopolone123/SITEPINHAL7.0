@@ -289,3 +289,8 @@ Arquivo oficial de registro das entregas concluidas.
   - sistema gera mensalidades do mês atual até dezembro do ano vigente (sem duplicar registros existentes).
 - A tela exibe abaixo o aventureiro selecionado e a lista das mensalidades geradas.
 - Criado modelo `MensalidadeAventureiro` com migração `0024_mensalidadeaventureiro.py`.
+## 23/02/2026 - Permissões: menus por grupo deixam de ser remarcados automaticamente
+
+- Corrigida a função de grupos padrão para não recompor automaticamente os `menus liberados por grupo` em grupos já existentes.
+- Isso corrige o caso em que o usuário marcava/desmarcava menus, clicava em `Salvar menus dos grupos` e as caixas voltavam ao estado anterior.
+- A função continua garantindo a criação dos grupos padrão e ajustando o nome exibido, sem sobrescrever os menus configurados manualmente.
