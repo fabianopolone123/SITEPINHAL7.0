@@ -15,7 +15,7 @@
       <p><a href="{% url 'accounts:minha_diretoria' %}">Cancelar</a></p>
     </header>
 
-    <form method="post" class="login-card form-card">
+    <form method="post" enctype="multipart/form-data" class="login-card form-card">
       {% csrf_token %}
       {% for field in form %}
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>

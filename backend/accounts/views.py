@@ -2561,7 +2561,7 @@ class MinhaDiretoriaEditarView(LoginRequiredMixin, View):
         diretoria, redirect_response = _require_diretoria_or_redirect(request)
         if redirect_response:
             return redirect_response
-        form = DiretoriaDadosForm(request.POST, instance=diretoria)
+        form = DiretoriaDadosForm(request.POST, request.FILES, instance=diretoria)
         if form.is_valid():
             form.save()
             messages.success(request, 'Dados da diretoria atualizados com sucesso.')

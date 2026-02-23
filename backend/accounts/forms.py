@@ -336,7 +336,7 @@ class DiretoriaForm(forms.ModelForm):
 class DiretoriaDadosForm(forms.ModelForm):
     class Meta:
         model = Diretoria
-        exclude = ('user', 'assinatura', 'foto', 'created_at')
+        exclude = ('user', 'assinatura', 'created_at')
 
 
 class UserAccessForm(forms.Form):

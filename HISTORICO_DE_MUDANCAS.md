@@ -227,3 +227,8 @@ Arquivo oficial de registro das entregas concluidas.
 - Removida da tela `WhatsApp` a coluna/caixinha `Confirmacao inscricao` por usuario, pois essa mensagem e automatica e enviada apenas na conclusao da inscricao.
 - Ajustada a `WhatsAppView` para nao salvar nem exibir resumo dessa preferencia no formulario de contatos.
 - O envio de confirmacao de inscricao agora ocorre independentemente da preferencia `notify_confirmacao`, garantindo que novos inscritos recebam a notificacao ao concluir o cadastro.
+## 23/02/2026 - Meus dados (Diretoria): permitir alterar foto no editar
+
+- Formulario `Meus dados > Diretoria > Editar` passou a exibir o campo `foto` no `DiretoriaDadosForm`.
+- View `MinhaDiretoriaEditarView` ajustada para receber `request.FILES`, permitindo salvar upload de nova foto.
+- Template `meus_dados_diretoria_editar.html` atualizado para `multipart/form-data`.
