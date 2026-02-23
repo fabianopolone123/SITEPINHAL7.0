@@ -294,3 +294,9 @@ Arquivo oficial de registro das entregas concluidas.
 - Corrigida a função de grupos padrão para não recompor automaticamente os `menus liberados por grupo` em grupos já existentes.
 - Isso corrige o caso em que o usuário marcava/desmarcava menus, clicava em `Salvar menus dos grupos` e as caixas voltavam ao estado anterior.
 - A função continua garantindo a criação dos grupos padrão e ajustando o nome exibido, sem sobrescrever os menus configurados manualmente.
+## 23/02/2026 - Financeiro > Mensalidades: valor configurável e grade horizontal por aventureiro
+
+- Adicionado campo de valor na geração de mensalidades (padrão `35`), permitindo informar o valor antes de clicar em `Gerar mensalidades`.
+- Modelo `MensalidadeAventureiro` atualizado com campo `valor` e migração `0025_mensalidadeaventureiro_valor.py`.
+- Lista do aventureiro selecionado passou a exibir também o valor de cada mensalidade.
+- Adicionada tabela fixa de resumo (ano atual) com os aventureiros que já possuem mensalidades cadastradas, mostrando os meses na horizontal.

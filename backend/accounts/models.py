@@ -1,6 +1,7 @@
 ﻿from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from decimal import Decimal
 
 User = get_user_model()
 
@@ -507,6 +508,7 @@ class MensalidadeAventureiro(models.Model):
     aventureiro = models.ForeignKey(Aventureiro, on_delete=models.CASCADE, related_name='mensalidades')
     ano_referencia = models.PositiveIntegerField('ano de referência')
     mes_referencia = models.PositiveSmallIntegerField('mês de referência')
+    valor = models.DecimalField('valor', max_digits=10, decimal_places=2, default=Decimal('35.00'))
     status = models.CharField('status', max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDENTE)
     created_by = models.ForeignKey(
         User,

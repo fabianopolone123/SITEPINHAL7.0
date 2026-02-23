@@ -3,6 +3,7 @@ import json
 import os
 import re
 from random import randint
+from decimal import Decimal, InvalidOperation
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -3749,6 +3750,31 @@ class FinanceiroView(LoginRequiredMixin, View):
         }
         return labels.get(month, str(month))
 
+    def _parse_valor(self, raw_value):
+        raw = str(raw_value or '').strip()
+        if not raw:
+            return Decimal('35.00')
+        normalized = raw.replace('R$', '').replace(' ', '')
+        if ',' in normalized and '.' in normalized:
+            normalized = normalized.replace('.', '').replace(',', '.')
+        else:
+            normalized = normalized.replace(',', '.')
+        try:
+            value = Decimal(normalized)
+        except (InvalidOperation, ValueError):
+            return None
+        if value <= 0:
+            return None
+        return value.quantize(Decimal('0.01'))
+
+    def _format_currency(self, value):
+        try:
+            decimal_value = Decimal(value).quantize(Decimal('0.01'))
+        except (InvalidOperation, ValueError, TypeError):
+            decimal_value = Decimal('0.00')
+        text = f'{decimal_value:,.2f}'
+        return 'R$ ' + text.replace(',', 'X').replace('.', ',').replace('X', '.')
+
     def _aventureiros(self):
         return list(
             Aventureiro.objects
@@ -3756,7 +3782,7 @@ class FinanceiroView(LoginRequiredMixin, View):
             .order_by('nome')
         )
 
-    def _mensalidades_context(self, aventureiro_id=''):
+    def _mensalidades_context(self, aventureiro_id='', valor_mensalidade='35'):
         aventureiros = self._aventureiros()
         selected_id = str(aventureiro_id or '').strip()
         selected = None
@@ -3774,21 +3800,53 @@ class FinanceiroView(LoginRequiredMixin, View):
                     'id': item.pk,
                     'competencia': f'{self._month_label(item.mes_referencia)}/{item.ano_referencia}',
                     'status': item.get_status_display(),
+                    'valor': self._format_currency(item.valor),
                     'mes': item.mes_referencia,
                     'ano': item.ano_referencia,
                 })
+        ano_resumo = timezone.localdate().year
+        resumo_rows_map = {}
+        resumo_qs = (
+            MensalidadeAventureiro.objects
+            .select_related('aventureiro', 'aventureiro__responsavel', 'aventureiro__responsavel__user')
+            .filter(ano_referencia=ano_resumo)
+            .order_by('aventureiro__nome', 'mes_referencia')
+        )
+        for item in resumo_qs:
+            key = item.aventureiro_id
+            row = resumo_rows_map.get(key)
+            if row is None:
+                resp_user = getattr(getattr(item.aventureiro, 'responsavel', None), 'user', None)
+                row = {
+                    'aventureiro_nome': item.aventureiro.nome,
+                    'responsavel_username': resp_user.username if resp_user else '',
+                    'cells': [{'label': '-', 'status': '', 'filled': False} for _ in range(12)],
+                }
+                resumo_rows_map[key] = row
+            row['cells'][item.mes_referencia - 1] = {
+                'label': self._format_currency(item.valor),
+                'status': item.get_status_display(),
+                'filled': True,
+            }
         return {
             'aventureiros': aventureiros,
             'selected_aventureiro': selected,
             'selected_aventureiro_id': selected_id,
             'mensalidades': mensalidades,
+            'valor_mensalidade': str(valor_mensalidade or '35'),
+            'resumo_ano': ano_resumo,
+            'resumo_meses': [self._month_label(m)[:3] for m in range(1, 13)],
+            'resumo_rows': list(resumo_rows_map.values()),
         }
 
     def get(self, request):
         guard = self._guard(request)
         if guard:
             return guard
-        context = self._mensalidades_context(request.GET.get('aventureiro'))
+        context = self._mensalidades_context(
+            request.GET.get('aventureiro'),
+            request.GET.get('valor', '35'),
+        )
         context.update({
             'active_financeiro_tab': 'mensalidades',
         })
@@ -3801,11 +3859,19 @@ class FinanceiroView(LoginRequiredMixin, View):
             return guard
         action = str(request.POST.get('action') or '').strip()
         aventureiro_id = str(request.POST.get('aventureiro_id') or '').strip()
+        valor_input = str(request.POST.get('valor_mensalidade') or '35').strip()
         if action == 'gerar_mensalidades':
             aventureiro = Aventureiro.objects.filter(pk=aventureiro_id).select_related('responsavel', 'responsavel__user').first()
             if not aventureiro:
                 messages.error(request, 'Selecione um aventureiro para gerar mensalidades.')
             else:
+                valor = self._parse_valor(valor_input)
+                if valor is None:
+                    messages.error(request, 'Informe um valor válido para a mensalidade.')
+                    context = self._mensalidades_context(aventureiro_id, valor_input)
+                    context.update({'active_financeiro_tab': 'mensalidades'})
+                    context.update(_sidebar_context(request))
+                    return render(request, self.template_name, context)
                 hoje = timezone.localdate()
                 created_count = 0
                 for mes in range(hoje.month, 13):
@@ -3815,6 +3881,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                         mes_referencia=mes,
                         defaults={
                             'created_by': request.user,
+                            'valor': valor,
                             'status': MensalidadeAventureiro.STATUS_PENDENTE,
                         },
                     )
@@ -3828,7 +3895,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                 else:
                     messages.info(request, f'As mensalidades de {aventureiro.nome} já estavam geradas até dezembro deste ano.')
 
-        context = self._mensalidades_context(aventureiro_id)
+        context = self._mensalidades_context(aventureiro_id, valor_input)
         context.update({
             'active_financeiro_tab': 'mensalidades',
         })

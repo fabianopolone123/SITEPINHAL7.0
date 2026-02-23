@@ -16,9 +16,9 @@
     .financeiro-tab.is-active {
       background:#0f172a; color:#fff; border-color:#0f172a;
     }
-    .financeiro-grid { display:grid; grid-template-columns: 1.2fr auto; gap:.75rem; align-items:end; }
+    .financeiro-grid { display:grid; grid-template-columns: 1.2fr .55fr auto; gap:.75rem; align-items:end; }
     .financeiro-grid label { font-size:.9rem; color:#334155; }
-    .financeiro-grid select { width:100%; padding:.75rem .85rem; border:1px solid #cbd5e1; border-radius:10px; }
+    .financeiro-grid select, .financeiro-grid input { width:100%; padding:.75rem .85rem; border:1px solid #cbd5e1; border-radius:10px; }
     .mensalidades-list { margin-top: 1rem; }
     .mensalidades-list table { width:100%; border-collapse: collapse; }
     .mensalidades-list th, .mensalidades-list td { padding:.7rem .6rem; border-bottom:1px solid #e2e8f0; text-align:left; }
@@ -26,6 +26,12 @@
       display:inline-flex; padding:.2rem .55rem; border-radius:999px; font-size:.75rem; font-weight:700;
       background:#fef3c7; color:#92400e; border:1px solid #fcd34d;
     }
+    .financeiro-scroll { overflow:auto; margin-top:1rem; }
+    .resumo-mensalidades { width:100%; min-width:980px; border-collapse:collapse; }
+    .resumo-mensalidades th, .resumo-mensalidades td { padding:.55rem .45rem; border-bottom:1px solid #e2e8f0; text-align:center; white-space:nowrap; }
+    .resumo-mensalidades th:first-child, .resumo-mensalidades td:first-child { text-align:left; position:sticky; left:0; background:#fff; z-index:1; }
+    .resumo-mensalidades small { display:block; color:#64748b; }
+    .cell-filled { display:inline-flex; padding:.18rem .45rem; border-radius:8px; background:#eff6ff; color:#1d4ed8; font-weight:600; }
     @media (max-width: 768px) {
       .financeiro-grid { grid-template-columns: 1fr; }
       .financeiro-grid .primary { width:100%; }
@@ -70,6 +76,10 @@
               {% endfor %}
             </select>
           </div>
+          <div>
+            <label for="valor_mensalidade">Valor</label>
+            <input id="valor_mensalidade" name="valor_mensalidade" type="text" value="{{ valor_mensalidade|default:'35' }}" inputmode="decimal" />
+          </div>
           <button type="submit" class="primary">Gerar mensalidades</button>
         </div>
       </form>
@@ -82,6 +92,7 @@
               <thead>
                 <tr>
                   <th>Competência</th>
+                  <th>Valor</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -89,6 +100,7 @@
                 {% for item in mensalidades %}
                   <tr>
                     <td>{{ item.competencia }}</td>
+                    <td>{{ item.valor }}</td>
                     <td><span class="badge-status">{{ item.status }}</span></td>
                   </tr>
                 {% endfor %}
@@ -99,6 +111,39 @@
           {% endif %}
         {% else %}
           <p class="panel-note">A listagem das mensalidades aparecerá abaixo após selecionar um aventureiro.</p>
+        {% endif %}
+      </div>
+
+      <div class="mensalidades-list">
+        <h3 style="margin-top:1.25rem;">Aventureiros com mensalidades ({{ resumo_ano }})</h3>
+        {% if resumo_rows %}
+          <div class="financeiro-scroll">
+            <table class="resumo-mensalidades">
+              <thead>
+                <tr>
+                  <th>Aventureiro</th>
+                  {% for mes in resumo_meses %}
+                    <th>{{ mes }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in resumo_rows %}
+                  <tr>
+                    <td>
+                      {{ row.aventureiro_nome }}
+                      {% if row.responsavel_username %}<small>Resp.: {{ row.responsavel_username }}</small>{% endif %}
+                    </td>
+                    {% for cell in row.cells %}
+                      <td>{% if cell.filled %}<span class="cell-filled">{{ cell.label }}</span>{% else %}-{% endif %}</td>
+                    {% endfor %}
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="panel-note">Nenhum aventureiro possui mensalidades cadastradas no ano atual.</p>
         {% endif %}
       </div>
     </section>
