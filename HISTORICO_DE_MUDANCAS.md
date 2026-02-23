@@ -305,3 +305,9 @@ Arquivo oficial de registro das entregas concluidas.
 - Ao clicar em uma mensalidade cadastrada (na lista do aventureiro ou na grade horizontal), a tela agora abre uma janela suspensa para editar o valor ou excluir o registro.
 - `FinanceiroView` passou a tratar as ações `editar_mensalidade` e `excluir_mensalidade`, mantendo o aventureiro selecionado após salvar.
 - A grade de resumo ganhou metadados por célula (`id`, `competência`, `valor`) para permitir edição direta por clique.
+## 23/02/2026 - Financeiro (Responsável): visão de mensalidades pendentes dos próprios aventureiros
+
+- A tela `Financeiro` passou a ter uma visão específica para o perfil ativo `Responsável`, mostrando apenas os aventureiros vinculados ao usuário logado.
+- Nessa visão são exibidas somente mensalidades pendentes atrasadas e do mês atual, com caixas de seleção por mensalidade.
+- Adicionado botão `Pagar` (placeholder), com mensagem informativa de que a funcionalidade de pagamento será implementada depois.
+- Grupo padrão `responsavel` atualizado para incluir o menu `financeiro`.

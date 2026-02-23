@@ -209,6 +209,8 @@ def _effective_menu_permissions(user, active_profile=''):
         profiles = {active_profile}
     if UserAccess.ROLE_DIRETOR in profiles or UserAccess.ROLE_DIRETORIA in profiles:
         allowed.update({'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes'})
+    if UserAccess.ROLE_RESPONSAVEL in profiles:
+        allowed.add('financeiro')
     allowed_group_codes = _group_codes_for_profile(active_profile) if active_profile else set()
     for group in user.access_groups.all():
         if active_profile and group.code not in allowed_group_codes:
@@ -301,7 +303,7 @@ def _ensure_default_access_groups():
     defaults = [
         ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('diretoria', 'Diretoria', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes']),
-        ('responsavel', 'Responsavel', ['inicio', 'meus_dados']),
+        ('responsavel', 'Responsavel', ['inicio', 'meus_dados', 'financeiro']),
         ('professor', 'Professor', ['inicio', 'meus_dados']),
     ]
     for code, name, menus in defaults:
@@ -312,6 +314,11 @@ def _ensure_default_access_groups():
         if group.name != name:
             group.name = name
             group.save(update_fields=['name', 'updated_at'])
+        if code == 'responsavel':
+            current_menus = _normalize_menu_keys(group.menu_permissions)
+            if 'financeiro' not in current_menus:
+                group.menu_permissions = list(current_menus) + ['financeiro']
+                group.save(update_fields=['menu_permissions', 'updated_at'])
 
 
 def _default_group_codes_for_access(access):
@@ -3782,6 +3789,57 @@ class FinanceiroView(LoginRequiredMixin, View):
             .order_by('nome')
         )
 
+    def _is_responsavel_mode(self, request):
+        return _get_active_profile(request) == UserAccess.ROLE_RESPONSAVEL
+
+    def _mensalidades_responsavel_context(self, request):
+        hoje = timezone.localdate()
+        responsavel = getattr(request.user, 'responsavel', None)
+        rows = []
+        if responsavel:
+            aventureiros = list(
+                Aventureiro.objects
+                .filter(responsavel=responsavel)
+                .order_by('nome')
+            )
+            if aventureiros:
+                itens = (
+                    MensalidadeAventureiro.objects
+                    .filter(
+                        aventureiro__in=aventureiros,
+                        status=MensalidadeAventureiro.STATUS_PENDENTE,
+                    )
+                    .filter(
+                        Q(ano_referencia__lt=hoje.year)
+                        | Q(ano_referencia=hoje.year, mes_referencia__lte=hoje.month)
+                    )
+                    .select_related('aventureiro')
+                    .order_by('aventureiro__nome', 'ano_referencia', 'mes_referencia')
+                )
+                rows_map = {
+                    av.pk: {
+                        'aventureiro_id': av.pk,
+                        'aventureiro_nome': av.nome,
+                        'mensalidades': [],
+                    }
+                    for av in aventureiros
+                }
+                for item in itens:
+                    rows_map[item.aventureiro_id]['mensalidades'].append({
+                        'id': item.pk,
+                        'competencia': f'{self._month_label(item.mes_referencia)}/{item.ano_referencia}',
+                        'valor': self._format_currency(item.valor),
+                        'is_atrasada': (item.ano_referencia < hoje.year) or (item.ano_referencia == hoje.year and item.mes_referencia < hoje.month),
+                    })
+                rows = [row for row in rows_map.values() if row['mensalidades']]
+        return {
+            'financeiro_mode': 'responsavel',
+            'responsavel_rows': rows,
+            'responsavel_tem_aventureiros': bool(getattr(request.user, 'responsavel', None) and request.user.responsavel.aventures.exists()),
+            'mes_atual_label': self._month_label(hoje.month),
+            'ano_atual': hoje.year,
+        }
+
     def _mensalidades_context(self, aventureiro_id='', valor_mensalidade='35'):
         aventureiros = self._aventureiros()
         selected_id = str(aventureiro_id or '').strip()
@@ -3848,10 +3906,13 @@ class FinanceiroView(LoginRequiredMixin, View):
         guard = self._guard(request)
         if guard:
             return guard
-        context = self._mensalidades_context(
-            request.GET.get('aventureiro'),
-            request.GET.get('valor', '35'),
-        )
+        if self._is_responsavel_mode(request):
+            context = self._mensalidades_responsavel_context(request)
+        else:
+            context = self._mensalidades_context(
+                request.GET.get('aventureiro'),
+                request.GET.get('valor', '35'),
+            )
         context.update({
             'active_financeiro_tab': 'mensalidades',
         })
@@ -3862,6 +3923,12 @@ class FinanceiroView(LoginRequiredMixin, View):
         guard = self._guard(request)
         if guard:
             return guard
+        if self._is_responsavel_mode(request):
+            messages.info(request, 'Botão Pagar em preparação. Em breve será habilitado.')
+            context = self._mensalidades_responsavel_context(request)
+            context.update({'active_financeiro_tab': 'mensalidades'})
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
         action = str(request.POST.get('action') or '').strip()
         aventureiro_id = str(request.POST.get('aventureiro_id') or '').strip()
         valor_input = str(request.POST.get('valor_mensalidade') or '35').strip()

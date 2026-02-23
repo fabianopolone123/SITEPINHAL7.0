@@ -22,6 +22,17 @@
     .mensalidades-list { margin-top: 1rem; }
     .mensalidades-list table { width:100%; border-collapse: collapse; }
     .mensalidades-list th, .mensalidades-list td { padding:.7rem .6rem; border-bottom:1px solid #e2e8f0; text-align:left; }
+    .responsavel-financeiro table { width:100%; border-collapse: collapse; }
+    .responsavel-financeiro th, .responsavel-financeiro td { padding:.75rem .6rem; border-bottom:1px solid #e2e8f0; vertical-align:top; text-align:left; }
+    .mensalidade-checks { display:flex; flex-wrap:wrap; gap:.55rem; }
+    .mensalidade-checks label {
+      display:flex; align-items:center; gap:.4rem; padding:.45rem .55rem; border:1px solid #dbeafe; background:#f8fbff;
+      border-radius:10px; font-size:.9rem;
+    }
+    .mensalidade-checks small { color:#64748b; }
+    .tag-atrasada { color:#b45309; font-weight:700; }
+    .financeiro-actions { margin-top:1rem; display:flex; justify-content:flex-end; }
+    .financeiro-actions .primary[disabled] { opacity:.8; cursor:not-allowed; }
     .badge-status {
       display:inline-flex; padding:.2rem .55rem; border-radius:999px; font-size:.75rem; font-weight:700;
       background:#fef3c7; color:#92400e; border:1px solid #fcd34d;
@@ -88,6 +99,58 @@
         <a class="financeiro-tab is-active" href="{% url 'accounts:financeiro' %}" aria-current="page">Mensalidades</a>
       </div>
 
+      {% if financeiro_mode == 'responsavel' %}
+      <div class="responsavel-financeiro">
+        <p class="panel-note">
+          Selecione as mensalidades pendentes dos seus aventureiros para pagamento.
+          São exibidas apenas mensalidades atrasadas e do mês atual ({{ mes_atual_label }}/{{ ano_atual }}).
+        </p>
+
+        {% if responsavel_rows %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="pagar_mensalidades" />
+            <table>
+              <thead>
+                <tr>
+                  <th>Aventureiro</th>
+                  <th>Mensalidades pendentes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in responsavel_rows %}
+                  <tr>
+                    <td>{{ row.aventureiro_nome }}</td>
+                    <td>
+                      <div class="mensalidade-checks">
+                        {% for item in row.mensalidades %}
+                          <label>
+                            <input type="checkbox" name="mensalidades_ids" value="{{ item.id }}" />
+                            <span>{{ item.competencia }}</span>
+                            <small>{{ item.valor }}</small>
+                            {% if item.is_atrasada %}<small class="tag-atrasada">Atrasada</small>{% endif %}
+                          </label>
+                        {% endfor %}
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            <div class="financeiro-actions">
+              <button type="submit" class="primary">Pagar</button>
+            </div>
+          </form>
+        {% elif responsavel_tem_aventureiros %}
+          <p class="panel-note">Nenhuma mensalidade pendente (atrasada ou do mês atual) foi encontrada para seus aventureiros.</p>
+          <div class="financeiro-actions">
+            <button type="button" class="primary" disabled>Pagar</button>
+          </div>
+        {% else %}
+          <p class="panel-note">Nenhum aventureiro vinculado ao seu usuário de responsável.</p>
+        {% endif %}
+      </div>
+      {% else %}
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="gerar_mensalidades" />
@@ -202,9 +265,11 @@
           <p class="panel-note">Nenhum aventureiro possui mensalidades cadastradas no ano atual.</p>
         {% endif %}
       </div>
+      {% endif %}
     </section>
   </main>
 
+  {% if financeiro_mode != 'responsavel' %}
   <div class="modal-backdrop" id="mensalidadeModal" aria-hidden="true">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="mensalidadeModalTitle">
       <h3 id="mensalidadeModalTitle">Editar mensalidade</h3>
@@ -301,5 +366,6 @@
       });
     })();
   </script>
+  {% endif %}
 </body>
 </html>
