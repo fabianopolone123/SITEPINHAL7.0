@@ -179,7 +179,7 @@ class WhatsAppPreference(models.Model):
     phone_number = models.CharField('numero whatsapp', max_length=32, blank=True)
     notify_cadastro = models.BooleanField('notificacao de cadastro', default=False)
     notify_diretoria = models.BooleanField('notificacao de cadastro de diretoria', default=False)
-    notify_confirmacao = models.BooleanField('notificacao de confirmacao de inscricao', default=True)
+    notify_confirmacao = models.BooleanField('notificacao de confirmacao de inscricao', default=False)
     notify_financeiro = models.BooleanField('notificacao financeira', default=False)
     notify_geral = models.BooleanField('notificacao geral', default=False)
     cadastro_message = models.TextField('mensagem de cadastro', blank=True)

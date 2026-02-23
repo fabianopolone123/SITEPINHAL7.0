@@ -215,3 +215,9 @@ Arquivo oficial de registro das entregas concluidas.
   - `/favicon.ico`
   - `/robots.txt`
 - Com isso, eventos como `Acesso de tela: /favicon.ico` deixam de aparecer no log.
+
+## 23/02/2026 - WhatsApp: confirmacao de inscricao desmarcada por padrao em novos usuarios
+
+- Corrigido o comportamento da preferencia WhatsApp `Confirmacao inscricao` para novos cadastros: agora `notify_confirmacao` nasce desmarcado (`False`) em vez de marcado automaticamente.
+- Adicionada migracao `0023_alter_whatsapppreference_notify_confirmacao.py` para alinhar o schema ao novo padrao.
+- Observacao: a alteracao vale para novos registros de preferencia; usuarios ja existentes nao foram alterados automaticamente.
