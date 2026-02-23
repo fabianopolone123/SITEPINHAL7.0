@@ -107,16 +107,25 @@ def _normalize_menu_keys(values):
 
 
 def _available_profiles(access):
-    known = {choice[0] for choice in UserAccess.ROLE_CHOICES}
-    profiles = list(access.profiles or [])
+    profiles = []
+    if access.user_id:
+        profiles.extend(
+            access.user.access_groups.order_by('code').values_list('code', flat=True)
+        )
+        if hasattr(access.user, 'diretoria'):
+            profiles.append(UserAccess.ROLE_DIRETORIA)
+        if hasattr(access.user, 'responsavel'):
+            profiles.append(UserAccess.ROLE_RESPONSAVEL)
+    profiles.extend(list(access.profiles or []))
     if access.role:
         profiles.append(access.role)
     deduped = []
     seen = set()
     for item in profiles:
-        if item in known and item not in seen:
-            deduped.append(item)
-            seen.add(item)
+        value = str(item or '').strip().lower()
+        if value and value not in seen:
+            deduped.append(value)
+            seen.add(value)
     order = {
         UserAccess.ROLE_DIRETOR: 0,
         UserAccess.ROLE_DIRETORIA: 1,
@@ -125,6 +134,32 @@ def _available_profiles(access):
     }
     deduped.sort(key=lambda item: (order.get(item, 99), item))
     return deduped
+
+
+def _sync_access_profiles_from_groups(user, access=None):
+    access = access or _ensure_user_access(user)
+    profiles = []
+    group_codes = user.access_groups.order_by('code').values_list('code', flat=True)
+    profiles.extend(str(code or '').strip().lower() for code in group_codes)
+    if hasattr(user, 'diretoria'):
+        profiles.append(UserAccess.ROLE_DIRETORIA)
+    if hasattr(user, 'responsavel'):
+        profiles.append(UserAccess.ROLE_RESPONSAVEL)
+    if access.role and not profiles:
+        profiles.append(access.role)
+    deduped = []
+    seen = set()
+    for item in profiles:
+        value = str(item or '').strip().lower()
+        if value and value not in seen:
+            deduped.append(value)
+            seen.add(value)
+    new_role = _primary_role_from_profiles(deduped)
+    if access.profiles != deduped or access.role != new_role:
+        access.profiles = deduped
+        access.role = new_role
+        access.save(update_fields=['role', 'profiles', 'updated_at'])
+    return access
 
 
 def _profile_display_name(profile):
@@ -140,6 +175,8 @@ def _group_codes_for_profile(profile):
         return {'responsavel'}
     if profile == UserAccess.ROLE_PROFESSOR:
         return {'professor'}
+    if profile:
+        return {profile}
     return set()
 
 
@@ -164,9 +201,7 @@ def _effective_menu_permissions(user, active_profile=''):
         return user_override
 
     allowed = {'inicio', 'meus_dados'}
-    profiles = set(access.profiles or [])
-    if access.role:
-        profiles.add(access.role)
+    profiles = set(_available_profiles(access))
     if active_profile and active_profile in profiles:
         profiles = {active_profile}
     if UserAccess.ROLE_DIRETOR in profiles or UserAccess.ROLE_DIRETORIA in profiles:
@@ -201,7 +236,7 @@ def _sidebar_context(request):
         'profile_options': profile_options,
         'profile_switch_enabled': len(profile_options) > 1,
         'current_path': request.get_full_path(),
-        'current_profiles': access.get_profiles_display(),
+        'current_profiles': [_profile_display_name(item) for item in _available_profiles(access)],
         'menu_permissions': _effective_menu_permissions(request.user, active_profile=active_profile),
     }
 
@@ -3160,6 +3195,7 @@ class PermissoesView(LoginRequiredMixin, View):
                 default_ids = [group_map[code].pk for code in default_codes if code in group_map]
                 if default_ids:
                     access.user.access_groups.set(default_ids)
+            access = _sync_access_profiles_from_groups(access.user, access=access)
             display = _user_display_data(access.user)
             user_group_ids = set(access.user.access_groups.values_list('id', flat=True))
             group_permissions = set()
@@ -3233,6 +3269,7 @@ class PermissoesView(LoginRequiredMixin, View):
                     if request.POST.get(f'ug{user.pk}_{group.pk}'):
                         selected_group_ids.append(group.pk)
                 user.access_groups.set(selected_group_ids)
+                _sync_access_profiles_from_groups(user)
             messages.success(request, 'Vínculo de usuários e grupos atualizado.')
 
         elif action == 'save_user_overrides':
