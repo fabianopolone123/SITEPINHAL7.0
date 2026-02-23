@@ -1467,8 +1467,11 @@ class NovoCadastroInscricaoView(View):
                     'has_saved_aventureiros': bool(data.get('aventures')),
                 })
         required = [
-            'nome_completo', 'data_nascimento', 'certidao_nascimento', 'rg',
-            'orgao_expedidor', 'cpf_aventureiro', 'nome_responsavel',
+            'nome_completo', 'sexo', 'data_nascimento', 'colegio', 'serie', 'bolsa_familia',
+            'endereco', 'bairro', 'cidade', 'cep', 'estado',
+            'certidao_nascimento', 'religiao', 'rg',
+            'orgao_expedidor', 'cpf_aventureiro', 'tem_whatsapp', 'tamanho_camiseta',
+            'nome_responsavel', 'parentesco', 'cpf_responsavel', 'email_responsavel', 'cel_responsavel',
             'assinatura_inscricao', 'foto_3x4',
         ]
         missing = [name for name in required if not str(fields.get(name, '')).strip()]
