@@ -250,3 +250,9 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Corrigido filtro de menus por `perfil ativo` para impedir que grupos personalizados (ex.: `secretaria`) aparecam em outros perfis selecionados.
 - Agora, ao trocar perfil na sidebar, os menus exibidos sao filtrados apenas pelos grupos/perfil correspondentes ao perfil ativo escolhido.
+## 23/02/2026 - Permissões: alinhamento entre perfil `Diretoria` e grupo `diretoria`
+
+- Criado grupo padrão `diretoria` (mesmos menus administrativos do grupo `diretor`) para alinhar com o perfil `Diretoria` existente no sistema.
+- Ajustado o mapeamento do perfil `Diretoria` para usar o grupo `diretoria` no filtro de menus por perfil ativo.
+- A tela `Permissões` agora adiciona automaticamente grupos padrão faltantes por perfil (ex.: usuário com perfil `Diretoria` recebe o grupo `diretoria`, sem remover outros grupos já marcados).
+- Grupo padrão `diretoria` protegido contra exclusão na tela de permissões.

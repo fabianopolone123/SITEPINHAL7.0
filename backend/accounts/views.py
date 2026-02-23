@@ -170,7 +170,7 @@ def _group_codes_for_profile(profile):
     if profile == UserAccess.ROLE_DIRETOR:
         return {'diretor'}
     if profile == UserAccess.ROLE_DIRETORIA:
-        return {'diretor'}
+        return {'diretoria'}
     if profile == UserAccess.ROLE_RESPONSAVEL:
         return {'responsavel'}
     if profile == UserAccess.ROLE_PROFESSOR:
@@ -297,6 +297,7 @@ def _user_display_data(user):
 def _ensure_default_access_groups():
     defaults = [
         ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes']),
+        ('diretoria', 'Diretoria', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('responsavel', 'Responsavel', ['inicio', 'meus_dados']),
         ('professor', 'Professor', ['inicio', 'meus_dados']),
     ]
@@ -321,7 +322,7 @@ def _default_group_codes_for_access(access):
     if UserAccess.ROLE_DIRETOR in profiles:
         codes.add('diretor')
     if UserAccess.ROLE_DIRETORIA in profiles:
-        codes.add('diretor')
+        codes.add('diretoria')
     if UserAccess.ROLE_RESPONSAVEL in profiles:
         codes.add('responsavel')
     if UserAccess.ROLE_PROFESSOR in profiles:
@@ -3190,11 +3191,12 @@ class PermissoesView(LoginRequiredMixin, View):
         )
         rows = []
         for access in accesses:
-            if not access.user.access_groups.exists():
-                default_codes = _default_group_codes_for_access(access)
-                default_ids = [group_map[code].pk for code in default_codes if code in group_map]
-                if default_ids:
-                    access.user.access_groups.set(default_ids)
+            default_codes = _default_group_codes_for_access(access)
+            default_ids = {group_map[code].pk for code in default_codes if code in group_map}
+            current_ids = set(access.user.access_groups.values_list('id', flat=True))
+            missing_default_ids = sorted(default_ids - current_ids)
+            if missing_default_ids:
+                access.user.access_groups.add(*missing_default_ids)
             access = _sync_access_profiles_from_groups(access.user, access=access)
             display = _user_display_data(access.user)
             user_group_ids = set(access.user.access_groups.values_list('id', flat=True))
@@ -3289,7 +3291,7 @@ class PermissoesView(LoginRequiredMixin, View):
             group = AccessGroup.objects.filter(pk=group_id).first()
             if not group:
                 messages.error(request, 'Grupo não encontrado.')
-            elif group.code in {'diretor', 'responsavel', 'professor'}:
+            elif group.code in {'diretor', 'diretoria', 'responsavel', 'professor'}:
                 messages.error(request, 'Não é possível excluir grupos padrão.')
             else:
                 group.delete()
