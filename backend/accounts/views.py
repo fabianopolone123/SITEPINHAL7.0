@@ -3265,7 +3265,16 @@ class PermissoesView(LoginRequiredMixin, View):
         elif action == 'save_memberships':
             groups = list(AccessGroup.objects.all())
             users = list(User.objects.all())
+            accesses_by_user = {
+                access.user_id: access
+                for access in UserAccess.objects.select_related('user').all()
+            }
+            skipped_locked_rows = 0
             for user in users:
+                access = accesses_by_user.get(user.pk) or _ensure_user_access(user)
+                if _normalize_menu_keys(access.menu_allow):
+                    skipped_locked_rows += 1
+                    continue
                 selected_group_ids = []
                 for group in groups:
                     if request.POST.get(f'ug{user.pk}_{group.pk}'):
@@ -3273,6 +3282,9 @@ class PermissoesView(LoginRequiredMixin, View):
                 user.access_groups.set(selected_group_ids)
                 _sync_access_profiles_from_groups(user)
             messages.success(request, 'Vínculo de usuários e grupos atualizado.')
+
+            if skipped_locked_rows:
+                messages.info(request, f'{skipped_locked_rows} linha(s) ignorada(s) por exceção individual ativa.')
 
         elif action == 'save_user_overrides':
             accesses = UserAccess.objects.select_related('user').all()

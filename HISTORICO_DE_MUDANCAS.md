@@ -260,3 +260,7 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Tela `Permissões` ajustada para ocultar o botão `Excluir` também no grupo padrão `diretoria`, mantendo coerência com a regra do backend.
 - Texto informativo de grupos padrão atualizado para listar `Diretoria`.
+## 23/02/2026 - Permissões: salvar vínculos de grupo ignora linhas bloqueadas por exceção individual
+
+- Corrigido o salvamento de `Usuários por grupo` na tela `Permissões`: linhas bloqueadas por `Exceção por usuário` agora são ignoradas no backend (em vez de serem processadas com checkboxes desabilitados).
+- Adicionada mensagem informativa após salvar, indicando quantas linhas foram ignoradas por exceção individual ativa.
