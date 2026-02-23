@@ -32,6 +32,12 @@
     .mensalidade-checks small { color:#64748b; }
     .tag-atrasada { color:#b45309; font-weight:700; }
     .financeiro-actions { margin-top:1rem; display:flex; justify-content:flex-end; }
+    .financeiro-actions-wrap { margin-top:1rem; display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
+    .financeiro-total-selecionado {
+      display:inline-flex; align-items:center; gap:.35rem; padding:.55rem .7rem;
+      border:1px solid #cbd5e1; border-radius:10px; background:#f8fafc; color:#0f172a; font-weight:600;
+    }
+    .financeiro-total-selecionado small { color:#64748b; font-weight:500; }
     .financeiro-actions .primary[disabled] { opacity:.8; cursor:not-allowed; }
     .badge-status {
       display:inline-flex; padding:.2rem .55rem; border-radius:999px; font-size:.75rem; font-weight:700;
@@ -125,7 +131,7 @@
                       <div class="mensalidade-checks">
                         {% for item in row.mensalidades %}
                           <label>
-                            <input type="checkbox" name="mensalidades_ids" value="{{ item.id }}" />
+                            <input type="checkbox" name="mensalidades_ids" value="{{ item.id }}" data-valor="{{ item.valor }}" />
                             <span>{{ item.competencia }}</span>
                             <small>{{ item.valor }}</small>
                             {% if item.is_atrasada %}<small class="tag-atrasada">Atrasada</small>{% endif %}
@@ -137,8 +143,14 @@
                 {% endfor %}
               </tbody>
             </table>
-            <div class="financeiro-actions">
-              <button type="submit" class="primary">Pagar</button>
+            <div class="financeiro-actions-wrap">
+              <div class="financeiro-total-selecionado" id="financeiroTotalSelecionado" aria-live="polite">
+                <small>Total selecionado:</small>
+                <span id="financeiroTotalSelecionadoValor">R$ 0,00</span>
+              </div>
+              <div class="financeiro-actions">
+                <button type="submit" class="primary">Pagar</button>
+              </div>
             </div>
           </form>
         {% elif responsavel_tem_aventureiros %}
@@ -364,6 +376,42 @@
         actionInput.value = 'excluir_mensalidade';
         valorInput.required = false;
       });
+    })();
+  </script>
+  {% endif %}
+  {% if financeiro_mode == 'responsavel' %}
+  <script>
+    (function () {
+      const checks = Array.from(document.querySelectorAll('input[name="mensalidades_ids"][data-valor]'));
+      const totalNode = document.getElementById('financeiroTotalSelecionadoValor');
+      if (!checks.length || !totalNode) return;
+
+      function parseMoedaBRL(texto) {
+        const normalizado = String(texto || '')
+          .replace('R$', '')
+          .replace(/\s+/g, '')
+          .replace(/\./g, '')
+          .replace(',', '.');
+        const valor = Number(normalizado);
+        return Number.isFinite(valor) ? valor : 0;
+      }
+
+      function formatMoedaBRL(valor) {
+        return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      }
+
+      function atualizarTotal() {
+        let total = 0;
+        checks.forEach(function (check) {
+          if (check.checked) total += parseMoedaBRL(check.dataset.valor);
+        });
+        totalNode.textContent = formatMoedaBRL(total);
+      }
+
+      checks.forEach(function (check) {
+        check.addEventListener('change', atualizarTotal);
+      });
+      atualizarTotal();
     })();
   </script>
   {% endif %}

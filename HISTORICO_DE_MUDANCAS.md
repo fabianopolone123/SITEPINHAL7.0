@@ -311,3 +311,7 @@ Arquivo oficial de registro das entregas concluidas.
 - Nessa visão são exibidas somente mensalidades pendentes atrasadas e do mês atual, com caixas de seleção por mensalidade.
 - Adicionado botão `Pagar` (placeholder), com mensagem informativa de que a funcionalidade de pagamento será implementada depois.
 - Grupo padrão `responsavel` atualizado para incluir o menu `financeiro`.
+## 23/02/2026 - Financeiro (Responsável): soma automática das mensalidades selecionadas
+
+- Na visão de `Financeiro` do perfil `Responsável`, a tela agora exibe o total das mensalidades marcadas ao lado do botão `Pagar`.
+- O valor é atualizado automaticamente ao marcar/desmarcar mensalidades, sem recarregar a página.
