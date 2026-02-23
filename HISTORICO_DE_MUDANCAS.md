@@ -241,3 +241,8 @@ Arquivo oficial de registro das entregas concluidas.
 - Ajustada a logica de perfis disponiveis na sidebar para considerar tambem os grupos vinculados ao usuario (`AccessGroup`), permitindo que grupos personalizados (ex.: `secretaria`) aparecam como opcoes de perfil.
 - Ajustado filtro de menus por `perfil ativo` para aceitar perfis derivados de grupos personalizados (usa o codigo do grupo).
 - Tela `Permissoes` agora sincroniza `UserAccess.profiles` automaticamente ao montar a lista e ao salvar vinculos de usuario x grupo, corrigindo casos em que o usuario estava em varios grupos mas o menu nao mostrava `Trocar perfil`.
+## 23/02/2026 - Sidebar do painel: rolagem e responsividade para muitos menus
+
+- Sidebar do painel ajustada para ter altura da viewport no desktop (`100vh`) e rolagem vertical propria no bloco de menu, evitando que itens fiquem escondidos quando houver muitos menus/perfis.
+- Em telas menores (mobile/tablet), a sidebar volta a altura automatica e a rolagem interna e desativada para manter a navegacao responsiva.
+- Ajuste pensado para uso em celular, garantindo acesso aos menus mesmo com mais opcoes de perfil.
