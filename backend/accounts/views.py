@@ -3182,7 +3182,6 @@ class PermissoesView(LoginRequiredMixin, View):
     def _build_context(self, request):
         _ensure_default_access_groups()
         groups = list(AccessGroup.objects.prefetch_related('users').order_by('name'))
-        group_map = {group.code: group for group in groups}
         groups_by_id = {group.pk: set(_normalize_menu_keys(group.menu_permissions)) for group in groups}
         accesses = list(
             UserAccess.objects
@@ -3191,12 +3190,6 @@ class PermissoesView(LoginRequiredMixin, View):
         )
         rows = []
         for access in accesses:
-            default_codes = _default_group_codes_for_access(access)
-            default_ids = {group_map[code].pk for code in default_codes if code in group_map}
-            current_ids = set(access.user.access_groups.values_list('id', flat=True))
-            missing_default_ids = sorted(default_ids - current_ids)
-            if missing_default_ids:
-                access.user.access_groups.add(*missing_default_ids)
             access = _sync_access_profiles_from_groups(access.user, access=access)
             display = _user_display_data(access.user)
             user_group_ids = set(access.user.access_groups.values_list('id', flat=True))

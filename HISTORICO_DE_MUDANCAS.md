@@ -264,3 +264,8 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Corrigido o salvamento de `Usuários por grupo` na tela `Permissões`: linhas bloqueadas por `Exceção por usuário` agora são ignoradas no backend (em vez de serem processadas com checkboxes desabilitados).
 - Adicionada mensagem informativa após salvar, indicando quantas linhas foram ignoradas por exceção individual ativa.
+## 23/02/2026 - Permissões: `Usuários por grupo` não remarca grupos automaticamente ao recarregar
+
+- Corrigido o bloco `Usuários por grupo` para não readicionar grupos padrão automaticamente durante o carregamento da tela `Permissões`.
+- Isso corrige o caso em que o usuário desmarcava um grupo (ex.: `Diretoria`), salvava, e a caixa voltava marcada ao reabrir/recarregar a página.
+- A sincronização de perfis continua, mas sem forçar novamente o vínculo de grupo no `GET` da tela.
