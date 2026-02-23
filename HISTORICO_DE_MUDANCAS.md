@@ -232,3 +232,7 @@ Arquivo oficial de registro das entregas concluidas.
 - Formulario `Meus dados > Diretoria > Editar` passou a exibir o campo `foto` no `DiretoriaDadosForm`.
 - View `MinhaDiretoriaEditarView` ajustada para receber `request.FILES`, permitindo salvar upload de nova foto.
 - Template `meus_dados_diretoria_editar.html` atualizado para `multipart/form-data`.
+## 23/02/2026 - Meus dados (foto): priorizar nova foto quando `Limpar` estiver marcado
+
+- Ajustado o widget de upload nas edicoes de `Aventureiro` e `Diretoria` para evitar erro de conflito quando o usuario marca `Limpar` e seleciona uma nova foto ao mesmo tempo.
+- Nessa situacao, o sistema agora prioriza a nova foto enviada e salva a substituicao normalmente.

@@ -1,9 +1,19 @@
 ﻿from django import forms
+from django.forms.widgets import FILE_INPUT_CONTRADICTION
 from django.contrib.auth import get_user_model
 from .models import Responsavel, Aventureiro, Diretoria, UserAccess
 from .utils import decode_signature, decode_photo
 
 User = get_user_model()
+
+
+class ReplacePriorityClearableFileInput(forms.ClearableFileInput):
+    def value_from_datadict(self, data, files, name):
+        upload = files.get(name)
+        value = super().value_from_datadict(data, files, name)
+        if value is FILE_INPUT_CONTRADICTION and upload:
+            return upload
+        return value
 
 
 def _upsert_user_profile(user, profile):
@@ -237,6 +247,11 @@ class ResponsavelDadosForm(forms.ModelForm):
 
 
 class AventureiroDadosForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'foto' in self.fields:
+            self.fields['foto'].widget = ReplacePriorityClearableFileInput()
+
     class Meta:
         model = Aventureiro
         fields = [
@@ -334,6 +349,11 @@ class DiretoriaForm(forms.ModelForm):
 
 
 class DiretoriaDadosForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'foto' in self.fields:
+            self.fields['foto'].widget = ReplacePriorityClearableFileInput()
+
     class Meta:
         model = Diretoria
         exclude = ('user', 'assinatura', 'created_at')
