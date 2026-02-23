@@ -1110,11 +1110,13 @@ def _inscricao_parent_fields_from_last_aventureiro(data):
     last = aventureiros[-1] or {}
     inscricao = last.get('inscricao') or {}
     keys = [
+        'pai_ausente',
         'nome_pai',
         'email_pai',
         'cpf_pai',
         'tel_pai',
         'cel_pai',
+        'mae_ausente',
         'nome_mae',
         'email_mae',
         'cpf_mae',
@@ -1134,11 +1136,13 @@ def _inscricao_parent_fields_from_responsavel(responsavel):
     if not responsavel:
         return {}
     return {
+        'pai_ausente': '',
         'nome_pai': responsavel.pai_nome or '',
         'email_pai': responsavel.pai_email or '',
         'cpf_pai': responsavel.pai_cpf or '',
         'tel_pai': responsavel.pai_telefone or '',
         'cel_pai': responsavel.pai_celular or '',
+        'mae_ausente': '',
         'nome_mae': responsavel.mae_nome or '',
         'email_mae': responsavel.mae_email or '',
         'cpf_mae': responsavel.mae_cpf or '',
@@ -1385,7 +1389,9 @@ class NovoCadastroInscricaoView(View):
         'classes', 'endereco', 'bairro', 'cidade', 'cep', 'estado', 'certidao_nascimento',
         'religiao', 'rg', 'orgao_expedidor', 'cpf_aventureiro', 'tem_whatsapp',
         'tamanho_camiseta', 'nome_pai', 'email_pai', 'cpf_pai', 'tel_pai', 'cel_pai',
+        'pai_ausente',
         'nome_mae', 'email_mae', 'cpf_mae', 'tel_mae', 'cel_mae', 'nome_responsavel',
+        'mae_ausente',
         'parentesco', 'cpf_responsavel', 'email_responsavel', 'tel_responsavel',
         'cel_responsavel', 'assinatura_inscricao', 'foto_3x4',
         'cidade_data', 'dia_data', 'mes_data', 'ano_data',
@@ -1431,10 +1437,24 @@ class NovoCadastroInscricaoView(View):
         fields = _extract_fields(request.POST, self.field_names)
         _normalize_inscricao_docs(fields)
         _apply_date_defaults(fields)
+        pai_ausente = _normalize_bool(fields.get('pai_ausente'))
+        mae_ausente = _normalize_bool(fields.get('mae_ausente'))
+        fields['pai_ausente'] = 'on' if pai_ausente else ''
+        fields['mae_ausente'] = 'on' if mae_ausente else ''
+        if pai_ausente:
+            for key in ('nome_pai', 'email_pai', 'cpf_pai', 'tel_pai', 'cel_pai'):
+                fields[key] = ''
+        if mae_ausente:
+            for key in ('nome_mae', 'email_mae', 'cpf_mae', 'tel_mae', 'cel_mae'):
+                fields[key] = ''
         is_existing_responsavel_flow = bool(data.get('existing_responsavel_id'))
         duplicate_fields = ['cpf_aventureiro', 'rg', 'certidao_nascimento']
         if not is_existing_responsavel_flow:
-            duplicate_fields.extend(['cpf_pai', 'cpf_mae', 'cpf_responsavel'])
+            if not pai_ausente:
+                duplicate_fields.append('cpf_pai')
+            if not mae_ausente:
+                duplicate_fields.append('cpf_mae')
+            duplicate_fields.append('cpf_responsavel')
         for field_name in duplicate_fields:
             duplicate_message = _find_duplicate_document(field_name, fields.get(field_name), scope='inscricao')
             if duplicate_message:
@@ -1446,7 +1466,11 @@ class NovoCadastroInscricaoView(View):
                     'step_data': fields,
                     'has_saved_aventureiros': bool(data.get('aventures')),
                 })
-        required = ['nome_completo', 'data_nascimento', 'nome_responsavel', 'assinatura_inscricao', 'foto_3x4']
+        required = [
+            'nome_completo', 'data_nascimento', 'certidao_nascimento', 'rg',
+            'orgao_expedidor', 'cpf_aventureiro', 'nome_responsavel',
+            'assinatura_inscricao', 'foto_3x4',
+        ]
         missing = [name for name in required if not str(fields.get(name, '')).strip()]
         if missing:
             messages.error(request, 'Preencha os campos obrigatórios e assine a ficha de inscrição.')

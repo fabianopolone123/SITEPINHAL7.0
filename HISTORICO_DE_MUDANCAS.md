@@ -269,3 +269,9 @@ Arquivo oficial de registro das entregas concluidas.
 - Corrigido o bloco `Usuários por grupo` para não readicionar grupos padrão automaticamente durante o carregamento da tela `Permissões`.
 - Isso corrige o caso em que o usuário desmarcava um grupo (ex.: `Diretoria`), salvava, e a caixa voltava marcada ao reabrir/recarregar a página.
 - A sincronização de perfis continua, mas sem forçar novamente o vínculo de grupo no `GET` da tela.
+## 23/02/2026 - Cadastro de aventureiro (inscrição): `Pai/Mãe ausente` + documentos obrigatórios
+
+- Adicionadas as opções `Pai ausente` e `Mãe ausente` na ficha de inscrição (`novo_cadastro/ficha_inscricao`).
+- Ao marcar, os campos do respectivo bloco (pai ou mãe) são desabilitados no frontend e o backend limpa esses dados no salvamento da etapa.
+- Validação de duplicidade de CPF no passo de inscrição passou a ignorar `cpf_pai`/`cpf_mae` quando o respectivo responsável estiver marcado como ausente.
+- Restaurada a obrigatoriedade dos documentos na inscrição do aventureiro (`Certidão de nascimento`, `RG`, `Órgão Expedidor` e `CPF`), com validação no frontend e no backend.

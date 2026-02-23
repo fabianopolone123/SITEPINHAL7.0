@@ -282,6 +282,38 @@
     }
   }
 
+  function initParentAbsentToggles() {
+    var form = document.querySelector('form');
+    if (!form) return;
+
+    function applyToggle(parentKey) {
+      var toggle = form.querySelector('[data-parent-absent-toggle="' + parentKey + '"]');
+      var block = form.querySelector('[data-parent-block="' + parentKey + '"]');
+      if (!toggle || !block) return;
+      var disabled = !!toggle.checked;
+      block.classList.toggle('parent-block-disabled', disabled);
+      var fields = block.querySelectorAll('[data-parent-field="' + parentKey + '"]');
+      fields.forEach(function (field) {
+        field.disabled = disabled;
+        if (disabled) {
+          field.classList.remove('required-missing');
+          field.classList.remove('duplicate-missing');
+        }
+      });
+      if (disabled && form.dataset.hasDuplicateError) {
+        var anyDuplicate = form.querySelector('.duplicate-missing');
+        if (!anyDuplicate) delete form.dataset.hasDuplicateError;
+      }
+    }
+
+    ['pai', 'mae'].forEach(function (parentKey) {
+      var toggle = form.querySelector('[data-parent-absent-toggle="' + parentKey + '"]');
+      if (!toggle) return;
+      toggle.addEventListener('change', function () { applyToggle(parentKey); });
+      applyToggle(parentKey);
+    });
+  }
+
   function initSignatureWidgets() {
     var widgets = document.querySelectorAll('.signature-widget');
     widgets.forEach(function (widget) {
@@ -368,6 +400,7 @@
   }
 
   initPhotoToDataUrl();
+  initParentAbsentToggles();
   initSignatureWidgets();
   initRequiredMarkersAndValidation();
   initDocumentDuplicateCheck();
