@@ -300,3 +300,8 @@ Arquivo oficial de registro das entregas concluidas.
 - Modelo `MensalidadeAventureiro` atualizado com campo `valor` e migração `0025_mensalidadeaventureiro_valor.py`.
 - Lista do aventureiro selecionado passou a exibir também o valor de cada mensalidade.
 - Adicionada tabela fixa de resumo (ano atual) com os aventureiros que já possuem mensalidades cadastradas, mostrando os meses na horizontal.
+## 23/02/2026 - Financeiro > Mensalidades: edição/exclusão por clique em modal
+
+- Ao clicar em uma mensalidade cadastrada (na lista do aventureiro ou na grade horizontal), a tela agora abre uma janela suspensa para editar o valor ou excluir o registro.
+- `FinanceiroView` passou a tratar as ações `editar_mensalidade` e `excluir_mensalidade`, mantendo o aventureiro selecionado após salvar.
+- A grade de resumo ganhou metadados por célula (`id`, `competência`, `valor`) para permitir edição direta por clique.

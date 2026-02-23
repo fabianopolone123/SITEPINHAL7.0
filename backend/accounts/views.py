@@ -3801,6 +3801,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                     'competencia': f'{self._month_label(item.mes_referencia)}/{item.ano_referencia}',
                     'status': item.get_status_display(),
                     'valor': self._format_currency(item.valor),
+                    'valor_raw': f'{Decimal(item.valor).quantize(Decimal("0.01"))}',
                     'mes': item.mes_referencia,
                     'ano': item.ano_referencia,
                 })
@@ -3818,13 +3819,17 @@ class FinanceiroView(LoginRequiredMixin, View):
             if row is None:
                 resp_user = getattr(getattr(item.aventureiro, 'responsavel', None), 'user', None)
                 row = {
+                    'aventureiro_id': item.aventureiro_id,
                     'aventureiro_nome': item.aventureiro.nome,
                     'responsavel_username': resp_user.username if resp_user else '',
-                    'cells': [{'label': '-', 'status': '', 'filled': False} for _ in range(12)],
+                    'cells': [{'id': '', 'label': '-', 'valor_raw': '', 'competencia': '', 'status': '', 'filled': False} for _ in range(12)],
                 }
                 resumo_rows_map[key] = row
             row['cells'][item.mes_referencia - 1] = {
+                'id': item.pk,
                 'label': self._format_currency(item.valor),
+                'valor_raw': f'{Decimal(item.valor).quantize(Decimal("0.01"))}',
+                'competencia': f'{self._month_label(item.mes_referencia)}/{item.ano_referencia}',
                 'status': item.get_status_display(),
                 'filled': True,
             }
@@ -3894,6 +3899,46 @@ class FinanceiroView(LoginRequiredMixin, View):
                     )
                 else:
                     messages.info(request, f'As mensalidades de {aventureiro.nome} já estavam geradas até dezembro deste ano.')
+
+        elif action == 'editar_mensalidade':
+            mensalidade_id = str(request.POST.get('mensalidade_id') or '').strip()
+            valor_edicao_input = str(request.POST.get('valor_mensalidade_edicao') or '').strip()
+            mensalidade = (
+                MensalidadeAventureiro.objects
+                .select_related('aventureiro')
+                .filter(pk=mensalidade_id)
+                .first()
+            )
+            if not mensalidade:
+                messages.error(request, 'Mensalidade nÃ£o encontrada para ediÃ§Ã£o.')
+            else:
+                aventureiro_id = str(mensalidade.aventureiro_id)
+                valor = self._parse_valor(valor_edicao_input)
+                if valor is None:
+                    messages.error(request, 'Informe um valor vÃ¡lido para editar a mensalidade.')
+                else:
+                    mensalidade.valor = valor
+                    mensalidade.save(update_fields=['valor', 'updated_at'])
+                    messages.success(
+                        request,
+                        f'Mensalidade {self._month_label(mensalidade.mes_referencia)}/{mensalidade.ano_referencia} atualizada para {self._format_currency(valor)}.',
+                    )
+        elif action == 'excluir_mensalidade':
+            mensalidade_id = str(request.POST.get('mensalidade_id') or '').strip()
+            mensalidade = (
+                MensalidadeAventureiro.objects
+                .select_related('aventureiro')
+                .filter(pk=mensalidade_id)
+                .first()
+            )
+            if not mensalidade:
+                messages.error(request, 'Mensalidade nÃ£o encontrada para exclusÃ£o.')
+            else:
+                aventureiro_id = str(mensalidade.aventureiro_id)
+                competencia = f'{self._month_label(mensalidade.mes_referencia)}/{mensalidade.ano_referencia}'
+                aventura_nome = mensalidade.aventureiro.nome
+                mensalidade.delete()
+                messages.success(request, f'Mensalidade {competencia} de {aventura_nome} excluÃ­da com sucesso.')
 
         context = self._mensalidades_context(aventureiro_id, valor_input)
         context.update({
