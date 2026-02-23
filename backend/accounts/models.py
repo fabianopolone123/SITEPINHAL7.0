@@ -528,3 +528,48 @@ class MensalidadeAventureiro(models.Model):
 
     def __str__(self):
         return f'{self.aventureiro.nome} - {self.mes_referencia:02d}/{self.ano_referencia}'
+
+
+class PagamentoMensalidade(models.Model):
+    STATUS_PENDENTE = 'pendente'
+    STATUS_PROCESSANDO = 'processando'
+    STATUS_PAGO = 'pago'
+    STATUS_CANCELADO = 'cancelado'
+    STATUS_FALHA = 'falha'
+
+    STATUS_CHOICES = [
+        (STATUS_PENDENTE, 'Pendente'),
+        (STATUS_PROCESSANDO, 'Processando'),
+        (STATUS_PAGO, 'Pago'),
+        (STATUS_CANCELADO, 'Cancelado'),
+        (STATUS_FALHA, 'Falha'),
+    ]
+
+    responsavel = models.ForeignKey('Responsavel', on_delete=models.CASCADE, related_name='pagamentos_mensalidade')
+    mensalidades = models.ManyToManyField(MensalidadeAventureiro, related_name='pagamentos', blank=True)
+    valor_total = models.DecimalField('valor total', max_digits=10, decimal_places=2)
+    status = models.CharField('status', max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDENTE)
+    mp_payment_id = models.CharField('MP payment id', max_length=64, blank=True)
+    mp_external_reference = models.CharField('MP external reference', max_length=128, blank=True)
+    mp_status = models.CharField('MP status', max_length=32, blank=True)
+    mp_status_detail = models.CharField('MP status detail', max_length=128, blank=True)
+    mp_qr_code = models.TextField('MP QR code Pix', blank=True)
+    mp_qr_code_base64 = models.TextField('MP QR code base64', blank=True)
+    paid_at = models.DateTimeField('pago em', null=True, blank=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pagamentos_mensalidade_criados',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'pagamento de mensalidades'
+        verbose_name_plural = 'pagamentos de mensalidades'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f'Pagamento mensalidades #{self.pk} - {self.responsavel}'

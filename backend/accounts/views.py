@@ -2,8 +2,10 @@ import copy
 import json
 import os
 import re
+import hashlib
 from random import randint
 from decimal import Decimal, InvalidOperation
+from urllib import request as urllib_request, error as urllib_error
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -40,6 +42,7 @@ from .models import (
     EventoPresenca,
     AuditLog,
     MensalidadeAventureiro,
+    PagamentoMensalidade,
 )
 from .audit import record_audit
 from .utils import decode_signature, decode_photo
@@ -3792,6 +3795,168 @@ class FinanceiroView(LoginRequiredMixin, View):
     def _is_responsavel_mode(self, request):
         return _get_active_profile(request) == UserAccess.ROLE_RESPONSAVEL
 
+    def _mp_access_token(self):
+        return (
+            os.getenv('MP_ACCESS_TOKEN_PROD', '').strip()
+            or os.getenv('MP_ACCESS_TOKEN', '').strip()
+        )
+
+    def _mp_api_request(self, method, path, payload=None):
+        token = self._mp_access_token()
+        if not token:
+            raise ValueError('MP_ACCESS_TOKEN_PROD nÃ£o configurado no servidor.')
+
+        url = f'https://api.mercadopago.com{path}'
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Accept': 'application/json',
+        }
+        data = None
+        if payload is not None:
+            headers['Content-Type'] = 'application/json'
+            headers['X-Idempotency-Key'] = hashlib.sha256(os.urandom(16)).hexdigest()
+            data = json.dumps(payload).encode('utf-8')
+
+        req = urllib_request.Request(url=url, data=data, headers=headers, method=method)
+        try:
+            with urllib_request.urlopen(req, timeout=30) as response:
+                body = response.read().decode('utf-8')
+                return json.loads(body) if body else {}
+        except urllib_error.HTTPError as exc:
+            try:
+                body = exc.read().decode('utf-8')
+                details = json.loads(body)
+                message = details.get('message') or details.get('error') or body
+            except Exception:
+                message = str(exc)
+            raise ValueError(f'Erro Mercado Pago: {message}') from exc
+
+    def _mp_notification_url(self, request):
+        explicit = os.getenv('MP_NOTIFICATION_URL', '').strip()
+        if explicit:
+            return explicit
+        return ''
+
+    def _mp_status_label(self, pagamento):
+        if pagamento.status == PagamentoMensalidade.STATUS_PAGO:
+            return 'Pagamento aprovado'
+        status = (pagamento.mp_status or '').lower()
+        status_map = {
+            'pending': 'Aguardando pagamento',
+            'in_process': 'Processando pagamento',
+            'approved': 'Pagamento aprovado',
+            'rejected': 'Pagamento recusado',
+            'cancelled': 'Pagamento cancelado',
+        }
+        return status_map.get(status, 'Aguardando pagamento')
+
+    def _create_mp_pix_payment(self, request, pagamento):
+        responsible_name = (
+            pagamento.responsavel.responsavel_nome
+            or pagamento.responsavel.mae_nome
+            or pagamento.responsavel.pai_nome
+            or request.user.get_full_name()
+            or request.user.username
+        ).strip()
+        name_parts = [part for part in responsible_name.split() if part]
+        first_name = (name_parts[0] if name_parts else request.user.username)[:60]
+        last_name = (' '.join(name_parts[1:]) if len(name_parts) > 1 else 'Responsavel')[:60]
+        payer_email = f'mensalidade{pagamento.pk}.{request.user.id}@sitepinhal.local'
+        external_reference = f'MENSALIDADE_{pagamento.pk}'
+        payload = {
+            'transaction_amount': float(pagamento.valor_total),
+            'description': f'Mensalidades aventureiros - Pagamento #{pagamento.pk}',
+            'payment_method_id': 'pix',
+            'external_reference': external_reference,
+            'payer': {
+                'email': payer_email,
+                'first_name': first_name,
+                'last_name': last_name,
+            },
+        }
+        notification_url = self._mp_notification_url(request)
+        if notification_url:
+            payload['notification_url'] = notification_url
+
+        payment = self._mp_api_request('POST', '/v1/payments', payload)
+        tx_data = payment.get('point_of_interaction', {}).get('transaction_data', {})
+        pix_code = tx_data.get('qr_code', '') or ''
+        qr_base64 = tx_data.get('qr_code_base64', '') or ''
+        if not pix_code or not qr_base64:
+            raise ValueError('Mercado Pago nÃ£o retornou QR Code Pix para este pagamento.')
+        return {
+            'payment_id': str(payment.get('id') or ''),
+            'external_reference': external_reference,
+            'status': (payment.get('status') or '').lower(),
+            'status_detail': payment.get('status_detail') or '',
+            'pix_code': pix_code,
+            'qr_base64': qr_base64,
+        }
+
+    def _get_mp_payment(self, payment_id):
+        return self._mp_api_request('GET', f'/v1/payments/{payment_id}')
+
+    def _sync_pagamento_from_mp(self, pagamento, payment_data):
+        mp_status = (payment_data.get('status') or '').lower()
+        mp_status_detail = payment_data.get('status_detail') or ''
+        mp_payment_id = str(payment_data.get('id') or pagamento.mp_payment_id or '')
+        mp_external_reference = payment_data.get('external_reference') or pagamento.mp_external_reference
+        update_fields = []
+
+        if mp_payment_id != pagamento.mp_payment_id:
+            pagamento.mp_payment_id = mp_payment_id
+            update_fields.append('mp_payment_id')
+        if (mp_external_reference or '') != pagamento.mp_external_reference:
+            pagamento.mp_external_reference = mp_external_reference or ''
+            update_fields.append('mp_external_reference')
+        if mp_status != pagamento.mp_status:
+            pagamento.mp_status = mp_status
+            update_fields.append('mp_status')
+        if mp_status_detail != pagamento.mp_status_detail:
+            pagamento.mp_status_detail = mp_status_detail
+            update_fields.append('mp_status_detail')
+
+        target_status = pagamento.status
+        if mp_status == 'approved':
+            target_status = PagamentoMensalidade.STATUS_PAGO
+        elif mp_status in {'pending'}:
+            target_status = PagamentoMensalidade.STATUS_PENDENTE
+        elif mp_status in {'in_process'}:
+            target_status = PagamentoMensalidade.STATUS_PROCESSANDO
+        elif mp_status in {'cancelled'}:
+            target_status = PagamentoMensalidade.STATUS_CANCELADO
+        elif mp_status in {'rejected'}:
+            target_status = PagamentoMensalidade.STATUS_FALHA
+        if target_status != pagamento.status:
+            pagamento.status = target_status
+            update_fields.append('status')
+
+        if mp_status == 'approved' and not pagamento.paid_at:
+            pagamento.paid_at = timezone.now()
+            update_fields.append('paid_at')
+        elif mp_status != 'approved' and pagamento.paid_at:
+            pagamento.paid_at = None
+            update_fields.append('paid_at')
+
+        if update_fields:
+            pagamento.save(update_fields=list(dict.fromkeys(update_fields)))
+
+        if mp_status == 'approved':
+            pagamento.mensalidades.filter(status=MensalidadeAventureiro.STATUS_PENDENTE).update(
+                status=MensalidadeAventureiro.STATUS_PAGA
+            )
+
+    def _pix_modal_context(self, pagamento):
+        return {
+            'id': pagamento.pk,
+            'payment_id': pagamento.mp_payment_id,
+            'status': pagamento.status,
+            'status_label': self._mp_status_label(pagamento),
+            'valor_total': self._format_currency(pagamento.valor_total),
+            'qr_base64': pagamento.mp_qr_code_base64,
+            'pix_code': pagamento.mp_qr_code,
+        }
+
     def _mensalidades_responsavel_context(self, request):
         hoje = timezone.localdate()
         responsavel = getattr(request.user, 'responsavel', None)
@@ -3838,6 +4003,7 @@ class FinanceiroView(LoginRequiredMixin, View):
             'responsavel_tem_aventureiros': bool(getattr(request.user, 'responsavel', None) and request.user.responsavel.aventures.exists()),
             'mes_atual_label': self._month_label(hoje.month),
             'ano_atual': hoje.year,
+            'responsavel_pix_pagamento': None,
         }
 
     def _mensalidades_context(self, aventureiro_id='', valor_mensalidade='35'):
@@ -3924,8 +4090,83 @@ class FinanceiroView(LoginRequiredMixin, View):
         if guard:
             return guard
         if self._is_responsavel_mode(request):
-            messages.info(request, 'Botão Pagar em preparação. Em breve será habilitado.')
+            action = str(request.POST.get('action') or '').strip()
             context = self._mensalidades_responsavel_context(request)
+            responsavel = getattr(request.user, 'responsavel', None)
+            if action == 'pagar_mensalidades':
+                selected_ids = []
+                for raw in request.POST.getlist('mensalidades_ids'):
+                    text = str(raw or '').strip()
+                    if text.isdigit():
+                        selected_ids.append(int(text))
+                selected_ids = list(dict.fromkeys(selected_ids))
+                if not responsavel:
+                    messages.error(request, 'Usuário não possui cadastro de responsável vinculado.')
+                elif not selected_ids:
+                    messages.error(request, 'Selecione pelo menos uma mensalidade para pagar.')
+                else:
+                    hoje = timezone.localdate()
+                    mensalidades_qs = (
+                        MensalidadeAventureiro.objects
+                        .select_related('aventureiro')
+                        .filter(
+                            pk__in=selected_ids,
+                            aventureiro__responsavel=responsavel,
+                            status=MensalidadeAventureiro.STATUS_PENDENTE,
+                        )
+                        .filter(
+                            Q(ano_referencia__lt=hoje.year)
+                            | Q(ano_referencia=hoje.year, mes_referencia__lte=hoje.month)
+                        )
+                        .order_by('aventureiro__nome', 'ano_referencia', 'mes_referencia')
+                    )
+                    mensalidades = list(mensalidades_qs)
+                    if len(mensalidades) != len(selected_ids):
+                        messages.error(request, 'Algumas mensalidades selecionadas são inválidas ou não pertencem ao responsável logado.')
+                    else:
+                        total = sum((item.valor for item in mensalidades), Decimal('0.00')).quantize(Decimal('0.01'))
+                        try:
+                            with transaction.atomic():
+                                pagamento = PagamentoMensalidade.objects.create(
+                                    responsavel=responsavel,
+                                    valor_total=total,
+                                    created_by=request.user,
+                                    status=PagamentoMensalidade.STATUS_PENDENTE,
+                                )
+                                pagamento.mensalidades.set(mensalidades)
+                                mp_payload = self._create_mp_pix_payment(request, pagamento)
+                                pagamento.mp_payment_id = mp_payload['payment_id']
+                                pagamento.mp_external_reference = mp_payload['external_reference']
+                                pagamento.mp_status = mp_payload['status']
+                                pagamento.mp_status_detail = mp_payload['status_detail']
+                                pagamento.mp_qr_code = mp_payload['pix_code']
+                                pagamento.mp_qr_code_base64 = mp_payload['qr_base64']
+                                if mp_payload['status'] == 'approved':
+                                    pagamento.status = PagamentoMensalidade.STATUS_PAGO
+                                    pagamento.paid_at = timezone.now()
+                                elif mp_payload['status'] == 'in_process':
+                                    pagamento.status = PagamentoMensalidade.STATUS_PROCESSANDO
+                                else:
+                                    pagamento.status = PagamentoMensalidade.STATUS_PENDENTE
+                                pagamento.save(update_fields=[
+                                    'mp_payment_id', 'mp_external_reference', 'mp_status', 'mp_status_detail',
+                                    'mp_qr_code', 'mp_qr_code_base64', 'status', 'paid_at', 'updated_at',
+                                ])
+                                if pagamento.mp_status == 'approved':
+                                    pagamento.mensalidades.filter(status=MensalidadeAventureiro.STATUS_PENDENTE).update(
+                                        status=MensalidadeAventureiro.STATUS_PAGA
+                                    )
+                        except ValueError as exc:
+                            messages.error(request, str(exc))
+                        except Exception:
+                            messages.error(request, 'Não foi possível iniciar o pagamento no Mercado Pago agora.')
+                        else:
+                            if pagamento.status == PagamentoMensalidade.STATUS_PAGO:
+                                messages.success(request, 'Pagamento aprovado e mensalidades marcadas como pagas.')
+                            else:
+                                messages.success(request, 'Pagamento Pix gerado com sucesso. Use o QR Code para concluir.')
+                            context = self._mensalidades_responsavel_context(request)
+                            context['responsavel_pix_pagamento'] = self._pix_modal_context(pagamento)
             context.update({'active_financeiro_tab': 'mensalidades'})
             context.update(_sidebar_context(request))
             return render(request, self.template_name, context)
@@ -4013,6 +4254,41 @@ class FinanceiroView(LoginRequiredMixin, View):
         })
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
+
+
+class PagamentoMensalidadeStatusApiView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        pagamento = get_object_or_404(
+            PagamentoMensalidade.objects.select_related('responsavel', 'responsavel__user'),
+            pk=pk,
+        )
+        if not _has_menu_permission(request, 'financeiro'):
+            return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+
+        active_profile = _get_active_profile(request)
+        if active_profile == UserAccess.ROLE_RESPONSAVEL:
+            responsavel = getattr(request.user, 'responsavel', None)
+            if not responsavel or pagamento.responsavel_id != responsavel.pk:
+                return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+
+        view = FinanceiroView()
+        if pagamento.mp_payment_id and pagamento.status != PagamentoMensalidade.STATUS_PAGO:
+            try:
+                payment_data = view._get_mp_payment(pagamento.mp_payment_id)
+                view._sync_pagamento_from_mp(pagamento, payment_data)
+                pagamento.refresh_from_db()
+            except Exception:
+                pass
+
+        return JsonResponse({
+            'ok': True,
+            'pagamento_id': pagamento.pk,
+            'status': pagamento.status,
+            'status_label': view._mp_status_label(pagamento),
+            'mp_status': pagamento.mp_status,
+            'mp_status_detail': pagamento.mp_status_detail,
+            'is_paid': pagamento.status == PagamentoMensalidade.STATUS_PAGO,
+        })
 
 
 class UsuarioDetalheView(LoginRequiredMixin, View):

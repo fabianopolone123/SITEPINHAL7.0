@@ -76,6 +76,18 @@
     .modal-actions .danger { background:#fee2e2; border-color:#fecaca; color:#991b1b; }
     .modal-actions .primary { border-color:#0f172a; background:#0f172a; color:#fff; }
     .modal-actions .ghost { background:#fff; color:#0f172a; }
+    .pix-modal-qr { width:min(100%, 260px); display:block; margin:.6rem auto; border:1px solid #e2e8f0; border-radius:12px; background:#fff; }
+    .pix-code-box {
+      width:100%; min-height:88px; padding:.7rem .8rem; border:1px solid #cbd5e1; border-radius:10px;
+      font-family:Consolas, monospace; font-size:.82rem; line-height:1.35; resize:vertical;
+    }
+    .pix-status-box {
+      margin:.5rem 0 .8rem; padding:.55rem .65rem; border-radius:10px; border:1px solid #dbeafe; background:#f8fbff; color:#1e3a8a;
+      font-weight:600;
+    }
+    .pix-status-box.is-paid { background:#ecfdf5; border-color:#bbf7d0; color:#166534; }
+    .pix-modal-row { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:.45rem; }
+    .pix-modal-row small { color:#64748b; }
     @media (max-width: 768px) {
       .financeiro-grid { grid-template-columns: 1fr; }
       .financeiro-grid .primary { width:100%; }
@@ -281,6 +293,45 @@
     </section>
   </main>
 
+  {% if financeiro_mode == 'responsavel' %}
+  <div class="modal-backdrop{% if responsavel_pix_pagamento %} is-open{% endif %}" id="pixPagamentoModal" aria-hidden="{% if responsavel_pix_pagamento %}false{% else %}true{% endif %}">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pixPagamentoModalTitle">
+      <h3 id="pixPagamentoModalTitle">Pagamento via Pix</h3>
+      <p>Escaneie o QR Code ou copie o código Pix para concluir o pagamento das mensalidades selecionadas.</p>
+      <div class="pix-modal-row">
+        <small>Total</small>
+        <strong id="pixPagamentoTotal">{% if responsavel_pix_pagamento %}{{ responsavel_pix_pagamento.valor_total }}{% else %}R$ 0,00{% endif %}</strong>
+      </div>
+      <div class="pix-status-box{% if responsavel_pix_pagamento and responsavel_pix_pagamento.status == 'pago' %} is-paid{% endif %}" id="pixPagamentoStatus">
+        {% if responsavel_pix_pagamento %}{{ responsavel_pix_pagamento.status_label }}{% else %}Aguardando pagamento{% endif %}
+      </div>
+      <img
+        id="pixPagamentoQr"
+        class="pix-modal-qr"
+        alt="QR Code Pix"
+        {% if responsavel_pix_pagamento and responsavel_pix_pagamento.qr_base64 %}
+        src="data:image/png;base64,{{ responsavel_pix_pagamento.qr_base64 }}"
+        {% else %}
+        hidden
+        {% endif %}
+      />
+      <label for="pixPagamentoCodigo">Código Pix (copia e cola)</label>
+      <textarea id="pixPagamentoCodigo" class="pix-code-box" readonly>{% if responsavel_pix_pagamento %}{{ responsavel_pix_pagamento.pix_code }}{% endif %}</textarea>
+      <div class="modal-actions">
+        <button type="button" class="ghost" id="pixPagamentoCopiar">Copiar código</button>
+        <button type="button" class="ghost" id="pixPagamentoFechar">Fechar</button>
+      </div>
+      {% if responsavel_pix_pagamento %}
+      <div
+        id="pixPagamentoData"
+        data-pagamento-id="{{ responsavel_pix_pagamento.id }}"
+        data-status-url="{% url 'accounts:financeiro_pagamento_status' responsavel_pix_pagamento.id %}"
+      ></div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
   {% if financeiro_mode != 'responsavel' %}
   <div class="modal-backdrop" id="mensalidadeModal" aria-hidden="true">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="mensalidadeModalTitle">
@@ -384,7 +435,6 @@
     (function () {
       const checks = Array.from(document.querySelectorAll('input[name="mensalidades_ids"][data-valor]'));
       const totalNode = document.getElementById('financeiroTotalSelecionadoValor');
-      if (!checks.length || !totalNode) return;
 
       function parseMoedaBRL(texto) {
         const normalizado = String(texto || '')
@@ -408,10 +458,79 @@
         totalNode.textContent = formatMoedaBRL(total);
       }
 
-      checks.forEach(function (check) {
-        check.addEventListener('change', atualizarTotal);
-      });
-      atualizarTotal();
+      if (checks.length && totalNode) {
+        checks.forEach(function (check) {
+          check.addEventListener('change', atualizarTotal);
+        });
+        atualizarTotal();
+      }
+
+      const pixModal = document.getElementById('pixPagamentoModal');
+      const pixData = document.getElementById('pixPagamentoData');
+      const pixStatus = document.getElementById('pixPagamentoStatus');
+      const pixQr = document.getElementById('pixPagamentoQr');
+      const pixCodigo = document.getElementById('pixPagamentoCodigo');
+      const btnFechar = document.getElementById('pixPagamentoFechar');
+      const btnCopiar = document.getElementById('pixPagamentoCopiar');
+      let pollHandle = null;
+
+      function stopPolling() {
+        if (pollHandle) {
+          window.clearInterval(pollHandle);
+          pollHandle = null;
+        }
+      }
+
+      function closePixModal() {
+        if (!pixModal) return;
+        pixModal.classList.remove('is-open');
+        pixModal.setAttribute('aria-hidden', 'true');
+        stopPolling();
+      }
+
+      async function refreshPixStatus() {
+        if (!pixData) return;
+        try {
+          const response = await fetch(pixData.dataset.statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+          const payload = await response.json();
+          if (!payload || !payload.ok) return;
+          pixStatus.textContent = payload.status_label || 'Aguardando pagamento';
+          pixStatus.classList.toggle('is-paid', !!payload.is_paid);
+          if (payload.is_paid) {
+            stopPolling();
+          }
+        } catch (_err) {
+          // mantém silencioso para não poluir a UI do responsável.
+        }
+      }
+
+      if (btnFechar) {
+        btnFechar.addEventListener('click', closePixModal);
+      }
+      if (pixModal) {
+        pixModal.addEventListener('click', function (event) {
+          if (event.target === pixModal) closePixModal();
+        });
+      }
+      if (btnCopiar && pixCodigo) {
+        btnCopiar.addEventListener('click', async function () {
+          const valor = (pixCodigo.value || '').trim();
+          if (!valor) return;
+          try {
+            await navigator.clipboard.writeText(valor);
+            btnCopiar.textContent = 'Copiado';
+            window.setTimeout(function () { btnCopiar.textContent = 'Copiar código'; }, 1500);
+          } catch (_err) {
+            pixCodigo.focus();
+            pixCodigo.select();
+          }
+        });
+      }
+
+      if (pixModal && pixModal.classList.contains('is-open') && pixData) {
+        refreshPixStatus();
+        pollHandle = window.setInterval(refreshPixStatus, 7000);
+      }
     })();
   </script>
   {% endif %}

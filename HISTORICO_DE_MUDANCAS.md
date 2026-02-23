@@ -315,3 +315,10 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Na visão de `Financeiro` do perfil `Responsável`, a tela agora exibe o total das mensalidades marcadas ao lado do botão `Pagar`.
 - O valor é atualizado automaticamente ao marcar/desmarcar mensalidades, sem recarregar a página.
+## 23/02/2026 - Financeiro (Responsável): integração Pix com Mercado Pago no botão `Pagar`
+
+- Integrado o botão `Pagar` da visão `Responsável` ao Mercado Pago (Pix), baseado no padrão usado no projeto `SITEANDREWS`.
+- Ao selecionar mensalidades pendentes e clicar em `Pagar`, o sistema cria um pagamento Pix no Mercado Pago, registra localmente o vínculo com as mensalidades e abre modal com QR Code + código copia e cola.
+- Adicionada API de status do pagamento para atualização da situação no modal e marcação automática das mensalidades como `Paga` quando o Mercado Pago retornar `approved`.
+- Criado modelo `PagamentoMensalidade` com migração `0026_pagamentomensalidade.py`.
+- Token usado via variável de ambiente `MP_ACCESS_TOKEN_PROD` (ou `MP_ACCESS_TOKEN` como fallback).
