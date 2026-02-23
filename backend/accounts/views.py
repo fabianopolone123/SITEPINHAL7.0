@@ -780,8 +780,6 @@ def _dispatch_signup_confirmation(user, tipo_cadastro, nome):
     if not user:
         return
     pref, _ = WhatsAppPreference.objects.get_or_create(user=user)
-    if not pref.notify_confirmacao:
-        return
     phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(user))
     if not phone_number:
         return
@@ -3513,7 +3511,6 @@ class WhatsAppView(LoginRequiredMixin, View):
         rows = self._users_context()
         cadastro_enabled = []
         diretoria_enabled = []
-        confirmacao_enabled = []
         for row in rows:
             user = row['user']
             pref = row['pref']
@@ -3521,7 +3518,6 @@ class WhatsAppView(LoginRequiredMixin, View):
             pref.phone_number = normalize_phone_number(request.POST.get(f'{prefix}_phone', '').strip())
             pref.notify_cadastro = bool(request.POST.get(f'{prefix}_cadastro'))
             pref.notify_diretoria = bool(request.POST.get(f'{prefix}_diretoria'))
-            pref.notify_confirmacao = bool(request.POST.get(f'{prefix}_confirmacao'))
             pref.notify_financeiro = False
             pref.notify_geral = False
             pref.save(
@@ -3529,7 +3525,6 @@ class WhatsAppView(LoginRequiredMixin, View):
                     'phone_number',
                     'notify_cadastro',
                     'notify_diretoria',
-                    'notify_confirmacao',
                     'notify_financeiro',
                     'notify_geral',
                     'updated_at',
@@ -3539,9 +3534,6 @@ class WhatsAppView(LoginRequiredMixin, View):
                 cadastro_enabled.append(user.username)
             if pref.notify_diretoria:
                 diretoria_enabled.append(user.username)
-            if pref.notify_confirmacao:
-                confirmacao_enabled.append(user.username)
-
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_CADASTRO,
             defaults={'message_text': request.POST.get('template_cadastro', '').strip()},
@@ -3649,16 +3641,6 @@ class WhatsAppView(LoginRequiredMixin, View):
             )
         else:
             messages.info(request, 'Nenhum contato está marcado para receber notificação de Diretoria.')
-        if confirmacao_enabled:
-            preview = ', '.join(confirmacao_enabled[:6])
-            suffix = '...' if len(confirmacao_enabled) > 6 else ''
-            messages.info(
-                request,
-                f'Confirmação de inscrição marcada para: {preview}{suffix}',
-            )
-        else:
-            messages.info(request, 'Nenhum contato está marcado para receber confirmação de inscrição.')
-
         context = {
             'rows': self._users_context(),
             'queue': queue_stats(),
