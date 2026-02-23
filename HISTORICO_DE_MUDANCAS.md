@@ -246,3 +246,7 @@ Arquivo oficial de registro das entregas concluidas.
 - Sidebar do painel ajustada para ter altura da viewport no desktop (`100vh`) e rolagem vertical propria no bloco de menu, evitando que itens fiquem escondidos quando houver muitos menus/perfis.
 - Em telas menores (mobile/tablet), a sidebar volta a altura automatica e a rolagem interna e desativada para manter a navegacao responsiva.
 - Ajuste pensado para uso em celular, garantindo acesso aos menus mesmo com mais opcoes de perfil.
+## 23/02/2026 - Perfil ativo: menu respeita apenas o grupo/perfil selecionado
+
+- Corrigido filtro de menus por `perfil ativo` para impedir que grupos personalizados (ex.: `secretaria`) aparecam em outros perfis selecionados.
+- Agora, ao trocar perfil na sidebar, os menus exibidos sao filtrados apenas pelos grupos/perfil correspondentes ao perfil ativo escolhido.

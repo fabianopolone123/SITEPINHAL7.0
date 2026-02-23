@@ -208,7 +208,7 @@ def _effective_menu_permissions(user, active_profile=''):
         allowed.update({'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes'})
     allowed_group_codes = _group_codes_for_profile(active_profile) if active_profile else set()
     for group in user.access_groups.all():
-        if active_profile and group.code in {'diretor', 'responsavel', 'professor'} and group.code not in allowed_group_codes:
+        if active_profile and group.code not in allowed_group_codes:
             continue
         allowed.update(_normalize_menu_keys(group.menu_permissions))
     return sorted(allowed)
