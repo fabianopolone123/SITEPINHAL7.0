@@ -83,7 +83,7 @@
         <input type="text" name="group_name" placeholder="Nome exibido do grupo" />
         <button type="submit" class="primary">Criar grupo</button>
       </form>
-      <p class="panel-note">Grupos padrão: Diretor, Responsável, Professor.</p>
+      <p class="panel-note">Grupos padrão: Diretor, Diretoria, Responsável e Professor.</p>
     </section>
 
     <section class="painel-card">
@@ -118,7 +118,7 @@
                     </td>
                   {% endfor %}
                   <td>
-                    {% if group.code != 'diretor' and group.code != 'responsavel' and group.code != 'professor' %}
+                    {% if group.code != 'diretor' and group.code != 'diretoria' and group.code != 'responsavel' and group.code != 'professor' %}
                       <button type="submit" class="secondary" formaction="" formmethod="post" name="action" value="delete_group" onclick="this.form.group_id.value='{{ group.pk }}';">Excluir</button>
                     {% else %}
                       <span>-</span>

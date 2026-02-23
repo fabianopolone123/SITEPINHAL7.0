@@ -256,3 +256,7 @@ Arquivo oficial de registro das entregas concluidas.
 - Ajustado o mapeamento do perfil `Diretoria` para usar o grupo `diretoria` no filtro de menus por perfil ativo.
 - A tela `Permissões` agora adiciona automaticamente grupos padrão faltantes por perfil (ex.: usuário com perfil `Diretoria` recebe o grupo `diretoria`, sem remover outros grupos já marcados).
 - Grupo padrão `diretoria` protegido contra exclusão na tela de permissões.
+## 23/02/2026 - Permissões (UX): esconder `Excluir` no grupo padrão `Diretoria`
+
+- Tela `Permissões` ajustada para ocultar o botão `Excluir` também no grupo padrão `diretoria`, mantendo coerência com a regra do backend.
+- Texto informativo de grupos padrão atualizado para listar `Diretoria`.
