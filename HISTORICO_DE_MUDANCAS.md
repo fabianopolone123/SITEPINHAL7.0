@@ -279,3 +279,13 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Revisados os campos da ficha de inscrição do aventureiro e adicionados `required` nos campos obrigatórios principais (dados do aventureiro e do responsável legal), para exibição automática de `*` no frontend.
 - Validação backend da etapa `novo_cadastro_inscricao` alinhada aos mesmos campos obrigatórios, evitando inconsistência entre asterisco/HTML e processamento do servidor.
+## 23/02/2026 - Módulo Financeiro (inicial): menu + mensalidades por aventureiro
+
+- Adicionado novo menu `Financeiro` no painel (via permissões), habilitado por padrão no grupo `diretor`.
+- Criada rota/tela `financeiro/` com aba inicial `Mensalidades` (aberta por padrão).
+- Implementado cadastro/geração de mensalidades por aventureiro:
+  - seleciona o aventureiro,
+  - clica em `Gerar mensalidades`,
+  - sistema gera mensalidades do mês atual até dezembro do ano vigente (sem duplicar registros existentes).
+- A tela exibe abaixo o aventureiro selecionado e a lista das mensalidades geradas.
+- Criado modelo `MensalidadeAventureiro` com migração `0024_mensalidadeaventureiro.py`.

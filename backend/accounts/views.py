@@ -38,6 +38,7 @@ from .models import (
     EventoPreset,
     EventoPresenca,
     AuditLog,
+    MensalidadeAventureiro,
 )
 from .audit import record_audit
 from .utils import decode_signature, decode_photo
@@ -66,6 +67,7 @@ MENU_ITEMS = [
     ('presenca', 'Presença'),
     ('auditoria', 'Auditoria'),
     ('usuarios', 'Usuários'),
+    ('financeiro', 'Financeiro'),
     ('whatsapp', 'WhatsApp'),
     ('documentos_inscricao', 'Documentos inscrição'),
     ('permissoes', 'Permissões'),
@@ -296,7 +298,7 @@ def _user_display_data(user):
 
 def _ensure_default_access_groups():
     defaults = [
-        ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes']),
+        ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('diretoria', 'Diretoria', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('responsavel', 'Responsavel', ['inicio', 'meus_dados']),
         ('professor', 'Professor', ['inicio', 'meus_dados']),
@@ -3720,6 +3722,119 @@ class WhatsAppView(LoginRequiredMixin, View):
             'confirmacao_template': get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO),
             'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
         }
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
+
+
+class FinanceiroView(LoginRequiredMixin, View):
+    template_name = 'financeiro.html'
+
+    def _guard(self, request):
+        if not _has_menu_permission(request, 'financeiro'):
+            messages.error(request, 'Seu perfil não possui permissão para acessar Financeiro.')
+            return redirect('accounts:painel')
+        return None
+
+    def _month_label(self, month):
+        labels = {
+            1: 'Janeiro',
+            2: 'Fevereiro',
+            3: 'Março',
+            4: 'Abril',
+            5: 'Maio',
+            6: 'Junho',
+            7: 'Julho',
+            8: 'Agosto',
+            9: 'Setembro',
+            10: 'Outubro',
+            11: 'Novembro',
+            12: 'Dezembro',
+        }
+        return labels.get(month, str(month))
+
+    def _aventureiros(self):
+        return list(
+            Aventureiro.objects
+            .select_related('responsavel', 'responsavel__user')
+            .order_by('nome')
+        )
+
+    def _mensalidades_context(self, aventureiro_id=''):
+        aventureiros = self._aventureiros()
+        selected_id = str(aventureiro_id or '').strip()
+        selected = None
+        if selected_id.isdigit():
+            selected = next((av for av in aventureiros if av.pk == int(selected_id)), None)
+        mensalidades = []
+        if selected:
+            registros = (
+                MensalidadeAventureiro.objects
+                .filter(aventureiro=selected)
+                .order_by('ano_referencia', 'mes_referencia')
+            )
+            for item in registros:
+                mensalidades.append({
+                    'id': item.pk,
+                    'competencia': f'{self._month_label(item.mes_referencia)}/{item.ano_referencia}',
+                    'status': item.get_status_display(),
+                    'mes': item.mes_referencia,
+                    'ano': item.ano_referencia,
+                })
+        return {
+            'aventureiros': aventureiros,
+            'selected_aventureiro': selected,
+            'selected_aventureiro_id': selected_id,
+            'mensalidades': mensalidades,
+        }
+
+    def get(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+        context = self._mensalidades_context(request.GET.get('aventureiro'))
+        context.update({
+            'active_financeiro_tab': 'mensalidades',
+        })
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+        action = str(request.POST.get('action') or '').strip()
+        aventureiro_id = str(request.POST.get('aventureiro_id') or '').strip()
+        if action == 'gerar_mensalidades':
+            aventureiro = Aventureiro.objects.filter(pk=aventureiro_id).select_related('responsavel', 'responsavel__user').first()
+            if not aventureiro:
+                messages.error(request, 'Selecione um aventureiro para gerar mensalidades.')
+            else:
+                hoje = timezone.localdate()
+                created_count = 0
+                for mes in range(hoje.month, 13):
+                    _item, created = MensalidadeAventureiro.objects.get_or_create(
+                        aventureiro=aventureiro,
+                        ano_referencia=hoje.year,
+                        mes_referencia=mes,
+                        defaults={
+                            'created_by': request.user,
+                            'status': MensalidadeAventureiro.STATUS_PENDENTE,
+                        },
+                    )
+                    if created:
+                        created_count += 1
+                if created_count:
+                    messages.success(
+                        request,
+                        f'Mensalidades geradas para {aventureiro.nome}: {created_count} registro(s) do mês atual até dezembro.',
+                    )
+                else:
+                    messages.info(request, f'As mensalidades de {aventureiro.nome} já estavam geradas até dezembro deste ano.')
+
+        context = self._mensalidades_context(aventureiro_id)
+        context.update({
+            'active_financeiro_tab': 'mensalidades',
+        })
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 

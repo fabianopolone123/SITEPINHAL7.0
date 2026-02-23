@@ -493,3 +493,36 @@ class EventoPresenca(models.Model):
     def __str__(self):
         status = 'presente' if self.presente else 'ausente'
         return f'{self.evento.name} - {self.aventureiro.nome} ({status})'
+
+
+class MensalidadeAventureiro(models.Model):
+    STATUS_PENDENTE = 'pendente'
+    STATUS_PAGA = 'paga'
+
+    STATUS_CHOICES = [
+        (STATUS_PENDENTE, 'Pendente'),
+        (STATUS_PAGA, 'Paga'),
+    ]
+
+    aventureiro = models.ForeignKey(Aventureiro, on_delete=models.CASCADE, related_name='mensalidades')
+    ano_referencia = models.PositiveIntegerField('ano de referência')
+    mes_referencia = models.PositiveSmallIntegerField('mês de referência')
+    status = models.CharField('status', max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDENTE)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='mensalidades_criadas',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'mensalidade do aventureiro'
+        verbose_name_plural = 'mensalidades dos aventureiros'
+        unique_together = ('aventureiro', 'ano_referencia', 'mes_referencia')
+        ordering = ('aventureiro__nome', 'ano_referencia', 'mes_referencia')
+
+    def __str__(self):
+        return f'{self.aventureiro.nome} - {self.mes_referencia:02d}/{self.ano_referencia}'
