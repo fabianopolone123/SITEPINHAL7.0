@@ -43,12 +43,14 @@
       display:inline-flex; padding:.2rem .55rem; border-radius:999px; font-size:.75rem; font-weight:700;
       background:#fef3c7; color:#92400e; border:1px solid #fcd34d;
     }
+    .badge-status.is-paid { background:#ecfdf5; color:#166534; border-color:#bbf7d0; }
     .financeiro-scroll { overflow:auto; margin-top:1rem; }
     .resumo-mensalidades { width:100%; min-width:980px; border-collapse:collapse; }
     .resumo-mensalidades th, .resumo-mensalidades td { padding:.55rem .45rem; border-bottom:1px solid #e2e8f0; text-align:center; white-space:nowrap; }
     .resumo-mensalidades th:first-child, .resumo-mensalidades td:first-child { text-align:left; position:sticky; left:0; background:#fff; z-index:1; }
     .resumo-mensalidades small { display:block; color:#64748b; }
     .cell-filled { display:inline-flex; padding:.18rem .45rem; border-radius:8px; background:#eff6ff; color:#1d4ed8; font-weight:600; }
+    .cell-filled.is-paid { background:#ecfdf5; color:#166534; }
     .cell-clickable, .mensalidade-open {
       border:0; background:none; padding:0; margin:0; cursor:pointer; color:inherit; font:inherit;
     }
@@ -223,11 +225,12 @@
                         data-aventureiro-id="{{ selected_aventureiro_id }}"
                         data-competencia="{{ item.competencia }}"
                         data-valor="{{ item.valor_raw }}"
+                        data-status="{{ item.status_code }}"
                       >
                         {{ item.valor }}
                       </button>
                     </td>
-                    <td><span class="badge-status">{{ item.status }}</span></td>
+                    <td><span class="badge-status{% if item.status_code == 'paga' %} is-paid{% endif %}">{{ item.status }}</span></td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -271,9 +274,10 @@
                             data-aventureiro-id="{{ row.aventureiro_id }}"
                             data-competencia="{{ cell.competencia }}"
                             data-valor="{{ cell.valor_raw }}"
+                            data-status="{{ cell.status_code }}"
                             aria-label="Editar mensalidade {{ cell.competencia }}"
                           >
-                            <span class="cell-filled">{{ cell.label }}</span>
+                            <span class="cell-filled{% if cell.status_code == 'paga' %} is-paid{% endif %}">{{ cell.label }}</span>
                           </button>
                         {% else %}
                           -
@@ -343,10 +347,12 @@
         <input type="hidden" name="mensalidade_id" id="mensalidadeModalId" />
         <input type="hidden" name="aventureiro_id" id="mensalidadeModalAventureiroId" />
         <input type="hidden" name="valor_mensalidade" id="mensalidadeModalValorTela" value="{{ valor_mensalidade|default:'35' }}" />
+        <input type="hidden" id="mensalidadeModalStatus" value="" />
         <label for="mensalidadeModalValor">Valor da mensalidade</label>
         <input id="mensalidadeModalValor" name="valor_mensalidade_edicao" type="text" inputmode="decimal" required />
         <div class="modal-actions">
           <button type="button" class="ghost" id="mensalidadeModalCancelar">Cancelar</button>
+          <button type="submit" class="ghost" id="mensalidadeModalToggleStatus">Marcar como paga</button>
           <button type="submit" class="danger" id="mensalidadeModalExcluir">Excluir</button>
           <button type="submit" class="primary" id="mensalidadeModalSalvar">Salvar valor</button>
         </div>
@@ -363,19 +369,25 @@
       const aventureiroInput = document.getElementById('mensalidadeModalAventureiroId');
       const valorInput = document.getElementById('mensalidadeModalValor');
       const valorTelaInput = document.getElementById('mensalidadeModalValorTela');
+      const statusInput = document.getElementById('mensalidadeModalStatus');
       const subtitle = document.getElementById('mensalidadeModalSubtitle');
       const cancelBtn = document.getElementById('mensalidadeModalCancelar');
       const salvarBtn = document.getElementById('mensalidadeModalSalvar');
       const excluirBtn = document.getElementById('mensalidadeModalExcluir');
+      const toggleStatusBtn = document.getElementById('mensalidadeModalToggleStatus');
       const seletorValorTela = document.getElementById('valor_mensalidade');
 
       function openModal(trigger) {
         idInput.value = trigger.dataset.id || '';
         aventureiroInput.value = trigger.dataset.aventureiroId || '';
         valorInput.value = trigger.dataset.valor || '';
+        statusInput.value = trigger.dataset.status || 'pendente';
         subtitle.textContent = 'Mensalidade: ' + (trigger.dataset.competencia || '');
         actionInput.value = 'editar_mensalidade';
         valorInput.required = true;
+        if (toggleStatusBtn) {
+          toggleStatusBtn.textContent = statusInput.value === 'paga' ? 'Marcar como pendente' : 'Marcar como paga';
+        }
         if (seletorValorTela) {
           valorTelaInput.value = seletorValorTela.value || '35';
         }
@@ -427,6 +439,13 @@
         actionInput.value = 'excluir_mensalidade';
         valorInput.required = false;
       });
+
+      if (toggleStatusBtn) {
+        toggleStatusBtn.addEventListener('click', function () {
+          actionInput.value = statusInput.value === 'paga' ? 'marcar_mensalidade_pendente' : 'marcar_mensalidade_paga';
+          valorInput.required = false;
+        });
+      }
     })();
   </script>
   {% endif %}

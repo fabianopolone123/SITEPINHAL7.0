@@ -4063,6 +4063,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                 mensalidades.append({
                     'id': item.pk,
                     'competencia': f'{self._month_label(item.mes_referencia)}/{item.ano_referencia}',
+                    'status_code': item.status,
                     'status': item.get_status_display(),
                     'valor': self._format_currency(item.valor),
                     'valor_raw': f'{Decimal(item.valor).quantize(Decimal("0.01"))}',
@@ -4094,6 +4095,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'label': self._format_currency(item.valor),
                 'valor_raw': f'{Decimal(item.valor).quantize(Decimal("0.01"))}',
                 'competencia': f'{self._month_label(item.mes_referencia)}/{item.ano_referencia}',
+                'status_code': item.status,
                 'status': item.get_status_display(),
                 'filled': True,
             }
@@ -4287,6 +4289,32 @@ class FinanceiroView(LoginRequiredMixin, View):
                 aventura_nome = mensalidade.aventureiro.nome
                 mensalidade.delete()
                 messages.success(request, f'Mensalidade {competencia} de {aventura_nome} excluÃ­da com sucesso.')
+        elif action in {'marcar_mensalidade_paga', 'marcar_mensalidade_pendente'}:
+            mensalidade_id = str(request.POST.get('mensalidade_id') or '').strip()
+            mensalidade = (
+                MensalidadeAventureiro.objects
+                .select_related('aventureiro')
+                .filter(pk=mensalidade_id)
+                .first()
+            )
+            if not mensalidade:
+                messages.error(request, 'Mensalidade nÃ£o encontrada para atualizar status.')
+            else:
+                aventureiro_id = str(mensalidade.aventureiro_id)
+                novo_status = (
+                    MensalidadeAventureiro.STATUS_PAGA
+                    if action == 'marcar_mensalidade_paga'
+                    else MensalidadeAventureiro.STATUS_PENDENTE
+                )
+                if mensalidade.status == novo_status:
+                    messages.info(request, f'Mensalidade jÃ¡ estÃ¡ como {mensalidade.get_status_display().lower()}.')
+                else:
+                    mensalidade.status = novo_status
+                    mensalidade.save(update_fields=['status', 'updated_at'])
+                    messages.success(
+                        request,
+                        f'Mensalidade {self._month_label(mensalidade.mes_referencia)}/{mensalidade.ano_referencia} marcada como {mensalidade.get_status_display().lower()}.',
+                    )
 
         context = self._mensalidades_context(aventureiro_id, valor_input)
         context.update({

@@ -336,3 +336,8 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Ao fechar o modal Pix após o status `Pagamento aprovado`, a tela de mensalidades do responsável agora recarrega automaticamente.
 - Isso atualiza a lista imediatamente para remover as mensalidades que já foram pagas.
+## 23/02/2026 - Financeiro (Diretor): marcar mensalidade como paga/pendente no modal
+
+- No painel `Financeiro` do perfil `Diretor`, o modal da mensalidade agora permite marcar o registro como `Paga` ou voltar para `Pendente`.
+- A lista do aventureiro e a grade horizontal passaram a destacar visualmente mensalidades pagas.
+- Mantidos os recursos existentes de editar valor e excluir mensalidade no mesmo modal.
