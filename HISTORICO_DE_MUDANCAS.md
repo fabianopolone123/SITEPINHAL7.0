@@ -322,3 +322,9 @@ Arquivo oficial de registro das entregas concluidas.
 - Adicionada API de status do pagamento para atualização da situação no modal e marcação automática das mensalidades como `Paga` quando o Mercado Pago retornar `approved`.
 - Criado modelo `PagamentoMensalidade` com migração `0026_pagamentomensalidade.py`.
 - Token usado via variável de ambiente `MP_ACCESS_TOKEN_PROD` (ou `MP_ACCESS_TOKEN` como fallback).
+## 23/02/2026 - Financeiro (Responsável): webhook Mercado Pago para atualizar pagamento em tempo real
+
+- Adicionado endpoint público de webhook em `accounts/financeiro/mp-webhook/` para receber notificações do Mercado Pago (Pix).
+- Ao receber a notificação, o sistema consulta o pagamento no Mercado Pago, sincroniza o status local e marca as mensalidades vinculadas como `Paga` quando o pagamento for aprovado.
+- A criação do Pix passou a enviar `notification_url` automaticamente (ou usar `MP_NOTIFICATION_URL` quando configurado), permitindo atualização mais rápida no modal do responsável.
+- Suporte opcional à validação de assinatura do webhook via `MP_WEBHOOK_SECRET`.

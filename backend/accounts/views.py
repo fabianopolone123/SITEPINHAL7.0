@@ -3,6 +3,7 @@ import json
 import os
 import re
 import hashlib
+import hmac
 from random import randint
 from decimal import Decimal, InvalidOperation
 from urllib import request as urllib_request, error as urllib_error
@@ -13,6 +14,8 @@ from django.contrib.auth import login, logout, get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
 from django.utils import timezone
+from django.utils.crypto import constant_time_compare
+from django.utils.decorators import method_decorator
 
 from .forms import (
     ResponsavelForm,
@@ -57,6 +60,7 @@ from .whatsapp import (
 from django.http import HttpResponse, JsonResponse
 from django.db import IntegrityError, transaction
 from django.db.models import Q
+from django.views.decorators.csrf import csrf_exempt
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 from datetime import date, datetime, timedelta
@@ -3835,7 +3839,10 @@ class FinanceiroView(LoginRequiredMixin, View):
         explicit = os.getenv('MP_NOTIFICATION_URL', '').strip()
         if explicit:
             return explicit
-        return ''
+        try:
+            return request.build_absolute_uri('/accounts/financeiro/mp-webhook/')
+        except Exception:
+            return ''
 
     def _mp_status_label(self, pagamento):
         if pagamento.status == PagamentoMensalidade.STATUS_PAGO:
@@ -4289,6 +4296,86 @@ class PagamentoMensalidadeStatusApiView(LoginRequiredMixin, View):
             'mp_status_detail': pagamento.mp_status_detail,
             'is_paid': pagamento.status == PagamentoMensalidade.STATUS_PAGO,
         })
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class PagamentoMensalidadeWebhookView(View):
+    def _extract_payment_id(self, request):
+        payment_id = request.GET.get('data.id') or request.GET.get('id')
+        if payment_id:
+            return str(payment_id)
+
+        try:
+            payload = json.loads((request.body or b'').decode('utf-8') or '{}')
+        except json.JSONDecodeError:
+            payload = {}
+
+        if isinstance(payload, dict):
+            data = payload.get('data', {})
+            if isinstance(data, dict) and data.get('id'):
+                return str(data['id'])
+            if payload.get('id'):
+                return str(payload['id'])
+        return ''
+
+    def _is_valid_signature(self, request, payment_id):
+        secret = os.getenv('MP_WEBHOOK_SECRET', '').strip()
+        if not secret:
+            return True
+
+        signature = request.headers.get('x-signature', '')
+        request_id = request.headers.get('x-request-id', '')
+        if not signature or not request_id:
+            return False
+
+        ts_value = ''
+        v1_value = ''
+        for part in signature.split(','):
+            key, _, value = part.strip().partition('=')
+            if key == 'ts':
+                ts_value = value
+            elif key == 'v1':
+                v1_value = value
+
+        if not ts_value or not v1_value:
+            return False
+
+        manifest = f'id:{payment_id};request-id:{request_id};ts:{ts_value};'
+        expected = hmac.new(secret.encode('utf-8'), manifest.encode('utf-8'), hashlib.sha256).hexdigest()
+        return constant_time_compare(expected, v1_value)
+
+    def _sync_by_payment_id(self, payment_id):
+        view = FinanceiroView()
+        payment_data = view._get_mp_payment(payment_id)
+        external_reference = str(payment_data.get('external_reference') or '').strip()
+        pagamento = PagamentoMensalidade.objects.filter(mp_payment_id=str(payment_id)).first()
+        if not pagamento and external_reference:
+            pagamento = PagamentoMensalidade.objects.filter(mp_external_reference=external_reference).first()
+        if not pagamento:
+            return False, 'payment_not_found_locally'
+        view._sync_pagamento_from_mp(pagamento, payment_data)
+        return True, ''
+
+    def get(self, request):
+        return self.post(request)
+
+    def post(self, request):
+        payment_id = self._extract_payment_id(request)
+        if not payment_id:
+            return JsonResponse({'ok': True, 'ignored': 'without_payment_id'})
+
+        if not self._is_valid_signature(request, payment_id):
+            return JsonResponse({'ok': False, 'error': 'invalid_signature'}, status=403)
+
+        try:
+            synced, reason = self._sync_by_payment_id(payment_id)
+        except Exception:
+            return JsonResponse({'ok': False, 'error': 'payment_sync_failed'}, status=400)
+
+        if not synced:
+            return JsonResponse({'ok': True, 'ignored': reason})
+
+        return JsonResponse({'ok': True, 'payment_id': payment_id})
 
 
 class UsuarioDetalheView(LoginRequiredMixin, View):
