@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 {% load static %}
 <html lang="pt-BR">
 <head>
@@ -12,7 +12,7 @@
   <main class="painel-content">
     <header class="painel-header">
       <h2>WhatsApp</h2>
-      <p>Configure notificações de cadastro e envie testes para os contatos marcados.</p>
+      <p>Configure notificações automáticas e envie testes para os contatos marcados.</p>
     </header>
 
     <section class="painel-card">
@@ -30,6 +30,7 @@
       <p><strong>Atualizado em:</strong> {{ queue.updated_at }}</p>
       <p class="panel-note">As notificações de cadastro são enviadas automaticamente quando um novo cadastro é concluído.</p>
       <p class="panel-note">A confirmação de inscrição também é automática e vai para o WhatsApp do próprio inscrito (uma vez por conclusão).</p>
+      <p class="panel-note">Pagamento aprovado sempre notifica o responsável do pagamento; as caixas abaixo servem para contatos adicionais.</p>
     </section>
 
     <section class="painel-card message-template-wrap">
@@ -49,6 +50,10 @@
           <textarea name="template_confirmacao" form="whatsapp-form" rows="6">{{ confirmacao_template|default:'' }}</textarea>
         </label>
         <label class="message-template-card">
+          <span class="message-template-title">Mensagem de Pagamento aprovado</span>
+          <textarea name="template_financeiro" form="whatsapp-form" rows="6">{{ financeiro_template|default:'' }}</textarea>
+        </label>
+        <label class="message-template-card">
           <span class="message-template-title">Mensagem de Teste</span>
           <textarea name="template_teste" form="whatsapp-form" rows="6">{{ teste_template|default:'' }}</textarea>
         </label>
@@ -58,6 +63,9 @@
       </p>
       <p class="panel-note">
         Placeholders para confirmação: <code>{tipo_cadastro}</code>, <code>{username}</code>, <code>{nome}</code>, <code>{login_url}</code>, <code>{data_hora}</code>.
+      </p>
+      <p class="panel-note">
+        Placeholders para pagamento aprovado: <code>{responsavel_nome}</code>, <code>{mensalidades}</code>, <code>{valor_total}</code>, <code>{pagamento_id}</code>, <code>{data_hora}</code>.
       </p>
     </section>
 
@@ -71,6 +79,7 @@
             <th>Telefone</th>
             <th>Cadastro responsável</th>
             <th>Cadastro diretoria</th>
+            <th>Pagamento aprovado</th>
             <th>Teste</th>
           </tr>
         </thead>
@@ -93,11 +102,12 @@
               </td>
               <td data-label="Cadastro responsável"><input type="checkbox" name="u{{ item.user.pk }}_cadastro" {% if item.pref.notify_cadastro %}checked{% endif %} /></td>
               <td data-label="Cadastro diretoria"><input type="checkbox" name="u{{ item.user.pk }}_diretoria" {% if item.pref.notify_diretoria %}checked{% endif %} /></td>
+              <td data-label="Pagamento aprovado"><input type="checkbox" name="u{{ item.user.pk }}_financeiro" {% if item.pref.notify_financeiro %}checked{% endif %} /></td>
               <td data-label="Teste"><input type="checkbox" name="u{{ item.user.pk }}_send_test" /></td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="5">Nenhum usuário disponível.</td>
+              <td colspan="6">Nenhum usuário disponível.</td>
             </tr>
           {% endfor %}
         </tbody>

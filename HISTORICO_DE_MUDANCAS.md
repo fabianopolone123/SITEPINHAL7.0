@@ -341,3 +341,10 @@ Arquivo oficial de registro das entregas concluidas.
 - No painel `Financeiro` do perfil `Diretor`, o modal da mensalidade agora permite marcar o registro como `Paga` ou voltar para `Pendente`.
 - A lista do aventureiro e a grade horizontal passaram a destacar visualmente mensalidades pagas.
 - Mantidos os recursos existentes de editar valor e excluir mensalidade no mesmo modal.
+## 23/02/2026 - WhatsApp: notificação automática de pagamento aprovado + mensagem padrão configurável
+
+- Quando um pagamento de mensalidades é aprovado no Mercado Pago, o sistema agora envia WhatsApp automaticamente para o responsável com agradecimento e lista do que foi pago.
+- Adicionado suporte a contatos adicionais na notificação de pagamento aprovado via módulo `WhatsApp` (coluna `Pagamento aprovado`), com caixas desmarcadas por padrão.
+- Adicionada nova mensagem padrão `Pagamento aprovado` em `WhatsApp > Mensagens padrão`, com placeholders de mensalidades/valor total/pagamento.
+- Criado campo `whatsapp_notified_at` em `PagamentoMensalidade` para evitar reenvio duplicado após aprovações sincronizadas por polling/webhook.
+- Migração adicionada: `0027_pagamentomensalidade_whatsapp_notified_at_and_more.py`.

@@ -3579,6 +3579,7 @@ class WhatsAppView(LoginRequiredMixin, View):
         cadastro_template = get_template_message(WhatsAppTemplate.TYPE_CADASTRO)
         diretoria_template = get_template_message(WhatsAppTemplate.TYPE_DIRETORIA)
         confirmacao_template = get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO)
+        financeiro_template = get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO)
         teste_template = get_template_message(WhatsAppTemplate.TYPE_TESTE)
         context = {
             'rows': self._users_context(),
@@ -3586,6 +3587,7 @@ class WhatsAppView(LoginRequiredMixin, View):
             'cadastro_template': cadastro_template,
             'diretoria_template': diretoria_template,
             'confirmacao_template': confirmacao_template,
+            'financeiro_template': financeiro_template,
             'teste_template': teste_template,
         }
         context.update(_sidebar_context(request))
@@ -3598,6 +3600,7 @@ class WhatsAppView(LoginRequiredMixin, View):
         rows = self._users_context()
         cadastro_enabled = []
         diretoria_enabled = []
+        financeiro_enabled = []
         for row in rows:
             user = row['user']
             pref = row['pref']
@@ -3605,7 +3608,7 @@ class WhatsAppView(LoginRequiredMixin, View):
             pref.phone_number = normalize_phone_number(request.POST.get(f'{prefix}_phone', '').strip())
             pref.notify_cadastro = bool(request.POST.get(f'{prefix}_cadastro'))
             pref.notify_diretoria = bool(request.POST.get(f'{prefix}_diretoria'))
-            pref.notify_financeiro = False
+            pref.notify_financeiro = bool(request.POST.get(f'{prefix}_financeiro'))
             pref.notify_geral = False
             pref.save(
                 update_fields=[
@@ -3621,6 +3624,8 @@ class WhatsAppView(LoginRequiredMixin, View):
                 cadastro_enabled.append(user.username)
             if pref.notify_diretoria:
                 diretoria_enabled.append(user.username)
+            if pref.notify_financeiro:
+                financeiro_enabled.append(user.username)
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_CADASTRO,
             defaults={'message_text': request.POST.get('template_cadastro', '').strip()},
@@ -3632,6 +3637,10 @@ class WhatsAppView(LoginRequiredMixin, View):
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_CONFIRMACAO,
             defaults={'message_text': request.POST.get('template_confirmacao', '').strip()},
+        )
+        WhatsAppTemplate.objects.update_or_create(
+            notification_type=WhatsAppTemplate.TYPE_FINANCEIRO,
+            defaults={'message_text': request.POST.get('template_financeiro', '').strip()},
         )
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_TESTE,
@@ -3652,6 +3661,7 @@ class WhatsAppView(LoginRequiredMixin, View):
                     'cadastro_template': get_template_message(WhatsAppTemplate.TYPE_CADASTRO),
                     'diretoria_template': get_template_message(WhatsAppTemplate.TYPE_DIRETORIA),
                     'confirmacao_template': get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO),
+                    'financeiro_template': get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO),
                     'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
                 }
                 context.update(_sidebar_context(request))
@@ -3728,12 +3738,19 @@ class WhatsAppView(LoginRequiredMixin, View):
             )
         else:
             messages.info(request, 'Nenhum contato está marcado para receber notificação de Diretoria.')
+        if financeiro_enabled:
+            preview = ', '.join(financeiro_enabled[:6])
+            suffix = '...' if len(financeiro_enabled) > 6 else ''
+            messages.info(request, f'Pagamento aprovado marcado para: {preview}{suffix}')
+        else:
+            messages.info(request, 'Nenhum contato está marcado para receber notificação de Pagamento aprovado.')
         context = {
             'rows': self._users_context(),
             'queue': queue_stats(),
             'cadastro_template': get_template_message(WhatsAppTemplate.TYPE_CADASTRO),
             'diretoria_template': get_template_message(WhatsAppTemplate.TYPE_DIRETORIA),
             'confirmacao_template': get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO),
+            'financeiro_template': get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO),
             'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
         }
         context.update(_sidebar_context(request))
@@ -3937,6 +3954,7 @@ class FinanceiroView(LoginRequiredMixin, View):
         return self._mp_api_request('GET', f'/v1/payments/{payment_id}')
 
     def _sync_pagamento_from_mp(self, pagamento, payment_data):
+        was_paid = pagamento.status == PagamentoMensalidade.STATUS_PAGO
         mp_status = (payment_data.get('status') or '').lower()
         mp_status_detail = payment_data.get('status_detail') or ''
         mp_payment_id = str(payment_data.get('id') or pagamento.mp_payment_id or '')
@@ -3985,6 +4003,8 @@ class FinanceiroView(LoginRequiredMixin, View):
             pagamento.mensalidades.filter(status=MensalidadeAventureiro.STATUS_PENDENTE).update(
                 status=MensalidadeAventureiro.STATUS_PAGA
             )
+            if not was_paid:
+                self._send_whatsapp_pagamento_aprovado(pagamento)
 
     def _pix_modal_context(self, pagamento):
         return {
@@ -3996,6 +4016,91 @@ class FinanceiroView(LoginRequiredMixin, View):
             'qr_base64': pagamento.mp_qr_code_base64,
             'pix_code': pagamento.mp_qr_code,
         }
+
+    def _send_whatsapp_pagamento_aprovado(self, pagamento):
+        if pagamento.whatsapp_notified_at:
+            return
+
+        mensalidades = list(
+            pagamento.mensalidades.select_related('aventureiro').order_by('aventureiro__nome', 'ano_referencia', 'mes_referencia')
+        )
+        if not mensalidades:
+            return
+
+        responsavel_user = pagamento.responsavel.user
+        responsavel_nome = (
+            pagamento.responsavel.responsavel_nome
+            or pagamento.responsavel.mae_nome
+            or pagamento.responsavel.pai_nome
+            or responsavel_user.get_full_name()
+            or responsavel_user.username
+        ).strip()
+        mensalidades_text = '\n'.join(
+            f"- {item.aventureiro.nome} - {self._month_label(item.mes_referencia)}/{item.ano_referencia} ({self._format_currency(item.valor)})"
+            for item in mensalidades
+        )
+        payload = {
+            'responsavel_nome': responsavel_nome or responsavel_user.username,
+            'mensalidades': mensalidades_text,
+            'valor_total': self._format_currency(pagamento.valor_total),
+            'pagamento_id': pagamento.mp_payment_id or str(pagamento.pk),
+            'data_hora': timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M:%S'),
+        }
+        message_text = render_message(get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO), payload)
+
+        recipients = []
+        seen_phones = set()
+
+        def add_recipient(user, force_send=False):
+            pref, _ = WhatsAppPreference.objects.get_or_create(user=user)
+            phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(user))
+            if not phone_number or phone_number in seen_phones:
+                return
+            seen_phones.add(phone_number)
+            recipients.append((user, phone_number, force_send))
+
+        add_recipient(responsavel_user, force_send=True)
+        extras = (
+            UserAccess.objects
+            .select_related('user')
+            .filter(user__whatsapp_preference__notify_financeiro=True)
+            .order_by('user__username')
+        )
+        for access in extras:
+            add_recipient(access.user, force_send=False)
+
+        if not recipients:
+            pagamento.whatsapp_notified_at = timezone.now()
+            pagamento.save(update_fields=['whatsapp_notified_at', 'updated_at'])
+            return
+
+        sent_any = False
+        for user, phone_number, _force_send in recipients:
+            queue_item = WhatsAppQueue.objects.create(
+                user=user,
+                phone_number=phone_number,
+                notification_type=WhatsAppQueue.TYPE_FINANCEIRO,
+                message_text=message_text,
+                status=WhatsAppQueue.STATUS_PENDING,
+            )
+            success, provider_id, error_message = send_wapi_text(phone_number, message_text)
+            queue_item.attempts = 1
+            if success:
+                queue_item.status = WhatsAppQueue.STATUS_SENT
+                queue_item.provider_message_id = provider_id
+                queue_item.sent_at = timezone.now()
+                queue_item.last_error = ''
+                sent_any = True
+            else:
+                queue_item.status = WhatsAppQueue.STATUS_FAILED
+                queue_item.last_error = error_message
+            queue_item.save(
+                update_fields=['status', 'attempts', 'provider_message_id', 'sent_at', 'last_error']
+            )
+
+        if sent_any:
+            pagamento.whatsapp_notified_at = timezone.now()
+            pagamento.save(update_fields=['whatsapp_notified_at', 'updated_at'])
 
     def _mensalidades_responsavel_context(self, request):
         hoje = timezone.localdate()
@@ -4198,6 +4303,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                                     pagamento.mensalidades.filter(status=MensalidadeAventureiro.STATUS_PENDENTE).update(
                                         status=MensalidadeAventureiro.STATUS_PAGA
                                     )
+                                    self._send_whatsapp_pagamento_aprovado(pagamento)
                         except ValueError as exc:
                             messages.error(request, str(exc))
                         except Exception:

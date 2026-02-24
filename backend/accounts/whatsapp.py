@@ -36,6 +36,17 @@ DEFAULT_CONFIRMACAO_MESSAGE = (
     'Se precisar de ajuda, fale com a diretoria.'
 )
 
+DEFAULT_FINANCEIRO_MESSAGE = (
+    '✅ Pagamento aprovado no Pinhal Junior!\n'
+    'Olá, {responsavel_nome}.\n'
+    'Recebemos o pagamento das mensalidades abaixo:\n'
+    '{mensalidades}\n'
+    'Total pago: {valor_total}\n'
+    'Pagamento: {pagamento_id}\n'
+    'Data/Hora: {data_hora}\n'
+    'Obrigado! 🙏'
+)
+
 DEFAULT_TESTE_MESSAGE = (
     '✅ Mensagem de teste do sistema Pinhal Junior.\n'
     'Se voce recebeu este aviso, o canal WhatsApp esta ativo.'
@@ -196,6 +207,7 @@ def get_template_message(notification_type):
         WhatsAppTemplate.TYPE_CADASTRO: DEFAULT_CADASTRO_MESSAGE,
         WhatsAppTemplate.TYPE_DIRETORIA: DEFAULT_DIRETORIA_MESSAGE,
         WhatsAppTemplate.TYPE_CONFIRMACAO: DEFAULT_CONFIRMACAO_MESSAGE,
+        WhatsAppTemplate.TYPE_FINANCEIRO: DEFAULT_FINANCEIRO_MESSAGE,
         WhatsAppTemplate.TYPE_TESTE: DEFAULT_TESTE_MESSAGE,
     }
     default_message = defaults.get(notification_type, DEFAULT_TESTE_MESSAGE)
