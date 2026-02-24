@@ -348,3 +348,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Adicionada nova mensagem padrão `Pagamento aprovado` em `WhatsApp > Mensagens padrão`, com placeholders de mensalidades/valor total/pagamento.
 - Criado campo `whatsapp_notified_at` em `PagamentoMensalidade` para evitar reenvio duplicado após aprovações sincronizadas por polling/webhook.
 - Migração adicionada: `0027_pagamentomensalidade_whatsapp_notified_at_and_more.py`.
+## 23/02/2026 - Financeiro: separação entre `Inscrição` e `Mensalidade` + geração automática no novo cadastro
+
+- `MensalidadeAventureiro` ganhou campo `tipo` (`Inscrição` ou `Mensalidade`) para separar a primeira cobrança das demais no módulo Financeiro.
+- Ao gerar cobranças no `Financeiro` (Diretor), o mês atual passa a ser criado como `Inscrição` e os meses seguintes até dezembro como `Mensalidade`.
+- Ao concluir uma nova inscrição de aventureiro, o sistema agora gera automaticamente as cobranças no mesmo formato (`Inscrição` no mês atual + mensalidades até dezembro).
+- As listagens e mensagens de pagamento passaram a exibir o tipo da cobrança (`Inscrição`/`Mensalidade`).
+- Migração adicionada: `0028_mensalidadeaventureiro_tipo.py`.

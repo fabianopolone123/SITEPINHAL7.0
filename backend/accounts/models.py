@@ -499,6 +499,14 @@ class EventoPresenca(models.Model):
 
 
 class MensalidadeAventureiro(models.Model):
+    TIPO_INSCRICAO = 'inscricao'
+    TIPO_MENSALIDADE = 'mensalidade'
+
+    TIPO_CHOICES = [
+        (TIPO_INSCRICAO, 'Inscrição'),
+        (TIPO_MENSALIDADE, 'Mensalidade'),
+    ]
+
     STATUS_PENDENTE = 'pendente'
     STATUS_PAGA = 'paga'
 
@@ -510,6 +518,7 @@ class MensalidadeAventureiro(models.Model):
     aventureiro = models.ForeignKey(Aventureiro, on_delete=models.CASCADE, related_name='mensalidades')
     ano_referencia = models.PositiveIntegerField('ano de referência')
     mes_referencia = models.PositiveSmallIntegerField('mês de referência')
+    tipo = models.CharField('tipo', max_length=16, choices=TIPO_CHOICES, default=TIPO_MENSALIDADE)
     valor = models.DecimalField('valor', max_digits=10, decimal_places=2, default=Decimal('35.00'))
     status = models.CharField('status', max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDENTE)
     created_by = models.ForeignKey(
