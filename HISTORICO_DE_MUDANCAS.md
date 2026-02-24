@@ -332,3 +332,7 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Corrigida a geração do `payer.email` no pagamento Pix de mensalidades para usar e-mail válido do usuário/responsável quando disponível.
 - Adicionado fallback com domínio público (via `MP_PAYER_EMAIL_DOMAIN`, `SITE_DOMAIN` ou host da requisição), evitando rejeição do Mercado Pago por domínio inválido (`.local`).
+## 23/02/2026 - Financeiro (Responsável): recarrega lista após fechar modal com pagamento aprovado
+
+- Ao fechar o modal Pix após o status `Pagamento aprovado`, a tela de mensalidades do responsável agora recarrega automaticamente.
+- Isso atualiza a lista imediatamente para remover as mensalidades que já foram pagas.

@@ -473,6 +473,7 @@
       const btnFechar = document.getElementById('pixPagamentoFechar');
       const btnCopiar = document.getElementById('pixPagamentoCopiar');
       let pollHandle = null;
+      let pagamentoAprovado = pixStatus ? pixStatus.classList.contains('is-paid') : false;
 
       function stopPolling() {
         if (pollHandle) {
@@ -486,6 +487,9 @@
         pixModal.classList.remove('is-open');
         pixModal.setAttribute('aria-hidden', 'true');
         stopPolling();
+        if (pagamentoAprovado) {
+          window.location.reload();
+        }
       }
 
       async function refreshPixStatus() {
@@ -497,6 +501,7 @@
           pixStatus.textContent = payload.status_label || 'Aguardando pagamento';
           pixStatus.classList.toggle('is-paid', !!payload.is_paid);
           if (payload.is_paid) {
+            pagamentoAprovado = true;
             stopPolling();
           }
         } catch (_err) {
