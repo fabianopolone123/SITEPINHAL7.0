@@ -16,6 +16,8 @@ from django.views import View
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 from django.utils.decorators import method_decorator
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 
 from .forms import (
     ResponsavelForm,
@@ -3857,6 +3859,37 @@ class FinanceiroView(LoginRequiredMixin, View):
         }
         return status_map.get(status, 'Aguardando pagamento')
 
+    def _mp_payer_email(self, request, pagamento):
+        candidate_emails = []
+        if getattr(request.user, 'email', ''):
+            candidate_emails.append(request.user.email.strip())
+        if getattr(pagamento.responsavel, 'responsavel_email', ''):
+            candidate_emails.append(pagamento.responsavel.responsavel_email.strip())
+        if getattr(pagamento.responsavel, 'mae_email', ''):
+            candidate_emails.append(pagamento.responsavel.mae_email.strip())
+        if getattr(pagamento.responsavel, 'pai_email', ''):
+            candidate_emails.append(pagamento.responsavel.pai_email.strip())
+
+        for email in candidate_emails:
+            if not email:
+                continue
+            try:
+                validate_email(email)
+            except ValidationError:
+                continue
+            return email
+
+        domain = (
+            os.getenv('MP_PAYER_EMAIL_DOMAIN', '').strip()
+            or os.getenv('SITE_DOMAIN', '').strip()
+            or request.get_host().split(':')[0].strip()
+            or 'pinhaljunior.com.br'
+        )
+        domain = domain.lower().replace('http://', '').replace('https://', '').strip('/')
+        if not domain or '.' not in domain:
+            domain = 'pinhaljunior.com.br'
+        return f'mensalidade{pagamento.pk}.{request.user.id}@{domain}'
+
     def _create_mp_pix_payment(self, request, pagamento):
         responsible_name = (
             pagamento.responsavel.responsavel_nome
@@ -3868,7 +3901,7 @@ class FinanceiroView(LoginRequiredMixin, View):
         name_parts = [part for part in responsible_name.split() if part]
         first_name = (name_parts[0] if name_parts else request.user.username)[:60]
         last_name = (' '.join(name_parts[1:]) if len(name_parts) > 1 else 'Responsavel')[:60]
-        payer_email = f'mensalidade{pagamento.pk}.{request.user.id}@sitepinhal.local'
+        payer_email = self._mp_payer_email(request, pagamento)
         external_reference = f'MENSALIDADE_{pagamento.pk}'
         payload = {
             'transaction_amount': float(pagamento.valor_total),

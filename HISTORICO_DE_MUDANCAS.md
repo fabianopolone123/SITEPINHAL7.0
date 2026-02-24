@@ -328,3 +328,7 @@ Arquivo oficial de registro das entregas concluidas.
 - Ao receber a notificação, o sistema consulta o pagamento no Mercado Pago, sincroniza o status local e marca as mensalidades vinculadas como `Paga` quando o pagamento for aprovado.
 - A criação do Pix passou a enviar `notification_url` automaticamente (ou usar `MP_NOTIFICATION_URL` quando configurado), permitindo atualização mais rápida no modal do responsável.
 - Suporte opcional à validação de assinatura do webhook via `MP_WEBHOOK_SECRET`.
+## 23/02/2026 - Financeiro (Mercado Pago): correção de `payer.email` válido para Pix
+
+- Corrigida a geração do `payer.email` no pagamento Pix de mensalidades para usar e-mail válido do usuário/responsável quando disponível.
+- Adicionado fallback com domínio público (via `MP_PAYER_EMAIL_DOMAIN`, `SITE_DOMAIN` ou host da requisição), evitando rejeição do Mercado Pago por domínio inválido (`.local`).
