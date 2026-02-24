@@ -4403,6 +4403,37 @@ class FinanceiroView(LoginRequiredMixin, View):
                     )
                 else:
                     messages.info(request, f'As cobranças de {aventureiro.nome} já estavam geradas até dezembro deste ano.')
+        elif action == 'gerar_mensalidades_todos':
+            valor = self._parse_valor(valor_input)
+            if valor is None:
+                messages.error(request, 'Informe um valor válido para gerar as mensalidades de todos.')
+            else:
+                aventureiros = self._aventureiros()
+                total_created = 0
+                total_inscricao = 0
+                total_mensalidades = 0
+                affected = 0
+                for av in aventureiros:
+                    result = _generate_financeiro_entries_for_aventureiro(
+                        av,
+                        created_by=request.user,
+                        valor=valor,
+                    )
+                    if result['created_count']:
+                        affected += 1
+                        total_created += result['created_count']
+                        total_inscricao += result['created_inscricao']
+                        total_mensalidades += result['created_mensalidades']
+                if total_created:
+                    messages.success(
+                        request,
+                        (
+                            f'Cobranças geradas para todos: {total_created} registro(s) em {affected} aventureiro(s) '
+                            f'({total_inscricao} inscrição + {total_mensalidades} mensalidades).'
+                        ),
+                    )
+                else:
+                    messages.info(request, 'Todos os aventureiros já possuem as cobranças geradas até dezembro deste ano.')
 
         elif action == 'editar_mensalidade':
             mensalidade_id = str(request.POST.get('mensalidade_id') or '').strip()

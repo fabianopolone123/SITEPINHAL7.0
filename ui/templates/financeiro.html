@@ -179,7 +179,6 @@
       {% else %}
       <form method="post">
         {% csrf_token %}
-        <input type="hidden" name="action" value="gerar_mensalidades" />
         <div class="financeiro-grid">
           <div>
             <label for="aventureiro_id">Aventureiro</label>
@@ -196,7 +195,10 @@
             <label for="valor_mensalidade">Valor</label>
             <input id="valor_mensalidade" name="valor_mensalidade" type="text" value="{{ valor_mensalidade|default:'35' }}" inputmode="decimal" />
           </div>
-          <button type="submit" class="primary">Gerar mensalidades</button>
+          <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+            <button type="submit" class="primary" name="action" value="gerar_mensalidades">Gerar mensalidades</button>
+            <button type="submit" class="secondary" name="action" value="gerar_mensalidades_todos" formnovalidate>Gerar para todos</button>
+          </div>
         </div>
       </form>
 

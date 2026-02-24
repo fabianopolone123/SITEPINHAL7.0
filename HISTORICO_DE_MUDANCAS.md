@@ -355,3 +355,9 @@ Arquivo oficial de registro das entregas concluidas.
 - Ao concluir uma nova inscrição de aventureiro, o sistema agora gera automaticamente as cobranças no mesmo formato (`Inscrição` no mês atual + mensalidades até dezembro).
 - As listagens e mensagens de pagamento passaram a exibir o tipo da cobrança (`Inscrição`/`Mensalidade`).
 - Migração adicionada: `0028_mensalidadeaventureiro_tipo.py`.
+## 23/02/2026 - Financeiro (Diretor): botão para gerar cobranças de todos os aventureiros
+
+- Adicionado botão `Gerar para todos` na tela `Financeiro > Mensalidades` (perfil Diretor).
+- O botão gera cobranças em lote para todos os aventureiros usando a mesma lógica atual (mês atual como `Inscrição` e meses seguintes como `Mensalidade`).
+- O processo respeita registros já existentes: não sobrescreve nem duplica cobranças já geradas.
+- A mensagem de retorno resume quantidade total criada e quantos aventureiros foram afetados.
