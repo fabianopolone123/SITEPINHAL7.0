@@ -1107,6 +1107,24 @@ def _clear_new_flow(session):
         session.modified = True
 
 
+NEW_FLOW_SUCCESS_SESSION_KEY = 'new_flow_success'
+
+
+def _set_new_flow_success(session, data):
+    session[NEW_FLOW_SUCCESS_SESSION_KEY] = data or {}
+    session.modified = True
+
+
+def _get_new_flow_success(session):
+    return session.get(NEW_FLOW_SUCCESS_SESSION_KEY, {})
+
+
+def _clear_new_flow_success(session):
+    if NEW_FLOW_SUCCESS_SESSION_KEY in session:
+        del session[NEW_FLOW_SUCCESS_SESSION_KEY]
+        session.modified = True
+
+
 def _new_flow_target_count(data):
     login_data = (data or {}).get('login') or {}
     try:
@@ -2198,9 +2216,34 @@ class NovoCadastroResumoView(View):
             if use_existing_user:
                 messages.success(request, 'Aventureiro adicionado com sucesso.')
                 return redirect('accounts:meu_responsavel')
-            messages.success(request, 'Cadastro efetuado com sucesso.')
-            return redirect('accounts:login')
+            _set_new_flow_success(request.session, {
+                'responsavel_nome': responsavel.responsavel_nome or responsavel.mae_nome or responsavel.pai_nome or user.username,
+                'username': user.username,
+                'quantidade_aventureiros': len(payload.get('aventures') or []),
+            })
+            return redirect('accounts:novo_cadastro_sucesso')
         return redirect('accounts:novo_cadastro_resumo')
+
+
+class NovoCadastroSucessoView(View):
+    template_name = 'novo_cadastro/sucesso.html'
+
+    def get(self, request):
+        data = _get_new_flow_success(request.session)
+        if not data:
+            return redirect('accounts:login')
+        response = render(request, self.template_name, {'success_data': data})
+        response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        return response
+
+    def post(self, request):
+        _clear_new_flow_success(request.session)
+        messages.success(request, 'Cadastro concluído com sucesso. Faça login para continuar.')
+        response = redirect('accounts:login')
+        response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        return response
 
 
 class NovoCadastroDiretoriaLoginView(View):

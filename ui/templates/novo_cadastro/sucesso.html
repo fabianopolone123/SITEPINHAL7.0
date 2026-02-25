@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastro concluído</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    :root {
+      --success-blue-1: #0f172a;
+      --success-blue-2: #1d4ed8;
+      --success-blue-3: #3b82f6;
+      --success-surface: #ffffff;
+      --success-border: #bfdbfe;
+      --success-soft: #eff6ff;
+      --success-text: #334155;
+      --success-muted: #64748b;
+      --success-green-1: #16a34a;
+      --success-green-2: #22c55e;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+    }
+
+    body {
+      min-height: 100vh;
+      overflow: hidden;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--success-text);
+      background:
+        radial-gradient(circle at 12% 12%, rgba(59, 130, 246, .22), transparent 38%),
+        radial-gradient(circle at 88% 14%, rgba(14, 165, 233, .18), transparent 42%),
+        radial-gradient(circle at 70% 84%, rgba(34, 197, 94, .14), transparent 40%),
+        linear-gradient(180deg, #e0f2fe 0%, #dbeafe 48%, #eff6ff 100%);
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+    }
+
+    .success-overlay {
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at 25% 25%, rgba(255, 255, 255, .28), transparent 50%),
+        rgba(15, 23, 42, .34);
+      backdrop-filter: blur(5px);
+    }
+
+    .success-modal {
+      position: relative;
+      z-index: 1;
+      width: min(700px, 100%);
+      border-radius: 22px;
+      border: 1px solid rgba(191, 219, 254, .95);
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      box-shadow:
+        0 32px 80px rgba(15, 23, 42, .20),
+        0 6px 24px rgba(59, 130, 246, .08);
+      padding: 1.2rem;
+      animation: popIn .28s ease-out;
+    }
+
+    .success-modal::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 4px;
+      border-radius: 22px 22px 0 0;
+      background: linear-gradient(90deg, #22c55e, #3b82f6, #0ea5e9);
+    }
+
+    .success-head {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: .9rem;
+      align-items: center;
+      margin-bottom: .9rem;
+    }
+
+    .success-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 1.65rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--success-green-1), var(--success-green-2));
+      box-shadow: 0 14px 24px rgba(34, 197, 94, .25);
+    }
+
+    .success-head h1 {
+      margin: 0;
+      color: var(--success-blue-1);
+      font-size: clamp(1.15rem, 2.5vw, 1.45rem);
+      line-height: 1.2;
+    }
+
+    .success-head p {
+      margin: .3rem 0 0 0;
+      line-height: 1.45;
+    }
+
+    .success-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      margin-top: .5rem;
+      padding: .28rem .6rem;
+      border-radius: 999px;
+      background: #ecfdf5;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+      font-size: .82rem;
+      font-weight: 700;
+    }
+
+    .success-summary {
+      margin-top: .85rem;
+      padding: .95rem;
+      border-radius: 14px;
+      border: 1px solid #dbeafe;
+      background: linear-gradient(180deg, #ffffff 0%, #f0f9ff 100%);
+    }
+
+    .success-summary h2 {
+      margin: 0 0 .55rem 0;
+      font-size: .96rem;
+      color: var(--success-blue-1);
+    }
+
+    .success-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: .45rem;
+    }
+
+    .success-list li {
+      display: grid;
+      grid-template-columns: minmax(130px, 180px) 1fr;
+      gap: .65rem;
+      align-items: start;
+      padding: .45rem .55rem;
+      border-radius: 10px;
+      background: rgba(239, 246, 255, .58);
+      border: 1px solid rgba(219, 234, 254, .85);
+    }
+
+    .success-list strong {
+      color: var(--success-blue-1);
+    }
+
+    .success-actions {
+      margin-top: 1rem;
+      display: grid;
+      gap: .55rem;
+      justify-items: center;
+    }
+
+    .success-actions form {
+      margin: 0;
+      width: 100%;
+      display: grid;
+      justify-items: center;
+    }
+
+    .success-actions button {
+      width: min(360px, 100%);
+      border: 0;
+      border-radius: 14px;
+      padding: .92rem 1rem;
+      font-weight: 800;
+      letter-spacing: .01em;
+      color: #fff;
+      background: linear-gradient(135deg, var(--success-blue-2), var(--success-blue-3));
+      box-shadow: 0 16px 28px rgba(37, 99, 235, .25);
+      cursor: pointer;
+      transition: transform .15s ease, filter .15s ease, box-shadow .15s ease;
+    }
+
+    .success-actions button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.02);
+      box-shadow: 0 20px 32px rgba(37, 99, 235, .27);
+    }
+
+    .success-actions button:focus-visible {
+      outline: 3px solid rgba(59, 130, 246, .38);
+      outline-offset: 2px;
+    }
+
+    .success-lock-note {
+      margin: 0;
+      text-align: center;
+      font-size: .86rem;
+      color: var(--success-muted);
+    }
+
+    @media (max-width: 640px) {
+      body { padding: .7rem; }
+      .success-modal { border-radius: 18px; padding: .95rem; }
+      .success-head { grid-template-columns: 1fr; text-align: center; justify-items: center; }
+      .success-list li { grid-template-columns: 1fr; gap: .2rem; }
+      .success-actions button { width: 100%; }
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: translateY(10px) scale(.985); }
+      to { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="success-overlay" aria-hidden="true"></div>
+
+  <main
+    class="success-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="successTitle"
+    aria-describedby="successDesc"
+  >
+    <div class="success-head">
+      <div class="success-icon" aria-hidden="true">✓</div>
+      <div>
+        <h1 id="successTitle">Cadastro concluído com sucesso</h1>
+        <p id="successDesc">As fichas foram recebidas e salvas no sistema.</p>
+        <div class="success-badge">Cadastro finalizado</div>
+      </div>
+    </div>
+
+    <section class="success-summary" aria-label="Resumo do cadastro">
+      <h2>Resumo</h2>
+      <ul class="success-list">
+        <li>
+          <strong>Responsável</strong>
+          <span>{{ success_data.responsavel_nome|default:"-" }}</span>
+        </li>
+        <li>
+          <strong>Usuário (login)</strong>
+          <span>{{ success_data.username|default:"-" }}</span>
+        </li>
+        <li>
+          <strong>Aventureiros cadastrados</strong>
+          <span>{{ success_data.quantidade_aventureiros|default:"0" }}</span>
+        </li>
+      </ul>
+    </section>
+
+    <div class="success-actions">
+      <form method="post" id="successLoginBackForm">
+        {% csrf_token %}
+        <button type="submit" id="successLoginBackButton" autofocus>Voltar para tela de login</button>
+      </form>
+      <p class="success-lock-note">Esta etapa só pode ser concluída pelo botão acima.</p>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      const form = document.getElementById('successLoginBackForm');
+      let allowLeave = false;
+
+      if (window.history && window.history.pushState) {
+        window.history.pushState({ locked: true }, '', window.location.href);
+        window.addEventListener('popstate', function () {
+          if (!allowLeave) {
+            window.history.pushState({ locked: true }, '', window.location.href);
+          }
+        });
+      }
+
+      document.addEventListener('keydown', function (event) {
+        if (allowLeave) return;
+        const key = event.key || '';
+        const blockedBackShortcut =
+          (event.altKey && (key === 'ArrowLeft' || key === 'Left')) ||
+          (event.metaKey && key === '[');
+        if (blockedBackShortcut) {
+          event.preventDefault();
+        }
+      });
+
+      form.addEventListener('submit', function () {
+        allowLeave = true;
+      });
+    })();
+  </script>
+</body>
+</html>

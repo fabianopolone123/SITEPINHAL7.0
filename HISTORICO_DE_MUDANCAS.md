@@ -487,3 +487,8 @@ Arquivo oficial de registro das entregas concluidas.
 - No resumo/finalização do cadastro de aventureiro, o botão `Finalizar` agora só aparece quando a quantidade de aventureiros informada no início foi completamente preenchida.
 - Adicionada validação no backend para impedir finalização antecipada (com mensagem amigável), evitando erro ao clicar em `Finalizar` antes da hora.
 - Os cards de confirmação no resumo agora exibem a foto 3x4 do aventureiro cadastrado.
+## 25/02/2026 - Novo cadastro: tela de sucesso com modal e retorno controlado ao login
+
+- Após finalizar o cadastro de novo responsável com aventureiros, o fluxo agora redireciona para uma tela de sucesso dedicada (`novo-cadastro/sucesso/`) antes do login.
+- A tela mostra um modal de confirmação com resumo do cadastro (responsável, usuário e quantidade de aventureiros) e botão único `Voltar para tela de login`.
+- Adicionados bloqueios visuais/comportamentais na tela de sucesso (sem botão de fechar e com contenção de navegação por script), além de cabeçalhos `no-store` para reduzir retorno por cache após sair.
