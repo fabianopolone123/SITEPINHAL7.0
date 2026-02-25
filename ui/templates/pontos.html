@@ -287,17 +287,29 @@
   <script>
     (function() {
       const presetSelect = document.getElementById('preset_select_id');
-      if (!presetSelect) return;
       const nomeInput = document.getElementById('preset_nome');
       const pontosInput = document.getElementById('pontos_input');
       const motivoInput = document.getElementById('motivo_input');
-      presetSelect.addEventListener('change', function() {
-        const opt = presetSelect.options[presetSelect.selectedIndex];
-        if (!opt || !opt.value) return;
-        if (nomeInput) nomeInput.value = opt.dataset.presetNome || '';
-        if (pontosInput) pontosInput.value = opt.dataset.presetPontos || '';
-        if (motivoInput) motivoInput.value = opt.dataset.presetMotivo || '';
-      });
+      if (presetSelect) {
+        presetSelect.addEventListener('change', function() {
+          const opt = presetSelect.options[presetSelect.selectedIndex];
+          if (!opt || !opt.value) return;
+          if (nomeInput) nomeInput.value = opt.dataset.presetNome || '';
+          if (pontosInput) pontosInput.value = opt.dataset.presetPontos || '';
+          if (motivoInput) motivoInput.value = opt.dataset.presetMotivo || '';
+        });
+      }
+
+      const successMsg = document.querySelector('.status p[data-state*="success"]');
+      if (successMsg) {
+        const statusCard = document.querySelector('.status');
+        if (statusCard) {
+          statusCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        window.setTimeout(function() {
+          window.alert(successMsg.textContent.trim());
+        }, 80);
+      }
     })();
   </script>
   {% endif %}

@@ -426,3 +426,7 @@ Arquivo oficial de registro das entregas concluidas.
 - Botão `Cadastrar lançamento` foi renomeado para `Enviar lançamento`.
 - Adicionado botão `Salvar lançamento`, que grava o preenchimento atual como pré-registro padrão para reutilização posterior.
 - Removidos da tela os controles de `Pré-registro ativo` e a coluna `Status` da tabela de pré-registros.
+## 23/02/2026 - Pontos (Diretor): confirmação visual ao enviar lançamento
+
+- Ao enviar um lançamento com sucesso, a tela `Pontos` agora destaca a confirmação levando o foco ao bloco de status.
+- Também exibe um alerta de confirmação com a mensagem de sucesso para dar retorno imediato ao usuário.
