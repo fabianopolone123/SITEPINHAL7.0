@@ -368,3 +368,8 @@ Arquivo oficial de registro das entregas concluidas.
 - Cada variação permite informar `nome`, `valor` e `estoque` (opcional).
 - Criados modelos `LojaProduto` e `LojaProdutoVariacao` com migração `0029_lojaproduto_lojaprodutovariacao.py`.
 - O cadastro valida ao menos uma variação com valor e não exige estoque.
+## 23/02/2026 - Financeiro: valor padrão das cobranças ajustado para 30
+
+- Alterado o valor padrão das cobranças/mensalidades de `35` para `30` no módulo Financeiro.
+- Ajuste aplicado no campo de geração manual, nos fallbacks do backend e na geração automática após nova inscrição.
+- Atualizado também o default do modelo `MensalidadeAventureiro` (migração `0030_alter_mensalidadeaventureiro_valor_default.py`).

@@ -519,7 +519,7 @@ class MensalidadeAventureiro(models.Model):
     ano_referencia = models.PositiveIntegerField('ano de referência')
     mes_referencia = models.PositiveSmallIntegerField('mês de referência')
     tipo = models.CharField('tipo', max_length=16, choices=TIPO_CHOICES, default=TIPO_MENSALIDADE)
-    valor = models.DecimalField('valor', max_digits=10, decimal_places=2, default=Decimal('35.00'))
+    valor = models.DecimalField('valor', max_digits=10, decimal_places=2, default=Decimal('30.00'))
     status = models.CharField('status', max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDENTE)
     created_by = models.ForeignKey(
         User,

@@ -277,7 +277,7 @@ def _require_menu_or_redirect(request, menu_key, message):
 
 
 def _generate_financeiro_entries_for_aventureiro(aventureiro, created_by=None, valor=None, reference_date=None):
-    base_value = (valor if isinstance(valor, Decimal) else Decimal(valor or '35.00')).quantize(Decimal('0.01'))
+    base_value = (valor if isinstance(valor, Decimal) else Decimal(valor or '30.00')).quantize(Decimal('0.01'))
     ref_date = reference_date or timezone.localdate()
     created_count = 0
     created_inscricao = 0
@@ -1976,7 +1976,7 @@ class NovoCadastroResumoView(View):
                 _generate_financeiro_entries_for_aventureiro(
                     aventureiro,
                     created_by=user if getattr(user, 'is_authenticated', False) else None,
-                    valor=Decimal('35.00'),
+                    valor=Decimal('30.00'),
                 )
 
             _dispatch_cadastro_notifications(
@@ -3838,7 +3838,7 @@ class FinanceiroView(LoginRequiredMixin, View):
     def _parse_valor(self, raw_value):
         raw = str(raw_value or '').strip()
         if not raw:
-            return Decimal('35.00')
+            return Decimal('30.00')
         normalized = raw.replace('R$', '').replace(' ', '')
         if ',' in normalized and '.' in normalized:
             normalized = normalized.replace('.', '').replace(',', '.')
@@ -4205,7 +4205,7 @@ class FinanceiroView(LoginRequiredMixin, View):
             'responsavel_pix_pagamento': None,
         }
 
-    def _mensalidades_context(self, aventureiro_id='', valor_mensalidade='35'):
+    def _mensalidades_context(self, aventureiro_id='', valor_mensalidade='30'):
         aventureiros = self._aventureiros()
         selected_id = str(aventureiro_id or '').strip()
         selected = None
@@ -4267,7 +4267,7 @@ class FinanceiroView(LoginRequiredMixin, View):
             'selected_aventureiro': selected,
             'selected_aventureiro_id': selected_id,
             'mensalidades': mensalidades,
-            'valor_mensalidade': str(valor_mensalidade or '35'),
+            'valor_mensalidade': str(valor_mensalidade or '30'),
             'resumo_ano': ano_resumo,
             'resumo_meses': [self._month_label(m)[:3] for m in range(1, 13)],
             'resumo_rows': list(resumo_rows_map.values()),
@@ -4282,7 +4282,7 @@ class FinanceiroView(LoginRequiredMixin, View):
         else:
             context = self._mensalidades_context(
                 request.GET.get('aventureiro'),
-                request.GET.get('valor', '35'),
+                request.GET.get('valor', '30'),
             )
         context.update({
             'active_financeiro_tab': 'mensalidades',
@@ -4378,7 +4378,7 @@ class FinanceiroView(LoginRequiredMixin, View):
             return render(request, self.template_name, context)
         action = str(request.POST.get('action') or '').strip()
         aventureiro_id = str(request.POST.get('aventureiro_id') or '').strip()
-        valor_input = str(request.POST.get('valor_mensalidade') or '35').strip()
+        valor_input = str(request.POST.get('valor_mensalidade') or '30').strip()
         if action == 'gerar_mensalidades':
             aventureiro = Aventureiro.objects.filter(pk=aventureiro_id).select_related('responsavel', 'responsavel__user').first()
             if not aventureiro:

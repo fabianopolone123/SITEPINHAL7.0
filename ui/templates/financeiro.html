@@ -193,7 +193,7 @@
           </div>
           <div>
             <label for="valor_mensalidade">Valor</label>
-            <input id="valor_mensalidade" name="valor_mensalidade" type="text" value="{{ valor_mensalidade|default:'35' }}" inputmode="decimal" />
+            <input id="valor_mensalidade" name="valor_mensalidade" type="text" value="{{ valor_mensalidade|default:'30' }}" inputmode="decimal" />
           </div>
           <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
             <button type="submit" class="primary" name="action" value="gerar_mensalidades">Gerar mensalidades</button>
@@ -348,7 +348,7 @@
         <input type="hidden" name="action" id="mensalidadeModalAction" value="editar_mensalidade" />
         <input type="hidden" name="mensalidade_id" id="mensalidadeModalId" />
         <input type="hidden" name="aventureiro_id" id="mensalidadeModalAventureiroId" />
-        <input type="hidden" name="valor_mensalidade" id="mensalidadeModalValorTela" value="{{ valor_mensalidade|default:'35' }}" />
+        <input type="hidden" name="valor_mensalidade" id="mensalidadeModalValorTela" value="{{ valor_mensalidade|default:'30' }}" />
         <input type="hidden" id="mensalidadeModalStatus" value="" />
         <label for="mensalidadeModalValor">Valor da mensalidade</label>
         <input id="mensalidadeModalValor" name="valor_mensalidade_edicao" type="text" inputmode="decimal" required />
@@ -391,7 +391,7 @@
           toggleStatusBtn.textContent = statusInput.value === 'paga' ? 'Marcar como pendente' : 'Marcar como paga';
         }
         if (seletorValorTela) {
-          valorTelaInput.value = seletorValorTela.value || '35';
+          valorTelaInput.value = seletorValorTela.value || '30';
         }
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
