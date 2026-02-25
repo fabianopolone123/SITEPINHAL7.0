@@ -517,3 +517,10 @@ Arquivo oficial de registro das entregas concluidas.
 - A seleção de vínculo das fotos com variações no cadastro da `Loja` foi trocada de `select múltiplo` para `checkboxes`.
 - Mantida a opção `Todas as variações`, com comportamento automático para desmarcar as demais ao selecionar.
 - Objetivo: facilitar o uso no celular e evitar dificuldade de seleção múltipla em navegadores móveis.
+## 25/02/2026 - Loja (Responsável): catálogo com cards responsivos, variação e quantidade
+
+- A rota `Loja` passou a ter uma visão específica para o perfil ativo `Responsável`, exibindo somente produtos ativos.
+- Criado catálogo com cards responsivos (celular/PC) mostrando foto, título, descrição, regra de mínimo de pedidos pagos (quando existir), variações e valor.
+- Seleção de variação agora atualiza o valor exibido e troca a foto principal/minigaleria conforme as fotos vinculadas à variação.
+- Adicionados controles de quantidade com botões `+` e `-` (mínimo 1) e botão `Adicionar ao carrinho` como placeholder para a próxima etapa.
+- Incluído `Loja` no menu padrão do perfil `Responsável` para novos grupos/perfis.

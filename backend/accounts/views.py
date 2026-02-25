@@ -366,7 +366,7 @@ def _ensure_default_access_groups():
     defaults = [
         ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'pontos', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('diretoria', 'Diretoria', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'pontos', 'whatsapp', 'documentos_inscricao', 'permissoes']),
-        ('responsavel', 'Responsavel', ['inicio', 'meus_dados', 'financeiro', 'pontos']),
+        ('responsavel', 'Responsavel', ['inicio', 'meus_dados', 'financeiro', 'pontos', 'loja']),
         ('professor', 'Professor', ['inicio', 'meus_dados']),
     ]
     for code, name, menus in defaults:
@@ -5142,15 +5142,25 @@ class LojaView(LoginRequiredMixin, View):
             return None
         return value.quantize(Decimal('0.01'))
 
-    def _context(self, form_data=None):
+    def _is_responsavel_mode(self, request):
+        return _get_active_profile(request) == UserAccess.ROLE_RESPONSAVEL
+
+    def _produto_rows(self, *, only_active=False, only_active_variacoes=False):
         produtos = (
             LojaProduto.objects
             .prefetch_related('variacoes', 'fotos__variacao', 'fotos__variacoes_vinculadas')
+            .filter(ativo=True) if only_active else
+            LojaProduto.objects.prefetch_related('variacoes', 'fotos__variacao', 'fotos__variacoes_vinculadas')
+        )
+        produtos = (
+            produtos
             .order_by('-created_at')
         )
         rows = []
         for produto in produtos:
             variacoes = list(produto.variacoes.all())
+            if only_active_variacoes:
+                variacoes = [v for v in variacoes if v.ativo]
             fotos = sorted(
                 list(produto.fotos.all()),
                 key=lambda item: (item.ordem or 0, item.id or 0),
@@ -5168,23 +5178,45 @@ class LojaView(LoginRequiredMixin, View):
                     fotos_por_variacao.setdefault(variacao_id, []).append(foto)
             for variacao in variacoes:
                 variacao.fotos_vinculadas = fotos_por_variacao.get(variacao.id, [])
+                variacao.fotos_urls = [foto.foto.url for foto in variacao.fotos_vinculadas if getattr(foto, 'foto', None)]
             capa_foto = fotos[0].foto if fotos else getattr(produto, 'foto', None)
+            if only_active_variacoes and not variacoes:
+                continue
             rows.append({
                 'produto': produto,
                 'variacoes': variacoes,
                 'fotos': fotos,
                 'capa_foto': capa_foto,
             })
+        return rows
+
+    def _context(self, form_data=None):
+        rows = self._produto_rows()
         return {
+            'loja_mode': 'admin',
             'produtos': rows,
             'form_data': form_data or {},
+        }
+
+    def _responsavel_context(self, request):
+        rows = self._produto_rows(only_active=True, only_active_variacoes=True)
+        for row in rows:
+            row['produto_capa_url'] = row['capa_foto'].url if row.get('capa_foto') else ''
+            row['default_variacao'] = row['variacoes'][0] if row['variacoes'] else None
+        return {
+            'loja_mode': 'responsavel',
+            'catalog_rows': rows,
+            'responsavel_catalogo_tem_produtos': bool(rows),
         }
 
     def get(self, request):
         guard = self._guard(request)
         if guard:
             return guard
-        context = self._context()
+        if self._is_responsavel_mode(request):
+            context = self._responsavel_context(request)
+        else:
+            context = self._context()
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 
@@ -5192,6 +5224,11 @@ class LojaView(LoginRequiredMixin, View):
         guard = self._guard(request)
         if guard:
             return guard
+        if self._is_responsavel_mode(request):
+            messages.info(request, 'Carrinho será implementado nas próximas etapas. Por enquanto, use esta tela para selecionar produtos e validar o catálogo.')
+            context = self._responsavel_context(request)
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
 
         titulo = str(request.POST.get('titulo') or '').strip()
         descricao = str(request.POST.get('descricao') or '').strip()
