@@ -373,3 +373,11 @@ Arquivo oficial de registro das entregas concluidas.
 - Alterado o valor padrão das cobranças/mensalidades de `35` para `30` no módulo Financeiro.
 - Ajuste aplicado no campo de geração manual, nos fallbacks do backend e na geração automática após nova inscrição.
 - Atualizado também o default do modelo `MensalidadeAventureiro` (migração `0030_alter_mensalidadeaventureiro_valor_default.py`).
+## 23/02/2026 - Pontos (Diretor/Diretoria): lançamentos individuais/todos + pré-registros padrão
+
+- Adicionado novo menu `Pontos` no painel (habilitado por padrão para `Diretor` e `Diretoria`).
+- Criada tela de pontos com lançamento manual exigindo `valor` e `motivo`, podendo aplicar para um aventureiro específico ou para todos.
+- Suporte a pontos positivos e negativos (ex.: `15`, `-10`).
+- Criado cadastro de pré-registros padrão (ex.: `Presença +15`, `Bom comportamento +10`, `Mau comportamento -10`) com aplicação individual ou para todos.
+- Incluídos ranking de totais por aventureiro e histórico de lançamentos recentes na mesma tela.
+- Modelos criados: `AventureiroPontosPreset` e `AventureiroPontosLancamento` com migração `0031_aventureiropontospreset_aventureiropontoslancamento.py`.

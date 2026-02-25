@@ -1,0 +1,249 @@
+﻿<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pontos</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    .pontos-grid { display:grid; grid-template-columns: 1.1fr .9fr; gap:1rem; }
+    .pontos-card h3 { margin-top:0; }
+    .pontos-form-grid { display:grid; grid-template-columns: 1fr 1fr; gap:.75rem; }
+    .pontos-form-grid .full { grid-column:1 / -1; }
+    .pontos-form-grid label { display:flex; flex-direction:column; gap:.35rem; color:#334155; font-size:.9rem; font-weight:600; }
+    .pontos-form-grid input, .pontos-form-grid select, .pontos-form-grid textarea {
+      width:100%; padding:.72rem .8rem; border:1px solid #cbd5e1; border-radius:10px;
+    }
+    .target-box { border:1px solid #e2e8f0; border-radius:12px; padding:.75rem; background:#fafcff; }
+    .target-box legend { font-weight:700; color:#0f172a; padding:0 .35rem; }
+    .target-row { display:flex; gap:1rem; flex-wrap:wrap; align-items:center; margin-bottom:.6rem; }
+    .target-row label { display:inline-flex; align-items:center; gap:.35rem; font-weight:600; }
+    .action-row-local { display:flex; justify-content:flex-end; margin-top:.8rem; }
+    .preset-list { width:100%; border-collapse:collapse; }
+    .preset-list th, .preset-list td { padding:.6rem .5rem; border-bottom:1px solid #e2e8f0; text-align:left; }
+    .tag-pontos-pos { color:#166534; font-weight:700; }
+    .tag-pontos-neg { color:#b91c1c; font-weight:700; }
+    .tag-total { font-weight:800; }
+    .pontos-scroll { overflow:auto; }
+    .pontos-table { width:100%; min-width:760px; border-collapse:collapse; }
+    .pontos-table th, .pontos-table td { padding:.55rem .5rem; border-bottom:1px solid #e2e8f0; text-align:left; }
+    @media (max-width: 980px) {
+      .pontos-grid { grid-template-columns: 1fr; }
+      .pontos-form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="painel-page">
+  {% include '_painel_sidebar.html' %}
+  <main class="painel-content">
+    <header class="painel-header">
+      <h2>Pontos</h2>
+      <p>Lance pontos positivos/negativos para aventureiros, individualmente ou para todos, e use pré-registros padrão.</p>
+    </header>
+
+    <section class="painel-card">
+      <div class="status" aria-live="polite">
+        {% for message in messages %}
+          <p data-state="{{ message.tags }}">{{ message }}</p>
+        {% empty %}
+          <p data-state="info">Cadastre lançamentos e pré-registros de pontos nesta tela.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="pontos-grid">
+      <section class="painel-card pontos-card">
+        <h3>Lançar pontos (manual)</h3>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="lancar_pontos" />
+          <fieldset class="target-box">
+            <legend>Destino</legend>
+            <div class="target-row">
+              <label><input type="radio" name="target_mode" value="individual" {% if form_state.target_mode != 'todos' %}checked{% endif %}> Individual</label>
+              <label><input type="radio" name="target_mode" value="todos" {% if form_state.target_mode == 'todos' %}checked{% endif %}> Todos os aventureiros</label>
+            </div>
+            <label>
+              Aventureiro (quando individual)
+              <select name="aventureiro_id">
+                <option value="">Selecione...</option>
+                {% for av in aventureiros %}
+                  <option value="{{ av.pk }}" {% if form_state.aventureiro_id == av.pk|stringformat:'s' %}selected{% endif %}>{{ av.nome }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </fieldset>
+          <div class="pontos-form-grid" style="margin-top:.9rem;">
+            <label>
+              Pontos
+              <input type="text" name="pontos" inputmode="numeric" placeholder="Ex.: 15 ou -10" value="{{ form_state.pontos|default:'' }}" required />
+            </label>
+            <label>
+              Motivo
+              <input type="text" name="motivo" placeholder="Ex.: Presença, Bom comportamento" value="{{ form_state.motivo|default:'' }}" required />
+            </label>
+          </div>
+          <div class="action-row-local">
+            <button type="submit" class="primary">Lançar pontos</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="painel-card pontos-card">
+        <h3>Aplicar pré-registro</h3>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="aplicar_preset" />
+          <div class="pontos-form-grid">
+            <label class="full">
+              Pré-registro
+              <select name="preset_apply_id" required>
+                <option value="">Selecione...</option>
+                {% for preset in presets %}
+                  <option value="{{ preset.pk }}" {% if form_state.preset_apply_id == preset.pk|stringformat:'s' %}selected{% endif %}>
+                    {{ preset.nome }} ({% if preset.pontos > 0 %}+{% endif %}{{ preset.pontos }}){% if not preset.ativo %} [Inativo]{% endif %}
+                  </option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+          <fieldset class="target-box" style="margin-top:.9rem;">
+            <legend>Destino</legend>
+            <div class="target-row">
+              <label><input type="radio" name="preset_apply_target_mode" value="individual" {% if form_state.preset_apply_target_mode != 'todos' %}checked{% endif %}> Individual</label>
+              <label><input type="radio" name="preset_apply_target_mode" value="todos" {% if form_state.preset_apply_target_mode == 'todos' %}checked{% endif %}> Todos os aventureiros</label>
+            </div>
+            <label>
+              Aventureiro (quando individual)
+              <select name="preset_apply_aventureiro_id">
+                <option value="">Selecione...</option>
+                {% for av in aventureiros %}
+                  <option value="{{ av.pk }}" {% if form_state.preset_apply_aventureiro_id == av.pk|stringformat:'s' %}selected{% endif %}>{{ av.nome }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </fieldset>
+          <div class="action-row-local">
+            <button type="submit" class="secondary" style="margin-top:.8rem;">Aplicar pré-registro</button>
+          </div>
+        </form>
+      </section>
+    </section>
+
+    <section class="pontos-grid" style="margin-top:1rem;">
+      <section class="painel-card pontos-card">
+        <h3>Cadastrar pré-registro padrão</h3>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="criar_preset" />
+          <div class="pontos-form-grid">
+            <label>
+              Nome do pré-registro
+              <input type="text" name="preset_nome" placeholder="Ex.: Presença" value="{{ form_state.preset_nome|default:'' }}" required />
+            </label>
+            <label>
+              Pontos
+              <input type="text" name="preset_pontos" inputmode="numeric" placeholder="Ex.: 15 ou -10" value="{{ form_state.preset_pontos|default:'' }}" required />
+            </label>
+            <label class="full">
+              Motivo padrão
+              <input type="text" name="preset_motivo" placeholder="Ex.: Presença na reunião" value="{{ form_state.preset_motivo|default:'' }}" required />
+            </label>
+            <label class="full" style="display:flex; flex-direction:row; align-items:center; gap:.45rem; font-weight:600;">
+              <input type="checkbox" name="preset_ativo" {% if form_state.preset_ativo or not form_state %}checked{% endif %} />
+              Pré-registro ativo
+            </label>
+          </div>
+          <div class="action-row-local">
+            <button type="submit" class="primary">Cadastrar pré-registro</button>
+          </div>
+        </form>
+
+        <div class="pontos-scroll" style="margin-top:1rem;">
+          <table class="preset-list">
+            <thead>
+              <tr>
+                <th>Pré-registro</th>
+                <th>Pontos</th>
+                <th>Motivo</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for preset in presets %}
+                <tr>
+                  <td>{{ preset.nome }}</td>
+                  <td class="{% if preset.pontos >= 0 %}tag-pontos-pos{% else %}tag-pontos-neg{% endif %}">{% if preset.pontos > 0 %}+{% endif %}{{ preset.pontos }}</td>
+                  <td>{{ preset.motivo_padrao }}</td>
+                  <td>{% if preset.ativo %}Ativo{% else %}Inativo{% endif %}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="4">Nenhum pré-registro cadastrado.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="painel-card pontos-card">
+        <h3>Totais por aventureiro</h3>
+        <div class="pontos-scroll">
+          <table class="pontos-table">
+            <thead>
+              <tr>
+                <th>Aventureiro</th>
+                <th>Responsável</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in totais_rows %}
+                <tr>
+                  <td>{{ row.aventureiro.nome }}</td>
+                  <td>{% if row.aventureiro.responsavel and row.aventureiro.responsavel.user %}{{ row.aventureiro.responsavel.user.username }}{% endif %}</td>
+                  <td class="tag-total {% if row.total >= 0 %}tag-pontos-pos{% else %}tag-pontos-neg{% endif %}">{% if row.total > 0 %}+{% endif %}{{ row.total }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="3">Nenhum aventureiro cadastrado.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section class="painel-card pontos-card" style="margin-top:1rem;">
+      <h3>Lançamentos recentes</h3>
+      <div class="pontos-scroll">
+        <table class="pontos-table">
+          <thead>
+            <tr>
+              <th>Data/Hora</th>
+              <th>Aventureiro</th>
+              <th>Pontos</th>
+              <th>Motivo</th>
+              <th>Pré-registro</th>
+              <th>Lançado por</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in lancamentos_recentes %}
+              <tr>
+                <td>{{ item.created_at|date:'d/m/Y H:i' }}</td>
+                <td>{{ item.aventureiro.nome }}</td>
+                <td class="{% if item.pontos >= 0 %}tag-pontos-pos{% else %}tag-pontos-neg{% endif %}">{% if item.pontos > 0 %}+{% endif %}{{ item.pontos }}</td>
+                <td>{{ item.motivo }}</td>
+                <td>{% if item.preset %}{{ item.preset.nome }}{% else %}-{% endif %}</td>
+                <td>{% if item.created_by %}{{ item.created_by.username }}{% else %}-{% endif %}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6">Nenhum lançamento de pontos registrado ainda.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

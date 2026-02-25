@@ -627,3 +627,58 @@ class LojaProdutoVariacao(models.Model):
 
     def __str__(self):
         return f'{self.produto.titulo} - {self.nome}'
+
+
+class AventureiroPontosPreset(models.Model):
+    nome = models.CharField('nome', max_length=160)
+    pontos = models.IntegerField('pontos')
+    motivo_padrao = models.CharField('motivo padrão', max_length=255)
+    ativo = models.BooleanField('ativo', default=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pontos_presets_criados',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'pré-registro de pontos'
+        verbose_name_plural = 'pré-registros de pontos'
+        ordering = ('nome',)
+
+    def __str__(self):
+        sinal = '+' if self.pontos > 0 else ''
+        return f'{self.nome} ({sinal}{self.pontos})'
+
+
+class AventureiroPontosLancamento(models.Model):
+    aventureiro = models.ForeignKey(Aventureiro, on_delete=models.CASCADE, related_name='pontos_lancamentos')
+    pontos = models.IntegerField('pontos')
+    motivo = models.CharField('motivo', max_length=255)
+    preset = models.ForeignKey(
+        AventureiroPontosPreset,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lancamentos',
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pontos_lancados',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'lançamento de pontos do aventureiro'
+        verbose_name_plural = 'lançamentos de pontos dos aventureiros'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        sinal = '+' if self.pontos > 0 else ''
+        return f'{self.aventureiro.nome}: {sinal}{self.pontos} ({self.motivo})'

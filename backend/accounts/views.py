@@ -50,6 +50,8 @@ from .models import (
     PagamentoMensalidade,
     LojaProduto,
     LojaProdutoVariacao,
+    AventureiroPontosPreset,
+    AventureiroPontosLancamento,
 )
 from .audit import record_audit
 from .utils import decode_signature, decode_photo
@@ -63,7 +65,7 @@ from .whatsapp import (
 )
 from django.http import HttpResponse, JsonResponse
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.views.decorators.csrf import csrf_exempt
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
@@ -80,6 +82,7 @@ MENU_ITEMS = [
     ('auditoria', 'Auditoria'),
     ('usuarios', 'UsuÃ¡rios'),
     ('financeiro', 'Financeiro'),
+    ('pontos', 'Pontos'),
     ('loja', 'Loja'),
     ('whatsapp', 'WhatsApp'),
     ('documentos_inscricao', 'Documentos inscriÃ§Ã£o'),
@@ -220,7 +223,7 @@ def _effective_menu_permissions(user, active_profile=''):
     if active_profile and active_profile in profiles:
         profiles = {active_profile}
     if UserAccess.ROLE_DIRETOR in profiles or UserAccess.ROLE_DIRETORIA in profiles:
-        allowed.update({'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes'})
+        allowed.update({'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'pontos', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes'})
     if UserAccess.ROLE_RESPONSAVEL in profiles:
         allowed.add('financeiro')
     allowed_group_codes = _group_codes_for_profile(active_profile) if active_profile else set()
@@ -357,8 +360,8 @@ def _user_display_data(user):
 
 def _ensure_default_access_groups():
     defaults = [
-        ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes']),
-        ('diretoria', 'Diretoria', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes']),
+        ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'pontos', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes']),
+        ('diretoria', 'Diretoria', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'pontos', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('responsavel', 'Responsavel', ['inicio', 'meus_dados', 'financeiro']),
         ('professor', 'Professor', ['inicio', 'meus_dados']),
     ]
@@ -4625,6 +4628,202 @@ class PagamentoMensalidadeWebhookView(View):
             return JsonResponse({'ok': True, 'ignored': reason})
 
         return JsonResponse({'ok': True, 'payment_id': payment_id})
+
+
+class PontosView(LoginRequiredMixin, View):
+    template_name = 'pontos.html'
+
+    def _guard(self, request):
+        if not _has_menu_permission(request, 'pontos'):
+            messages.error(request, 'Seu perfil não possui permissão para acessar Pontos.')
+            return redirect('accounts:painel')
+        return None
+
+    def _parse_int(self, raw):
+        text = str(raw or '').strip().replace('+', '')
+        if not text:
+            return None
+        if not re.fullmatch(r'-?\d+', text):
+            return None
+        return int(text)
+
+    def _aventureiros(self):
+        return list(Aventureiro.objects.select_related('responsavel', 'responsavel__user').order_by('nome'))
+
+    def _totais_rows(self):
+        aventureiros = self._aventureiros()
+        totals = {}
+        for row in (
+            AventureiroPontosLancamento.objects
+            .values('aventureiro_id')
+            .annotate(total=Sum('pontos'))
+        ):
+            totals[row['aventureiro_id']] = int(row['total'] or 0)
+        result = []
+        for av in aventureiros:
+            result.append({
+                'aventureiro': av,
+                'total': totals.get(av.pk, 0),
+            })
+        result.sort(key=lambda item: (-item['total'], item['aventureiro'].nome.lower()))
+        return result
+
+    def _recentes(self):
+        return list(
+            AventureiroPontosLancamento.objects
+            .select_related('aventureiro', 'created_by', 'preset')
+            .order_by('-created_at')[:30]
+        )
+
+    def _presets(self):
+        return list(AventureiroPontosPreset.objects.order_by('nome'))
+
+    def _context(self, form_state=None):
+        return {
+            'aventureiros': self._aventureiros(),
+            'presets': self._presets(),
+            'totais_rows': self._totais_rows(),
+            'lancamentos_recentes': self._recentes(),
+            'form_state': form_state or {},
+        }
+
+    def get(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+        context = self._context()
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+
+        action = str(request.POST.get('action') or '').strip()
+        form_state = {
+            'target_mode': request.POST.get('target_mode', 'individual'),
+            'aventureiro_id': request.POST.get('aventureiro_id', ''),
+            'pontos': request.POST.get('pontos', ''),
+            'motivo': request.POST.get('motivo', ''),
+            'preset_nome': request.POST.get('preset_nome', ''),
+            'preset_pontos': request.POST.get('preset_pontos', ''),
+            'preset_motivo': request.POST.get('preset_motivo', ''),
+            'preset_ativo': bool(request.POST.get('preset_ativo')),
+            'preset_apply_target_mode': request.POST.get('preset_apply_target_mode', 'individual'),
+            'preset_apply_aventureiro_id': request.POST.get('preset_apply_aventureiro_id', ''),
+            'preset_apply_id': request.POST.get('preset_apply_id', ''),
+        }
+
+        if action == 'lancar_pontos':
+            pontos = self._parse_int(request.POST.get('pontos'))
+            motivo = str(request.POST.get('motivo') or '').strip()
+            target_mode = str(request.POST.get('target_mode') or 'individual').strip()
+            aventureiro_id = str(request.POST.get('aventureiro_id') or '').strip()
+            if pontos is None:
+                messages.error(request, 'Informe um valor de pontos válido (pode ser negativo).')
+            elif not motivo:
+                messages.error(request, 'Informe o motivo do lançamento.')
+            else:
+                if target_mode == 'todos':
+                    aventureiros = self._aventureiros()
+                    if not aventureiros:
+                        messages.error(request, 'Nenhum aventureiro disponível para lançar pontos.')
+                    else:
+                        AventureiroPontosLancamento.objects.bulk_create([
+                            AventureiroPontosLancamento(
+                                aventureiro=av,
+                                pontos=pontos,
+                                motivo=motivo,
+                                created_by=request.user,
+                            )
+                            for av in aventureiros
+                        ])
+                        messages.success(request, f'Lançamento aplicado para todos os aventureiros ({len(aventureiros)}).')
+                else:
+                    av = Aventureiro.objects.filter(pk=aventureiro_id).first()
+                    if not av:
+                        messages.error(request, 'Selecione um aventureiro para lançamento individual.')
+                    else:
+                        AventureiroPontosLancamento.objects.create(
+                            aventureiro=av,
+                            pontos=pontos,
+                            motivo=motivo,
+                            created_by=request.user,
+                        )
+                        messages.success(request, f'Pontos lançados para {av.nome}.')
+
+        elif action == 'criar_preset':
+            nome = str(request.POST.get('preset_nome') or '').strip()
+            pontos = self._parse_int(request.POST.get('preset_pontos'))
+            motivo = str(request.POST.get('preset_motivo') or '').strip()
+            ativo = bool(request.POST.get('preset_ativo'))
+            if not nome:
+                messages.error(request, 'Informe o nome do pré-registro.')
+            elif pontos is None:
+                messages.error(request, 'Informe um valor de pontos válido no pré-registro.')
+            elif not motivo:
+                messages.error(request, 'Informe o motivo padrão do pré-registro.')
+            else:
+                AventureiroPontosPreset.objects.create(
+                    nome=nome,
+                    pontos=pontos,
+                    motivo_padrao=motivo,
+                    ativo=ativo,
+                    created_by=request.user,
+                )
+                messages.success(request, f'Pré-registro "{nome}" cadastrado com sucesso.')
+                form_state.update({
+                    'preset_nome': '',
+                    'preset_pontos': '',
+                    'preset_motivo': '',
+                    'preset_ativo': False,
+                })
+
+        elif action == 'aplicar_preset':
+            preset_id = str(request.POST.get('preset_apply_id') or '').strip()
+            target_mode = str(request.POST.get('preset_apply_target_mode') or 'individual').strip()
+            aventureiro_id = str(request.POST.get('preset_apply_aventureiro_id') or '').strip()
+            preset = AventureiroPontosPreset.objects.filter(pk=preset_id).first()
+            if not preset:
+                messages.error(request, 'Selecione um pré-registro válido para aplicar.')
+            else:
+                if target_mode == 'todos':
+                    aventureiros = self._aventureiros()
+                    if not aventureiros:
+                        messages.error(request, 'Nenhum aventureiro disponível para aplicar o pré-registro.')
+                    else:
+                        AventureiroPontosLancamento.objects.bulk_create([
+                            AventureiroPontosLancamento(
+                                aventureiro=av,
+                                pontos=preset.pontos,
+                                motivo=preset.motivo_padrao,
+                                preset=preset,
+                                created_by=request.user,
+                            )
+                            for av in aventureiros
+                        ])
+                        messages.success(request, f'Pré-registro "{preset.nome}" aplicado para todos ({len(aventureiros)}).')
+                else:
+                    av = Aventureiro.objects.filter(pk=aventureiro_id).first()
+                    if not av:
+                        messages.error(request, 'Selecione um aventureiro para aplicar o pré-registro.')
+                    else:
+                        AventureiroPontosLancamento.objects.create(
+                            aventureiro=av,
+                            pontos=preset.pontos,
+                            motivo=preset.motivo_padrao,
+                            preset=preset,
+                            created_by=request.user,
+                        )
+                        messages.success(request, f'Pré-registro "{preset.nome}" aplicado para {av.nome}.')
+
+        else:
+            messages.error(request, 'Ação de pontos inválida.')
+
+        context = self._context(form_state=form_state)
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
 
 
 class LojaView(LoginRequiredMixin, View):
