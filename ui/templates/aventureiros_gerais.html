@@ -18,6 +18,7 @@
     <header class="painel-header">
       <h2>Aventureiros cadastrados</h2>
       <p>Lista geral para o perfil Diretor, organizada por classes (idade).</p>
+      <p class="panel-note">Classificação por idade na data de corte de 30/06 do ano atual.</p>
     </header>
 
     {% if aventureiros %}
@@ -31,7 +32,7 @@
                 <th>Foto</th>
                 <th>Nome</th>
                 <th>Responsável</th>
-                <th>Idade</th>
+                <th>Idade atual</th>
                 <th>Série</th>
               </tr>
             </thead>
@@ -61,14 +62,14 @@
       {% if aventureiros_sem_classe %}
         <section class="painel-card classe-card">
           <h3 class="classe-title">Sem classe</h3>
-          <p class="classe-subtitle">Fora das faixas de 6 a 9 anos ou sem data de nascimento.</p>
+          <p class="classe-subtitle">Fora das faixas de 6 a 9 anos na data de corte (30/06) ou sem data de nascimento.</p>
           <table class="users-table">
             <thead>
               <tr>
                 <th>Foto</th>
                 <th>Nome</th>
                 <th>Responsável</th>
-                <th>Idade</th>
+                <th>Idade atual</th>
                 <th>Série</th>
               </tr>
             </thead>

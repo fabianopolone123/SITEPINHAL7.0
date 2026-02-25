@@ -506,8 +506,10 @@ def _idade_em_anos(nascimento, hoje=None):
 
 
 def _classe_aventureiro_por_idade(nascimento, hoje=None):
-    idade = _idade_em_anos(nascimento, hoje=hoje)
-    return idade, AVENTUREIRO_CLASSIFICACOES_IDADE.get(idade)
+    ref = hoje or timezone.localdate()
+    data_corte = date(ref.year, 6, 30)
+    idade_na_data_corte = _idade_em_anos(nascimento, hoje=data_corte)
+    return idade_na_data_corte, AVENTUREIRO_CLASSIFICACOES_IDADE.get(idade_na_data_corte)
 
 
 def _combined_document_fields():
