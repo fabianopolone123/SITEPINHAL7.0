@@ -482,3 +482,8 @@ Arquivo oficial de registro das entregas concluidas.
 - A foto 3x4 enviada na ficha de inscrição passa a ser redimensionada/comprimida no navegador antes de ir para o campo oculto em Base64.
 - Objetivo: reduzir o payload do POST e evitar `Bad Request (400)` por requisição muito grande ao enviar a primeira ficha.
 - Mantido o preview da foto e a compatibilidade com o fluxo atual de assinatura/validação.
+## 25/02/2026 - Resumo do cadastro: finalização bloqueada até completar a quantidade e foto no card
+
+- No resumo/finalização do cadastro de aventureiro, o botão `Finalizar` agora só aparece quando a quantidade de aventureiros informada no início foi completamente preenchida.
+- Adicionada validação no backend para impedir finalização antecipada (com mensagem amigável), evitando erro ao clicar em `Finalizar` antes da hora.
+- Os cards de confirmação no resumo agora exibem a foto 3x4 do aventureiro cadastrado.

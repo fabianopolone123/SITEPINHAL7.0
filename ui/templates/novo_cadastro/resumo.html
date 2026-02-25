@@ -31,6 +31,32 @@
       font-weight: 700;
       font-size: .85rem;
     }
+    .summary-card {
+      display: grid;
+      grid-template-columns: 78px 1fr;
+      gap: .8rem;
+      align-items: start;
+    }
+    .summary-photo {
+      width: 78px;
+      height: 104px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      box-shadow: 0 8px 16px rgba(15, 23, 42, .06);
+    }
+    .summary-photo-fallback {
+      width: 78px;
+      height: 104px;
+      border-radius: 10px;
+      border: 1px dashed #cbd5e1;
+      display: grid;
+      place-items: center;
+      color: #64748b;
+      font-size: .8rem;
+      background: #f8fafc;
+    }
   </style>
 </head>
 <body>
@@ -59,11 +85,20 @@
         {% endif %}
         {% for av in aventures_preview %}
           <article class="summary-card">
-            <p><strong>{{ av.inscricao.nome_completo|default:'Sem nome' }}</strong></p>
-            <p>Ficha de inscricao <strong>✔</strong></p>
-            <p>Ficha medica <strong>✔</strong></p>
-            <p>Declaracao medica <strong>✔</strong></p>
-            <p>Termo de imagem <strong>✔</strong></p>
+            <div>
+              {% if av.inscricao.foto_3x4 %}
+                <img class="summary-photo" src="{{ av.inscricao.foto_3x4 }}" alt="Foto de {{ av.inscricao.nome_completo|default:'Aventureiro' }}" />
+              {% else %}
+                <div class="summary-photo-fallback">Sem foto</div>
+              {% endif %}
+            </div>
+            <div>
+              <p><strong>{{ av.inscricao.nome_completo|default:'Sem nome' }}</strong></p>
+              <p>Ficha de inscricao <strong>✔</strong></p>
+              <p>Ficha medica <strong>✔</strong></p>
+              <p>Declaracao medica <strong>✔</strong></p>
+              <p>Termo de imagem <strong>✔</strong></p>
+            </div>
           </article>
         {% empty %}
           <p>Nenhum aventureiro adicionado.</p>
@@ -71,11 +106,15 @@
       </section>
       <div class="status" aria-live="polite">{% for message in messages %}<p data-state="{{ message.tags }}">{{ message }}</p>{% endfor %}</div>
       <div class="action-row">
+        {% if can_finalize_cadastro %}
         <form method="post">
           {% csrf_token %}
           <input type="hidden" name="action" value="finalizar" />
           <button class="primary" type="submit">Finalizar</button>
         </form>
+        {% else %}
+          <span class="panel-note">O botão <strong>Finalizar</strong> será liberado quando todos os {{ target_aventureiros_count }} aventureiros forem preenchidos.</span>
+        {% endif %}
         {% if can_add_more_aventureiros %}
         <form method="post">
           {% csrf_token %}

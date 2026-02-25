@@ -1954,6 +1954,7 @@ class NovoCadastroResumoView(View):
         elif current:
             current_incomplete = True
         preview_count = len(preview)
+        can_finalize_cadastro = preview_count >= target_count
         return render(request, self.template_name, {
             'current': current,
             'aventures_preview': preview,
@@ -1964,6 +1965,7 @@ class NovoCadastroResumoView(View):
             'saved_aventureiros_count': len(aventureiros),
             'remaining_aventureiros_count': max(target_count - preview_count, 0),
             'can_add_more_aventureiros': preview_count < target_count,
+            'can_finalize_cadastro': can_finalize_cadastro,
         })
 
     def post(self, request):
@@ -1989,6 +1991,15 @@ class NovoCadastroResumoView(View):
             messages.success(request, 'Aventureiro salvo temporariamente. Preencha o próximo.')
             return redirect('accounts:novo_cadastro_inscricao')
         if action == 'finalizar':
+            target_count = _new_flow_target_count(data)
+            complete_count = len(data.get('aventures') or []) + (1 if self._is_current_complete(data) else 0)
+            if complete_count < target_count:
+                faltam = target_count - complete_count
+                messages.error(
+                    request,
+                    f'Complete todos os aventureiros informados no início antes de finalizar. Faltam {faltam}.',
+                )
+                return redirect('accounts:novo_cadastro_resumo')
             if self._is_current_complete(data):
                 data['aventures'].append(data['current'])
             elif data.get('current'):
