@@ -32,6 +32,7 @@
     .loja-card-body { padding:.9rem; }
     .loja-card h3 { margin:0 0 .35rem; }
     .loja-card p { color:#475569; margin:.2rem 0 .6rem; }
+    .loja-prod-rule { margin:.25rem 0 .65rem; padding:.45rem .55rem; border-radius:10px; border:1px solid #dbeafe; background:#f8fbff; color:#1e3a8a; font-size:.85rem; }
     .loja-var-list { margin:0; padding-left:1rem; }
     .loja-var-list li { margin:.2rem 0; }
     .loja-fotos-mini { display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.45rem; }
@@ -82,6 +83,13 @@
             Descrição
             <textarea name="descricao" rows="4" placeholder="Descrição do produto (opcional)">{{ form_data.descricao|default:'' }}</textarea>
           </label>
+          <label>
+            Mínimo de pedidos pagos para produção (opcional)
+            <input type="number" name="minimo_pedidos_pagos" min="1" step="1" value="{{ form_data.minimo_pedidos_pagos|default:'' }}" placeholder="Ex.: 10" />
+          </label>
+          <div class="panel-note" style="align-self:end;">
+            Ex.: camiseta de atividade só vai para confecção quando atingir 10 pedidos pagos.
+          </div>
         </div>
 
         <div class="variacoes-wrap" style="margin-top:1rem;">
@@ -171,6 +179,11 @@
               <div class="loja-card-body">
                 <h3>{{ row.produto.titulo }}</h3>
                 {% if row.produto.descricao %}<p>{{ row.produto.descricao }}</p>{% endif %}
+                {% if row.produto.minimo_pedidos_pagos %}
+                  <div class="loja-prod-rule">
+                    Produção sob pedido: mínimo de <strong>{{ row.produto.minimo_pedidos_pagos }}</strong> pedido(s) pagos.
+                  </div>
+                {% endif %}
                 <ul class="loja-var-list">
                   {% for v in row.variacoes %}
                     <li>

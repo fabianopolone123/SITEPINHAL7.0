@@ -5195,6 +5195,7 @@ class LojaView(LoginRequiredMixin, View):
 
         titulo = str(request.POST.get('titulo') or '').strip()
         descricao = str(request.POST.get('descricao') or '').strip()
+        minimo_pedidos_pagos_raw = str(request.POST.get('minimo_pedidos_pagos') or '').strip()
         var_names = request.POST.getlist('variacao_nome[]')
         var_values = request.POST.getlist('variacao_valor[]')
         var_stocks = request.POST.getlist('variacao_estoque[]')
@@ -5203,6 +5204,7 @@ class LojaView(LoginRequiredMixin, View):
         form_data = {
             'titulo': titulo,
             'descricao': descricao,
+            'minimo_pedidos_pagos': minimo_pedidos_pagos_raw,
             'variacoes': [],
             'fotos': [],
         }
@@ -5212,6 +5214,20 @@ class LojaView(LoginRequiredMixin, View):
             context = self._context(form_data=form_data)
             context.update(_sidebar_context(request))
             return render(request, self.template_name, context)
+
+        minimo_pedidos_pagos = None
+        if minimo_pedidos_pagos_raw:
+            if not re.fullmatch(r'\d+', minimo_pedidos_pagos_raw):
+                messages.error(request, 'Informe um número inteiro válido no mínimo de pedidos pagos.')
+                context = self._context(form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+            minimo_pedidos_pagos = int(minimo_pedidos_pagos_raw)
+            if minimo_pedidos_pagos <= 0:
+                messages.error(request, 'O mínimo de pedidos pagos deve ser maior que zero.')
+                context = self._context(form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
 
         variacoes_parsed = []
         max_len = max(len(var_names), len(var_values), len(var_stocks), 1)
@@ -5334,6 +5350,7 @@ class LojaView(LoginRequiredMixin, View):
             produto = LojaProduto.objects.create(
                 titulo=titulo,
                 descricao=descricao,
+                minimo_pedidos_pagos=minimo_pedidos_pagos,
                 created_by=request.user,
             )
             LojaProdutoVariacao.objects.bulk_create([

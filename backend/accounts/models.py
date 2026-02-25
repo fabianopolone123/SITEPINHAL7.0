@@ -591,6 +591,11 @@ class LojaProduto(models.Model):
     titulo = models.CharField('título', max_length=255)
     descricao = models.TextField('descrição', blank=True)
     foto = models.ImageField('foto', upload_to='loja/produtos', null=True, blank=True)
+    minimo_pedidos_pagos = models.PositiveIntegerField(
+        'mínimo de pedidos pagos para produção',
+        null=True,
+        blank=True,
+    )
     ativo = models.BooleanField('ativo', default=True)
     created_by = models.ForeignKey(
         User,

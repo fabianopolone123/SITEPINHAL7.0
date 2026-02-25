@@ -507,3 +507,8 @@ Arquivo oficial de registro das entregas concluidas.
 - Evoluído o cadastro de fotos da `Loja` para permitir que uma mesma foto seja vinculada a várias variações do produto.
 - Adicionada opção `Todas as variações` por foto, evitando cadastro duplicado da mesma imagem quando ela serve para o produto inteiro.
 - Mantida compatibilidade com o vínculo anterior de foto para variação única.
+## 25/02/2026 - Loja: mínimo de pedidos pagos para produção (opcional) no produto
+
+- Adicionado no cadastro de produto da `Loja` o campo opcional `Mínimo de pedidos pagos para produção`.
+- Permite configurar regras como “camiseta de atividade só enviar para confecção após 10 pedidos pagos”.
+- A regra fica salva no produto e é exibida na listagem dos itens cadastrados.
