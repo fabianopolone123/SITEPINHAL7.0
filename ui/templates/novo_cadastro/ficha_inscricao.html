@@ -5,6 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Ficha de Inscrição - Clube de Aventureiros</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
   <style>
     :root{--blue:#1d3f8b;--orange:#d97706;--line:#5b5b5b;--bg:#ffffff;--text:#111}
     *{box-sizing:border-box}
@@ -46,12 +47,105 @@
     .parent-block-disabled{opacity:.55}
     .parent-toggle{display:flex;align-items:center;gap:8px;margin-top:6px}
     @media (max-width:720px){.top{grid-template-columns:1fr}.logo{margin:0}.brand .title{font-size:32px}.g2,.g3{grid-template-columns:1fr}}
+
+    /* Redesign (mantendo os mesmos campos e hooks) */
+    body{
+      background:
+        radial-gradient(circle at 8% 8%, rgba(37,99,235,.14), transparent 42%),
+        radial-gradient(circle at 92% 12%, rgba(14,165,233,.12), transparent 40%),
+        linear-gradient(180deg,#f7fbff 0%,#eef4fb 100%);
+      color:#0f172a;
+    }
+    .page{
+      border:1px solid #dbeafe;
+      border-radius:22px;
+      padding:14px;
+      box-shadow:0 28px 60px rgba(15,23,42,.12);
+      background:rgba(255,255,255,.95);
+      backdrop-filter: blur(6px);
+    }
+    .inner{
+      border:1px solid #bfdbfe;
+      border-radius:18px;
+      padding:16px 16px 14px;
+      background:#fff;
+      animation: fadeSlide .28s ease-out;
+    }
+    .inner::before{display:none}
+    .flow-progress{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+      margin:0 0 12px;padding:10px 12px;border-radius:14px;
+      background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1px solid #dbeafe;
+    }
+    .flow-progress strong{color:#1d4ed8}
+    .flow-badges{display:flex;gap:8px;flex-wrap:wrap}
+    .flow-badge{
+      display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;
+      background:#fff;border:1px solid #bfdbfe;color:#1e40af;font-size:12px;font-weight:700;
+    }
+    .top{background:linear-gradient(180deg,#fbfdff,#f8fbff);border:1px solid #e2e8f0;border-radius:16px;padding:12px}
+    .brand .title{
+      color:#1d4ed8;
+      background:linear-gradient(135deg,#1d4ed8,#0ea5e9);
+      -webkit-background-clip:text;background-clip:text;color:transparent;
+      text-shadow:none;
+    }
+    .logo{border:none;box-shadow:0 10px 20px rgba(15,23,42,.10)}
+    .divider{height:1px;background:#dbeafe;margin:12px 0}
+    .section-title{
+      border-radius:12px;
+      background:linear-gradient(135deg,#1d4ed8,#2563eb);
+      box-shadow:0 8px 20px rgba(37,99,235,.15);
+      letter-spacing:.3px;
+    }
+    .field{
+      border:1px solid #e2e8f0;
+      border-radius:12px;
+      padding:10px;
+      min-height:unset;
+      background:#fff;
+      transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+    }
+    .field:focus-within{
+      border-color:#60a5fa;
+      box-shadow:0 0 0 4px rgba(59,130,246,.10);
+      transform:translateY(-1px);
+    }
+    .field .label{font-size:12px;color:#334155}
+    .subline{border:0;padding:0}
+    .parent-toggle{
+      display:inline-flex;padding:8px 10px;border-radius:999px;border:1px solid #dbeafe;background:#f8fbff;
+    }
+    .sign{border-top:1px solid #dbeafe}
+    .signature-widget{
+      background:#f8fbff;border:1px solid #dbeafe;border-radius:14px;padding:12px;
+    }
+    .signature-widget canvas{border-color:#bfdbfe;box-shadow:inset 0 0 0 1px rgba(255,255,255,.6)}
+    .btn{
+      border-radius:12px;border-color:#cbd5e1;padding:10px 14px;font-weight:700;
+      transition:transform .15s ease, box-shadow .15s ease, filter .15s ease;
+    }
+    .btn:hover{transform:translateY(-1px);box-shadow:0 10px 20px rgba(15,23,42,.08)}
+    .btn.primary{background:linear-gradient(135deg,#1d4ed8,#2563eb);border-color:#1d4ed8}
+    .footer{border-top:1px solid #dbeafe}
+    .badge{border:none;box-shadow:0 8px 18px rgba(15,23,42,.08)}
+    @keyframes fadeSlide{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   </style>
 </head>
 <body>
   <div class="page"><div class="inner">
     <form method="post" data-doc-check-url="{% url 'accounts:novo_cadastro_verificar_documento' %}" data-required-mode="explicit">
       {% csrf_token %}
+      <div class="flow-progress">
+        <div>
+          <strong>Etapa 1/4 · Ficha de inscrição</strong>
+          <div class="muted-note">Aventureiro {{ current_aventureiro_index|default:1 }} de {{ target_aventureiros_count|default:1 }}</div>
+        </div>
+        <div class="flow-badges">
+          <span class="flow-badge">Salvos: {{ saved_aventureiros_count|default:0 }}</span>
+          <span class="flow-badge">Restantes: {{ remaining_aventureiros_count|default:1 }}</span>
+        </div>
+      </div>
       <div class="top">
         <div class="top-left">
           <div class="photo-box">

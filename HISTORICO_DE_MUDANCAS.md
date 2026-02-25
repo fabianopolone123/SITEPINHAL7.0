@@ -470,3 +470,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Corrigida a conversão das alergias no fluxo de inscrição antigo (`ficha médica`): textos como `Não`, `Nao`, `-`, `Nenhum` não são mais gravados como resposta `Sim`.
 - Ajustada também a leitura dos registros antigos para tratar esses casos como `Não` na tela de detalhes do aventureiro.
 - Motivo: os campos de alergia nesse fluxo são texto livre e vários cadastros tinham `Não` digitado, o que antes era interpretado incorretamente como alergia existente.
+## 25/02/2026 - Novo cadastro de aventureiro: quantidade de fichas + redesign visual das etapas
+
+- Adicionado no login inicial do cadastro de aventureiro o campo `Quantos aventureiros vai cadastrar no clube?` (1 a 10).
+- O fluxo agora usa essa quantidade para controlar o resumo/finalização e o botão `Cadastrar próximo aventureiro`, sem perder o reaproveitamento dos dados dos responsáveis já preenchidos.
+- Ao atingir a quantidade informada, o resumo passa a orientar a revisão/finalização e bloqueia o acréscimo além do total escolhido.
+- Redesign visual das telas `Ficha de Inscrição`, `Ficha Médica` e `Termo de Imagem`, mantendo os mesmos campos e hooks do sistema (assinatura, foto, validações e JS).
+- Incluídas barras de progresso nessas etapas mostrando `Aventureiro X de Y`, quantidade salva e restante.

@@ -378,6 +378,12 @@ class NovoCadastroLoginForm(forms.Form):
     username = forms.CharField(max_length=150, label='Username')
     password = forms.CharField(widget=forms.PasswordInput, label='Senha')
     password_confirm = forms.CharField(widget=forms.PasswordInput, label='Confirmar senha')
+    quantidade_aventureiros = forms.IntegerField(
+        min_value=1,
+        max_value=10,
+        initial=1,
+        label='Quantos aventureiros vai cadastrar?',
+    )
 
     def clean(self):
         cleaned = super().clean()

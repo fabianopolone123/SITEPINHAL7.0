@@ -1107,6 +1107,28 @@ def _clear_new_flow(session):
         session.modified = True
 
 
+def _new_flow_target_count(data):
+    login_data = (data or {}).get('login') or {}
+    try:
+        count = int(login_data.get('quantidade_aventureiros') or 1)
+    except (TypeError, ValueError):
+        count = 1
+    return max(1, min(count, 10))
+
+
+def _new_flow_step_progress_context(data):
+    saved_count = len((data or {}).get('aventures') or [])
+    target_count = _new_flow_target_count(data or {})
+    current_index = min(saved_count + 1, target_count)
+    return {
+        'target_aventureiros_count': target_count,
+        'saved_aventureiros_count': saved_count,
+        'current_aventureiro_index': current_index,
+        'remaining_aventureiros_count': max(target_count - saved_count, 0),
+        'cadastro_multiplos': target_count > 1,
+    }
+
+
 def _new_diretoria_flow_data(session):
     return session.get(NEW_DIRETORIA_FLOW_SESSION_KEY, {'login': {}})
 
@@ -1565,6 +1587,7 @@ class NovoCadastroLoginView(View):
         data['login'] = {
             'username': form.cleaned_data['username'].strip(),
             'password': form.cleaned_data['password'],
+            'quantidade_aventureiros': form.cleaned_data['quantidade_aventureiros'],
         }
         _set_new_flow_data(request.session, data)
         return redirect('accounts:novo_cadastro_inscricao')
@@ -1613,11 +1636,13 @@ class NovoCadastroInscricaoView(View):
             step_data = _inscricao_parent_fields_from_responsavel(responsavel)
         initial = _date_parts_today()
         initial.update(step_data)
-        return render(request, self.template_name, {
+        context = {
             'initial': initial,
             'step_data': step_data,
             'has_saved_aventureiros': bool(data.get('aventures')),
-        })
+        }
+        context.update(_new_flow_step_progress_context(data))
+        return render(request, self.template_name, context)
 
     def post(self, request):
         data = self._require_login_step(request)
@@ -1650,11 +1675,13 @@ class NovoCadastroInscricaoView(View):
                 messages.error(request, duplicate_message)
                 initial = _date_parts_today()
                 initial.update(fields)
-                return render(request, self.template_name, {
+                context = {
                     'initial': initial,
                     'step_data': fields,
                     'has_saved_aventureiros': bool(data.get('aventures')),
-                })
+                }
+                context.update(_new_flow_step_progress_context(data))
+                return render(request, self.template_name, context)
         required = [
             'nome_completo', 'sexo', 'data_nascimento', 'colegio', 'serie', 'bolsa_familia',
             'endereco', 'bairro', 'cidade', 'cep', 'estado',
@@ -1668,11 +1695,13 @@ class NovoCadastroInscricaoView(View):
             messages.error(request, 'Preencha os campos obrigatórios e assine a ficha de inscrição.')
             initial = _date_parts_today()
             initial.update(fields)
-            return render(request, self.template_name, {
+            context = {
                 'initial': initial,
                 'step_data': fields,
                 'has_saved_aventureiros': bool(data.get('aventures')),
-            })
+            }
+            context.update(_new_flow_step_progress_context(data))
+            return render(request, self.template_name, context)
         if not fields.get('cidade_data'):
             fields['cidade_data'] = fields.get('cidade', '')
         current = {
@@ -1742,7 +1771,9 @@ class NovoCadastroMedicaView(View):
             return redirect('accounts:novo_cadastro_inscricao')
         current = data.get('current') or {}
         step_data = current.get('medica') or {}
-        return render(request, self.template_name, {'step_data': step_data})
+        context = {'step_data': step_data}
+        context.update(_new_flow_step_progress_context(data))
+        return render(request, self.template_name, context)
 
     def post(self, request):
         data = self._require_inscricao_step(request)
@@ -1752,7 +1783,9 @@ class NovoCadastroMedicaView(View):
         fields = _extract_fields(request.POST, self.field_names)
         if not str(fields.get('plano_saude', '')).strip():
             messages.error(request, 'Informe se tem plano de saúde para continuar.')
-            return render(request, self.template_name, {'step_data': fields})
+            context = {'step_data': fields}
+            context.update(_new_flow_step_progress_context(data))
+            return render(request, self.template_name, context)
         required_radios = [
             'cardiacos',
             'diabetico',
@@ -1767,7 +1800,9 @@ class NovoCadastroMedicaView(View):
         missing = [name for name in required_radios if not str(fields.get(name, '')).strip()]
         if missing:
             messages.error(request, 'Preencha todos os campos obrigatórios de condições de saúde.')
-            return render(request, self.template_name, {'step_data': fields})
+            context = {'step_data': fields}
+            context.update(_new_flow_step_progress_context(data))
+            return render(request, self.template_name, context)
         data['current']['medica'] = fields
         _set_new_flow_data(request.session, data)
         return redirect('accounts:novo_cadastro_declaracao')
@@ -1846,7 +1881,9 @@ class NovoCadastroTermoImagemView(View):
             'telefone_contato_termo': inscricao.get('cel_responsavel', ''),
             'cidade_data': inscricao.get('cidade', ''),
         })
-        return render(request, self.template_name, {'initial': initial, 'step_data': {}})
+        context = {'initial': initial, 'step_data': {}}
+        context.update(_new_flow_step_progress_context(data))
+        return render(request, self.template_name, context)
 
     def post(self, request):
         data = self._require_declaracao_step(request)
@@ -1865,7 +1902,9 @@ class NovoCadastroTermoImagemView(View):
                 'aventureiro_nacionalidade': 'Brasileiro',
                 'responsavel_nacionalidade_termo': 'Brasileiro',
             })
-            return render(request, self.template_name, {'initial': initial, 'step_data': fields})
+            context = {'initial': initial, 'step_data': fields}
+            context.update(_new_flow_step_progress_context(data))
+            return render(request, self.template_name, context)
         data['current']['termo_imagem'] = fields
         _set_new_flow_data(request.session, data)
         return redirect('accounts:novo_cadastro_resumo')
@@ -1909,15 +1948,22 @@ class NovoCadastroResumoView(View):
         aventureiros = data.get('aventures', [])
         preview = list(aventureiros)
         current_incomplete = False
+        target_count = _new_flow_target_count(data)
         if self._is_current_complete(data):
             preview.append(current)
         elif current:
             current_incomplete = True
+        preview_count = len(preview)
         return render(request, self.template_name, {
             'current': current,
             'aventures_preview': preview,
             'responsavel_nome': self._responsavel_nome(data),
             'current_incomplete': current_incomplete,
+            'target_aventureiros_count': target_count,
+            'preview_aventureiros_count': preview_count,
+            'saved_aventureiros_count': len(aventureiros),
+            'remaining_aventureiros_count': max(target_count - preview_count, 0),
+            'can_add_more_aventureiros': preview_count < target_count,
         })
 
     def post(self, request):
@@ -1927,8 +1973,17 @@ class NovoCadastroResumoView(View):
             messages.error(request, 'Complete todas as fichas do aventureiro.')
             return redirect('accounts:novo_cadastro_inscricao')
         if action == 'add_more':
+            target_count = _new_flow_target_count(data)
             if self._is_current_complete(data):
+                if len(data.get('aventures') or []) >= target_count:
+                    messages.info(request, 'Você já atingiu a quantidade de aventureiros informada no início.')
+                    return redirect('accounts:novo_cadastro_resumo')
                 data['aventures'].append(data['current'])
+            if len(data.get('aventures') or []) >= target_count:
+                data['current'] = {}
+                _set_new_flow_data(request.session, data)
+                messages.success(request, 'Quantidade de aventureiros atingida. Revise e finalize o cadastro.')
+                return redirect('accounts:novo_cadastro_resumo')
             data['current'] = {}
             _set_new_flow_data(request.session, data)
             messages.success(request, 'Aventureiro salvo temporariamente. Preencha o próximo.')

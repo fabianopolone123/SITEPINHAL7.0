@@ -6,13 +6,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Resumo do cadastro</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    .resumo-progress {
+      margin-top: .65rem;
+      padding: .75rem .9rem;
+      border: 1px solid #dbeafe;
+      background: #f8fbff;
+      border-radius: 12px;
+    }
+    .resumo-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .75rem;
+      margin-top: .35rem;
+    }
+    .resumo-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      padding: .35rem .65rem;
+      font-weight: 700;
+      font-size: .85rem;
+    }
+  </style>
 </head>
 <body>
   <div class="page-shell">
     <div class="branding">
       <p class="eyebrow">Resumo</p>
       <h1>Confirmacao das fichas</h1>
-      <p class="subtitle">Confira os itens e escolha finalizar ou adicionar mais um aventureiro.</p>
+      <p class="subtitle">Confira os itens e siga o fluxo conforme a quantidade informada no início.</p>
+      <div class="resumo-progress">
+        <strong>Progresso:</strong> {{ preview_aventureiros_count }}/{{ target_aventureiros_count }} aventureiro(s) preparado(s) para finalização.
+        <div class="resumo-meta">
+          <span class="resumo-pill">Salvos: {{ saved_aventureiros_count }}</span>
+          <span class="resumo-pill">Restantes: {{ remaining_aventureiros_count }}</span>
+        </div>
+      </div>
     </div>
     <main class="login-card">
       <section class="section-block">
@@ -43,11 +76,21 @@
           <input type="hidden" name="action" value="finalizar" />
           <button class="primary" type="submit">Finalizar</button>
         </form>
+        {% if can_add_more_aventureiros %}
         <form method="post">
           {% csrf_token %}
           <input type="hidden" name="action" value="add_more" />
-          <button class="secondary" type="submit">Adicionar mais um aventureiro</button>
+          <button class="secondary" type="submit">
+            {% if remaining_aventureiros_count > 0 %}
+              Cadastrar próximo aventureiro (faltam {{ remaining_aventureiros_count }})
+            {% else %}
+              Adicionar mais um aventureiro
+            {% endif %}
+          </button>
         </form>
+        {% else %}
+          <span class="panel-note">Quantidade informada já atingida. Revise e finalize.</span>
+        {% endif %}
       </div>
     </main>
   </div>

@@ -5,6 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Ficha Médica - Clube de Aventureiros</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
   <style>
     :root{--blue:#123a7a;--line:#3f4b5a;--orange:#d97706;--bg:#ffffff}*{box-sizing:border-box}
     body{margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;background:#f2f4f7;color:#111}
@@ -22,12 +23,58 @@
     .footer{margin-top:12px;border-top:2px solid #000;padding-top:10px;display:flex;gap:10px;flex-wrap:wrap}.badge{width:44px;height:44px;border-radius:50%;object-fit:cover}
     .status{margin-top:12px}.status p{margin:0 0 6px}.status p[data-state="error"]{color:#b91c1c}
     .btn{padding:8px 12px;border-radius:8px;border:1px solid #cbd5f5;background:#fff;cursor:pointer}.btn.primary{background:#123a7a;color:#fff;border-color:#123a7a}
+    .muted-note{font-size:12px;color:#475569}
     @media (max-width:740px){.header{grid-template-columns:1fr}.logo{margin:0}.club .title{font-size:34px}.row{grid-template-columns:1fr}.cell{border-right:none;border-bottom:1px solid var(--line)}.row.end .cell{border-bottom:none}}
+
+    /* Redesign visual */
+    body{
+      background:
+        radial-gradient(circle at 8% 8%, rgba(37,99,235,.14), transparent 42%),
+        radial-gradient(circle at 90% 12%, rgba(14,165,233,.12), transparent 42%),
+        linear-gradient(180deg,#f7fbff 0%,#eef4fb 100%);
+      color:#0f172a;
+    }
+    .page{border:1px solid #dbeafe;border-radius:22px;padding:14px;background:#fff;box-shadow:0 28px 60px rgba(15,23,42,.12)}
+    .inner{border:1px solid #bfdbfe;border-radius:18px;padding:16px;background:#fff}.inner::before{display:none}
+    .flow-progress{
+      display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+      background:linear-gradient(135deg,#eff6ff,#f0f9ff);
+      border:1px solid #dbeafe;border-radius:14px;padding:10px 12px;margin:0 0 12px;
+    }
+    .flow-badge{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #bfdbfe;color:#1e40af;font-size:12px;font-weight:700}
+    .header{background:linear-gradient(180deg,#fbfdff,#f8fbff);border:1px solid #e2e8f0;border-radius:16px;padding:12px}
+    .club .title{background:linear-gradient(135deg,#1d4ed8,#0ea5e9);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .logo{border:none;box-shadow:0 10px 20px rgba(15,23,42,.10)}
+    .thin-divider{height:1px;background:#dbeafe}
+    .bar{border-radius:12px;background:linear-gradient(135deg,#1d4ed8,#2563eb);box-shadow:0 8px 20px rgba(37,99,235,.15)}
+    .row{border:none;gap:10px;margin-bottom:10px;background:transparent}
+    .cell{
+      border:1px solid #e2e8f0!important;border-radius:12px;background:#fff;padding:10px;
+      transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+    }
+    .cell:focus-within{border-color:#60a5fa!important;box-shadow:0 0 0 4px rgba(59,130,246,.10);transform:translateY(-1px)}
+    .row.single,.row.end{border:none}
+    .control input[type="text"]{border:1px solid #cbd5e1;border-radius:10px}
+    .btn{border-radius:12px;padding:10px 14px;font-weight:700;transition:transform .15s ease, box-shadow .15s ease}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 10px 20px rgba(15,23,42,.08)}
+    .btn.primary{background:linear-gradient(135deg,#1d4ed8,#2563eb);border-color:#1d4ed8}
+    .footer{border-top:1px solid #dbeafe}
+    .badge{box-shadow:0 8px 18px rgba(15,23,42,.08)}
   </style>
 </head>
 <body>
   <div class="page"><div class="inner">
     <form method="post" data-required-mode="explicit">{% csrf_token %}
+      <div class="flow-progress">
+        <div>
+          <strong style="color:#1d4ed8;">Etapa 2/4 · Ficha médica</strong>
+          <div class="muted-note">Aventureiro {{ current_aventureiro_index|default:1 }} de {{ target_aventureiros_count|default:1 }}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="flow-badge">Salvos: {{ saved_aventureiros_count|default:0 }}</span>
+          <span class="flow-badge">Restantes: {{ remaining_aventureiros_count|default:1 }}</span>
+        </div>
+      </div>
       <div class="header"><div class="club"><div class="t1">CLUBE DE AVENTUREIROS</div><div class="t2">IGREJA ADVENTISTA DO SÉTIMO DIA</div><div class="title">Ficha Médica</div></div><img class="logo" src="{% static 'images/logo_htmls.jpg' %}?v=2" alt="Logo" /></div>
       <div class="thin-divider"></div>
       <div class="bar">DADOS MÉDICOS DO AVENTUREIRO</div>

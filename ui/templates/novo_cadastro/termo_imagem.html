@@ -4,6 +4,7 @@
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Termo de Autorização de Uso de Imagem</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
   <style>
     :root{--orange:#f3a75a;--blue:#2aa6d6;--title:#2c6fa3;--text:#222}*{box-sizing:border-box}
     body{margin:0;padding:24px;font-family:"Times New Roman",serif;background:#f2f4f7;color:var(--text)}
@@ -16,13 +17,65 @@
     .long{width:260px}.medium{width:180px}.short{width:100px}.date{margin-top:40px;text-align:center;font-size:18px}
     .signature{margin-top:40px;text-align:center}.signature-widget canvas{width:100%;max-width:500px;border:1px solid #cbd5f5;border-radius:10px;background:#fff;min-height:130px}
     .final-fields{margin-top:40px;font-size:18px}.field{margin:16px 0}
+    .muted-note{font-size:12px;color:#475569}
     .action-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.btn{padding:8px 12px;border-radius:8px;border:1px solid #cbd5f5;background:#fff;cursor:pointer}.btn.primary{background:#2c6fa3;color:#fff;border-color:#2c6fa3}
     .footer{position:absolute;bottom:10px;left:10px;display:flex;gap:10px}.badge{width:44px;height:44px;border-radius:50%;object-fit:cover}
+
+    /* Redesign visual */
+    body{
+      background:
+        radial-gradient(circle at 8% 8%, rgba(37,99,235,.14), transparent 42%),
+        radial-gradient(circle at 92% 12%, rgba(14,165,233,.12), transparent 40%),
+        linear-gradient(180deg,#f7fbff 0%,#eef4fb 100%);
+      color:#0f172a;
+    }
+    .page{border:1px solid #dbeafe;border-radius:22px;padding:14px;background:#fff;box-shadow:0 28px 60px rgba(15,23,42,.12)}
+    .inner{border:1px solid #bfdbfe;border-radius:18px;padding:16px 16px 52px;background:#fff;min-height:auto}
+    .flow-progress{
+      display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+      margin:0 0 12px;padding:10px 12px;border-radius:14px;background:linear-gradient(135deg,#eff6ff,#f0f9ff);
+      border:1px solid #dbeafe;
+    }
+    .flow-badge{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #bfdbfe;color:#1e40af;font-size:12px;font-weight:700}
+    .header{background:linear-gradient(180deg,#fbfdff,#f8fbff);border:1px solid #e2e8f0;border-radius:16px;padding:12px}
+    .logo{border:none;box-shadow:0 10px 20px rgba(15,23,42,.10)}
+    .main-title{
+      color:#1d4ed8;
+      background:linear-gradient(135deg,#1d4ed8,#0ea5e9);
+      -webkit-background-clip:text;background-clip:text;color:transparent;
+      border-bottom:1px solid #dbeafe;
+      margin-top:18px;
+    }
+    .text,.date,.final-fields{font-family:Georgia,"Times New Roman",serif}
+    .text{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;line-height:1.8}
+    .line-input{
+      border:none;border-bottom:1px solid #60a5fa;background:rgba(239,246,255,.55);
+      border-radius:6px 6px 0 0;padding:4px 6px;
+    }
+    .date{border:1px solid #e2e8f0;border-radius:14px;padding:12px;background:#f8fbff}
+    .signature-widget{background:#f8fbff;border:1px solid #dbeafe;border-radius:14px;padding:12px}
+    .signature-widget canvas{box-shadow:inset 0 0 0 1px rgba(255,255,255,.6)}
+    .final-fields{border:1px solid #e2e8f0;border-radius:14px;padding:14px;background:#fff}
+    .btn{border-radius:12px;padding:10px 14px;font-weight:700;transition:transform .15s ease, box-shadow .15s ease}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 10px 20px rgba(15,23,42,.08)}
+    .btn.primary{background:linear-gradient(135deg,#1d4ed8,#2563eb);border-color:#1d4ed8}
+    .footer{position:static;margin-top:14px;border-top:1px solid #dbeafe;padding-top:10px}
+    .badge{box-shadow:0 8px 18px rgba(15,23,42,.08)}
   </style>
 </head>
 <body>
   <div class="page"><div class="inner">
     <form method="post">{% csrf_token %}
+      <div class="flow-progress">
+        <div>
+          <strong style="color:#1d4ed8;">Etapa 4/4 · Termo de imagem</strong>
+          <div class="muted-note">Aventureiro {{ current_aventureiro_index|default:1 }} de {{ target_aventureiros_count|default:1 }}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="flow-badge">Salvos: {{ saved_aventureiros_count|default:0 }}</span>
+          <span class="flow-badge">Restantes: {{ remaining_aventureiros_count|default:1 }}</span>
+        </div>
+      </div>
       <div class="header"><div class="title1">CLUBE DE AVENTUREIROS</div><div class="title2">IGREJA ADVENTISTA DO SÉTIMO DIA</div><img class="logo" src="{% static 'images/logo_htmls.jpg' %}?v=2" alt="Logo" /></div>
       <div class="main-title">Termo de Autorização de Uso de Imagem</div>
       <div class="text">

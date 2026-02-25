@@ -6,16 +6,94 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cadastro Aventureiro - Login inicial</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    .novo-login-shell {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 10% 10%, rgba(37, 99, 235, .12), transparent 45%),
+        radial-gradient(circle at 90% 20%, rgba(14, 165, 233, .12), transparent 42%),
+        linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+      padding: 2rem 1rem;
+      display: grid;
+      place-items: center;
+    }
+    .novo-login-wrap {
+      width: min(920px, 100%);
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 1rem;
+      align-items: stretch;
+    }
+    .novo-login-hero {
+      background: linear-gradient(160deg, #0f172a, #1d4ed8 60%, #2563eb);
+      color: #fff;
+      border-radius: 18px;
+      padding: 1.3rem;
+      box-shadow: 0 18px 50px rgba(15, 23, 42, .22);
+      position: relative;
+      overflow: hidden;
+    }
+    .novo-login-hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -40px -60px auto;
+      width: 180px;
+      height: 180px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.12);
+      filter: blur(2px);
+    }
+    .novo-login-card {
+      background: #fff;
+      border: 1px solid #dbeafe;
+      border-radius: 18px;
+      padding: 1.15rem;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, .10);
+    }
+    .novo-login-form label {
+      display: flex;
+      flex-direction: column;
+      gap: .35rem;
+      margin-bottom: .75rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .novo-login-form input {
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: .75rem .9rem;
+      font-size: .95rem;
+      background: #fff;
+    }
+    .novo-login-form input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, .12);
+    }
+    .step-list { margin: .8rem 0 0; padding-left: 1rem; }
+    .step-list li { margin: .35rem 0; color: rgba(255,255,255,.9); }
+    @media (max-width: 860px) {
+      .novo-login-wrap { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-  <div class="page-shell">
-    <div class="branding">
-      <p class="eyebrow">Novo cadastro</p>
-      <h1>Etapa 0 - Login do responsavel</h1>
-      <p class="subtitle">Essa etapa acontece uma vez, antes das fichas.</p>
-    </div>
-    <main class="login-card">
-      <form class="login-form" method="post">
+  <div class="novo-login-shell">
+    <div class="novo-login-wrap">
+      <section class="novo-login-hero">
+        <p class="eyebrow" style="color:#bfdbfe;">Novo cadastro</p>
+        <h1 style="margin:.2rem 0 0;">Login do responsável</h1>
+        <p class="subtitle" style="color:rgba(255,255,255,.92);margin-top:.5rem;">
+          Configure o acesso e informe quantos aventureiros serão cadastrados neste fluxo.
+        </p>
+        <ul class="step-list">
+          <li>Etapa única de login do responsável</li>
+          <li>O sistema monta o fluxo conforme a quantidade informada</li>
+          <li>Campos dos responsáveis continuam sendo reaproveitados entre fichas</li>
+        </ul>
+      </section>
+      <main class="novo-login-card">
+      <form class="novo-login-form" method="post">
         {% csrf_token %}
         <label>Username
           <input type="text" name="username" value="{{ form.username.value|default:'' }}" required />
@@ -29,6 +107,10 @@
           <input type="password" name="password_confirm" required />
         </label>
         {% if form.password_confirm.errors %}<p class="field-error">{{ form.password_confirm.errors|join:' ' }}</p>{% endif %}
+        <label>Quantos aventureiros vai cadastrar no clube?
+          <input type="number" min="1" max="10" name="quantidade_aventureiros" value="{{ form.quantidade_aventureiros.value|default:1 }}" required />
+        </label>
+        {% if form.quantidade_aventureiros.errors %}<p class="field-error">{{ form.quantidade_aventureiros.errors|join:' ' }}</p>{% endif %}
         <div class="status" aria-live="polite">
           {% for message in messages %}
             <p data-state="{{ message.tags }}">{{ message }}</p>
@@ -37,9 +119,10 @@
             <p data-state="error">{{ error }}</p>
           {% endfor %}
         </div>
-        <button class="primary" type="submit">Proximo</button>
+        <button class="primary" type="submit">Iniciar fichas</button>
       </form>
     </main>
+    </div>
   </div>
 </body>
 </html>
