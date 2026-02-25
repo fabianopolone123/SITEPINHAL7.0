@@ -477,3 +477,8 @@ Arquivo oficial de registro das entregas concluidas.
 - Ao atingir a quantidade informada, o resumo passa a orientar a revisão/finalização e bloqueia o acréscimo além do total escolhido.
 - Redesign visual das telas `Ficha de Inscrição`, `Ficha Médica` e `Termo de Imagem`, mantendo os mesmos campos e hooks do sistema (assinatura, foto, validações e JS).
 - Incluídas barras de progresso nessas etapas mostrando `Aventureiro X de Y`, quantidade salva e restante.
+## 25/02/2026 - Cadastro (ficha de inscrição): compressão automática da foto 3x4 no navegador
+
+- A foto 3x4 enviada na ficha de inscrição passa a ser redimensionada/comprimida no navegador antes de ir para o campo oculto em Base64.
+- Objetivo: reduzir o payload do POST e evitar `Bad Request (400)` por requisição muito grande ao enviar a primeira ficha.
+- Mantido o preview da foto e a compatibilidade com o fluxo atual de assinatura/validação.

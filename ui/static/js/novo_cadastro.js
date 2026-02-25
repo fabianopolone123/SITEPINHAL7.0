@@ -257,29 +257,72 @@
     var preview = document.getElementById('foto-preview');
     var placeholder = document.getElementById('photo-placeholder');
     if (!input || !hidden) return;
+
+    function setPreview(value) {
+      if (preview && value) {
+        preview.src = value;
+        preview.style.display = 'block';
+      }
+      if (placeholder && value) {
+        placeholder.style.display = 'none';
+      }
+    }
+
+    function fileToDataUrl(file) {
+      return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function (event) {
+          resolve(event.target.result || '');
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function loadImage(dataUrl) {
+      return new Promise(function (resolve, reject) {
+        var img = new Image();
+        img.onload = function () { resolve(img); };
+        img.onerror = reject;
+        img.src = dataUrl;
+      });
+    }
+
+    function resizeImageDataUrl(dataUrl) {
+      return loadImage(dataUrl).then(function (img) {
+        var maxW = 640;
+        var maxH = 860;
+        var w = img.width || maxW;
+        var h = img.height || maxH;
+        var ratio = Math.min(maxW / w, maxH / h, 1);
+        var outW = Math.max(1, Math.round(w * ratio));
+        var outH = Math.max(1, Math.round(h * ratio));
+        var canvas = document.createElement('canvas');
+        canvas.width = outW;
+        canvas.height = outH;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, outW, outH);
+        // JPEG reduz bastante o payload e evita 400 por request muito grande.
+        return canvas.toDataURL('image/jpeg', 0.82);
+      });
+    }
+
     input.addEventListener('change', function () {
       var file = input.files && input.files[0];
       if (!file) return;
-      var reader = new FileReader();
-      reader.onload = function (event) {
-        hidden.value = event.target.result || '';
-        if (preview) {
-          preview.src = hidden.value;
-          preview.style.display = 'block';
-        }
-        if (placeholder) {
-          placeholder.style.display = 'none';
-        }
-      };
-      reader.readAsDataURL(file);
+      fileToDataUrl(file)
+        .then(function (dataUrl) {
+          return resizeImageDataUrl(dataUrl).catch(function () { return dataUrl; });
+        })
+        .then(function (finalDataUrl) {
+          hidden.value = finalDataUrl || '';
+          setPreview(hidden.value);
+        })
+        .catch(function () {
+          hidden.value = '';
+        });
     });
-    if (hidden.value && preview) {
-      preview.src = hidden.value;
-      preview.style.display = 'block';
-    }
-    if (hidden.value && placeholder) {
-      placeholder.style.display = 'none';
-    }
+    if (hidden.value) setPreview(hidden.value);
   }
 
   function initParentAbsentToggles() {
