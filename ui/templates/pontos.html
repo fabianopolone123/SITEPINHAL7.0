@@ -54,7 +54,7 @@
 
     <section class="pontos-grid">
       <section class="painel-card pontos-card">
-        <h3>Lançar pontos (manual)</h3>
+        <h3>Cadastrar lançamento</h3>
         <form method="post">
           {% csrf_token %}
           <input type="hidden" name="action" value="lancar_pontos" />
@@ -85,7 +85,7 @@
             </label>
           </div>
           <div class="action-row-local">
-            <button type="submit" class="primary">Lançar pontos</button>
+            <button type="submit" class="primary">Cadastrar lançamento</button>
           </div>
         </form>
       </section>
@@ -109,7 +109,7 @@
             </label>
           </div>
           <fieldset class="target-box" style="margin-top:.9rem;">
-            <legend>Destino</legend>
+            <legend>Aplicar para</legend>
             <div class="target-row">
               <label><input type="radio" name="preset_apply_target_mode" value="individual" {% if form_state.preset_apply_target_mode != 'todos' %}checked{% endif %}> Individual</label>
               <label><input type="radio" name="preset_apply_target_mode" value="todos" {% if form_state.preset_apply_target_mode == 'todos' %}checked{% endif %}> Todos os aventureiros</label>

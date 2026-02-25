@@ -381,3 +381,8 @@ Arquivo oficial de registro das entregas concluidas.
 - Criado cadastro de pré-registros padrão (ex.: `Presença +15`, `Bom comportamento +10`, `Mau comportamento -10`) com aplicação individual ou para todos.
 - Incluídos ranking de totais por aventureiro e histórico de lançamentos recentes na mesma tela.
 - Modelos criados: `AventureiroPontosPreset` e `AventureiroPontosLancamento` com migração `0031_aventureiropontospreset_aventureiropontoslancamento.py`.
+## 23/02/2026 - Pontos (UX): textos mais claros no lançamento e aplicação de pré-registro
+
+- Renomeado o bloco `Lançar pontos (manual)` para `Cadastrar lançamento`.
+- Botão principal do lançamento manual também alterado para `Cadastrar lançamento`.
+- No bloco `Aplicar pré-registro`, o texto `Destino` foi trocado por `Aplicar para` para reduzir confusão.
