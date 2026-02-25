@@ -6,6 +6,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dados do aventureiro</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    .av-grid { display:grid; grid-template-columns: 1fr 1fr; gap:1rem; }
+    .av-block h3 { margin:0 0 .6rem; }
+    .av-list { margin:0; padding:0; list-style:none; }
+    .av-list li { padding:.45rem 0; border-bottom:1px solid #e2e8f0; }
+    .av-list li:last-child { border-bottom:none; }
+    .av-table { width:100%; border-collapse:collapse; }
+    .av-table th, .av-table td { padding:.55rem .5rem; border-bottom:1px solid #e2e8f0; text-align:left; vertical-align:top; }
+    .av-badge-sim { color:#166534; font-weight:700; }
+    .av-badge-nao { color:#991b1b; font-weight:700; }
+    .av-note { color:#64748b; }
+    @media (max-width: 900px) {
+      .av-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body class="painel-page">
   {% include '_painel_sidebar.html' %}
@@ -19,68 +34,132 @@
       {% if aventureiro.foto %}
         <p><img class="confirmation-photo" src="{{ aventureiro.foto.url }}" alt="Foto de {{ aventureiro.nome }}" /></p>
       {% endif %}
-      <p><strong>Sexo:</strong> {{ aventureiro.sexo|default:"-" }}</p>
-      <p><strong>Nascimento:</strong> {{ aventureiro.nascimento|default:"-" }}</p>
-      <p><strong>Série:</strong> {{ aventureiro.serie|default:"-" }}</p>
-      <p><strong>Colégio:</strong> {{ aventureiro.colegio|default:"-" }}</p>
-      <p><strong>Bolsa:</strong> {{ aventureiro.bolsa|default:"-" }}</p>
-      <p><strong>Religião:</strong> {{ aventureiro.religiao|default:"-" }}</p>
-      <p><strong>Documentos:</strong> Certidão {{ aventureiro.certidao|default:"-" }}, RG {{ aventureiro.rg|default:"-" }}, Órgão {{ aventureiro.orgao|default:"-" }}, CPF {{ aventureiro.cpf|default:"-" }}</p>
-      <p><strong>Camiseta:</strong> {{ aventureiro.camiseta|default:"-" }}</p>
-      <p><strong>Plano:</strong> {{ aventureiro.plano|default:"-" }} {% if aventureiro.plano_nome %}- {{ aventureiro.plano_nome }}{% endif %}</p>
-      <p><strong>CNS:</strong> {{ aventureiro.cns|default:"-" }}</p>
-      <p><strong>Tipo sanguíneo:</strong> {{ aventureiro.tipo_sangue|default:"-" }}</p>
-      <p><strong>Declaração médica:</strong> {% if aventureiro.declaracao_medica %}Sim{% else %}Não{% endif %}</p>
-      <p><strong>Autorização de imagem:</strong> {% if aventureiro.autorizacao_imagem %}Sim{% else %}Não{% endif %}</p>
 
-      <p><strong>Doenças:</strong>
-        {% if doencas_display %}
-          {{ doencas_display|join:", " }}
-        {% else %}
-          -
-        {% endif %}
-      </p>
+      <div class="av-grid">
+        <section class="av-block">
+          <h3>Dados básicos</h3>
+          <ul class="av-list">
+            <li><strong>Sexo:</strong> {{ aventureiro.sexo|default:"-" }}</li>
+            <li><strong>Nascimento:</strong> {{ aventureiro.nascimento|date:"d/m/Y"|default:"-" }}</li>
+            <li><strong>Série:</strong> {{ aventureiro.serie|default:"-" }}</li>
+            <li><strong>Colégio:</strong> {{ aventureiro.colegio|default:"-" }}</li>
+            <li><strong>Bolsa Família:</strong> {{ aventureiro.bolsa|default:"-" }}</li>
+            <li><strong>Religião:</strong> {{ aventureiro.religiao|default:"-" }}</li>
+            <li><strong>Camiseta:</strong> {{ aventureiro.camiseta|default:"-" }}</li>
+          </ul>
+        </section>
 
-      <div>
-        <strong>Condições:</strong>
-        {% if condicoes_display %}
-          {% for item in condicoes_display %}
-            <p>
-              {{ item.label }}:
-              {% if item.resposta == 'sim' %}Sim{% else %}Não{% endif %}
-              {% if item.resposta == 'sim' and item.detalhe %} - {{ item.detalhe }}{% endif %}
-              | Utiliza remédios:
-              {% if item.medicamento == 'sim' %}Sim{% else %}Não{% endif %}
-              {% if item.medicamento == 'sim' and item.remedio %} - {{ item.remedio }}{% endif %}
-            </p>
-          {% endfor %}
-        {% else %}
-          <p>-</p>
-        {% endif %}
+        <section class="av-block">
+          <h3>Documentos e saúde</h3>
+          <ul class="av-list">
+            <li><strong>Certidão:</strong> {{ aventureiro.certidao|default:"-" }}</li>
+            <li><strong>RG:</strong> {{ aventureiro.rg|default:"-" }}</li>
+            <li><strong>Órgão expedidor:</strong> {{ aventureiro.orgao|default:"-" }}</li>
+            <li><strong>CPF:</strong> {{ aventureiro.cpf|default:"-" }}</li>
+            <li><strong>Plano de saúde:</strong> {{ aventureiro.plano|default:"-" }}{% if aventureiro.plano_nome %} - {{ aventureiro.plano_nome }}{% endif %}</li>
+            <li><strong>CNS:</strong> {{ aventureiro.cns|default:"-" }}</li>
+            <li><strong>Tipo sanguíneo:</strong> {{ aventureiro.tipo_sangue|default:"-" }}</li>
+            <li><strong>Declaração médica:</strong> {% if aventureiro.declaracao_medica %}<span class="av-badge-sim">Sim</span>{% else %}<span class="av-badge-nao">Não</span>{% endif %}</li>
+            <li><strong>Autorização de imagem:</strong> {% if aventureiro.autorizacao_imagem %}<span class="av-badge-sim">Sim</span>{% else %}<span class="av-badge-nao">Não</span>{% endif %}</li>
+          </ul>
+        </section>
       </div>
+    </section>
 
-      <div>
-        <strong>Alergias:</strong>
-        {% if alergias_display %}
-          {% for item in alergias_display %}
-            <p>
-              {{ item.label }}:
-              {% if item.resposta == 'sim' %}Sim{% else %}Não{% endif %}
-              {% if item.resposta == 'sim' and item.descricao %} - {{ item.descricao }}{% endif %}
-            </p>
-          {% endfor %}
-        {% else %}
-          <p>-</p>
-        {% endif %}
+    <section class="painel-card">
+      <h3>Doenças</h3>
+      {% if doencas_display %}
+        <p>{{ doencas_display|join:", " }}</p>
+      {% else %}
+        <p class="av-note">Nenhuma doença informada.</p>
+      {% endif %}
+    </section>
+
+    <section class="painel-card">
+      <h3>Condições</h3>
+      <div class="table-scroll">
+        <table class="av-table">
+          <thead>
+            <tr>
+              <th>Condição</th>
+              <th>Possui?</th>
+              <th>Detalhes</th>
+              <th>Usa remédio?</th>
+              <th>Medicamento</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in condicoes_display %}
+              <tr>
+                <td>{{ item.label }}</td>
+                <td>{% if item.resposta == 'sim' %}<span class="av-badge-sim">Sim</span>{% else %}<span class="av-badge-nao">Não</span>{% endif %}</td>
+                <td>
+                  {% if item.resposta == 'sim' %}
+                    {{ item.detalhe|default:"-" }}
+                  {% else %}
+                    <span class="av-note">Não se aplica</span>
+                  {% endif %}
+                </td>
+                <td>{% if item.medicamento == 'sim' %}<span class="av-badge-sim">Sim</span>{% else %}<span class="av-badge-nao">Não</span>{% endif %}</td>
+                <td>
+                  {% if item.medicamento == 'sim' %}
+                    {{ item.remedio|default:"-" }}
+                  {% else %}
+                    <span class="av-note">Não se aplica</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5">Nenhuma condição informada.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
+    </section>
 
-      <p><strong>Deficiências:</strong>
-        {% if deficiencias_display %}
-          {{ deficiencias_display|join:", " }}
-        {% else %}
-          -
-        {% endif %}
-      </p>
+    <section class="painel-card">
+      <h3>Alergias</h3>
+      <div class="table-scroll">
+        <table class="av-table">
+          <thead>
+            <tr>
+              <th>Alergia</th>
+              <th>Possui?</th>
+              <th>Descrição</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in alergias_display %}
+              <tr>
+                <td>{{ item.label }}</td>
+                <td>{% if item.resposta == 'sim' %}<span class="av-badge-sim">Sim</span>{% else %}<span class="av-badge-nao">Não</span>{% endif %}</td>
+                <td>
+                  {% if item.resposta == 'sim' %}
+                    {% if item.descricao %}
+                      {{ item.descricao }}
+                    {% else %}
+                      <span class="av-note">Sem descrição informada.</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="av-note">Não se aplica</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="3">Nenhuma alergia informada.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="painel-card">
+      <h3>Deficiências</h3>
+      {% if deficiencias_display %}
+        <p>{{ deficiencias_display|join:", " }}</p>
+      {% else %}
+        <p class="av-note">Nenhuma deficiência informada.</p>
+      {% endif %}
     </section>
 
     {% if can_edit %}

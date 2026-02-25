@@ -524,6 +524,80 @@ def _classe_aventureiro_por_idade(nascimento, hoje=None):
     return idade_atual, classe
 
 
+def _normalize_sim_nao(value):
+    return 'sim' if str(value or '').strip().lower() == 'sim' else 'nao'
+
+
+def _texto_relevante(value):
+    raw = str(value or '').strip()
+    if not raw:
+        return ''
+    normalized = (
+        raw.lower()
+        .replace('ã', 'a')
+        .replace('á', 'a')
+        .replace('â', 'a')
+        .replace('é', 'e')
+        .replace('ê', 'e')
+        .replace('í', 'i')
+        .replace('ó', 'o')
+        .replace('ô', 'o')
+        .replace('õ', 'o')
+        .replace('ú', 'u')
+        .replace('ç', 'c')
+    )
+    if normalized in {'nao', 'n', '-', 'nenhum', 'nenhuma'}:
+        return ''
+    return raw
+
+
+def _build_aventureiro_saude_display(aventureiro):
+    condicoes_labels = {
+        'cardiaco': 'Problemas cardíacos',
+        'diabetico': 'Diabetes',
+        'renal': 'Problemas renais',
+        'psicologico': 'Problemas psicológicos',
+    }
+    alergias_labels = {
+        'alergia_pele': 'Alergia cutânea (pele)',
+        'alergia_alimento': 'Alergia alimentar',
+        'alergia_medicamento': 'Alergia a medicamentos',
+    }
+
+    condicoes = []
+    for key, label in condicoes_labels.items():
+        data = (aventureiro.condicoes or {}).get(key, {})
+        resposta = _normalize_sim_nao(data.get('resposta'))
+        medicamento = _normalize_sim_nao(data.get('medicamento'))
+        condicoes.append({
+            'label': label,
+            'resposta': resposta,
+            'resposta_label': 'Sim' if resposta == 'sim' else 'Não',
+            'detalhe': _texto_relevante(data.get('detalhe')),
+            'medicamento': medicamento,
+            'medicamento_label': 'Sim' if medicamento == 'sim' else 'Não',
+            'remedio': _texto_relevante(data.get('remedio')),
+        })
+
+    alergias = []
+    for key, label in alergias_labels.items():
+        data = (aventureiro.alergias or {}).get(key, {})
+        resposta = _normalize_sim_nao(data.get('resposta'))
+        alergias.append({
+            'label': label,
+            'resposta': resposta,
+            'resposta_label': 'Sim' if resposta == 'sim' else 'Não',
+            'descricao': _texto_relevante(data.get('descricao')),
+        })
+
+    return {
+        'condicoes_display': condicoes,
+        'alergias_display': alergias,
+        'doencas_display': aventureiro.doencas or [],
+        'deficiencias_display': aventureiro.deficiencias or [],
+    }
+
+
 def _combined_document_fields():
     fields = []
     seen = set()
@@ -2628,48 +2702,13 @@ class MeuAventureiroDetalheView(LoginRequiredMixin, View):
             return redirect_response
         aventureiro = get_object_or_404(Aventureiro, pk=pk, responsavel=responsavel)
 
-        condicoes_labels = {
-            'cardiaco': 'Problemas cardíacos',
-            'diabetico': 'Diabetes',
-            'renal': 'Problemas renais',
-            'psicologico': 'Problemas psicológicos',
-        }
-        alergias_labels = {
-            'alergia_pele': 'Alergia cutânea (pele)',
-            'alergia_alimento': 'Alergia alimentar',
-            'alergia_medicamento': 'Alergia a medicamentos',
-        }
-
-        condicoes = []
-        for key, label in condicoes_labels.items():
-            data = (aventureiro.condicoes or {}).get(key, {})
-            condicoes.append({
-                'label': label,
-                'resposta': data.get('resposta') or 'nao',
-                'detalhe': data.get('detalhe') or '',
-                'medicamento': data.get('medicamento') or 'nao',
-                'remedio': data.get('remedio') or '',
-            })
-
-        alergias = []
-        for key, label in alergias_labels.items():
-            data = (aventureiro.alergias or {}).get(key, {})
-            alergias.append({
-                'label': label,
-                'resposta': data.get('resposta') or 'nao',
-                'descricao': data.get('descricao') or '',
-            })
-
         context = {
             'aventureiro': aventureiro,
-            'condicoes_display': condicoes,
-            'alergias_display': alergias,
-            'doencas_display': aventureiro.doencas or [],
-            'deficiencias_display': aventureiro.deficiencias or [],
             'back_url_name': 'accounts:meus_dados',
             'back_label': 'Voltar para meus dados',
             'can_edit': True,
         }
+        context.update(_build_aventureiro_saude_display(aventureiro))
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 
@@ -2798,48 +2837,13 @@ class AventureiroGeralDetalheView(LoginRequiredMixin, View):
             return redirect('accounts:painel')
         aventureiro = get_object_or_404(Aventureiro, pk=pk)
 
-        condicoes_labels = {
-            'cardiaco': 'Problemas cardíacos',
-            'diabetico': 'Diabetes',
-            'renal': 'Problemas renais',
-            'psicologico': 'Problemas psicológicos',
-        }
-        alergias_labels = {
-            'alergia_pele': 'Alergia cutânea (pele)',
-            'alergia_alimento': 'Alergia alimentar',
-            'alergia_medicamento': 'Alergia a medicamentos',
-        }
-
-        condicoes = []
-        for key, label in condicoes_labels.items():
-            data = (aventureiro.condicoes or {}).get(key, {})
-            condicoes.append({
-                'label': label,
-                'resposta': data.get('resposta') or 'nao',
-                'detalhe': data.get('detalhe') or '',
-                'medicamento': data.get('medicamento') or 'nao',
-                'remedio': data.get('remedio') or '',
-            })
-
-        alergias = []
-        for key, label in alergias_labels.items():
-            data = (aventureiro.alergias or {}).get(key, {})
-            alergias.append({
-                'label': label,
-                'resposta': data.get('resposta') or 'nao',
-                'descricao': data.get('descricao') or '',
-            })
-
         context = {
             'aventureiro': aventureiro,
-            'condicoes_display': condicoes,
-            'alergias_display': alergias,
-            'doencas_display': aventureiro.doencas or [],
-            'deficiencias_display': aventureiro.deficiencias or [],
             'back_url_name': 'accounts:aventureiros_gerais',
             'back_label': 'Voltar para aventureiros',
             'can_edit': False,
         }
+        context.update(_build_aventureiro_saude_display(aventureiro))
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 

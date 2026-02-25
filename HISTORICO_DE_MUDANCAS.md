@@ -459,3 +459,9 @@ Arquivo oficial de registro das entregas concluidas.
 - A classificação é calculada automaticamente, então novos inscritos já aparecem na classe correta sem cadastro manual.
 - Regra ajustada para usar a idade na data de corte `30/06` do ano atual (ex.: quem completa 6 anos até 30/06 entra em `Abelhinhas`).
 - Ajuste refinado: a regra de corte `30/06` passou a valer somente para `Abelhinhas` (crianças com 5 anos que completam 6 até 30/06). As demais classes seguem pela idade atual.
+## 23/02/2026 - Aventureiro (detalhe): visualização mais clara de documentos, condições e alergias
+
+- Reorganizada a tela de detalhes do aventureiro em seções mais claras (`Dados básicos`, `Documentos e saúde`, `Doenças`, `Condições`, `Alergias`, `Deficiências`).
+- `Condições` e `Alergias` passaram a usar tabela com colunas separadas (resposta, detalhes, remédios), evitando textos ambíguos como `Sim - Não`.
+- Valores genéricos como `Não`, `-` e `Nenhum` em campos de descrição são tratados como “sem descrição informada” / “não se aplica” para melhorar a leitura.
+- Ajustes aplicados tanto na visão do responsável quanto na visão geral da diretoria.
