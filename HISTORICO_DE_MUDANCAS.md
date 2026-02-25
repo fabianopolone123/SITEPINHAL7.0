@@ -406,3 +406,7 @@ Arquivo oficial de registro das entregas concluidas.
 
 - A visão `Pontos` do perfil `Responsável` deixou de exibir textos de administração (lançamento/pré-registro).
 - Cabeçalho e mensagem inicial agora mostram orientação de consulta (totais e extrato dos aventureiros).
+## 23/02/2026 - Pontos (Responsável): removidos textos extras de cabeçalho/aviso
+
+- A visão `Pontos` do perfil `Responsável` ficou mais limpa, sem textos descritivos no cabeçalho e no bloco de status quando não houver mensagens.
+- Mantido apenas o conteúdo principal (cards com totais e extratos).

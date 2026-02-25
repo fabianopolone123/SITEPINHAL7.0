@@ -59,9 +59,7 @@
   <main class="painel-content">
     <header class="painel-header">
       <h2>Pontos</h2>
-      {% if pontos_mode == 'responsavel' %}
-      <p>Acompanhe os pontos e o extrato de lançamentos dos aventureiros vinculados ao seu cadastro.</p>
-      {% else %}
+      {% if pontos_mode != 'responsavel' %}
       <p>Lance pontos positivos/negativos para aventureiros, individualmente ou para todos, e use pré-registros padrão.</p>
       {% endif %}
     </header>
@@ -71,9 +69,7 @@
         {% for message in messages %}
           <p data-state="{{ message.tags }}">{{ message }}</p>
         {% empty %}
-          {% if pontos_mode == 'responsavel' %}
-          <p data-state="info">Consulte abaixo o total de pontos e o extrato de cada aventureiro.</p>
-          {% else %}
+          {% if pontos_mode != 'responsavel' %}
           <p data-state="info">Cadastre lançamentos e pré-registros de pontos nesta tela.</p>
           {% endif %}
         {% endfor %}
