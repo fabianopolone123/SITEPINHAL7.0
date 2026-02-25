@@ -629,6 +629,23 @@ class LojaProdutoVariacao(models.Model):
         return f'{self.produto.titulo} - {self.nome}'
 
 
+class LojaProdutoFoto(models.Model):
+    produto = models.ForeignKey(LojaProduto, on_delete=models.CASCADE, related_name='fotos')
+    variacao = models.ForeignKey(LojaProdutoVariacao, on_delete=models.CASCADE, related_name='fotos')
+    foto = models.ImageField('foto', upload_to='loja/produtos')
+    ordem = models.PositiveIntegerField('ordem', default=0)
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'foto de produto'
+        verbose_name_plural = 'fotos de produto'
+        ordering = ('produto__titulo', 'ordem', 'id')
+
+    def __str__(self):
+        return f'Foto de {self.produto.titulo} ({self.variacao.nome})'
+
+
 class AventureiroPontosPreset(models.Model):
     nome = models.CharField('nome', max_length=160)
     pontos = models.IntegerField('pontos')

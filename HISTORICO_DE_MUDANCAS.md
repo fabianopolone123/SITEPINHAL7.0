@@ -496,3 +496,9 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Ajustados os textos de abertura da tela inicial do novo cadastro de aventureiros para ficarem direcionados ao usuário responsável que está preenchendo.
 - Mantida a mesma lógica/campos da etapa (somente melhoria de comunicação/UX).
+## 25/02/2026 - Loja: múltiplas fotos por produto com vínculo obrigatório por variação
+
+- O cadastro de produtos da `Loja` agora permite adicionar várias fotos no mesmo produto.
+- Cada foto é cadastrada em uma linha própria e deve ser vinculada a uma variação do produto (`P`, `M`, cor, tamanho etc.).
+- Criado modelo `LojaProdutoFoto` para armazenar as fotos vinculadas às variações, mantendo compatibilidade com produtos antigos que ainda usam foto única.
+- A listagem de produtos passou a exibir as fotos vinculadas em cada variação, com miniaturas nos cards da loja.

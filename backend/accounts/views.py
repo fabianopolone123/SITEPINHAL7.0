@@ -50,6 +50,7 @@ from .models import (
     PagamentoMensalidade,
     LojaProduto,
     LojaProdutoVariacao,
+    LojaProdutoFoto,
     AventureiroPontosPreset,
     AventureiroPontosLancamento,
 )
@@ -5144,15 +5145,27 @@ class LojaView(LoginRequiredMixin, View):
     def _context(self, form_data=None):
         produtos = (
             LojaProduto.objects
-            .prefetch_related('variacoes')
+            .prefetch_related('variacoes', 'fotos__variacao')
             .order_by('-created_at')
         )
         rows = []
         for produto in produtos:
             variacoes = list(produto.variacoes.all())
+            fotos = sorted(
+                list(produto.fotos.all()),
+                key=lambda item: (item.ordem or 0, item.id or 0),
+            )
+            fotos_por_variacao = {}
+            for foto in fotos:
+                fotos_por_variacao.setdefault(foto.variacao_id, []).append(foto)
+            for variacao in variacoes:
+                variacao.fotos_vinculadas = fotos_por_variacao.get(variacao.id, [])
+            capa_foto = fotos[0].foto if fotos else getattr(produto, 'foto', None)
             rows.append({
                 'produto': produto,
                 'variacoes': variacoes,
+                'fotos': fotos,
+                'capa_foto': capa_foto,
             })
         return {
             'produtos': rows,
@@ -5174,15 +5187,17 @@ class LojaView(LoginRequiredMixin, View):
 
         titulo = str(request.POST.get('titulo') or '').strip()
         descricao = str(request.POST.get('descricao') or '').strip()
-        foto = request.FILES.get('foto')
         var_names = request.POST.getlist('variacao_nome[]')
         var_values = request.POST.getlist('variacao_valor[]')
         var_stocks = request.POST.getlist('variacao_estoque[]')
+        foto_row_ids = request.POST.getlist('foto_row_id[]')
+        foto_variacao_refs = request.POST.getlist('foto_variacao_ref[]')
 
         form_data = {
             'titulo': titulo,
             'descricao': descricao,
             'variacoes': [],
+            'fotos': [],
         }
 
         if not titulo:
@@ -5241,11 +5256,50 @@ class LojaView(LoginRequiredMixin, View):
             context.update(_sidebar_context(request))
             return render(request, self.template_name, context)
 
+        fotos_parsed = []
+        max_fotos_len = max(len(foto_row_ids), len(foto_variacao_refs), 1)
+        for idx in range(max_fotos_len):
+            row_id = str(foto_row_ids[idx] if idx < len(foto_row_ids) else '').strip() or f'row{idx + 1}'
+            variacao_ref = str(foto_variacao_refs[idx] if idx < len(foto_variacao_refs) else '').strip()
+            arquivo = request.FILES.get(f'foto_arquivo__{row_id}')
+            form_data['fotos'].append({
+                'row_id': row_id,
+                'variacao_ref': variacao_ref,
+            })
+
+            if not arquivo and not variacao_ref:
+                continue
+            if not arquivo:
+                messages.error(request, f'Envie a foto na linha {idx + 1} da seção de fotos.')
+                context = self._context(form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+            if not variacao_ref:
+                messages.error(request, f'Selecione a variação da foto na linha {idx + 1}.')
+                context = self._context(form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+            if not re.fullmatch(r'v\d+', variacao_ref):
+                messages.error(request, f'Variação inválida para a foto na linha {idx + 1}.')
+                context = self._context(form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+            variacao_index = int(variacao_ref[1:])
+            if variacao_index < 0 or variacao_index >= len(variacoes_parsed):
+                messages.error(request, f'A foto da linha {idx + 1} está vinculada a uma variação inexistente.')
+                context = self._context(form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+            fotos_parsed.append({
+                'arquivo': arquivo,
+                'variacao_index': variacao_index,
+                'ordem': len(fotos_parsed),
+            })
+
         with transaction.atomic():
             produto = LojaProduto.objects.create(
                 titulo=titulo,
                 descricao=descricao,
-                foto=foto,
                 created_by=request.user,
             )
             LojaProdutoVariacao.objects.bulk_create([
@@ -5257,8 +5311,22 @@ class LojaView(LoginRequiredMixin, View):
                 )
                 for item in variacoes_parsed
             ])
+            variacoes_criadas = list(produto.variacoes.order_by('id'))
+            if fotos_parsed:
+                for item in fotos_parsed:
+                    LojaProdutoFoto.objects.create(
+                        produto=produto,
+                        variacao=variacoes_criadas[item['variacao_index']],
+                        foto=item['arquivo'],
+                        ordem=item['ordem'],
+                    )
 
-        messages.success(request, f'Produto "{produto.titulo}" cadastrado com {len(variacoes_parsed)} variação(ões).')
+        msg = f'Produto "{produto.titulo}" cadastrado com {len(variacoes_parsed)} variação(ões)'
+        if fotos_parsed:
+            msg += f' e {len(fotos_parsed)} foto(s) vinculada(s).'
+        else:
+            msg += '.'
+        messages.success(request, msg)
         context = self._context()
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)

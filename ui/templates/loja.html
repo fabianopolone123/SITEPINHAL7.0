@@ -18,6 +18,12 @@
     .variacao-row { display:grid; grid-template-columns: 1.4fr .8fr .7fr auto; gap:.5rem; align-items:center; }
     .variacao-row input { padding:.65rem .7rem; border:1px solid #cbd5e1; border-radius:10px; }
     .variacao-remove { border:1px solid #fecaca; background:#fff1f2; color:#9f1239; border-radius:10px; padding:.6rem .75rem; cursor:pointer; }
+    .fotos-wrap { border:1px solid #e2e8f0; border-radius:12px; padding:.85rem; background:#fff; }
+    .fotos-head { display:flex; justify-content:space-between; align-items:center; gap:.75rem; margin-bottom:.75rem; }
+    .fotos-list { display:flex; flex-direction:column; gap:.55rem; }
+    .foto-row { display:grid; grid-template-columns: minmax(180px, 1.1fr) 1fr auto; gap:.5rem; align-items:center; }
+    .foto-row input[type="file"], .foto-row select { width:100%; padding:.65rem .7rem; border:1px solid #cbd5e1; border-radius:10px; background:#fff; }
+    .foto-remove { border:1px solid #fecaca; background:#fff1f2; color:#9f1239; border-radius:10px; padding:.6rem .75rem; cursor:pointer; }
     .loja-actions { display:flex; gap:.5rem; justify-content:flex-end; margin-top:.9rem; }
     .loja-products { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:1rem; }
     .loja-card { border:1px solid #e2e8f0; border-radius:14px; background:#fff; overflow:hidden; }
@@ -27,11 +33,17 @@
     .loja-card p { color:#475569; margin:.2rem 0 .6rem; }
     .loja-var-list { margin:0; padding-left:1rem; }
     .loja-var-list li { margin:.2rem 0; }
+    .loja-fotos-mini { display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.45rem; }
+    .loja-fotos-mini a { display:block; }
+    .loja-fotos-mini img { width:54px; height:54px; object-fit:cover; border-radius:8px; border:1px solid #dbeafe; background:#f8fafc; }
+    .loja-fotos-badge { display:inline-block; margin-top:.4rem; font-size:.76rem; color:#0f172a; background:#eff6ff; border:1px solid #dbeafe; border-radius:999px; padding:.15rem .45rem; }
     .stock-empty { color:#64748b; }
     @media (max-width: 800px) {
       .loja-form-grid { grid-template-columns: 1fr; }
       .variacao-row { grid-template-columns: 1fr; }
       .variacao-remove { width:100%; }
+      .foto-row { grid-template-columns: 1fr; }
+      .foto-remove { width:100%; }
     }
   </style>
 </head>
@@ -62,10 +74,9 @@
             Título
             <input type="text" name="titulo" required value="{{ form_data.titulo|default:'' }}" />
           </label>
-          <label>
-            Foto
-            <input type="file" name="foto" accept="image/*" />
-          </label>
+          <div class="panel-note" style="align-self:end;">
+            Cada foto cadastrada abaixo precisa ser vinculada a uma variação.
+          </div>
           <label class="full">
             Descrição
             <textarea name="descricao" rows="4" placeholder="Descrição do produto (opcional)">{{ form_data.descricao|default:'' }}</textarea>
@@ -101,6 +112,44 @@
           </div>
         </div>
 
+        <div class="fotos-wrap" style="margin-top:1rem;">
+          <div class="fotos-head">
+            <div>
+              <strong>Fotos do produto</strong>
+              <div class="panel-note">Você pode cadastrar várias fotos. Cada foto deve ser vinculada a uma variação.</div>
+            </div>
+            <button type="button" class="secondary" id="btn-add-foto">Adicionar foto</button>
+          </div>
+          <div class="fotos-list" id="fotos-list">
+            {% if form_data.fotos %}
+              {% for row in form_data.fotos %}
+                <div class="foto-row" data-row-id="{{ row.row_id|default:'foto1' }}">
+                  <input type="hidden" name="foto_row_id[]" value="{{ row.row_id|default:'foto1' }}" />
+                  <input type="file" name="foto_arquivo__{{ row.row_id|default:'foto1' }}" accept="image/*" />
+                  <select name="foto_variacao_ref[]" class="foto-variacao-select" data-selected="{{ row.variacao_ref|default:'' }}">
+                    <option value="">Selecione a variação</option>
+                    {% for var in form_data.variacoes %}
+                      <option value="v{{ forloop.counter0 }}">
+                        {% if var.nome %}{{ var.nome }}{% else %}Variação {{ forloop.counter }}{% endif %}
+                      </option>
+                    {% endfor %}
+                  </select>
+                  <button type="button" class="foto-remove">Remover</button>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="foto-row" data-row-id="foto1">
+                <input type="hidden" name="foto_row_id[]" value="foto1" />
+                <input type="file" name="foto_arquivo__foto1" accept="image/*" />
+                <select name="foto_variacao_ref[]" class="foto-variacao-select">
+                  <option value="">Selecione a variação</option>
+                </select>
+                <button type="button" class="foto-remove">Remover</button>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
         <div class="loja-actions">
           <button type="submit" class="primary">Cadastrar produto</button>
         </div>
@@ -113,8 +162,8 @@
         <div class="loja-products">
           {% for row in produtos %}
             <article class="loja-card">
-              {% if row.produto.foto %}
-                <img src="{{ row.produto.foto.url }}" alt="Foto de {{ row.produto.titulo }}" />
+              {% if row.capa_foto %}
+                <img src="{{ row.capa_foto.url }}" alt="Foto de {{ row.produto.titulo }}" />
               {% else %}
                 <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='400'%3E%3Crect width='100%25' height='100%25' fill='%23f8fafc'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-size='28'%3ESem foto%3C/text%3E%3C/svg%3E" alt="Sem foto" />
               {% endif %}
@@ -129,6 +178,16 @@
                         <span>(Estoque: {{ v.estoque }})</span>
                       {% else %}
                         <span class="stock-empty">(Estoque não informado)</span>
+                      {% endif %}
+                      {% if v.fotos_vinculadas %}
+                        <div class="loja-fotos-badge">{{ v.fotos_vinculadas|length }} foto(s) vinculada(s)</div>
+                        <div class="loja-fotos-mini">
+                          {% for foto in v.fotos_vinculadas %}
+                            <a href="{{ foto.foto.url }}" target="_blank" rel="noopener">
+                              <img src="{{ foto.foto.url }}" alt="Foto da variação {{ v.nome }}" />
+                            </a>
+                          {% endfor %}
+                        </div>
                       {% endif %}
                     </li>
                   {% endfor %}
@@ -152,31 +211,146 @@
     </div>
   </template>
 
+  <template id="foto-template">
+    <div class="foto-row" data-row-id="__ROW_ID__">
+      <input type="hidden" name="foto_row_id[]" value="__ROW_ID__" />
+      <input type="file" name="foto_arquivo____ROW_ID__" accept="image/*" />
+      <select name="foto_variacao_ref[]" class="foto-variacao-select">
+        <option value="">Selecione a variação</option>
+      </select>
+      <button type="button" class="foto-remove">Remover</button>
+    </div>
+  </template>
+
   <script>
     (function () {
       const list = document.getElementById('variacoes-list');
       const template = document.getElementById('variacao-template');
       const addBtn = document.getElementById('btn-add-variacao');
-      if (!list || !template || !addBtn) return;
+      const fotosList = document.getElementById('fotos-list');
+      const fotoTemplate = document.getElementById('foto-template');
+      const addFotoBtn = document.getElementById('btn-add-foto');
+      if (!list || !template || !addBtn || !fotosList || !fotoTemplate || !addFotoBtn) return;
+
+      let fotoCounter = (function () {
+        let max = 0;
+        fotosList.querySelectorAll('.foto-row').forEach(function (row) {
+          const rowId = row.getAttribute('data-row-id') || '';
+          const m = rowId.match(/^foto(\d+)$/);
+          if (m) max = Math.max(max, parseInt(m[1], 10));
+        });
+        return max || 1;
+      })();
+
+      function nextFotoRowId() {
+        fotoCounter += 1;
+        return 'foto' + fotoCounter;
+      }
+
+      function getVariationRows() {
+        return Array.from(list.querySelectorAll('.variacao-row'));
+      }
+
+      function getVariationData() {
+        return getVariationRows().map(function (row, idx) {
+          const nomeInput = row.querySelector('input[name=\"variacao_nome[]\"]');
+          const nome = (nomeInput && nomeInput.value || '').trim();
+          return {
+            value: 'v' + idx,
+            label: nome || ('Variação ' + (idx + 1)),
+          };
+        });
+      }
+
+      function refreshFotoVariationOptions() {
+        const options = getVariationData();
+        fotosList.querySelectorAll('.foto-variacao-select').forEach(function (select) {
+          const current = select.value || select.dataset.selected || '';
+          select.innerHTML = '';
+          const placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.textContent = 'Selecione a variação';
+          select.appendChild(placeholder);
+          options.forEach(function (opt) {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.label;
+            if (opt.value === current) option.selected = true;
+            select.appendChild(option);
+          });
+          if (current && !options.some(function (opt) { return opt.value === current; })) {
+            select.value = '';
+          }
+          select.dataset.selected = '';
+        });
+      }
 
       function bindRemove(button) {
         button.addEventListener('click', function () {
           const rows = list.querySelectorAll('.variacao-row');
           if (rows.length <= 1) {
             rows[0].querySelectorAll('input').forEach(function (input) { input.value = ''; });
+            refreshFotoVariationOptions();
             return;
           }
           const row = button.closest('.variacao-row');
+          if (row) {
+            row.remove();
+            refreshFotoVariationOptions();
+          }
+        });
+      }
+
+      function resetFotoRow(row) {
+        const select = row.querySelector('.foto-variacao-select');
+        if (select) select.value = '';
+        const fileInput = row.querySelector('input[type=\"file\"]');
+        if (fileInput) {
+          const cleanInput = fileInput.cloneNode();
+          fileInput.replaceWith(cleanInput);
+        }
+      }
+
+      function bindFotoRemove(button) {
+        button.addEventListener('click', function () {
+          const rows = fotosList.querySelectorAll('.foto-row');
+          if (rows.length <= 1) {
+            resetFotoRow(rows[0]);
+            return;
+          }
+          const row = button.closest('.foto-row');
           if (row) row.remove();
         });
       }
 
       list.querySelectorAll('.variacao-remove').forEach(bindRemove);
+      list.addEventListener('input', function (event) {
+        if (event.target && event.target.name === 'variacao_nome[]') {
+          refreshFotoVariationOptions();
+        }
+      });
+
+      fotosList.querySelectorAll('.foto-remove').forEach(bindFotoRemove);
+
       addBtn.addEventListener('click', function () {
         const node = template.content.firstElementChild.cloneNode(true);
         bindRemove(node.querySelector('.variacao-remove'));
         list.appendChild(node);
+        refreshFotoVariationOptions();
       });
+
+      addFotoBtn.addEventListener('click', function () {
+        const rowId = nextFotoRowId();
+        const html = fotoTemplate.innerHTML.replaceAll('__ROW_ID__', rowId);
+        const temp = document.createElement('div');
+        temp.innerHTML = html.trim();
+        const node = temp.firstElementChild;
+        bindFotoRemove(node.querySelector('.foto-remove'));
+        fotosList.appendChild(node);
+        refreshFotoVariationOptions();
+      });
+
+      refreshFotoVariationOptions();
     })();
   </script>
 </body>
