@@ -434,3 +434,8 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Corrigidos textos com codificação quebrada (`Ã`, `�`) em `backend/accounts/views.py`.
 - Ajustados rótulos de menu (ex.: `Início`, `Presença`, `Usuários`, `Permissões`, `Documentos inscrição`) e mensagens de validação/feedback para acentuação correta em PT-BR.
+## 23/02/2026 - Permissões: padrão de novos usuários e responsável com grupo automático
+
+- Ajustado o `UserAccess` para não forçar perfil `Responsável` automaticamente em usuários genéricos sem grupo/cadastro vinculado.
+- Sincronização de perfis por grupos/cadastros deixou de remarcar perfil por fallback quando o usuário não possui vínculo real.
+- No cadastro de responsável com aventureiro, o usuário novo passa a receber automaticamente o grupo padrão `responsavel` (ficando marcado/liberado em `Permissões`).

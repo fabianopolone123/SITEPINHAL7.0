@@ -105,9 +105,6 @@ def _ensure_user_access(user):
     else:
         role = UserAccess.ROLE_RESPONSAVEL
     access, _ = UserAccess.objects.get_or_create(user=user, defaults={'role': role})
-    if not access.profiles:
-        access.profiles = [access.role]
-        access.save(update_fields=['profiles', 'updated_at'])
     return access
 
 
@@ -135,7 +132,7 @@ def _available_profiles(access):
         if hasattr(access.user, 'responsavel'):
             profiles.append(UserAccess.ROLE_RESPONSAVEL)
     profiles.extend(list(access.profiles or []))
-    if access.role:
+    if access.role and access.profiles:
         profiles.append(access.role)
     deduped = []
     seen = set()
@@ -163,8 +160,6 @@ def _sync_access_profiles_from_groups(user, access=None):
         profiles.append(UserAccess.ROLE_DIRETORIA)
     if hasattr(user, 'responsavel'):
         profiles.append(UserAccess.ROLE_RESPONSAVEL)
-    if access.role and not profiles:
-        profiles.append(access.role)
     deduped = []
     seen = set()
     for item in profiles:
@@ -1869,6 +1864,10 @@ class NovoCadastroResumoView(View):
                 )
                 access.add_profile(UserAccess.ROLE_RESPONSAVEL)
                 access.save(update_fields=['role', 'profiles', 'updated_at'])
+                _ensure_default_access_groups()
+                responsavel_group = AccessGroup.objects.filter(code='responsavel').first()
+                if responsavel_group:
+                    user.access_groups.add(responsavel_group)
                 responsavel = Responsavel.objects.create(
                     user=user,
                     pai_nome=first.get('nome_pai', ''),
