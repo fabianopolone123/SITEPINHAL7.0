@@ -402,3 +402,7 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Adicionada a foto do aventureiro nos cards da visão `Pontos` do perfil `Responsável`.
 - Quando o aventureiro não tiver foto, a tela mostra um fallback com a inicial do nome.
+## 23/02/2026 - Pontos (Responsável): textos de cabeçalho e aviso ajustados para modo consulta
+
+- A visão `Pontos` do perfil `Responsável` deixou de exibir textos de administração (lançamento/pré-registro).
+- Cabeçalho e mensagem inicial agora mostram orientação de consulta (totais e extrato dos aventureiros).
