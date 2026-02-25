@@ -30,6 +30,13 @@
     .tag-pontos-pos { color:#166534; font-weight:700; }
     .tag-pontos-neg { color:#b91c1c; font-weight:700; }
     .tag-total { font-weight:800; }
+    .resp-pontos-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:1rem; }
+    .resp-pontos-card { border:1px solid #e2e8f0; border-radius:14px; background:#fff; padding:.9rem; }
+    .resp-pontos-head { display:flex; justify-content:space-between; gap:.75rem; align-items:flex-start; margin-bottom:.55rem; }
+    .resp-pontos-head h3 { margin:0; }
+    .resp-pontos-total { font-size:1rem; font-weight:800; white-space:nowrap; }
+    .resp-extrato-table { width:100%; border-collapse:collapse; }
+    .resp-extrato-table th, .resp-extrato-table td { padding:.45rem .35rem; border-bottom:1px solid #eef2f7; text-align:left; font-size:.9rem; }
     .pontos-scroll { overflow:auto; }
     .pontos-table { width:100%; min-width:760px; border-collapse:collapse; }
     .pontos-table th, .pontos-table td { padding:.55rem .5rem; border-bottom:1px solid #e2e8f0; text-align:left; }
@@ -57,6 +64,57 @@
       </div>
     </section>
 
+    {% if pontos_mode == 'responsavel' %}
+    <section class="painel-card">
+      <h3 style="margin-top:0;">Pontos dos seus aventureiros</h3>
+      <p class="panel-note">Aqui você acompanha o total de pontos e o extrato de lançamentos de cada aventureiro vinculado ao seu cadastro.</p>
+      {% if responsavel_pontos_rows %}
+        <div class="resp-pontos-grid">
+          {% for row in responsavel_pontos_rows %}
+            <section class="resp-pontos-card">
+              <div class="resp-pontos-head">
+                <div>
+                  <h3>{{ row.aventureiro.nome }}</h3>
+                  <small class="panel-note">Extrato de lançamentos de pontos</small>
+                </div>
+                <div class="resp-pontos-total {% if row.total >= 0 %}tag-pontos-pos{% else %}tag-pontos-neg{% endif %}">
+                  Total: {% if row.total > 0 %}+{% endif %}{{ row.total }}
+                </div>
+              </div>
+              {% if row.lancamentos %}
+                <div class="pontos-scroll">
+                  <table class="resp-extrato-table">
+                    <thead>
+                      <tr>
+                        <th>Data</th>
+                        <th>Pontos</th>
+                        <th>Motivo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for item in row.lancamentos %}
+                        <tr>
+                          <td>{{ item.created_at|date:'d/m/Y H:i' }}</td>
+                          <td class="{% if item.pontos >= 0 %}tag-pontos-pos{% else %}tag-pontos-neg{% endif %}">{% if item.pontos > 0 %}+{% endif %}{{ item.pontos }}</td>
+                          <td>{{ item.motivo }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <p class="panel-note">Nenhum lançamento de pontos para este aventureiro.</p>
+              {% endif %}
+            </section>
+          {% endfor %}
+        </div>
+      {% elif responsavel_tem_aventureiros %}
+        <p class="panel-note">Seus aventureiros ainda não possuem lançamentos de pontos.</p>
+      {% else %}
+        <p class="panel-note">Nenhum aventureiro vinculado ao seu usuário de responsável.</p>
+      {% endif %}
+    </section>
+    {% else %}
     <section class="pontos-grid">
       <section class="painel-card pontos-card">
         <h3>Cadastrar lançamento</h3>
@@ -258,6 +316,7 @@
         </table>
       </div>
     </section>
+    {% endif %}
   </main>
 </body>
 </html>

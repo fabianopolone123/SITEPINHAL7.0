@@ -391,3 +391,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Reorganizada a tela `Pontos` para agrupar `Cadastrar pré-registro padrão` e `Aplicar pré-registro` no mesmo card.
 - A lista de pré-registros cadastrados foi mantida logo abaixo desses dois formulários, no mesmo contexto visual.
 - Objetivo: deixar mais claro que o pré-registro é cadastrado e usado no mesmo fluxo.
+## 23/02/2026 - Pontos (Responsável): consulta de totais e extrato dos próprios aventureiros
+
+- O menu `Pontos` também foi liberado para o perfil `Responsável`.
+- A tela `Pontos` passou a ter uma visão específica para responsável (somente consulta), exibindo:
+  - total de pontos por aventureiro vinculado,
+  - extrato de lançamentos de pontos de cada aventureiro.
+- Na visão de responsável não há lançamentos manuais nem cadastro/aplicação de pré-registros.

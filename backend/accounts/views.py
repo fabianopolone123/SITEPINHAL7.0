@@ -225,7 +225,7 @@ def _effective_menu_permissions(user, active_profile=''):
     if UserAccess.ROLE_DIRETOR in profiles or UserAccess.ROLE_DIRETORIA in profiles:
         allowed.update({'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'pontos', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes'})
     if UserAccess.ROLE_RESPONSAVEL in profiles:
-        allowed.add('financeiro')
+        allowed.update({'financeiro', 'pontos'})
     allowed_group_codes = _group_codes_for_profile(active_profile) if active_profile else set()
     for group in user.access_groups.all():
         if active_profile and group.code not in allowed_group_codes:
@@ -362,7 +362,7 @@ def _ensure_default_access_groups():
     defaults = [
         ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'pontos', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('diretoria', 'Diretoria', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'pontos', 'whatsapp', 'documentos_inscricao', 'permissoes']),
-        ('responsavel', 'Responsavel', ['inicio', 'meus_dados', 'financeiro']),
+        ('responsavel', 'Responsavel', ['inicio', 'meus_dados', 'financeiro', 'pontos']),
         ('professor', 'Professor', ['inicio', 'meus_dados']),
     ]
     for code, name, menus in defaults:
@@ -4647,8 +4647,22 @@ class PontosView(LoginRequiredMixin, View):
             return None
         return int(text)
 
+    def _is_responsavel_mode(self, request):
+        return _get_active_profile(request) == UserAccess.ROLE_RESPONSAVEL
+
     def _aventureiros(self):
         return list(Aventureiro.objects.select_related('responsavel', 'responsavel__user').order_by('nome'))
+
+    def _aventureiros_responsavel(self, request):
+        responsavel = getattr(request.user, 'responsavel', None)
+        if not responsavel:
+            return []
+        return list(
+            Aventureiro.objects
+            .select_related('responsavel', 'responsavel__user')
+            .filter(responsavel=responsavel)
+            .order_by('nome')
+        )
 
     def _totais_rows(self):
         aventureiros = self._aventureiros()
@@ -4680,6 +4694,7 @@ class PontosView(LoginRequiredMixin, View):
 
     def _context(self, form_state=None):
         return {
+            'pontos_mode': 'admin',
             'aventureiros': self._aventureiros(),
             'presets': self._presets(),
             'totais_rows': self._totais_rows(),
@@ -4687,11 +4702,53 @@ class PontosView(LoginRequiredMixin, View):
             'form_state': form_state or {},
         }
 
+    def _responsavel_context(self, request):
+        aventureiros = self._aventureiros_responsavel(request)
+        av_ids = [av.pk for av in aventureiros]
+        totals = {}
+        if av_ids:
+            for row in (
+                AventureiroPontosLancamento.objects
+                .filter(aventureiro_id__in=av_ids)
+                .values('aventureiro_id')
+                .annotate(total=Sum('pontos'))
+            ):
+                totals[row['aventureiro_id']] = int(row['total'] or 0)
+
+        lancamentos = (
+            AventureiroPontosLancamento.objects
+            .select_related('aventureiro', 'preset', 'created_by')
+            .filter(aventureiro_id__in=av_ids)
+            .order_by('aventureiro__nome', '-created_at')
+        ) if av_ids else []
+
+        extrato_map = {av.pk: [] for av in aventureiros}
+        for item in lancamentos:
+            extrato_map[item.aventureiro_id].append(item)
+
+        rows = []
+        for av in aventureiros:
+            rows.append({
+                'aventureiro': av,
+                'total': totals.get(av.pk, 0),
+                'lancamentos': extrato_map.get(av.pk, []),
+            })
+        rows.sort(key=lambda item: item['aventureiro'].nome.lower())
+
+        return {
+            'pontos_mode': 'responsavel',
+            'responsavel_tem_aventureiros': bool(aventureiros),
+            'responsavel_pontos_rows': rows,
+        }
+
     def get(self, request):
         guard = self._guard(request)
         if guard:
             return guard
-        context = self._context()
+        if self._is_responsavel_mode(request):
+            context = self._responsavel_context(request)
+        else:
+            context = self._context()
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 
@@ -4699,6 +4756,11 @@ class PontosView(LoginRequiredMixin, View):
         guard = self._guard(request)
         if guard:
             return guard
+        if self._is_responsavel_mode(request):
+            messages.info(request, 'Nesta visão você pode consultar pontos e extrato dos seus aventureiros.')
+            context = self._responsavel_context(request)
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
 
         action = str(request.POST.get('action') or '').strip()
         form_state = {
