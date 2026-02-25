@@ -217,15 +217,23 @@ def _effective_menu_permissions(user, active_profile=''):
     profiles = set(_available_profiles(access))
     if active_profile and active_profile in profiles:
         profiles = {active_profile}
-    if UserAccess.ROLE_DIRETOR in profiles or UserAccess.ROLE_DIRETORIA in profiles:
-        allowed.update({'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'pontos', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes'})
-    if UserAccess.ROLE_RESPONSAVEL in profiles:
-        allowed.update({'financeiro', 'pontos'})
+
+    # Se houver grupo(s) vinculado(s) para o perfil ativo, os menus passam a ser
+    # controlados exclusivamente pelos grupos (além de início/meus dados).
+    matched_group_count = 0
     allowed_group_codes = _group_codes_for_profile(active_profile) if active_profile else set()
     for group in user.access_groups.all():
         if active_profile and group.code not in allowed_group_codes:
             continue
+        matched_group_count += 1
         allowed.update(_normalize_menu_keys(group.menu_permissions))
+
+    # Fallback de compatibilidade para usuários antigos sem grupos vinculados.
+    if matched_group_count == 0:
+        if UserAccess.ROLE_DIRETOR in profiles or UserAccess.ROLE_DIRETORIA in profiles:
+            allowed.update({'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'pontos', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes'})
+        if UserAccess.ROLE_RESPONSAVEL in profiles:
+            allowed.update({'financeiro', 'pontos'})
     return sorted(allowed)
 
 

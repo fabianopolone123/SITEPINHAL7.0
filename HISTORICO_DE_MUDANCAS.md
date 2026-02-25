@@ -439,3 +439,8 @@ Arquivo oficial de registro das entregas concluidas.
 - Ajustado o `UserAccess` para não forçar perfil `Responsável` automaticamente em usuários genéricos sem grupo/cadastro vinculado.
 - Sincronização de perfis por grupos/cadastros deixou de remarcar perfil por fallback quando o usuário não possui vínculo real.
 - No cadastro de responsável com aventureiro, o usuário novo passa a receber automaticamente o grupo padrão `responsavel` (ficando marcado/liberado em `Permissões`).
+## 23/02/2026 - Permissões: menus do grupo passam a valer para diretor/diretoria
+
+- Corrigida a lógica de menus para priorizar permissões do grupo quando o usuário possui grupo vinculado no perfil ativo.
+- Agora desmarcar `Pontos`, `Loja` (ou qualquer outro menu) em `Menus liberados por grupo` remove o botão da sidebar corretamente.
+- Mantido fallback de compatibilidade apenas para usuários antigos sem grupos vinculados.
