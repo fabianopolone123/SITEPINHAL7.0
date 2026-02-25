@@ -414,3 +414,8 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Removido o card em branco no topo da tela `Pontos` (perfil `Responsável`) quando não houver mensagens para exibir.
 - O card de status continua aparecendo normalmente no modo administrativo e sempre que houver mensagens.
+## 23/02/2026 - Pontos (Diretor): unifica lançamento e pré-registros em um único card
+
+- Reorganizada a tela `Pontos` no modo administrativo para concentrar `Cadastrar lançamento`, `Pré-registros padrão` e `Aplicar pré-registro` em um único card principal.
+- O fluxo de uso ficou mais claro no painel, mantendo a listagem de pré-registros no mesmo contexto visual.
+- `Totais por aventureiro` e `Lançamentos recentes` permanecem em cards separados abaixo.
