@@ -507,9 +507,21 @@ def _idade_em_anos(nascimento, hoje=None):
 
 def _classe_aventureiro_por_idade(nascimento, hoje=None):
     ref = hoje or timezone.localdate()
-    data_corte = date(ref.year, 6, 30)
-    idade_na_data_corte = _idade_em_anos(nascimento, hoje=data_corte)
-    return idade_na_data_corte, AVENTUREIRO_CLASSIFICACOES_IDADE.get(idade_na_data_corte)
+    idade_atual = _idade_em_anos(nascimento, hoje=ref)
+    if idade_atual is None:
+        return None, None
+
+    classe = AVENTUREIRO_CLASSIFICACOES_IDADE.get(idade_atual)
+
+    # Regra especial somente para Abelhinhas:
+    # criança com 5 anos entra em Abelhinhas se completar 6 até 30/06 do ano atual.
+    if not classe and idade_atual == 5:
+        data_corte = date(ref.year, 6, 30)
+        idade_na_data_corte = _idade_em_anos(nascimento, hoje=data_corte)
+        if idade_na_data_corte == 6:
+            classe = AVENTUREIRO_CLASSIFICACOES_IDADE[6]
+
+    return idade_atual, classe
 
 
 def _combined_document_fields():

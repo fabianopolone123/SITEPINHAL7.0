@@ -458,3 +458,4 @@ Arquivo oficial de registro das entregas concluidas.
 - Crianças fora dessas faixas (ou sem data de nascimento) ficam na seção `Sem classe`.
 - A classificação é calculada automaticamente, então novos inscritos já aparecem na classe correta sem cadastro manual.
 - Regra ajustada para usar a idade na data de corte `30/06` do ano atual (ex.: quem completa 6 anos até 30/06 entra em `Abelhinhas`).
+- Ajuste refinado: a regra de corte `30/06` passou a valer somente para `Abelhinhas` (crianças com 5 anos que completam 6 até 30/06). As demais classes seguem pela idade atual.
