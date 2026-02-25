@@ -487,6 +487,29 @@ def _document_fields():
     }
 
 
+AVENTUREIRO_CLASSIFICACOES_IDADE = {
+    6: 'Abelhinhas',
+    7: 'Luminares',
+    8: 'Edificadores',
+    9: 'Mãos Ajudadoras',
+}
+
+
+def _idade_em_anos(nascimento, hoje=None):
+    if not nascimento:
+        return None
+    ref = hoje or timezone.localdate()
+    idade = ref.year - nascimento.year
+    if (ref.month, ref.day) < (nascimento.month, nascimento.day):
+        idade -= 1
+    return idade
+
+
+def _classe_aventureiro_por_idade(nascimento, hoje=None):
+    idade = _idade_em_anos(nascimento, hoje=hoje)
+    return idade, AVENTUREIRO_CLASSIFICACOES_IDADE.get(idade)
+
+
 def _combined_document_fields():
     fields = []
     seen = set()
@@ -2720,8 +2743,34 @@ class AventureirosGeraisView(LoginRequiredMixin, View):
         if not _has_menu_permission(request, 'aventureiros'):
             messages.error(request, 'Seu perfil não possui permissão para acessar aventureiros gerais.')
             return redirect('accounts:painel')
-        aventureiros = Aventureiro.objects.select_related('responsavel', 'responsavel__user').order_by('nome')
-        context = {'aventureiros': aventureiros}
+        aventureiros = list(
+            Aventureiro.objects
+            .select_related('responsavel', 'responsavel__user')
+            .order_by('nome')
+        )
+        hoje = timezone.localdate()
+        grupos = {
+            nome: []
+            for _idade, nome in sorted(AVENTUREIRO_CLASSIFICACOES_IDADE.items())
+        }
+        sem_classe = []
+        for av in aventureiros:
+            idade, classe = _classe_aventureiro_por_idade(av.nascimento, hoje=hoje)
+            av.idade_atual = idade
+            av.classe_nome = classe or ''
+            if classe:
+                grupos[classe].append(av)
+            else:
+                sem_classe.append(av)
+        aventureiros_por_classe = [
+            {'nome': nome, 'idade': idade, 'itens': grupos.get(nome, [])}
+            for idade, nome in sorted(AVENTUREIRO_CLASSIFICACOES_IDADE.items())
+        ]
+        context = {
+            'aventureiros': aventureiros,
+            'aventureiros_por_classe': aventureiros_por_classe,
+            'aventureiros_sem_classe': sem_classe,
+        }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 

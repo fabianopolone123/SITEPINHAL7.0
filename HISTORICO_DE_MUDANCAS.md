@@ -448,3 +448,12 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Adicionada uma legenda explicativa na tela `Permissões` esclarecendo a diferença entre `Diretor` (perfil/grupo administrativo) e `Diretoria` (perfil de cadastro da pessoa da diretoria).
 - Ajuste somente visual, sem alterar regras de acesso.
+## 23/02/2026 - Aventureiros: classificação automática por classes (idade)
+
+- A lista `Aventureiros cadastrados` passou a ser organizada por classes automáticas com base na idade (data de nascimento):
+  - `Abelhinhas` (6 anos)
+  - `Luminares` (7 anos)
+  - `Edificadores` (8 anos)
+  - `Mãos Ajudadoras` (9 anos)
+- Crianças fora dessas faixas (ou sem data de nascimento) ficam na seção `Sem classe`.
+- A classificação é calculada automaticamente, então novos inscritos já aparecem na classe correta sem cadastro manual.

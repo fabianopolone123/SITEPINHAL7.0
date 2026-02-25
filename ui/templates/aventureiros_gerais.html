@@ -6,45 +6,97 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Aventureiros cadastrados</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    .classe-card + .classe-card { margin-top: 1rem; }
+    .classe-title { margin: 0 0 .15rem; }
+    .classe-subtitle { margin: 0 0 .75rem; color: #64748b; }
+  </style>
 </head>
 <body class="painel-page">
   {% include '_painel_sidebar.html' %}
   <main class="painel-content">
     <header class="painel-header">
       <h2>Aventureiros cadastrados</h2>
-      <p>Lista geral para o perfil Diretor.</p>
+      <p>Lista geral para o perfil Diretor, organizada por classes (idade).</p>
     </header>
 
-    <section class="painel-card">
-      <table class="users-table">
-        <thead>
-          <tr>
-            <th>Foto</th>
-            <th>Nome</th>
-            <th>Responsável</th>
-            <th>Série</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for av in aventureiros %}
-            <tr>
-              <td>
-                {% if av.foto %}
-                  <img class="confirmation-photo" src="{{ av.foto.url }}" alt="Foto de {{ av.nome }}" />
-                {% else %}
-                  -
-                {% endif %}
-              </td>
-              <td><a href="{% url 'accounts:aventureiro_geral' av.pk %}">{{ av.nome }}</a></td>
-              <td>{{ av.responsavel.user.username }}</td>
-              <td>{{ av.serie|default:"-" }}</td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="4">Nenhum aventureiro cadastrado.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </section>
+    {% if aventureiros %}
+      {% for grupo in aventureiros_por_classe %}
+        <section class="painel-card classe-card">
+          <h3 class="classe-title">{{ grupo.nome }}</h3>
+          <p class="classe-subtitle">{{ grupo.idade }} anos</p>
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>Foto</th>
+                <th>Nome</th>
+                <th>Responsável</th>
+                <th>Idade</th>
+                <th>Série</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for av in grupo.itens %}
+                <tr>
+                  <td>
+                    {% if av.foto %}
+                      <img class="confirmation-photo" src="{{ av.foto.url }}" alt="Foto de {{ av.nome }}" />
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td><a href="{% url 'accounts:aventureiro_geral' av.pk %}">{{ av.nome }}</a></td>
+                  <td>{% if av.responsavel and av.responsavel.user %}{{ av.responsavel.user.username }}{% else %}-{% endif %}</td>
+                  <td>{{ av.idade_atual|default:"-" }}</td>
+                  <td>{{ av.serie|default:"-" }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5">Nenhum aventureiro nesta classe.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </section>
+      {% endfor %}
+
+      {% if aventureiros_sem_classe %}
+        <section class="painel-card classe-card">
+          <h3 class="classe-title">Sem classe</h3>
+          <p class="classe-subtitle">Fora das faixas de 6 a 9 anos ou sem data de nascimento.</p>
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>Foto</th>
+                <th>Nome</th>
+                <th>Responsável</th>
+                <th>Idade</th>
+                <th>Série</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for av in aventureiros_sem_classe %}
+                <tr>
+                  <td>
+                    {% if av.foto %}
+                      <img class="confirmation-photo" src="{{ av.foto.url }}" alt="Foto de {{ av.nome }}" />
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td><a href="{% url 'accounts:aventureiro_geral' av.pk %}">{{ av.nome }}</a></td>
+                  <td>{% if av.responsavel and av.responsavel.user %}{{ av.responsavel.user.username }}{% else %}-{% endif %}</td>
+                  <td>{{ av.idade_atual|default:"-" }}</td>
+                  <td>{{ av.serie|default:"-" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </section>
+      {% endif %}
+    {% else %}
+      <section class="painel-card">
+        <p class="panel-note">Nenhum aventureiro cadastrado.</p>
+      </section>
+    {% endif %}
   </main>
 </body>
 </html>
