@@ -512,3 +512,8 @@ Arquivo oficial de registro das entregas concluidas.
 - Adicionado no cadastro de produto da `Loja` o campo opcional `Mínimo de pedidos pagos para produção`.
 - Permite configurar regras como “camiseta de atividade só enviar para confecção após 10 pedidos pagos”.
 - A regra fica salva no produto e é exibida na listagem dos itens cadastrados.
+## 25/02/2026 - Loja (UX mobile): seleção de variações das fotos trocada para checkboxes
+
+- A seleção de vínculo das fotos com variações no cadastro da `Loja` foi trocada de `select múltiplo` para `checkboxes`.
+- Mantida a opção `Todas as variações`, com comportamento automático para desmarcar as demais ao selecionar.
+- Objetivo: facilitar o uso no celular e evitar dificuldade de seleção múltipla em navegadores móveis.

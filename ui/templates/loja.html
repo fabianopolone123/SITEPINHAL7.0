@@ -22,8 +22,11 @@
     .fotos-head { display:flex; justify-content:space-between; align-items:center; gap:.75rem; margin-bottom:.75rem; }
     .fotos-list { display:flex; flex-direction:column; gap:.55rem; }
     .foto-row { display:grid; grid-template-columns: minmax(180px, 1.1fr) 1fr auto; gap:.5rem; align-items:start; }
-    .foto-row input[type="file"], .foto-row select { width:100%; padding:.65rem .7rem; border:1px solid #cbd5e1; border-radius:10px; background:#fff; }
-    .foto-row select[multiple] { min-height: 112px; }
+    .foto-row input[type="file"] { width:100%; padding:.65rem .7rem; border:1px solid #cbd5e1; border-radius:10px; background:#fff; }
+    .foto-variacoes-box { border:1px solid #cbd5e1; border-radius:10px; background:#fff; padding:.55rem; display:grid; gap:.35rem; max-height: 168px; overflow:auto; }
+    .foto-variacoes-item { display:flex; align-items:flex-start; gap:.45rem; font-size:.86rem; color:#334155; line-height:1.25; }
+    .foto-variacoes-item input { margin-top:.12rem; }
+    .foto-variacoes-hint { font-size:.75rem; color:#64748b; margin-top:.15rem; }
     .foto-remove { border:1px solid #fecaca; background:#fff1f2; color:#9f1239; border-radius:10px; padding:.6rem .75rem; cursor:pointer; }
     .loja-actions { display:flex; gap:.5rem; justify-content:flex-end; margin-top:.9rem; }
     .loja-products { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:1rem; }
@@ -135,14 +138,7 @@
                 <div class="foto-row" data-row-id="{{ row.row_id|default:'foto1' }}">
                   <input type="hidden" name="foto_row_id[]" value="{{ row.row_id|default:'foto1' }}" />
                   <input type="file" name="foto_arquivo__{{ row.row_id|default:'foto1' }}" accept="image/*" />
-                  <select name="foto_variacoes__{{ row.row_id|default:'foto1' }}[]" class="foto-variacao-select" data-selected="{{ row.variacao_refs_csv|default:'' }}" multiple size="4">
-                    <option value="all">Todas as variações</option>
-                    {% for var in form_data.variacoes %}
-                      <option value="v{{ forloop.counter0 }}">
-                        {% if var.nome %}{{ var.nome }}{% else %}Variação {{ forloop.counter }}{% endif %}
-                      </option>
-                    {% endfor %}
-                  </select>
+                  <div class="foto-variacao-select" data-row-id="{{ row.row_id|default:'foto1' }}" data-selected="{{ row.variacao_refs_csv|default:'' }}"></div>
                   <button type="button" class="foto-remove">Remover</button>
                 </div>
               {% endfor %}
@@ -150,9 +146,7 @@
               <div class="foto-row" data-row-id="foto1">
                 <input type="hidden" name="foto_row_id[]" value="foto1" />
                 <input type="file" name="foto_arquivo__foto1" accept="image/*" />
-                <select name="foto_variacoes__foto1[]" class="foto-variacao-select" multiple size="4">
-                  <option value="all">Todas as variações</option>
-                </select>
+                <div class="foto-variacao-select" data-row-id="foto1"></div>
                 <button type="button" class="foto-remove">Remover</button>
               </div>
             {% endif %}
@@ -229,9 +223,7 @@
     <div class="foto-row" data-row-id="__ROW_ID__">
       <input type="hidden" name="foto_row_id[]" value="__ROW_ID__" />
       <input type="file" name="foto_arquivo____ROW_ID__" accept="image/*" />
-      <select name="foto_variacoes____ROW_ID__[]" class="foto-variacao-select" multiple size="4">
-        <option value="all">Todas as variações</option>
-      </select>
+      <div class="foto-variacao-select" data-row-id="__ROW_ID__"></div>
       <button type="button" class="foto-remove">Remover</button>
     </div>
   </template>
@@ -278,32 +270,49 @@
 
       function refreshFotoVariationOptions() {
         const options = getVariationData();
-        fotosList.querySelectorAll('.foto-variacao-select').forEach(function (select) {
-          const currentValues = Array.from(select.selectedOptions || [])
-            .map(function (opt) { return opt.value; })
+        fotosList.querySelectorAll('.foto-variacao-select').forEach(function (box) {
+          const rowId = box.dataset.rowId || '';
+          if (!rowId) return;
+          const currentValues = Array.from(box.querySelectorAll('input[type="checkbox"]:checked'))
+            .map(function (input) { return input.value; })
             .filter(Boolean);
-          const savedValues = (select.dataset.selected || '')
+          const savedValues = (box.dataset.selected || '')
             .split(',')
             .map(function (value) { return value.trim(); })
             .filter(Boolean);
           const selectedValues = currentValues.length ? currentValues : savedValues;
-          select.innerHTML = '';
-          const allOption = document.createElement('option');
-          allOption.value = 'all';
-          allOption.textContent = 'Todas as variações';
-          select.appendChild(allOption);
-          options.forEach(function (opt) {
-            const option = document.createElement('option');
-            option.value = opt.value;
-            option.textContent = opt.label;
-            select.appendChild(option);
-          });
           const validValues = new Set(['all'].concat(options.map(function (opt) { return opt.value; })));
-          Array.from(select.options).forEach(function (option) {
-            option.selected = selectedValues.includes(option.value) && validValues.has(option.value);
+          const selectedSet = new Set(selectedValues.filter(function (value) { return validValues.has(value); }));
+
+          box.innerHTML = '';
+          box.classList.add('foto-variacoes-box');
+
+          function addCheckbox(value, labelText) {
+            const label = document.createElement('label');
+            label.className = 'foto-variacoes-item';
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.name = 'foto_variacoes__' + rowId + '[]';
+            input.value = value;
+            input.checked = selectedSet.has(value);
+            const span = document.createElement('span');
+            span.textContent = labelText;
+            label.appendChild(input);
+            label.appendChild(span);
+            box.appendChild(label);
+          }
+
+          addCheckbox('all', 'Todas as variações');
+          options.forEach(function (opt) {
+            addCheckbox(opt.value, opt.label);
           });
-          select.size = Math.min(Math.max(options.length + 1, 2), 6);
-          select.dataset.selected = '';
+
+          const hint = document.createElement('div');
+          hint.className = 'foto-variacoes-hint';
+          hint.textContent = 'No celular, toque para marcar. Se marcar "Todas", as outras são desmarcadas.';
+          box.appendChild(hint);
+
+          box.dataset.selected = '';
         });
       }
 
@@ -324,10 +333,10 @@
       }
 
       function resetFotoRow(row) {
-        const select = row.querySelector('.foto-variacao-select');
-        if (select) {
-          Array.from(select.options).forEach(function (option) { option.selected = false; });
-          select.dataset.selected = '';
+        const box = row.querySelector('.foto-variacao-select');
+        if (box) {
+          box.querySelectorAll('input[type="checkbox"]').forEach(function (input) { input.checked = false; });
+          box.dataset.selected = '';
         }
         const fileInput = row.querySelector('input[type=\"file\"]');
         if (fileInput) {
@@ -356,6 +365,22 @@
       });
 
       fotosList.querySelectorAll('.foto-remove').forEach(bindFotoRemove);
+      fotosList.addEventListener('change', function (event) {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement) || target.type !== 'checkbox') return;
+        if (!target.name.includes('foto_variacoes__')) return;
+        const box = target.closest('.foto-variacao-select');
+        if (!box) return;
+        const checkboxes = Array.from(box.querySelectorAll('input[type="checkbox"]'));
+        const allInput = checkboxes.find(function (input) { return input.value === 'all'; });
+        const others = checkboxes.filter(function (input) { return input.value !== 'all'; });
+
+        if (target.value === 'all' && target.checked) {
+          others.forEach(function (input) { input.checked = false; });
+        } else if (target.value !== 'all' && target.checked && allInput) {
+          allInput.checked = false;
+        }
+      });
 
       addBtn.addEventListener('click', function () {
         const node = template.content.firstElementChild.cloneNode(true);
