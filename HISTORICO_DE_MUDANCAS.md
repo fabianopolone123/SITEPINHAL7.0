@@ -386,3 +386,8 @@ Arquivo oficial de registro das entregas concluidas.
 - Renomeado o bloco `Lançar pontos (manual)` para `Cadastrar lançamento`.
 - Botão principal do lançamento manual também alterado para `Cadastrar lançamento`.
 - No bloco `Aplicar pré-registro`, o texto `Destino` foi trocado por `Aplicar para` para reduzir confusão.
+## 23/02/2026 - Pontos (UX): reorganização dos blocos de pré-registro para melhor entendimento
+
+- Reorganizada a tela `Pontos` para agrupar `Cadastrar pré-registro padrão` e `Aplicar pré-registro` no mesmo card.
+- A lista de pré-registros cadastrados foi mantida logo abaixo desses dois formulários, no mesmo contexto visual.
+- Objetivo: deixar mais claro que o pré-registro é cadastrado e usado no mesmo fluxo.
