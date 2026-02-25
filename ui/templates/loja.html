@@ -1,0 +1,183 @@
+﻿<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Loja</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    .loja-grid { display:grid; grid-template-columns: 1fr; gap:1rem; }
+    .loja-form-grid { display:grid; grid-template-columns: 1fr 1fr; gap:.9rem; }
+    .loja-form-grid .full { grid-column: 1 / -1; }
+    .loja-form-grid label { display:flex; flex-direction:column; gap:.35rem; color:#334155; font-weight:600; font-size:.9rem; }
+    .loja-form-grid input, .loja-form-grid textarea { width:100%; padding:.75rem .85rem; border:1px solid #cbd5e1; border-radius:10px; }
+    .variacoes-wrap { border:1px solid #e2e8f0; border-radius:12px; padding:.85rem; background:#fafcff; }
+    .variacoes-head { display:flex; justify-content:space-between; align-items:center; gap:.75rem; margin-bottom:.75rem; }
+    .variacoes-list { display:flex; flex-direction:column; gap:.55rem; }
+    .variacao-row { display:grid; grid-template-columns: 1.4fr .8fr .7fr auto; gap:.5rem; align-items:center; }
+    .variacao-row input { padding:.65rem .7rem; border:1px solid #cbd5e1; border-radius:10px; }
+    .variacao-remove { border:1px solid #fecaca; background:#fff1f2; color:#9f1239; border-radius:10px; padding:.6rem .75rem; cursor:pointer; }
+    .loja-actions { display:flex; gap:.5rem; justify-content:flex-end; margin-top:.9rem; }
+    .loja-products { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:1rem; }
+    .loja-card { border:1px solid #e2e8f0; border-radius:14px; background:#fff; overflow:hidden; }
+    .loja-card img { width:100%; height:180px; object-fit:cover; background:#f8fafc; display:block; }
+    .loja-card-body { padding:.9rem; }
+    .loja-card h3 { margin:0 0 .35rem; }
+    .loja-card p { color:#475569; margin:.2rem 0 .6rem; }
+    .loja-var-list { margin:0; padding-left:1rem; }
+    .loja-var-list li { margin:.2rem 0; }
+    .stock-empty { color:#64748b; }
+    @media (max-width: 800px) {
+      .loja-form-grid { grid-template-columns: 1fr; }
+      .variacao-row { grid-template-columns: 1fr; }
+      .variacao-remove { width:100%; }
+    }
+  </style>
+</head>
+<body class="painel-page">
+  {% include '_painel_sidebar.html' %}
+  <main class="painel-content">
+    <header class="painel-header">
+      <h2>Loja</h2>
+      <p>Cadastre produtos com foto e variações (valor e estoque opcional).</p>
+    </header>
+
+    <section class="painel-card">
+      <div class="status" aria-live="polite">
+        {% for message in messages %}
+          <p data-state="{{ message.tags }}">{{ message }}</p>
+        {% empty %}
+          <p data-state="info">Use o botão Cadastrar produto para adicionar itens da loja.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="painel-card loja-grid">
+      <h3 style="margin:0;">Cadastrar produto</h3>
+      <form method="post" enctype="multipart/form-data" id="loja-form">
+        {% csrf_token %}
+        <div class="loja-form-grid">
+          <label>
+            Título
+            <input type="text" name="titulo" required value="{{ form_data.titulo|default:'' }}" />
+          </label>
+          <label>
+            Foto
+            <input type="file" name="foto" accept="image/*" />
+          </label>
+          <label class="full">
+            Descrição
+            <textarea name="descricao" rows="4" placeholder="Descrição do produto (opcional)">{{ form_data.descricao|default:'' }}</textarea>
+          </label>
+        </div>
+
+        <div class="variacoes-wrap" style="margin-top:1rem;">
+          <div class="variacoes-head">
+            <div>
+              <strong>Variações</strong>
+              <div class="panel-note">Cadastre pelo menos uma variação com valor. Ex.: P, M, G; cor; tamanho etc.</div>
+            </div>
+            <button type="button" class="secondary" id="btn-add-variacao">Adicionar variação</button>
+          </div>
+          <div class="variacoes-list" id="variacoes-list">
+            {% if form_data.variacoes %}
+              {% for var in form_data.variacoes %}
+                <div class="variacao-row">
+                  <input type="text" name="variacao_nome[]" placeholder="Variação (ex.: P / Azul)" value="{{ var.nome|default:'' }}" />
+                  <input type="text" name="variacao_valor[]" placeholder="Valor" inputmode="decimal" value="{{ var.valor|default:'' }}" />
+                  <input type="number" name="variacao_estoque[]" placeholder="Estoque" min="0" value="{{ var.estoque|default:'' }}" />
+                  <button type="button" class="variacao-remove">Remover</button>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="variacao-row">
+                <input type="text" name="variacao_nome[]" placeholder="Variação (ex.: P / Azul)" />
+                <input type="text" name="variacao_valor[]" placeholder="Valor" inputmode="decimal" />
+                <input type="number" name="variacao_estoque[]" placeholder="Estoque" min="0" />
+                <button type="button" class="variacao-remove">Remover</button>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="loja-actions">
+          <button type="submit" class="primary">Cadastrar produto</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="painel-card loja-grid">
+      <h3 style="margin:0;">Produtos cadastrados</h3>
+      {% if produtos %}
+        <div class="loja-products">
+          {% for row in produtos %}
+            <article class="loja-card">
+              {% if row.produto.foto %}
+                <img src="{{ row.produto.foto.url }}" alt="Foto de {{ row.produto.titulo }}" />
+              {% else %}
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='400'%3E%3Crect width='100%25' height='100%25' fill='%23f8fafc'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-size='28'%3ESem foto%3C/text%3E%3C/svg%3E" alt="Sem foto" />
+              {% endif %}
+              <div class="loja-card-body">
+                <h3>{{ row.produto.titulo }}</h3>
+                {% if row.produto.descricao %}<p>{{ row.produto.descricao }}</p>{% endif %}
+                <ul class="loja-var-list">
+                  {% for v in row.variacoes %}
+                    <li>
+                      <strong>{{ v.nome }}</strong> - R$ {{ v.valor }}
+                      {% if v.estoque is not None %}
+                        <span>(Estoque: {{ v.estoque }})</span>
+                      {% else %}
+                        <span class="stock-empty">(Estoque não informado)</span>
+                      {% endif %}
+                    </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="panel-note">Nenhum produto cadastrado ainda.</p>
+      {% endif %}
+    </section>
+  </main>
+
+  <template id="variacao-template">
+    <div class="variacao-row">
+      <input type="text" name="variacao_nome[]" placeholder="Variação (ex.: P / Azul)" />
+      <input type="text" name="variacao_valor[]" placeholder="Valor" inputmode="decimal" />
+      <input type="number" name="variacao_estoque[]" placeholder="Estoque" min="0" />
+      <button type="button" class="variacao-remove">Remover</button>
+    </div>
+  </template>
+
+  <script>
+    (function () {
+      const list = document.getElementById('variacoes-list');
+      const template = document.getElementById('variacao-template');
+      const addBtn = document.getElementById('btn-add-variacao');
+      if (!list || !template || !addBtn) return;
+
+      function bindRemove(button) {
+        button.addEventListener('click', function () {
+          const rows = list.querySelectorAll('.variacao-row');
+          if (rows.length <= 1) {
+            rows[0].querySelectorAll('input').forEach(function (input) { input.value = ''; });
+            return;
+          }
+          const row = button.closest('.variacao-row');
+          if (row) row.remove();
+        });
+      }
+
+      list.querySelectorAll('.variacao-remove').forEach(bindRemove);
+      addBtn.addEventListener('click', function () {
+        const node = template.content.firstElementChild.cloneNode(true);
+        bindRemove(node.querySelector('.variacao-remove'));
+        list.appendChild(node);
+      });
+    })();
+  </script>
+</body>
+</html>

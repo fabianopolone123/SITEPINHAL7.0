@@ -48,6 +48,8 @@ from .models import (
     AuditLog,
     MensalidadeAventureiro,
     PagamentoMensalidade,
+    LojaProduto,
+    LojaProdutoVariacao,
 )
 from .audit import record_audit
 from .utils import decode_signature, decode_photo
@@ -78,6 +80,7 @@ MENU_ITEMS = [
     ('auditoria', 'Auditoria'),
     ('usuarios', 'UsuÃ¡rios'),
     ('financeiro', 'Financeiro'),
+    ('loja', 'Loja'),
     ('whatsapp', 'WhatsApp'),
     ('documentos_inscricao', 'Documentos inscriÃ§Ã£o'),
     ('permissoes', 'PermissÃµes'),
@@ -217,7 +220,7 @@ def _effective_menu_permissions(user, active_profile=''):
     if active_profile and active_profile in profiles:
         profiles = {active_profile}
     if UserAccess.ROLE_DIRETOR in profiles or UserAccess.ROLE_DIRETORIA in profiles:
-        allowed.update({'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes'})
+        allowed.update({'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes'})
     if UserAccess.ROLE_RESPONSAVEL in profiles:
         allowed.add('financeiro')
     allowed_group_codes = _group_codes_for_profile(active_profile) if active_profile else set()
@@ -354,7 +357,7 @@ def _user_display_data(user):
 
 def _ensure_default_access_groups():
     defaults = [
-        ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'whatsapp', 'documentos_inscricao', 'permissoes']),
+        ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('diretoria', 'Diretoria', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('responsavel', 'Responsavel', ['inicio', 'meus_dados', 'financeiro']),
         ('professor', 'Professor', ['inicio', 'meus_dados']),
@@ -4622,6 +4625,155 @@ class PagamentoMensalidadeWebhookView(View):
             return JsonResponse({'ok': True, 'ignored': reason})
 
         return JsonResponse({'ok': True, 'payment_id': payment_id})
+
+
+class LojaView(LoginRequiredMixin, View):
+    template_name = 'loja.html'
+
+    def _guard(self, request):
+        if not _has_menu_permission(request, 'loja'):
+            messages.error(request, 'Seu perfil não possui permissão para acessar Loja.')
+            return redirect('accounts:painel')
+        return None
+
+    def _parse_valor(self, raw_value):
+        raw = str(raw_value or '').strip()
+        if not raw:
+            return None
+        normalized = raw.replace('R$', '').replace(' ', '')
+        if ',' in normalized and '.' in normalized:
+            normalized = normalized.replace('.', '').replace(',', '.')
+        else:
+            normalized = normalized.replace(',', '.')
+        try:
+            value = Decimal(normalized)
+        except (InvalidOperation, ValueError):
+            return None
+        if value < 0:
+            return None
+        return value.quantize(Decimal('0.01'))
+
+    def _context(self, form_data=None):
+        produtos = (
+            LojaProduto.objects
+            .prefetch_related('variacoes')
+            .order_by('-created_at')
+        )
+        rows = []
+        for produto in produtos:
+            variacoes = list(produto.variacoes.all())
+            rows.append({
+                'produto': produto,
+                'variacoes': variacoes,
+            })
+        return {
+            'produtos': rows,
+            'form_data': form_data or {},
+        }
+
+    def get(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+        context = self._context()
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+
+        titulo = str(request.POST.get('titulo') or '').strip()
+        descricao = str(request.POST.get('descricao') or '').strip()
+        foto = request.FILES.get('foto')
+        var_names = request.POST.getlist('variacao_nome[]')
+        var_values = request.POST.getlist('variacao_valor[]')
+        var_stocks = request.POST.getlist('variacao_estoque[]')
+
+        form_data = {
+            'titulo': titulo,
+            'descricao': descricao,
+            'variacoes': [],
+        }
+
+        if not titulo:
+            messages.error(request, 'Informe o título do produto.')
+            context = self._context(form_data=form_data)
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+
+        variacoes_parsed = []
+        max_len = max(len(var_names), len(var_values), len(var_stocks), 1)
+        for idx in range(max_len):
+            nome = (var_names[idx] if idx < len(var_names) else '').strip()
+            valor_raw = (var_values[idx] if idx < len(var_values) else '').strip()
+            estoque_raw = (var_stocks[idx] if idx < len(var_stocks) else '').strip()
+            form_data['variacoes'].append({
+                'nome': nome,
+                'valor': valor_raw,
+                'estoque': estoque_raw,
+            })
+
+            if not nome and not valor_raw and not estoque_raw:
+                continue
+            if not nome:
+                messages.error(request, f'Preencha o nome da variação na linha {idx + 1}.')
+                context = self._context(form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+            valor = self._parse_valor(valor_raw)
+            if valor is None:
+                messages.error(request, f'Informe um valor válido para a variação "{nome}".')
+                context = self._context(form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+            estoque = None
+            if estoque_raw:
+                if not re.fullmatch(r'-?\d+', estoque_raw):
+                    messages.error(request, f'Estoque inválido para a variação "{nome}".')
+                    context = self._context(form_data=form_data)
+                    context.update(_sidebar_context(request))
+                    return render(request, self.template_name, context)
+                estoque = int(estoque_raw)
+                if estoque < 0:
+                    messages.error(request, f'Estoque não pode ser negativo para a variação "{nome}".')
+                    context = self._context(form_data=form_data)
+                    context.update(_sidebar_context(request))
+                    return render(request, self.template_name, context)
+            variacoes_parsed.append({
+                'nome': nome,
+                'valor': valor,
+                'estoque': estoque,
+            })
+
+        if not variacoes_parsed:
+            messages.error(request, 'Cadastre pelo menos uma variação com valor.')
+            context = self._context(form_data=form_data)
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+
+        with transaction.atomic():
+            produto = LojaProduto.objects.create(
+                titulo=titulo,
+                descricao=descricao,
+                foto=foto,
+                created_by=request.user,
+            )
+            LojaProdutoVariacao.objects.bulk_create([
+                LojaProdutoVariacao(
+                    produto=produto,
+                    nome=item['nome'],
+                    valor=item['valor'],
+                    estoque=item['estoque'],
+                )
+                for item in variacoes_parsed
+            ])
+
+        messages.success(request, f'Produto "{produto.titulo}" cadastrado com {len(variacoes_parsed)} variação(ões).')
+        context = self._context()
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
 
 
 class UsuarioDetalheView(LoginRequiredMixin, View):

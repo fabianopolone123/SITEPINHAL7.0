@@ -585,3 +585,45 @@ class PagamentoMensalidade(models.Model):
 
     def __str__(self):
         return f'Pagamento mensalidades #{self.pk} - {self.responsavel}'
+
+
+class LojaProduto(models.Model):
+    titulo = models.CharField('título', max_length=255)
+    descricao = models.TextField('descrição', blank=True)
+    foto = models.ImageField('foto', upload_to='loja/produtos', null=True, blank=True)
+    ativo = models.BooleanField('ativo', default=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='loja_produtos_criados',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'produto da loja'
+        verbose_name_plural = 'produtos da loja'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return self.titulo
+
+
+class LojaProdutoVariacao(models.Model):
+    produto = models.ForeignKey(LojaProduto, on_delete=models.CASCADE, related_name='variacoes')
+    nome = models.CharField('variação', max_length=255)
+    valor = models.DecimalField('valor', max_digits=10, decimal_places=2)
+    estoque = models.IntegerField('estoque', null=True, blank=True)
+    ativo = models.BooleanField('ativo', default=True)
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'variação de produto'
+        verbose_name_plural = 'variações de produto'
+        ordering = ('produto__titulo', 'nome')
+
+    def __str__(self):
+        return f'{self.produto.titulo} - {self.nome}'

@@ -361,3 +361,10 @@ Arquivo oficial de registro das entregas concluidas.
 - O botão gera cobranças em lote para todos os aventureiros usando a mesma lógica atual (mês atual como `Inscrição` e meses seguintes como `Mensalidade`).
 - O processo respeita registros já existentes: não sobrescreve nem duplica cobranças já geradas.
 - A mensagem de retorno resume quantidade total criada e quantos aventureiros foram afetados.
+## 23/02/2026 - Loja (Diretor): módulo inicial de cadastro de produtos com variações
+
+- Adicionado novo menu `Loja` no painel (perfil `Diretor`) com tela inicial de cadastro e listagem de produtos.
+- Cadastro de produto com campos: `foto`, `título`, `descrição` e variações dinâmicas.
+- Cada variação permite informar `nome`, `valor` e `estoque` (opcional).
+- Criados modelos `LojaProduto` e `LojaProdutoVariacao` com migração `0029_lojaproduto_lojaprodutovariacao.py`.
+- O cadastro valida ao menos uma variação com valor e não exige estoque.
