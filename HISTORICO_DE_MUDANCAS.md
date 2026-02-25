@@ -492,3 +492,7 @@ Arquivo oficial de registro das entregas concluidas.
 - Após finalizar o cadastro de novo responsável com aventureiros, o fluxo agora redireciona para uma tela de sucesso dedicada (`novo-cadastro/sucesso/`) antes do login.
 - A tela mostra um modal de confirmação com resumo do cadastro (responsável, usuário e quantidade de aventureiros) e botão único `Voltar para tela de login`.
 - Adicionados bloqueios visuais/comportamentais na tela de sucesso (sem botão de fechar e com contenção de navegação por script), além de cabeçalhos `no-store` para reduzir retorno por cache após sair.
+## 25/02/2026 - Novo cadastro (login inicial): textos mais claros para o responsável
+
+- Ajustados os textos de abertura da tela inicial do novo cadastro de aventureiros para ficarem direcionados ao usuário responsável que está preenchendo.
+- Mantida a mesma lógica/campos da etapa (somente melhoria de comunicação/UX).
