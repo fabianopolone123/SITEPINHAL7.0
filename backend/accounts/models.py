@@ -632,6 +632,12 @@ class LojaProdutoVariacao(models.Model):
 class LojaProdutoFoto(models.Model):
     produto = models.ForeignKey(LojaProduto, on_delete=models.CASCADE, related_name='fotos')
     variacao = models.ForeignKey(LojaProdutoVariacao, on_delete=models.CASCADE, related_name='fotos')
+    variacoes_vinculadas = models.ManyToManyField(
+        LojaProdutoVariacao,
+        related_name='fotos_vinculadas_loja',
+        blank=True,
+    )
+    todas_variacoes = models.BooleanField('todas as variações', default=False)
     foto = models.ImageField('foto', upload_to='loja/produtos')
     ordem = models.PositiveIntegerField('ordem', default=0)
     created_at = models.DateTimeField('criado em', auto_now_add=True)
@@ -643,7 +649,11 @@ class LojaProdutoFoto(models.Model):
         ordering = ('produto__titulo', 'ordem', 'id')
 
     def __str__(self):
-        return f'Foto de {self.produto.titulo} ({self.variacao.nome})'
+        if self.todas_variacoes:
+            alvo = 'todas as variações'
+        else:
+            alvo = self.variacao.nome
+        return f'Foto de {self.produto.titulo} ({alvo})'
 
 
 class AventureiroPontosPreset(models.Model):

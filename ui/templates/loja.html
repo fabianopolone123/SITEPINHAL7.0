@@ -21,8 +21,9 @@
     .fotos-wrap { border:1px solid #e2e8f0; border-radius:12px; padding:.85rem; background:#fff; }
     .fotos-head { display:flex; justify-content:space-between; align-items:center; gap:.75rem; margin-bottom:.75rem; }
     .fotos-list { display:flex; flex-direction:column; gap:.55rem; }
-    .foto-row { display:grid; grid-template-columns: minmax(180px, 1.1fr) 1fr auto; gap:.5rem; align-items:center; }
+    .foto-row { display:grid; grid-template-columns: minmax(180px, 1.1fr) 1fr auto; gap:.5rem; align-items:start; }
     .foto-row input[type="file"], .foto-row select { width:100%; padding:.65rem .7rem; border:1px solid #cbd5e1; border-radius:10px; background:#fff; }
+    .foto-row select[multiple] { min-height: 112px; }
     .foto-remove { border:1px solid #fecaca; background:#fff1f2; color:#9f1239; border-radius:10px; padding:.6rem .75rem; cursor:pointer; }
     .loja-actions { display:flex; gap:.5rem; justify-content:flex-end; margin-top:.9rem; }
     .loja-products { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:1rem; }
@@ -116,7 +117,7 @@
           <div class="fotos-head">
             <div>
               <strong>Fotos do produto</strong>
-              <div class="panel-note">Você pode cadastrar várias fotos. Cada foto deve ser vinculada a uma variação.</div>
+              <div class="panel-note">Você pode cadastrar várias fotos. Cada foto pode ser vinculada a uma ou mais variações, ou a todas.</div>
             </div>
             <button type="button" class="secondary" id="btn-add-foto">Adicionar foto</button>
           </div>
@@ -126,8 +127,8 @@
                 <div class="foto-row" data-row-id="{{ row.row_id|default:'foto1' }}">
                   <input type="hidden" name="foto_row_id[]" value="{{ row.row_id|default:'foto1' }}" />
                   <input type="file" name="foto_arquivo__{{ row.row_id|default:'foto1' }}" accept="image/*" />
-                  <select name="foto_variacao_ref[]" class="foto-variacao-select" data-selected="{{ row.variacao_ref|default:'' }}">
-                    <option value="">Selecione a variação</option>
+                  <select name="foto_variacoes__{{ row.row_id|default:'foto1' }}[]" class="foto-variacao-select" data-selected="{{ row.variacao_refs_csv|default:'' }}" multiple size="4">
+                    <option value="all">Todas as variações</option>
                     {% for var in form_data.variacoes %}
                       <option value="v{{ forloop.counter0 }}">
                         {% if var.nome %}{{ var.nome }}{% else %}Variação {{ forloop.counter }}{% endif %}
@@ -141,8 +142,8 @@
               <div class="foto-row" data-row-id="foto1">
                 <input type="hidden" name="foto_row_id[]" value="foto1" />
                 <input type="file" name="foto_arquivo__foto1" accept="image/*" />
-                <select name="foto_variacao_ref[]" class="foto-variacao-select">
-                  <option value="">Selecione a variação</option>
+                <select name="foto_variacoes__foto1[]" class="foto-variacao-select" multiple size="4">
+                  <option value="all">Todas as variações</option>
                 </select>
                 <button type="button" class="foto-remove">Remover</button>
               </div>
@@ -215,8 +216,8 @@
     <div class="foto-row" data-row-id="__ROW_ID__">
       <input type="hidden" name="foto_row_id[]" value="__ROW_ID__" />
       <input type="file" name="foto_arquivo____ROW_ID__" accept="image/*" />
-      <select name="foto_variacao_ref[]" class="foto-variacao-select">
-        <option value="">Selecione a variação</option>
+      <select name="foto_variacoes____ROW_ID__[]" class="foto-variacao-select" multiple size="4">
+        <option value="all">Todas as variações</option>
       </select>
       <button type="button" class="foto-remove">Remover</button>
     </div>
@@ -265,22 +266,30 @@
       function refreshFotoVariationOptions() {
         const options = getVariationData();
         fotosList.querySelectorAll('.foto-variacao-select').forEach(function (select) {
-          const current = select.value || select.dataset.selected || '';
+          const currentValues = Array.from(select.selectedOptions || [])
+            .map(function (opt) { return opt.value; })
+            .filter(Boolean);
+          const savedValues = (select.dataset.selected || '')
+            .split(',')
+            .map(function (value) { return value.trim(); })
+            .filter(Boolean);
+          const selectedValues = currentValues.length ? currentValues : savedValues;
           select.innerHTML = '';
-          const placeholder = document.createElement('option');
-          placeholder.value = '';
-          placeholder.textContent = 'Selecione a variação';
-          select.appendChild(placeholder);
+          const allOption = document.createElement('option');
+          allOption.value = 'all';
+          allOption.textContent = 'Todas as variações';
+          select.appendChild(allOption);
           options.forEach(function (opt) {
             const option = document.createElement('option');
             option.value = opt.value;
             option.textContent = opt.label;
-            if (opt.value === current) option.selected = true;
             select.appendChild(option);
           });
-          if (current && !options.some(function (opt) { return opt.value === current; })) {
-            select.value = '';
-          }
+          const validValues = new Set(['all'].concat(options.map(function (opt) { return opt.value; })));
+          Array.from(select.options).forEach(function (option) {
+            option.selected = selectedValues.includes(option.value) && validValues.has(option.value);
+          });
+          select.size = Math.min(Math.max(options.length + 1, 2), 6);
           select.dataset.selected = '';
         });
       }
@@ -303,7 +312,10 @@
 
       function resetFotoRow(row) {
         const select = row.querySelector('.foto-variacao-select');
-        if (select) select.value = '';
+        if (select) {
+          Array.from(select.options).forEach(function (option) { option.selected = false; });
+          select.dataset.selected = '';
+        }
         const fileInput = row.querySelector('input[type=\"file\"]');
         if (fileInput) {
           const cleanInput = fileInput.cloneNode();

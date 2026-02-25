@@ -502,3 +502,8 @@ Arquivo oficial de registro das entregas concluidas.
 - Cada foto é cadastrada em uma linha própria e deve ser vinculada a uma variação do produto (`P`, `M`, cor, tamanho etc.).
 - Criado modelo `LojaProdutoFoto` para armazenar as fotos vinculadas às variações, mantendo compatibilidade com produtos antigos que ainda usam foto única.
 - A listagem de produtos passou a exibir as fotos vinculadas em cada variação, com miniaturas nos cards da loja.
+## 25/02/2026 - Loja: foto pode pertencer a múltiplas variações ou a todas
+
+- Evoluído o cadastro de fotos da `Loja` para permitir que uma mesma foto seja vinculada a várias variações do produto.
+- Adicionada opção `Todas as variações` por foto, evitando cadastro duplicado da mesma imagem quando ela serve para o produto inteiro.
+- Mantida compatibilidade com o vínculo anterior de foto para variação única.
