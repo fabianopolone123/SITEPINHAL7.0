@@ -33,6 +33,14 @@
     .resp-pontos-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:1rem; }
     .resp-pontos-card { border:1px solid #e2e8f0; border-radius:14px; background:#fff; padding:.9rem; }
     .resp-pontos-head { display:flex; justify-content:space-between; gap:.75rem; align-items:flex-start; margin-bottom:.55rem; }
+    .resp-pontos-ident { display:flex; gap:.7rem; align-items:center; min-width:0; }
+    .resp-pontos-avatar {
+      width:52px; height:52px; border-radius:14px; object-fit:cover; border:1px solid #dbeafe; background:#f8fafc; flex:0 0 auto;
+    }
+    .resp-pontos-avatar-fallback {
+      width:52px; height:52px; border-radius:14px; border:1px solid #dbeafe; background:#eff6ff; color:#1d4ed8;
+      display:flex; align-items:center; justify-content:center; font-weight:800; flex:0 0 auto;
+    }
     .resp-pontos-head h3 { margin:0; }
     .resp-pontos-total { font-size:1rem; font-weight:800; white-space:nowrap; }
     .resp-extrato-table { width:100%; border-collapse:collapse; }
@@ -73,9 +81,16 @@
           {% for row in responsavel_pontos_rows %}
             <section class="resp-pontos-card">
               <div class="resp-pontos-head">
-                <div>
-                  <h3>{{ row.aventureiro.nome }}</h3>
-                  <small class="panel-note">Extrato de lançamentos de pontos</small>
+                <div class="resp-pontos-ident">
+                  {% if row.aventureiro.foto %}
+                    <img src="{{ row.aventureiro.foto.url }}" alt="Foto de {{ row.aventureiro.nome }}" class="resp-pontos-avatar" />
+                  {% else %}
+                    <div class="resp-pontos-avatar-fallback" aria-hidden="true">{{ row.aventureiro.nome|slice:':1'|upper }}</div>
+                  {% endif %}
+                  <div style="min-width:0;">
+                    <h3>{{ row.aventureiro.nome }}</h3>
+                    <small class="panel-note">Extrato de lançamentos de pontos</small>
+                  </div>
                 </div>
                 <div class="resp-pontos-total {% if row.total >= 0 %}tag-pontos-pos{% else %}tag-pontos-neg{% endif %}">
                   Total: {% if row.total > 0 %}+{% endif %}{{ row.total }}

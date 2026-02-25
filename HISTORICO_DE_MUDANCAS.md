@@ -398,3 +398,7 @@ Arquivo oficial de registro das entregas concluidas.
   - total de pontos por aventureiro vinculado,
   - extrato de lançamentos de pontos de cada aventureiro.
 - Na visão de responsável não há lançamentos manuais nem cadastro/aplicação de pré-registros.
+## 23/02/2026 - Pontos (Responsável): exibe foto do aventureiro no card de extrato
+
+- Adicionada a foto do aventureiro nos cards da visão `Pontos` do perfil `Responsável`.
+- Quando o aventureiro não tiver foto, a tela mostra um fallback com a inicial do nome.
