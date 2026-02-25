@@ -465,3 +465,8 @@ Arquivo oficial de registro das entregas concluidas.
 - `Condições` e `Alergias` passaram a usar tabela com colunas separadas (resposta, detalhes, remédios), evitando textos ambíguos como `Sim - Não`.
 - Valores genéricos como `Não`, `-` e `Nenhum` em campos de descrição são tratados como “sem descrição informada” / “não se aplica” para melhorar a leitura.
 - Ajustes aplicados tanto na visão do responsável quanto na visão geral da diretoria.
+## 23/02/2026 - Cadastro de alergias (ficha médica): corrige interpretação de "Não" em campo livre
+
+- Corrigida a conversão das alergias no fluxo de inscrição antigo (`ficha médica`): textos como `Não`, `Nao`, `-`, `Nenhum` não são mais gravados como resposta `Sim`.
+- Ajustada também a leitura dos registros antigos para tratar esses casos como `Não` na tela de detalhes do aventureiro.
+- Motivo: os campos de alergia nesse fluxo são texto livre e vários cadastros tinham `Não` digitado, o que antes era interpretado incorretamente como alergia existente.

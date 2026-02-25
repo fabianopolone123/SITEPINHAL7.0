@@ -551,6 +551,10 @@ def _texto_relevante(value):
     return raw
 
 
+def _texto_indica_nao(value):
+    return _texto_relevante(value) == ''
+
+
 def _build_aventureiro_saude_display(aventureiro):
     condicoes_labels = {
         'cardiaco': 'Problemas cardíacos',
@@ -583,11 +587,16 @@ def _build_aventureiro_saude_display(aventureiro):
     for key, label in alergias_labels.items():
         data = (aventureiro.alergias or {}).get(key, {})
         resposta = _normalize_sim_nao(data.get('resposta'))
+        descricao_raw = data.get('descricao')
+        if resposta == 'sim' and _texto_indica_nao(descricao_raw):
+            # Compatibilidade com cadastros antigos onde o campo livre recebeu "Não"
+            # e acabou sendo salvo como resposta "sim".
+            resposta = 'nao'
         alergias.append({
             'label': label,
             'resposta': resposta,
             'resposta_label': 'Sim' if resposta == 'sim' else 'Não',
-            'descricao': _texto_relevante(data.get('descricao')),
+            'descricao': _texto_relevante(descricao_raw),
         })
 
     return {
@@ -2029,9 +2038,18 @@ class NovoCadastroResumoView(View):
                     'psicologico': {'resposta': 'sim' if str(medica.get('psicologicos', '')).upper() == 'S' else 'nao', 'detalhe': '', 'medicamento': 'sim' if medica.get('psicologicos_medicamentos') else 'nao', 'remedio': medica.get('psicologicos_medicamentos', '')},
                 }
                 alergias = {
-                    'alergia_pele': {'resposta': 'sim' if medica.get('alergia_pele') else 'nao', 'descricao': medica.get('alergia_pele', '')},
-                    'alergia_alimento': {'resposta': 'sim' if medica.get('alergia_alimentar') else 'nao', 'descricao': medica.get('alergia_alimentar', '')},
-                    'alergia_medicamento': {'resposta': 'sim' if medica.get('alergia_medicamento') else 'nao', 'descricao': medica.get('alergia_medicamento', '')},
+                    'alergia_pele': {
+                        'resposta': 'nao' if _texto_indica_nao(medica.get('alergia_pele', '')) else 'sim',
+                        'descricao': medica.get('alergia_pele', ''),
+                    },
+                    'alergia_alimento': {
+                        'resposta': 'nao' if _texto_indica_nao(medica.get('alergia_alimentar', '')) else 'sim',
+                        'descricao': medica.get('alergia_alimentar', ''),
+                    },
+                    'alergia_medicamento': {
+                        'resposta': 'nao' if _texto_indica_nao(medica.get('alergia_medicamento', '')) else 'sim',
+                        'descricao': medica.get('alergia_medicamento', ''),
+                    },
                 }
                 try:
                     nascimento = date.fromisoformat(inscricao.get('data_nascimento', ''))
