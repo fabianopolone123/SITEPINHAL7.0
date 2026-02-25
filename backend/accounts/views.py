@@ -4690,7 +4690,7 @@ class PontosView(LoginRequiredMixin, View):
         )
 
     def _presets(self):
-        return list(AventureiroPontosPreset.objects.order_by('nome'))
+        return list(AventureiroPontosPreset.objects.filter(ativo=True).order_by('nome'))
 
     def _context(self, form_state=None):
         return {
@@ -4768,6 +4768,7 @@ class PontosView(LoginRequiredMixin, View):
             'aventureiro_id': request.POST.get('aventureiro_id', ''),
             'pontos': request.POST.get('pontos', ''),
             'motivo': request.POST.get('motivo', ''),
+            'preset_select_id': request.POST.get('preset_select_id', ''),
             'preset_nome': request.POST.get('preset_nome', ''),
             'preset_pontos': request.POST.get('preset_pontos', ''),
             'preset_motivo': request.POST.get('preset_motivo', ''),
@@ -4782,6 +4783,8 @@ class PontosView(LoginRequiredMixin, View):
             motivo = str(request.POST.get('motivo') or '').strip()
             target_mode = str(request.POST.get('target_mode') or 'individual').strip()
             aventureiro_id = str(request.POST.get('aventureiro_id') or '').strip()
+            preset_selected_id = str(request.POST.get('preset_select_id') or '').strip()
+            preset_obj = AventureiroPontosPreset.objects.filter(pk=preset_selected_id, ativo=True).first() if preset_selected_id else None
             if pontos is None:
                 messages.error(request, 'Informe um valor de pontos válido (pode ser negativo).')
             elif not motivo:
@@ -4797,6 +4800,7 @@ class PontosView(LoginRequiredMixin, View):
                                 aventureiro=av,
                                 pontos=pontos,
                                 motivo=motivo,
+                                preset=preset_obj,
                                 created_by=request.user,
                             )
                             for av in aventureiros
@@ -4811,9 +4815,31 @@ class PontosView(LoginRequiredMixin, View):
                             aventureiro=av,
                             pontos=pontos,
                             motivo=motivo,
+                            preset=preset_obj,
                             created_by=request.user,
                         )
                         messages.success(request, f'Pontos lançados para {av.nome}.')
+
+        elif action == 'salvar_lancamento':
+            nome = str(request.POST.get('preset_nome') or '').strip()
+            pontos = self._parse_int(request.POST.get('pontos'))
+            motivo = str(request.POST.get('motivo') or '').strip()
+            if not nome:
+                messages.error(request, 'Informe o nome do pré-registro para salvar o lançamento.')
+            elif pontos is None:
+                messages.error(request, 'Informe um valor de pontos válido para salvar o pré-registro.')
+            elif not motivo:
+                messages.error(request, 'Informe o motivo para salvar o pré-registro.')
+            else:
+                AventureiroPontosPreset.objects.create(
+                    nome=nome,
+                    pontos=pontos,
+                    motivo_padrao=motivo,
+                    ativo=True,
+                    created_by=request.user,
+                )
+                messages.success(request, f'Lançamento salvo como pré-registro "{nome}".')
+                form_state['preset_nome'] = ''
 
         elif action == 'criar_preset':
             nome = str(request.POST.get('preset_nome') or '').strip()

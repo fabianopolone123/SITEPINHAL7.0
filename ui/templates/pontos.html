@@ -21,6 +21,7 @@
     .target-row { display:flex; gap:1rem; flex-wrap:wrap; align-items:center; margin-bottom:.6rem; }
     .target-row label { display:inline-flex; align-items:center; gap:.35rem; font-weight:600; }
     .action-row-local { display:flex; justify-content:flex-end; margin-top:.8rem; }
+    .action-row-split { display:flex; justify-content:flex-end; gap:.6rem; flex-wrap:wrap; margin-top:.8rem; }
     .pontos-subgrid { display:grid; grid-template-columns: 1fr; gap:.9rem; }
     .pontos-subcard { border:1px solid #e2e8f0; border-radius:12px; padding:.85rem; background:#fafcff; }
     .pontos-subcard + .pontos-subcard { margin-top:.25rem; }
@@ -140,145 +141,84 @@
     {% else %}
     <section class="painel-card pontos-card">
       <h3 style="margin-bottom:.25rem;">Lançamentos e pré-registros</h3>
-      <p class="panel-note">Cadastre lançamentos manuais e use pré-registros padrão no mesmo painel.</p>
-      <div class="pontos-admin-grid">
-        <section class="pontos-subcard">
-          <h4>Cadastrar lançamento</h4>
-          <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="lancar_pontos" />
-            <fieldset class="target-box">
-              <legend>Destino</legend>
-              <div class="target-row">
-                <label><input type="radio" name="target_mode" value="individual" {% if form_state.target_mode != 'todos' %}checked{% endif %}> Individual</label>
-                <label><input type="radio" name="target_mode" value="todos" {% if form_state.target_mode == 'todos' %}checked{% endif %}> Todos os aventureiros</label>
-              </div>
-              <label>
-                Aventureiro (quando individual)
-                <select name="aventureiro_id">
-                  <option value="">Selecione...</option>
-                  {% for av in aventureiros %}
-                    <option value="{{ av.pk }}" {% if form_state.aventureiro_id == av.pk|stringformat:'s' %}selected{% endif %}>{{ av.nome }}</option>
-                  {% endfor %}
-                </select>
-              </label>
-            </fieldset>
-            <div class="pontos-form-grid" style="margin-top:.9rem;">
-              <label>
-                Pontos
-                <input type="text" name="pontos" inputmode="numeric" placeholder="Ex.: 15 ou -10" value="{{ form_state.pontos|default:'' }}" required />
-              </label>
-              <label>
-                Motivo
-                <input type="text" name="motivo" placeholder="Ex.: Presença, Bom comportamento" value="{{ form_state.motivo|default:'' }}" required />
-              </label>
-            </div>
-            <div class="action-row-local">
-              <button type="submit" class="primary">Cadastrar lançamento</button>
-            </div>
-          </form>
-        </section>
-
-        <section class="pontos-subcard">
-          <h4>Pré-registros padrão</h4>
-          <p class="panel-note" style="margin-top:-.15rem;">Cadastre modelos de pontuação (motivo + valor) e aplique rapidamente depois.</p>
-          <div class="pontos-subgrid">
-          <section class="pontos-subcard">
-            <h4>Cadastrar pré-registro padrão</h4>
-            <form method="post">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="criar_preset" />
-              <div class="pontos-form-grid">
-                <label>
-                  Nome do pré-registro
-                  <input type="text" name="preset_nome" placeholder="Ex.: Presença" value="{{ form_state.preset_nome|default:'' }}" required />
-                </label>
-                <label>
-                  Pontos
-                  <input type="text" name="preset_pontos" inputmode="numeric" placeholder="Ex.: 15 ou -10" value="{{ form_state.preset_pontos|default:'' }}" required />
-                </label>
-                <label class="full">
-                  Motivo padrão
-                  <input type="text" name="preset_motivo" placeholder="Ex.: Presença na reunião" value="{{ form_state.preset_motivo|default:'' }}" required />
-                </label>
-                <label class="full" style="display:flex; flex-direction:row; align-items:center; gap:.45rem; font-weight:600;">
-                  <input type="checkbox" name="preset_ativo" {% if form_state.preset_ativo or not form_state %}checked{% endif %} />
-                  Pré-registro ativo
-                </label>
-              </div>
-              <div class="action-row-local">
-                <button type="submit" class="primary">Cadastrar pré-registro</button>
-              </div>
-            </form>
-          </section>
-
-          <section class="pontos-subcard">
-            <h4>Aplicar pré-registro</h4>
-            <form method="post">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="aplicar_preset" />
-              <div class="pontos-form-grid">
-                <label class="full">
-                  Pré-registro
-                  <select name="preset_apply_id" required>
-                    <option value="">Selecione...</option>
-                    {% for preset in presets %}
-                      <option value="{{ preset.pk }}" {% if form_state.preset_apply_id == preset.pk|stringformat:'s' %}selected{% endif %}>
-                        {{ preset.nome }} ({% if preset.pontos > 0 %}+{% endif %}{{ preset.pontos }}){% if not preset.ativo %} [Inativo]{% endif %}
-                      </option>
-                    {% endfor %}
-                  </select>
-                </label>
-              </div>
-              <fieldset class="target-box" style="margin-top:.9rem;">
-                <legend>Aplicar para</legend>
-                <div class="target-row">
-                  <label><input type="radio" name="preset_apply_target_mode" value="individual" {% if form_state.preset_apply_target_mode != 'todos' %}checked{% endif %}> Individual</label>
-                  <label><input type="radio" name="preset_apply_target_mode" value="todos" {% if form_state.preset_apply_target_mode == 'todos' %}checked{% endif %}> Todos os aventureiros</label>
-                </div>
-                <label>
-                  Aventureiro (quando individual)
-                  <select name="preset_apply_aventureiro_id">
-                    <option value="">Selecione...</option>
-                    {% for av in aventureiros %}
-                      <option value="{{ av.pk }}" {% if form_state.preset_apply_aventureiro_id == av.pk|stringformat:'s' %}selected{% endif %}>{{ av.nome }}</option>
-                    {% endfor %}
-                  </select>
-                </label>
-              </fieldset>
-              <div class="action-row-local">
-                <button type="submit" class="secondary" style="margin-top:.8rem;">Aplicar pré-registro</button>
-              </div>
-            </form>
-          </section>
-          </div>
-          <div class="pontos-divider"></div>
-          <h4>Pré-registros cadastrados</h4>
-          <div class="pontos-scroll">
-            <table class="preset-list">
-              <thead>
-                <tr>
-                  <th>Pré-registro</th>
-                  <th>Pontos</th>
-                  <th>Motivo</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for preset in presets %}
-                  <tr>
-                    <td>{{ preset.nome }}</td>
-                    <td class="{% if preset.pontos >= 0 %}tag-pontos-pos{% else %}tag-pontos-neg{% endif %}">{% if preset.pontos > 0 %}+{% endif %}{{ preset.pontos }}</td>
-                    <td>{{ preset.motivo_padrao }}</td>
-                    <td>{% if preset.ativo %}Ativo{% else %}Inativo{% endif %}</td>
-                  </tr>
-                {% empty %}
-                  <tr><td colspan="4">Nenhum pré-registro cadastrado.</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
+      <p class="panel-note">Use um pré-registro salvo para preencher os campos ou digite manualmente. Você pode enviar o lançamento ou salvar como pré-registro para usar depois.</p>
+      <form method="post">
+        {% csrf_token %}
+        <div class="pontos-form-grid">
+          <label class="full">
+            Pré-registro salvo (opcional)
+            <select name="preset_select_id" id="preset_select_id">
+              <option value="">Selecione para preencher os dados...</option>
+              {% for preset in presets %}
+                <option
+                  value="{{ preset.pk }}"
+                  data-preset-nome="{{ preset.nome|escape }}"
+                  data-preset-pontos="{{ preset.pontos }}"
+                  data-preset-motivo="{{ preset.motivo_padrao|escape }}"
+                  {% if form_state.preset_select_id == preset.pk|stringformat:'s' %}selected{% endif %}
+                >
+                  {{ preset.nome }} ({% if preset.pontos > 0 %}+{% endif %}{{ preset.pontos }})
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            Nome do pré-registro
+            <input type="text" name="preset_nome" id="preset_nome" placeholder="Ex.: Presença" value="{{ form_state.preset_nome|default:'' }}" />
+          </label>
+          <label>
+            Pontos
+            <input type="text" name="pontos" id="pontos_input" inputmode="numeric" placeholder="Ex.: 15 ou -10" value="{{ form_state.pontos|default:'' }}" required />
+          </label>
+          <label class="full">
+            Motivo
+            <input type="text" name="motivo" id="motivo_input" placeholder="Ex.: Presença, Bom comportamento" value="{{ form_state.motivo|default:'' }}" required />
+          </label>
         </div>
+        <fieldset class="target-box" style="margin-top:.9rem;">
+          <legend>Destino</legend>
+          <div class="target-row">
+            <label><input type="radio" name="target_mode" value="individual" {% if form_state.target_mode != 'todos' %}checked{% endif %}> Individual</label>
+            <label><input type="radio" name="target_mode" value="todos" {% if form_state.target_mode == 'todos' %}checked{% endif %}> Todos os aventureiros</label>
+          </div>
+          <label>
+            Aventureiro (quando individual)
+            <select name="aventureiro_id">
+              <option value="">Selecione...</option>
+              {% for av in aventureiros %}
+                <option value="{{ av.pk }}" {% if form_state.aventureiro_id == av.pk|stringformat:'s' %}selected{% endif %}>{{ av.nome }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </fieldset>
+        <div class="action-row-split">
+          <button type="submit" name="action" value="salvar_lancamento" class="secondary">Salvar lançamento</button>
+          <button type="submit" name="action" value="lancar_pontos" class="primary">Enviar lançamento</button>
+        </div>
+      </form>
+      <div class="pontos-divider"></div>
+      <h4>Pré-registros cadastrados</h4>
+      <div class="pontos-scroll">
+        <table class="preset-list">
+          <thead>
+            <tr>
+              <th>Pré-registro</th>
+              <th>Pontos</th>
+              <th>Motivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for preset in presets %}
+              <tr>
+                <td>{{ preset.nome }}</td>
+                <td class="{% if preset.pontos >= 0 %}tag-pontos-pos{% else %}tag-pontos-neg{% endif %}">{% if preset.pontos > 0 %}+{% endif %}{{ preset.pontos }}</td>
+                <td>{{ preset.motivo_padrao }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="3">Nenhum pré-registro cadastrado.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -343,5 +283,23 @@
     </section>
     {% endif %}
   </main>
+  {% if pontos_mode != 'responsavel' %}
+  <script>
+    (function() {
+      const presetSelect = document.getElementById('preset_select_id');
+      if (!presetSelect) return;
+      const nomeInput = document.getElementById('preset_nome');
+      const pontosInput = document.getElementById('pontos_input');
+      const motivoInput = document.getElementById('motivo_input');
+      presetSelect.addEventListener('change', function() {
+        const opt = presetSelect.options[presetSelect.selectedIndex];
+        if (!opt || !opt.value) return;
+        if (nomeInput) nomeInput.value = opt.dataset.presetNome || '';
+        if (pontosInput) pontosInput.value = opt.dataset.presetPontos || '';
+        if (motivoInput) motivoInput.value = opt.dataset.presetMotivo || '';
+      });
+    })();
+  </script>
+  {% endif %}
 </body>
 </html>

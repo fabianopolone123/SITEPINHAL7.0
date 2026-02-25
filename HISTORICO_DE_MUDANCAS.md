@@ -419,3 +419,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Reorganizada a tela `Pontos` no modo administrativo para concentrar `Cadastrar lançamento`, `Pré-registros padrão` e `Aplicar pré-registro` em um único card principal.
 - O fluxo de uso ficou mais claro no painel, mantendo a listagem de pré-registros no mesmo contexto visual.
 - `Totais por aventureiro` e `Lançamentos recentes` permanecem em cards separados abaixo.
+## 23/02/2026 - Pontos (Diretor): formulário único com salvar lançamento como pré-registro
+
+- A tela de `Pontos` (modo administrativo) passou a usar um único formulário para `Lançamentos e pré-registros`.
+- Adicionado campo `Pré-registro salvo (opcional)` para preencher automaticamente `Nome do pré-registro`, `Pontos` e `Motivo`.
+- Botão `Cadastrar lançamento` foi renomeado para `Enviar lançamento`.
+- Adicionado botão `Salvar lançamento`, que grava o preenchimento atual como pré-registro padrão para reutilização posterior.
+- Removidos da tela os controles de `Pré-registro ativo` e a coluna `Status` da tabela de pré-registros.
