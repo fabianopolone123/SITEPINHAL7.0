@@ -64,6 +64,7 @@
       {% endif %}
     </header>
 
+    {% if pontos_mode != 'responsavel' or messages %}
     <section class="painel-card">
       <div class="status" aria-live="polite">
         {% for message in messages %}
@@ -75,6 +76,7 @@
         {% endfor %}
       </div>
     </section>
+    {% endif %}
 
     {% if pontos_mode == 'responsavel' %}
     <section class="painel-card">

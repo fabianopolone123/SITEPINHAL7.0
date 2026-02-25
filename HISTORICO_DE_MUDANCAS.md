@@ -410,3 +410,7 @@ Arquivo oficial de registro das entregas concluidas.
 
 - A visão `Pontos` do perfil `Responsável` ficou mais limpa, sem textos descritivos no cabeçalho e no bloco de status quando não houver mensagens.
 - Mantido apenas o conteúdo principal (cards com totais e extratos).
+## 23/02/2026 - Pontos (Responsável): oculta card de status vazio
+
+- Removido o card em branco no topo da tela `Pontos` (perfil `Responsável`) quando não houver mensagens para exibir.
+- O card de status continua aparecendo normalmente no modo administrativo e sempre que houver mensagens.
