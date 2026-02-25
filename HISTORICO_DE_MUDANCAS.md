@@ -444,3 +444,7 @@ Arquivo oficial de registro das entregas concluidas.
 - Corrigida a lógica de menus para priorizar permissões do grupo quando o usuário possui grupo vinculado no perfil ativo.
 - Agora desmarcar `Pontos`, `Loja` (ou qualquer outro menu) em `Menus liberados por grupo` remove o botão da sidebar corretamente.
 - Mantido fallback de compatibilidade apenas para usuários antigos sem grupos vinculados.
+## 23/02/2026 - Permissões (UX): explicação visual de Diretor x Diretoria
+
+- Adicionada uma legenda explicativa na tela `Permissões` esclarecendo a diferença entre `Diretor` (perfil/grupo administrativo) e `Diretoria` (perfil de cadastro da pessoa da diretoria).
+- Ajuste somente visual, sem alterar regras de acesso.

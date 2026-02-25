@@ -37,6 +37,16 @@
       max-height: 420px;
       overflow: auto;
     }
+    .role-help {
+      margin-top: .75rem;
+      padding: .85rem;
+      border: 1px solid #dbeafe;
+      border-radius: 12px;
+      background: #f8fbff;
+    }
+    .role-help p {
+      margin: .2rem 0;
+    }
     @media (max-width: 768px) {
       .table-search {
         max-width: 100%;
@@ -71,6 +81,12 @@
       <p class="panel-note"><strong>2)</strong> Vincule os usuários aos grupos.</p>
       <p class="panel-note"><strong>3)</strong> Use exceção por usuário só quando precisar.</p>
       <p class="panel-note"><strong>Regra de prioridade:</strong> se um usuário tiver exceção individual marcada, ela prevalece sobre o grupo e a linha de grupos fica bloqueada para evitar conflito.</p>
+      <div class="role-help">
+        <p class="panel-note"><strong>Diferença entre Diretor e Diretoria:</strong></p>
+        <p class="panel-note"><strong>Diretor</strong> = perfil/grupo administrativo (acessos do painel).</p>
+        <p class="panel-note"><strong>Diretoria</strong> = perfil ligado ao cadastro da pessoa da diretoria (dados/cadastro).</p>
+        <p class="panel-note">Os dois podem aparecer para o mesmo usuário, conforme a função e os acessos definidos.</p>
+      </div>
     </section>
 
     <section class="painel-card">
