@@ -430,3 +430,7 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Ao enviar um lançamento com sucesso, a tela `Pontos` agora destaca a confirmação levando o foco ao bloco de status.
 - Também exibe um alerta de confirmação com a mensagem de sucesso para dar retorno imediato ao usuário.
+## 23/02/2026 - Correção de codificação (PT-BR): textos com caracteres quebrados
+
+- Corrigidos textos com codificação quebrada (`Ã`, `�`) em `backend/accounts/views.py`.
+- Ajustados rótulos de menu (ex.: `Início`, `Presença`, `Usuários`, `Permissões`, `Documentos inscrição`) e mensagens de validação/feedback para acentuação correta em PT-BR.

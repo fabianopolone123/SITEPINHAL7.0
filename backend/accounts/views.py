@@ -74,19 +74,19 @@ from datetime import date, datetime, timedelta
 User = get_user_model()
 
 MENU_ITEMS = [
-    ('inicio', 'InÃ­cio'),
+    ('inicio', 'Início'),
     ('meus_dados', 'Meus dados'),
     ('aventureiros', 'Aventureiros'),
     ('eventos', 'Eventos'),
-    ('presenca', 'PresenÃ§a'),
+    ('presenca', 'Presença'),
     ('auditoria', 'Auditoria'),
-    ('usuarios', 'UsuÃ¡rios'),
+    ('usuarios', 'Usuários'),
     ('financeiro', 'Financeiro'),
     ('pontos', 'Pontos'),
     ('loja', 'Loja'),
     ('whatsapp', 'WhatsApp'),
-    ('documentos_inscricao', 'Documentos inscriÃ§Ã£o'),
-    ('permissoes', 'PermissÃµes'),
+    ('documentos_inscricao', 'Documentos inscrição'),
+    ('permissoes', 'Permissões'),
 ]
 
 MENU_KEYS = {item[0] for item in MENU_ITEMS}
@@ -1060,42 +1060,42 @@ def _find_duplicate_document(field_name, normalized_value, scope='global'):
     if field_name in {'cpf_aventureiro', 'cpf_pai', 'cpf_mae', 'cpf_responsavel', 'cpf_diretoria'}:
         if scope == 'inscricao':
             if field_name == 'cpf_aventureiro' and Aventureiro.objects.filter(cpf=value).exists():
-                return 'CPF jÃ¡ cadastrado em aventureiro.'
+                return 'CPF já cadastrado em aventureiro.'
             if field_name in {'cpf_pai', 'cpf_mae', 'cpf_responsavel'}:
                 if Responsavel.objects.filter(pai_cpf=value).exists():
-                    return 'CPF jÃ¡ cadastrado como CPF do pai.'
+                    return 'CPF já cadastrado como CPF do pai.'
                 if Responsavel.objects.filter(mae_cpf=value).exists():
-                    return 'CPF jÃ¡ cadastrado como CPF da mÃ£e.'
+                    return 'CPF já cadastrado como CPF da mãe.'
                 if Responsavel.objects.filter(responsavel_cpf=value).exists():
-                    return 'CPF jÃ¡ cadastrado como CPF do responsÃ¡vel.'
+                    return 'CPF já cadastrado como CPF do responsável.'
             return None
         if scope == 'diretoria' or field_name == 'cpf_diretoria':
             if Diretoria.objects.filter(cpf=value).exists():
-                return 'CPF jÃ¡ cadastrado em diretoria.'
+                return 'CPF já cadastrado em diretoria.'
             return None
 
         if Aventureiro.objects.filter(cpf=value).exists():
-            return 'CPF jÃ¡ cadastrado em aventureiro.'
+            return 'CPF já cadastrado em aventureiro.'
         if Diretoria.objects.filter(cpf=value).exists():
-            return 'CPF jÃ¡ cadastrado em diretoria.'
+            return 'CPF já cadastrado em diretoria.'
         if Responsavel.objects.filter(pai_cpf=value).exists():
-            return 'CPF jÃ¡ cadastrado como CPF do pai.'
+            return 'CPF já cadastrado como CPF do pai.'
         if Responsavel.objects.filter(mae_cpf=value).exists():
-            return 'CPF jÃ¡ cadastrado como CPF da mÃ£e.'
+            return 'CPF já cadastrado como CPF da mãe.'
         if Responsavel.objects.filter(responsavel_cpf=value).exists():
-            return 'CPF jÃ¡ cadastrado como CPF do responsÃ¡vel.'
+            return 'CPF já cadastrado como CPF do responsável.'
         return None
 
     if field_name == 'rg':
         if Aventureiro.objects.filter(rg=value).exists():
-            return 'RG jÃ¡ cadastrado em aventureiro.'
+            return 'RG já cadastrado em aventureiro.'
         if Diretoria.objects.filter(rg=value).exists():
-            return 'RG jÃ¡ cadastrado em diretoria.'
+            return 'RG já cadastrado em diretoria.'
         return None
 
     if field_name == 'certidao_nascimento':
         if Aventureiro.objects.filter(certidao=value).exists():
-            return 'CertidÃ£o jÃ¡ cadastrada em aventureiro.'
+            return 'Certidão já cadastrada em aventureiro.'
         return None
 
     return None
@@ -1106,7 +1106,7 @@ def _date_parts_today():
     meses_ptbr = [
         'Janeiro',
         'Fevereiro',
-        'MarÃ§o',
+        'Março',
         'Abril',
         'Maio',
         'Junho',
@@ -1133,7 +1133,7 @@ def _normalize_month_pt(value):
     mapping = {
         'january': 'Janeiro',
         'february': 'Fevereiro',
-        'march': 'MarÃ§o',
+        'march': 'Março',
         'april': 'Abril',
         'may': 'Maio',
         'june': 'Junho',
@@ -1145,8 +1145,8 @@ def _normalize_month_pt(value):
         'december': 'Dezembro',
         'janeiro': 'Janeiro',
         'fevereiro': 'Fevereiro',
-        'marco': 'MarÃ§o',
-        'marÃ§o': 'MarÃ§o',
+        'marco': 'Março',
+        'março': 'Março',
         'abril': 'Abril',
         'maio': 'Maio',
         'junho': 'Junho',
@@ -1285,13 +1285,13 @@ class PasswordRecoveryView(View):
             cpf_digits = _normalize_cpf(request.POST.get('cpf'))
             user = self._find_user_by_cpf(cpf_digits)
             if not user:
-                messages.error(request, 'CPF nÃ£o encontrado.')
+                messages.error(request, 'CPF não encontrado.')
                 recovery_data = {'stage': 'lookup', 'cpf': cpf_digits}
                 _set_password_recovery_data(request.session, recovery_data)
                 return render(request, self.template_name, self._context(recovery_data))
             phone_number = normalize_phone_number(resolve_user_phone(user))
             if not phone_number:
-                messages.error(request, 'NÃ£o foi encontrado WhatsApp vÃ¡lido para este cadastro.')
+                messages.error(request, 'Não foi encontrado WhatsApp válido para este cadastro.')
                 recovery_data = {'stage': 'lookup', 'cpf': cpf_digits}
                 _set_password_recovery_data(request.session, recovery_data)
                 return render(request, self.template_name, self._context(recovery_data))
@@ -1313,12 +1313,12 @@ class PasswordRecoveryView(View):
             user_id = recovery_data.get('user_id')
             phone_number = recovery_data.get('phone')
             if not user_id or not phone_number:
-                messages.error(request, 'Fluxo de recuperaÃ§Ã£o invÃ¡lido. Informe o CPF novamente.')
+                messages.error(request, 'Fluxo de recuperação inválido. Informe o CPF novamente.')
                 _clear_password_recovery(request.session)
                 return redirect('accounts:password_recovery')
             user = User.objects.filter(pk=user_id).first()
             if not user:
-                messages.error(request, 'UsuÃ¡rio nÃ£o encontrado. Informe o CPF novamente.')
+                messages.error(request, 'Usuário não encontrado. Informe o CPF novamente.')
                 _clear_password_recovery(request.session)
                 return redirect('accounts:password_recovery')
 
@@ -1331,7 +1331,7 @@ class PasswordRecoveryView(View):
             )
             success, _provider_id, error_message = send_wapi_text(phone_number, message_text)
             if not success:
-                messages.error(request, f'Falha ao enviar cÃ³digo por WhatsApp: {error_message}')
+                messages.error(request, f'Falha ao enviar código por WhatsApp: {error_message}')
                 recovery_data['stage'] = 'confirm_send'
                 _set_password_recovery_data(request.session, recovery_data)
                 return render(request, self.template_name, self._context(recovery_data))
@@ -1346,7 +1346,7 @@ class PasswordRecoveryView(View):
                 'verified': False,
             })
             _set_password_recovery_data(request.session, recovery_data)
-            messages.success(request, 'CÃ³digo enviado no WhatsApp cadastrado.')
+            messages.success(request, 'Código enviado no WhatsApp cadastrado.')
             return render(request, self.template_name, self._context(recovery_data))
 
         if action == 'verify_code':
@@ -1354,7 +1354,7 @@ class PasswordRecoveryView(View):
             expected_code = str(recovery_data.get('code') or '')
             expires_at_raw = str(recovery_data.get('expires_at') or '')
             if not expected_code or not expires_at_raw:
-                messages.error(request, 'CÃ³digo nÃ£o gerado. Solicite um novo envio.')
+                messages.error(request, 'Código não gerado. Solicite um novo envio.')
                 recovery_data['stage'] = 'confirm_send'
                 _set_password_recovery_data(request.session, recovery_data)
                 return render(request, self.template_name, self._context(recovery_data))
@@ -1364,7 +1364,7 @@ class PasswordRecoveryView(View):
                 expires_at = timezone.localtime(timezone.now()) - timedelta(seconds=1)
             now = timezone.localtime(timezone.now())
             if now > expires_at:
-                messages.error(request, 'CÃ³digo expirado. Clique em recuperar para gerar novo cÃ³digo.')
+                messages.error(request, 'Código expirado. Clique em recuperar para gerar novo código.')
                 recovery_data['stage'] = 'confirm_send'
                 recovery_data['code_sent'] = False
                 recovery_data['verified'] = False
@@ -1376,14 +1376,14 @@ class PasswordRecoveryView(View):
                 attempts = int(recovery_data.get('attempts') or 0) + 1
                 recovery_data['attempts'] = attempts
                 if attempts >= self.max_attempts:
-                    messages.error(request, 'Muitas tentativas invÃ¡lidas. Solicite um novo cÃ³digo.')
+                    messages.error(request, 'Muitas tentativas inválidas. Solicite um novo código.')
                     recovery_data['stage'] = 'confirm_send'
                     recovery_data['code_sent'] = False
                     recovery_data['verified'] = False
                     recovery_data.pop('code', None)
                     recovery_data.pop('expires_at', None)
                 else:
-                    messages.error(request, f'CÃ³digo invÃ¡lido. Tentativas restantes: {self.max_attempts - attempts}.')
+                    messages.error(request, f'Código inválido. Tentativas restantes: {self.max_attempts - attempts}.')
                     recovery_data['stage'] = 'verify_code'
                 _set_password_recovery_data(request.session, recovery_data)
                 return render(request, self.template_name, self._context(recovery_data))
@@ -1391,12 +1391,12 @@ class PasswordRecoveryView(View):
             recovery_data['stage'] = 'reset_password'
             recovery_data['verified'] = True
             _set_password_recovery_data(request.session, recovery_data)
-            messages.success(request, 'CÃ³digo validado. Defina sua nova senha.')
+            messages.success(request, 'Código validado. Defina sua nova senha.')
             return render(request, self.template_name, self._context(recovery_data))
 
         if action == 'reset_password':
             if not recovery_data.get('verified'):
-                messages.error(request, 'Valide o cÃ³digo antes de redefinir a senha.')
+                messages.error(request, 'Valide o código antes de redefinir a senha.')
                 recovery_data['stage'] = 'verify_code'
                 _set_password_recovery_data(request.session, recovery_data)
                 return render(request, self.template_name, self._context(recovery_data))
@@ -1408,19 +1408,19 @@ class PasswordRecoveryView(View):
                 _set_password_recovery_data(request.session, recovery_data)
                 return render(request, self.template_name, self._context(recovery_data))
             if password != password_confirm:
-                messages.error(request, 'As senhas nÃ£o conferem.')
+                messages.error(request, 'As senhas não conferem.')
                 recovery_data['stage'] = 'reset_password'
                 _set_password_recovery_data(request.session, recovery_data)
                 return render(request, self.template_name, self._context(recovery_data))
             user = User.objects.filter(pk=recovery_data.get('user_id')).first()
             if not user:
-                messages.error(request, 'UsuÃ¡rio nÃ£o encontrado.')
+                messages.error(request, 'Usuário não encontrado.')
                 _clear_password_recovery(request.session)
                 return redirect('accounts:password_recovery')
             user.set_password(password)
             user.save(update_fields=['password'])
             _clear_password_recovery(request.session)
-            messages.success(request, 'Senha redefinida com sucesso. FaÃ§a login com a nova senha.')
+            messages.success(request, 'Senha redefinida com sucesso. Faça login com a nova senha.')
             return redirect('accounts:login')
 
         return render(request, self.template_name, self._context(recovery_data))
@@ -1466,7 +1466,7 @@ class NovoCadastroInscricaoView(View):
     def _require_login_step(self, request):
         data = _new_flow_data(request.session)
         if not data.get('login'):
-            messages.error(request, 'Comece pelo login do responsÃ¡vel.')
+            messages.error(request, 'Comece pelo login do responsável.')
             return None
         return data
 
@@ -1542,7 +1542,7 @@ class NovoCadastroInscricaoView(View):
         ]
         missing = [name for name in required if not str(fields.get(name, '')).strip()]
         if missing:
-            messages.error(request, 'Preencha os campos obrigatÃ³rios e assine a ficha de inscriÃ§Ã£o.')
+            messages.error(request, 'Preencha os campos obrigatórios e assine a ficha de inscrição.')
             initial = _date_parts_today()
             initial.update(fields)
             return render(request, self.template_name, {
@@ -1565,7 +1565,7 @@ class VerificarDocumentoView(View):
         field = str(request.GET.get('field', '')).strip()
         value = request.GET.get('value', '')
         if not field:
-            return JsonResponse({'ok': False, 'error': 'Campo invÃ¡lido.'}, status=400)
+            return JsonResponse({'ok': False, 'error': 'Campo inválido.'}, status=400)
 
         data = _new_flow_data(request.session)
         is_existing_responsavel_flow = bool(data.get('existing_responsavel_id'))
@@ -1575,7 +1575,7 @@ class VerificarDocumentoView(View):
         elif field in {'rg', 'certidao_nascimento'}:
             normalized = _normalize_doc_text(value)
         else:
-            return JsonResponse({'ok': False, 'error': 'Campo nÃ£o suportado.'}, status=400)
+            return JsonResponse({'ok': False, 'error': 'Campo não suportado.'}, status=400)
 
         duplicate_message = ''
         if not (
@@ -1615,7 +1615,7 @@ class NovoCadastroMedicaView(View):
     def get(self, request):
         data = self._require_inscricao_step(request)
         if data is None:
-            messages.error(request, 'Complete a ficha de inscriÃ§Ã£o antes.')
+            messages.error(request, 'Complete a ficha de inscrição antes.')
             return redirect('accounts:novo_cadastro_inscricao')
         current = data.get('current') or {}
         step_data = current.get('medica') or {}
@@ -1624,11 +1624,11 @@ class NovoCadastroMedicaView(View):
     def post(self, request):
         data = self._require_inscricao_step(request)
         if data is None:
-            messages.error(request, 'Complete a ficha de inscriÃ§Ã£o antes.')
+            messages.error(request, 'Complete a ficha de inscrição antes.')
             return redirect('accounts:novo_cadastro_inscricao')
         fields = _extract_fields(request.POST, self.field_names)
         if not str(fields.get('plano_saude', '')).strip():
-            messages.error(request, 'Informe se tem plano de saÃºde para continuar.')
+            messages.error(request, 'Informe se tem plano de saúde para continuar.')
             return render(request, self.template_name, {'step_data': fields})
         required_radios = [
             'cardiacos',
@@ -1643,7 +1643,7 @@ class NovoCadastroMedicaView(View):
         ]
         missing = [name for name in required_radios if not str(fields.get(name, '')).strip()]
         if missing:
-            messages.error(request, 'Preencha todos os campos obrigatÃ³rios de condiÃ§Ãµes de saÃºde.')
+            messages.error(request, 'Preencha todos os campos obrigatórios de condições de saúde.')
             return render(request, self.template_name, {'step_data': fields})
         data['current']['medica'] = fields
         _set_new_flow_data(request.session, data)
@@ -1678,7 +1678,7 @@ class NovoCadastroDeclaracaoMedicaView(View):
             return redirect('accounts:novo_cadastro_inscricao')
         fields = _extract_fields(request.POST, self.field_names)
         if not fields.get('assinatura_declaracao_medica'):
-            messages.error(request, 'Assine a declaraÃ§Ã£o mÃ©dica para continuar.')
+            messages.error(request, 'Assine a declaração médica para continuar.')
             return render(request, self.template_name, {'initial': _date_parts_today(), 'step_data': fields})
         data['current']['declaracao_medica'] = fields
         _set_new_flow_data(request.session, data)
@@ -1762,7 +1762,7 @@ class NovoCadastroResumoView(View):
         if self._is_current_complete(data):
             return data
         if aventureiros:
-            # Permite concluir os aventureiros jÃ¡ completos mesmo que a ficha atual esteja incompleta.
+            # Permite concluir os aventureiros já completos mesmo que a ficha atual esteja incompleta.
             return data
         return None
 
@@ -1808,7 +1808,7 @@ class NovoCadastroResumoView(View):
                 data['aventures'].append(data['current'])
             data['current'] = {}
             _set_new_flow_data(request.session, data)
-            messages.success(request, 'Aventureiro salvo temporariamente. Preencha o prÃ³ximo.')
+            messages.success(request, 'Aventureiro salvo temporariamente. Preencha o próximo.')
             return redirect('accounts:novo_cadastro_inscricao')
         if action == 'finalizar':
             if self._is_current_complete(data):
@@ -1825,12 +1825,12 @@ class NovoCadastroResumoView(View):
 
             if use_existing_user:
                 if not request.user.is_authenticated or request.user.id != payload.get('existing_user_id'):
-                    messages.error(request, 'SessÃ£o invÃ¡lida para adicionar aventureiro. FaÃ§a login novamente.')
+                    messages.error(request, 'Sessão inválida para adicionar aventureiro. Faça login novamente.')
                     return redirect('accounts:login')
                 user = request.user
                 responsavel = getattr(user, 'responsavel', None)
                 if not responsavel:
-                    messages.error(request, 'Conta sem perfil de responsÃ¡vel para adicionar aventureiro.')
+                    messages.error(request, 'Conta sem perfil de responsável para adicionar aventureiro.')
                     return redirect('accounts:meus_dados')
                 responsavel.pai_nome = first.get('nome_pai', '')
                 responsavel.pai_cpf = first.get('cpf_pai', '')
@@ -1857,7 +1857,7 @@ class NovoCadastroResumoView(View):
             else:
                 login_data = payload.get('login', {})
                 if not login_data:
-                    messages.error(request, 'SessÃ£o invÃ¡lida. Reinicie o cadastro.')
+                    messages.error(request, 'Sessão inválida. Reinicie o cadastro.')
                     return redirect('accounts:novo_cadastro_login')
                 user = User.objects.create_user(
                     username=login_data['username'],
@@ -1989,7 +1989,7 @@ class NovoCadastroResumoView(View):
             )
             _dispatch_signup_confirmation(
                 user,
-                'Cadastro de responsÃ¡vel e aventureiro',
+                'Cadastro de responsável e aventureiro',
                 responsavel.responsavel_nome or responsavel.mae_nome or responsavel.pai_nome,
             )
             _clear_new_flow(request.session)
@@ -2066,7 +2066,7 @@ class NovoCadastroDiretoriaCompromissoView(View):
         if not fields.get('declaracao_medica'):
             missing.append('declaracao_medica')
         if missing:
-            messages.error(request, 'Preencha todos os campos obrigatÃ³rios do compromisso.')
+            messages.error(request, 'Preencha todos os campos obrigatórios do compromisso.')
             return render(request, self.template_name, {'step_data': fields})
 
         cpf_duplicate = _find_duplicate_document('cpf_diretoria', fields.get('cpf'), scope='diretoria')
@@ -2155,7 +2155,7 @@ class NovoCadastroDiretoriaTermoView(View):
         if not fields.get('autorizacao_imagem'):
             missing.append('autorizacao_imagem')
         if missing:
-            messages.error(request, 'Preencha todos os campos obrigatÃ³rios do termo de imagem.')
+            messages.error(request, 'Preencha todos os campos obrigatórios do termo de imagem.')
             initial = _date_parts_today()
             initial.update(fields)
             return render(request, self.template_name, {'initial': initial, 'step_data': fields})
@@ -2206,13 +2206,13 @@ class NovoCadastroDiretoriaResumoView(View):
         password = login_data.get('password')
 
         if not username or not password:
-            messages.error(request, 'SessÃ£o de login invÃ¡lida. RefaÃ§a o cadastro da diretoria.')
+            messages.error(request, 'Sessão de login inválida. Refaça o cadastro da diretoria.')
             return redirect('accounts:novo_diretoria_login')
 
         try:
             nascimento = date.fromisoformat(compromisso.get('nascimento', ''))
         except ValueError:
-            messages.error(request, 'Data de nascimento invÃ¡lida. Volte ao compromisso e corrija.')
+            messages.error(request, 'Data de nascimento inválida. Volte ao compromisso e corrija.')
             return redirect('accounts:novo_diretoria_compromisso')
 
         try:
@@ -2280,7 +2280,7 @@ class NovoCadastroDiretoriaResumoView(View):
                     ficha.assinatura_termo_imagem.save(assinatura_termo.name, assinatura_termo, save=False)
                 ficha.save()
         except IntegrityError:
-            messages.error(request, 'NÃ£o foi possÃ­vel finalizar: username jÃ¡ existe ou hÃ¡ conflito de dados. Tente outro username.')
+            messages.error(request, 'Não foi possível finalizar: username já existe ou há conflito de dados. Tente outro username.')
             return redirect('accounts:novo_diretoria_login')
         except Exception:
             messages.error(request, 'Falha ao finalizar cadastro da diretoria. Revise os dados e tente novamente.')
@@ -2289,14 +2289,14 @@ class NovoCadastroDiretoriaResumoView(View):
         _dispatch_cadastro_notifications('Diretoria', user, diretoria.nome)
         _dispatch_signup_confirmation(user, 'Cadastro de diretoria', diretoria.nome)
         _clear_new_diretoria_flow(request.session)
-        messages.success(request, 'Cadastro da diretoria concluÃ­do com sucesso. FaÃ§a login para continuar.')
+        messages.success(request, 'Cadastro da diretoria concluído com sucesso. Faça login para continuar.')
         return redirect('accounts:login')
 
 
 class LogoutRedirectView(View):
     def get(self, request):
         logout(request)
-        messages.success(request, 'SessÃ£o encerrada. FaÃ§a login para continuar.')
+        messages.success(request, 'Sessão encerrada. Faça login para continuar.')
         return redirect('accounts:login')
 
     def post(self, request):
@@ -2318,9 +2318,9 @@ class ResponsavelView(View):
         if form.is_valid():
             responsavel = form.save()
             login(request, responsavel.user)
-            messages.success(request, 'ResponsÃ¡vel cadastrado com sucesso. Continue com a ficha do aventureiro.')
+            messages.success(request, 'Responsável cadastrado com sucesso. Continue com a ficha do aventureiro.')
             return redirect('accounts:aventura')
-        messages.error(request, 'HÃ¡ campos obrigatÃ³rios pendentes; corrija e envie novamente.')
+        messages.error(request, 'Há campos obrigatórios pendentes; corrija e envie novamente.')
         return render(request, self.template_name, {
             'form': form,
             'required_fields': _required_field_names(form),
@@ -2343,9 +2343,9 @@ class DiretoriaView(View):
             diretoria = form.save()
             _dispatch_cadastro_notifications('Diretoria', diretoria.user, diretoria.nome)
             _dispatch_signup_confirmation(diretoria.user, 'Cadastro de diretoria', diretoria.nome)
-            messages.success(request, 'Cadastro da diretoria concluÃ­do com sucesso. FaÃ§a login para continuar.')
+            messages.success(request, 'Cadastro da diretoria concluído com sucesso. Faça login para continuar.')
             return redirect('accounts:login')
-        messages.error(request, 'HÃ¡ campos obrigatÃ³rios pendentes; corrija e envie novamente.')
+        messages.error(request, 'Há campos obrigatórios pendentes; corrija e envie novamente.')
         return render(request, self.template_name, {
             'form': form,
             'required_fields': _required_field_names(form),
@@ -2371,7 +2371,7 @@ class AventuraView(LoginRequiredMixin, View):
     def get(self, request):
         responsavel = getattr(request.user, 'responsavel', None)
         if not responsavel:
-            messages.error(request, 'Complete primeiro os dados do responsÃ¡vel para continuar.')
+            messages.error(request, 'Complete primeiro os dados do responsável para continuar.')
             return redirect('accounts:responsavel')
         form = AventureiroForm()
         return render(request, self.template_name, self._build_context(form, request, responsavel))
@@ -2379,13 +2379,13 @@ class AventuraView(LoginRequiredMixin, View):
     def post(self, request):
         responsavel = getattr(request.user, 'responsavel', None)
         if not responsavel:
-            messages.error(request, 'Complete primeiro os dados do responsÃ¡vel para continuar.')
+            messages.error(request, 'Complete primeiro os dados do responsável para continuar.')
             return redirect('accounts:responsavel')
         form = AventureiroForm(request.POST)
         if form.is_valid():
             _enqueue_pending_aventure(request.session, form.cleaned_data)
             action = request.POST.get('action', 'save_confirm')
-            messages.success(request, 'Ficha salva e encaminhada para revisÃ£o. VÃ¡ para a confirmaÃ§Ã£o para concluir o cadastro.')
+            messages.success(request, 'Ficha salva e encaminhada para revisão. Vá para a confirmação para concluir o cadastro.')
             if action == 'add_more':
                 form = AventureiroForm()
                 return render(request, self.template_name, self._build_context(form, request, responsavel))
@@ -2400,7 +2400,7 @@ class ConfirmacaoView(LoginRequiredMixin, View):
     def get(self, request):
         responsavel = getattr(request.user, 'responsavel', None)
         if not responsavel:
-            messages.error(request, 'Complete os dados do responsÃ¡vel antes de revisar os aventureiros.')
+            messages.error(request, 'Complete os dados do responsável antes de revisar os aventureiros.')
             return redirect('accounts:responsavel')
         pending = _get_pending_aventures(request.session)
         context = {
@@ -2417,11 +2417,11 @@ class ConfirmacaoView(LoginRequiredMixin, View):
     def post(self, request):
         responsavel = getattr(request.user, 'responsavel', None)
         if not responsavel:
-            messages.error(request, 'Complete os dados do responsÃ¡vel antes de revisar os aventureiros.')
+            messages.error(request, 'Complete os dados do responsável antes de revisar os aventureiros.')
             return redirect('accounts:responsavel')
         pending = _get_pending_aventures(request.session)
         if not pending:
-            messages.error(request, 'NÃ£o hÃ¡ fichas pendentes para confirmar.')
+            messages.error(request, 'Não há fichas pendentes para confirmar.')
             return redirect('accounts:confirmacao')
         for entry in pending:
             raw_fields = entry.get('fields', {})
@@ -2446,12 +2446,12 @@ class ConfirmacaoView(LoginRequiredMixin, View):
         )
         _dispatch_signup_confirmation(
             request.user,
-            'Cadastro de responsÃ¡vel e aventureiro',
+            'Cadastro de responsável e aventureiro',
             responsavel.responsavel_nome or responsavel.mae_nome or responsavel.pai_nome,
         )
         _clear_pending_aventures(request.session)
         logout(request)
-        messages.success(request, 'Cadastro finalizado com sucesso. FaÃ§a login novamente para continuar.')
+        messages.success(request, 'Cadastro finalizado com sucesso. Faça login novamente para continuar.')
         return redirect('accounts:login')
 
 
@@ -2495,7 +2495,7 @@ class PainelView(LoginRequiredMixin, View):
 def _require_responsavel_or_redirect(request):
     responsavel = getattr(request.user, 'responsavel', None)
     if not responsavel:
-        messages.error(request, 'Cadastre os dados do responsÃ¡vel antes de acessar esta Ã¡rea.')
+        messages.error(request, 'Cadastre os dados do responsável antes de acessar esta área.')
         return None, redirect('accounts:responsavel')
     return responsavel, None
 
@@ -2567,7 +2567,7 @@ class MeuResponsavelEditarView(LoginRequiredMixin, View):
         form = ResponsavelDadosForm(request.POST, instance=responsavel)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Dados do responsÃ¡vel atualizados com sucesso.')
+            messages.success(request, 'Dados do responsável atualizados com sucesso.')
             return redirect('accounts:meu_responsavel')
         messages.error(request, 'Verifique os campos e tente novamente.')
         context = {'form': form}
@@ -2585,13 +2585,13 @@ class MeuAventureiroDetalheView(LoginRequiredMixin, View):
         aventureiro = get_object_or_404(Aventureiro, pk=pk, responsavel=responsavel)
 
         condicoes_labels = {
-            'cardiaco': 'Problemas cardÃ­acos',
+            'cardiaco': 'Problemas cardíacos',
             'diabetico': 'Diabetes',
             'renal': 'Problemas renais',
-            'psicologico': 'Problemas psicolÃ³gicos',
+            'psicologico': 'Problemas psicológicos',
         }
         alergias_labels = {
-            'alergia_pele': 'Alergia cutÃ¢nea (pele)',
+            'alergia_pele': 'Alergia cutânea (pele)',
             'alergia_alimento': 'Alergia alimentar',
             'alergia_medicamento': 'Alergia a medicamentos',
         }
@@ -2662,7 +2662,7 @@ class MeuAventureiroEditarView(LoginRequiredMixin, View):
 def _require_diretoria_or_redirect(request):
     diretoria = getattr(request.user, 'diretoria', None)
     if not diretoria:
-        messages.error(request, 'Cadastre os dados da diretoria antes de acessar esta Ã¡rea.')
+        messages.error(request, 'Cadastre os dados da diretoria antes de acessar esta área.')
         return None, redirect('accounts:diretoria')
     return diretoria, None
 
@@ -2711,7 +2711,7 @@ class AventureirosGeraisView(LoginRequiredMixin, View):
 
     def get(self, request):
         if not _has_menu_permission(request, 'aventureiros'):
-            messages.error(request, 'Seu perfil nÃ£o possui permissÃ£o para acessar aventureiros gerais.')
+            messages.error(request, 'Seu perfil não possui permissão para acessar aventureiros gerais.')
             return redirect('accounts:painel')
         aventureiros = Aventureiro.objects.select_related('responsavel', 'responsavel__user').order_by('nome')
         context = {'aventureiros': aventureiros}
@@ -2724,18 +2724,18 @@ class AventureiroGeralDetalheView(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         if not _has_menu_permission(request, 'aventureiros'):
-            messages.error(request, 'Seu perfil nÃ£o possui permissÃ£o para visualizar esse aventureiro.')
+            messages.error(request, 'Seu perfil não possui permissão para visualizar esse aventureiro.')
             return redirect('accounts:painel')
         aventureiro = get_object_or_404(Aventureiro, pk=pk)
 
         condicoes_labels = {
-            'cardiaco': 'Problemas cardÃ­acos',
+            'cardiaco': 'Problemas cardíacos',
             'diabetico': 'Diabetes',
             'renal': 'Problemas renais',
-            'psicologico': 'Problemas psicolÃ³gicos',
+            'psicologico': 'Problemas psicológicos',
         }
         alergias_labels = {
-            'alergia_pele': 'Alergia cutÃ¢nea (pele)',
+            'alergia_pele': 'Alergia cutânea (pele)',
             'alergia_alimento': 'Alergia alimentar',
             'alergia_medicamento': 'Alergia a medicamentos',
         }
@@ -2779,7 +2779,7 @@ class EventosView(LoginRequiredMixin, View):
 
     def _guard(self, request):
         if not _has_menu_permission(request, 'eventos'):
-            messages.error(request, 'Seu perfil nÃ£o possui permissÃ£o para acessar eventos.')
+            messages.error(request, 'Seu perfil não possui permissão para acessar eventos.')
             return redirect('accounts:painel')
         return None
 
@@ -2791,12 +2791,12 @@ class EventosView(LoginRequiredMixin, View):
         if delta == 0:
             return 'Hoje'
         if delta == 1:
-            return 'AmanhÃ£'
+            return 'Amanhã'
         if delta == -1:
             return 'Ontem'
         if delta > 1:
             return f'Em {delta} dias'
-        return f'HÃ¡ {abs(delta)} dias'
+        return f'Há {abs(delta)} dias'
 
     def _context(self, request):
         eventos = list(Evento.objects.select_related('created_by').all())
@@ -2854,7 +2854,7 @@ class EventosView(LoginRequiredMixin, View):
                     messages.error(request, 'Preencha o nome de todos os campos adicionados.')
                     return None
                 if current_type not in allowed_types:
-                    messages.error(request, f'Tipo de campo invÃ¡lido: {current_type}.')
+                    messages.error(request, f'Tipo de campo inválido: {current_type}.')
                     return None
                 fields_data.append({
                     'name': current_label,
@@ -2866,7 +2866,7 @@ class EventosView(LoginRequiredMixin, View):
             event_date_raw = (event_date_raw or '').strip()
             event_time_raw = (event_time_raw or '').strip()
             if required and (not event_date_raw or not event_time_raw):
-                messages.error(request, 'Data e hora do evento sÃ£o obrigatÃ³rias.')
+                messages.error(request, 'Data e hora do evento são obrigatórias.')
                 return None, None
             if not event_date_raw and not event_time_raw:
                 return None, None
@@ -2874,7 +2874,7 @@ class EventosView(LoginRequiredMixin, View):
                 parsed_date = date.fromisoformat(event_date_raw) if event_date_raw else None
                 parsed_time = datetime.strptime(event_time_raw, '%H:%M').time() if event_time_raw else None
             except ValueError:
-                messages.error(request, 'Data ou hora do evento invÃ¡lida.')
+                messages.error(request, 'Data ou hora do evento inválida.')
                 return None, None
             return parsed_date, parsed_time
 
@@ -2916,7 +2916,7 @@ class EventosView(LoginRequiredMixin, View):
             if fields_data is None:
                 return render(request, self.template_name, self._context(request))
             if not preset_name:
-                messages.error(request, 'Informe o nome da prÃ©-configuraÃ§Ã£o.')
+                messages.error(request, 'Informe o nome da pré-configuração.')
                 return render(request, self.template_name, self._context(request))
             event_date_value, event_time_value = _parse_date_and_time(
                 event_date_raw, event_time_raw, required=False
@@ -2933,13 +2933,13 @@ class EventosView(LoginRequiredMixin, View):
                 fields_data=fields_data,
                 created_by=request.user,
             )
-            messages.success(request, 'PrÃ©-configuraÃ§Ã£o salva com sucesso.')
+            messages.success(request, 'Pré-configuração salva com sucesso.')
 
         elif action == 'delete_event':
             event_id = request.POST.get('event_id')
             evento = Evento.objects.filter(pk=event_id).first()
             if not evento:
-                messages.error(request, 'Evento nÃ£o encontrado.')
+                messages.error(request, 'Evento não encontrado.')
             else:
                 if evento.event_date and evento.event_time:
                     event_dt = datetime.combine(evento.event_date, evento.event_time)
@@ -2948,7 +2948,7 @@ class EventosView(LoginRequiredMixin, View):
                     if timezone.now() >= event_dt:
                         messages.error(
                             request,
-                            'Este evento nÃ£o pode ser excluÃ­do porque a data/hora jÃ¡ foi atingida.',
+                            'Este evento não pode ser excluído porque a data/hora já foi atingida.',
                         )
                         return render(request, self.template_name, self._context(request))
                 evento.delete()
@@ -2957,10 +2957,10 @@ class EventosView(LoginRequiredMixin, View):
             preset_id = request.POST.get('preset_id')
             preset = EventoPreset.objects.filter(pk=preset_id).first()
             if not preset:
-                messages.error(request, 'PrÃ©-configuraÃ§Ã£o nÃ£o encontrada.')
+                messages.error(request, 'Pré-configuração não encontrada.')
             else:
                 preset.delete()
-                messages.success(request, 'PrÃ©-configuraÃ§Ã£o removida com sucesso.')
+                messages.success(request, 'Pré-configuração removida com sucesso.')
 
         return render(request, self.template_name, self._context(request))
 
@@ -2970,7 +2970,7 @@ class PresencaView(LoginRequiredMixin, View):
 
     def _guard(self, request):
         if not _has_menu_permission(request, 'presenca'):
-            messages.error(request, 'Seu perfil nÃ£o possui permissÃ£o para acessar presenÃ§a.')
+            messages.error(request, 'Seu perfil não possui permissão para acessar presença.')
             return redirect('accounts:painel')
         return None
 
@@ -2982,12 +2982,12 @@ class PresencaView(LoginRequiredMixin, View):
         if delta == 0:
             return 'Hoje'
         if delta == 1:
-            return 'AmanhÃ£'
+            return 'Amanhã'
         if delta == -1:
             return 'Ontem'
         if delta > 1:
             return f'Em {delta} dias'
-        return f'HÃ¡ {abs(delta)} dias'
+        return f'Há {abs(delta)} dias'
 
     def _event_status_key(self, event_date):
         if not event_date:
@@ -3096,13 +3096,13 @@ class PresencaView(LoginRequiredMixin, View):
 class PresencaStatusApiView(LoginRequiredMixin, View):
     def get(self, request):
         if not _has_menu_permission(request, 'presenca'):
-            return JsonResponse({'ok': False, 'error': 'Sem permissÃ£o para acessar presenÃ§a.'}, status=403)
+            return JsonResponse({'ok': False, 'error': 'Sem permissão para acessar presença.'}, status=403)
         event_id_raw = (request.GET.get('evento_id') or '').strip()
         if not event_id_raw.isdigit():
-            return JsonResponse({'ok': False, 'error': 'Evento invÃ¡lido.'}, status=400)
+            return JsonResponse({'ok': False, 'error': 'Evento inválido.'}, status=400)
         evento = Evento.objects.filter(pk=int(event_id_raw)).first()
         if not evento:
-            return JsonResponse({'ok': False, 'error': 'Evento nÃ£o encontrado.'}, status=404)
+            return JsonResponse({'ok': False, 'error': 'Evento não encontrado.'}, status=404)
 
         rows = EventoPresenca.objects.filter(evento=evento).select_related('updated_by')
         data = {}
@@ -3125,21 +3125,21 @@ class PresencaStatusApiView(LoginRequiredMixin, View):
 class PresencaToggleApiView(LoginRequiredMixin, View):
     def post(self, request):
         if not _has_menu_permission(request, 'presenca'):
-            return JsonResponse({'ok': False, 'error': 'Sem permissÃ£o para marcar presenÃ§a.'}, status=403)
+            return JsonResponse({'ok': False, 'error': 'Sem permissão para marcar presença.'}, status=403)
 
         event_id_raw = (request.POST.get('evento_id') or '').strip()
         aventureiro_id_raw = (request.POST.get('aventureiro_id') or '').strip()
         presente_raw = (request.POST.get('presente') or '').strip().lower()
         if not event_id_raw.isdigit() or not aventureiro_id_raw.isdigit():
-            return JsonResponse({'ok': False, 'error': 'ParÃ¢metros invÃ¡lidos.'}, status=400)
+            return JsonResponse({'ok': False, 'error': 'Parâmetros inválidos.'}, status=400)
         if presente_raw not in {'1', '0', 'true', 'false', 'yes', 'no', 'on', 'off'}:
-            return JsonResponse({'ok': False, 'error': 'Valor de presenÃ§a invÃ¡lido.'}, status=400)
+            return JsonResponse({'ok': False, 'error': 'Valor de presença inválido.'}, status=400)
         presente_value = presente_raw in {'1', 'true', 'yes', 'on'}
 
         evento = Evento.objects.filter(pk=int(event_id_raw)).first()
         aventureiro = Aventureiro.objects.filter(pk=int(aventureiro_id_raw)).first()
         if not evento or not aventureiro:
-            return JsonResponse({'ok': False, 'error': 'Evento ou aventureiro nÃ£o encontrado.'}, status=404)
+            return JsonResponse({'ok': False, 'error': 'Evento ou aventureiro não encontrado.'}, status=404)
 
         presenca, _created = EventoPresenca.objects.update_or_create(
             evento=evento,
@@ -3151,10 +3151,10 @@ class PresencaToggleApiView(LoginRequiredMixin, View):
         )
         present_count = EventoPresenca.objects.filter(evento=evento, presente=True).count()
         record_audit(
-            action='MarcaÃ§Ã£o de presenÃ§a',
+            action='Marcação de presença',
             user=request.user,
             request=request,
-            location='PresenÃ§a',
+            location='Presença',
             details=(
                 f'Evento="{evento.name}" | Aventureiro="{aventureiro.nome}" | '
                 f'Status={"Presente" if presente_value else "Ausente"}'
@@ -3177,7 +3177,7 @@ class AuditoriaView(LoginRequiredMixin, View):
 
     def get(self, request):
         if not _has_menu_permission(request, 'auditoria'):
-            messages.error(request, 'Seu perfil nÃ£o possui permissÃ£o para acessar auditoria.')
+            messages.error(request, 'Seu perfil não possui permissão para acessar auditoria.')
             return redirect('accounts:painel')
 
         query = (request.GET.get('q') or '').strip()
@@ -3246,7 +3246,7 @@ class UsuariosView(LoginRequiredMixin, View):
 
     def get(self, request):
         if not _has_menu_permission(request, 'usuarios'):
-            messages.error(request, 'Seu perfil nÃ£o possui permissÃ£o para acessar usuÃ¡rios.')
+            messages.error(request, 'Seu perfil não possui permissão para acessar usuários.')
             return redirect('accounts:painel')
 
         users = (
@@ -3273,7 +3273,7 @@ class PermissoesView(LoginRequiredMixin, View):
 
     def _guard(self, request):
         if not _has_menu_permission(request, 'permissoes'):
-            messages.error(request, 'Seu perfil nÃ£o possui permissÃ£o para acessar permissÃµes.')
+            messages.error(request, 'Seu perfil não possui permissão para acessar permissões.')
             return redirect('accounts:painel')
         return None
 
@@ -3335,9 +3335,9 @@ class PermissoesView(LoginRequiredMixin, View):
             code = str(request.POST.get('group_code', '')).strip().lower()
             name = str(request.POST.get('group_name', '')).strip()
             if not code or not name:
-                messages.error(request, 'Informe cÃ³digo e nome do grupo.')
+                messages.error(request, 'Informe código e nome do grupo.')
             elif AccessGroup.objects.filter(code=code).exists():
-                messages.error(request, 'JÃ¡ existe um grupo com esse cÃ³digo.')
+                messages.error(request, 'Já existe um grupo com esse código.')
             else:
                 AccessGroup.objects.create(code=code, name=name, menu_permissions=['inicio', 'meus_dados'])
                 messages.success(request, f'Grupo "{name}" criado com sucesso.')
@@ -3351,7 +3351,7 @@ class PermissoesView(LoginRequiredMixin, View):
                         selected.append(key)
                 group.menu_permissions = _normalize_menu_keys(selected)
                 group.save(update_fields=['menu_permissions', 'updated_at'])
-            messages.success(request, 'PermissÃµes de menu dos grupos atualizadas.')
+            messages.success(request, 'Permissões de menu dos grupos atualizadas.')
 
         elif action == 'save_memberships':
             groups = list(AccessGroup.objects.all())
@@ -3372,10 +3372,10 @@ class PermissoesView(LoginRequiredMixin, View):
                         selected_group_ids.append(group.pk)
                 user.access_groups.set(selected_group_ids)
                 _sync_access_profiles_from_groups(user)
-            messages.success(request, 'VÃ­nculo de usuÃ¡rios e grupos atualizado.')
+            messages.success(request, 'Vínculo de usuários e grupos atualizado.')
 
             if skipped_locked_rows:
-                messages.info(request, f'{skipped_locked_rows} linha(s) ignorada(s) por exceÃ§Ã£o individual ativa.')
+                messages.info(request, f'{skipped_locked_rows} linha(s) ignorada(s) por exceção individual ativa.')
 
         elif action == 'save_user_overrides':
             accesses = UserAccess.objects.select_related('user').all()
@@ -3387,15 +3387,15 @@ class PermissoesView(LoginRequiredMixin, View):
                 access.menu_allow = _normalize_menu_keys(allow)
                 access.menu_deny = []
                 access.save(update_fields=['menu_allow', 'menu_deny', 'updated_at'])
-            messages.success(request, 'PermissÃµes por usuÃ¡rio atualizadas.')
+            messages.success(request, 'Permissões por usuário atualizadas.')
 
         elif action == 'delete_group':
             group_id = request.POST.get('group_id')
             group = AccessGroup.objects.filter(pk=group_id).first()
             if not group:
-                messages.error(request, 'Grupo nÃ£o encontrado.')
+                messages.error(request, 'Grupo não encontrado.')
             elif group.code in {'diretor', 'diretoria', 'responsavel', 'professor'}:
-                messages.error(request, 'NÃ£o Ã© possÃ­vel excluir grupos padrÃ£o.')
+                messages.error(request, 'Não é possível excluir grupos padrão.')
             else:
                 group.delete()
                 messages.success(request, 'Grupo removido com sucesso.')
@@ -3502,14 +3502,14 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
             selected_template_id = request.POST.get('selected_template_id')
             aventureiro = Aventureiro.objects.filter(pk=aventura_id).first()
             if not aventureiro:
-                messages.error(request, 'Selecione um aventureiro vÃ¡lido para gerar o documento.')
+                messages.error(request, 'Selecione um aventureiro válido para gerar o documento.')
                 return redirect(request.path)
             if doc_type not in {item[0] for item in DocumentoInscricaoGerado.TYPE_CHOICES}:
-                messages.error(request, 'Selecione um tipo de documento vÃ¡lido.')
+                messages.error(request, 'Selecione um tipo de documento válido.')
                 return redirect(request.path)
             ficha = getattr(aventureiro, 'ficha_completa', None)
             if not ficha:
-                messages.error(request, 'Esse aventureiro ainda nÃ£o possui as fichas completas salvas.')
+                messages.error(request, 'Esse aventureiro ainda não possui as fichas completas salvas.')
                 return redirect(request.path)
             documento = DocumentoInscricaoGerado.objects.create(
                 aventureiro=aventureiro,
@@ -3524,10 +3524,10 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
             doc_id = request.POST.get('doc_id')
             documento = DocumentoInscricaoGerado.objects.filter(pk=doc_id).first()
             if not documento:
-                messages.error(request, 'Documento gerado nÃ£o encontrado.')
+                messages.error(request, 'Documento gerado não encontrado.')
                 return redirect(request.path)
             documento.delete()
-            messages.success(request, 'Documento gerado excluÃ­do com sucesso.')
+            messages.success(request, 'Documento gerado excluído com sucesso.')
             return redirect(request.path)
         elif action == 'save_positions':
             template_id = request.POST.get('template_id')
@@ -3549,7 +3549,7 @@ class DocumentosInscricaoView(LoginRequiredMixin, View):
             template_id = request.POST.get('template_id')
             template = DocumentoTemplate.objects.filter(pk=template_id).first()
             if not template:
-                messages.error(request, 'Template nÃ£o encontrado.')
+                messages.error(request, 'Template não encontrado.')
                 return redirect(request.path)
             # Remove the uploaded background file as well.
             if template.background:
@@ -3565,7 +3565,7 @@ class DocumentoInscricaoVisualizarView(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         if not _has_menu_permission(request, 'documentos_inscricao'):
-            messages.error(request, 'Seu perfil nÃ£o possui permissÃ£o para visualizar documentos gerados.')
+            messages.error(request, 'Seu perfil não possui permissão para visualizar documentos gerados.')
             return redirect('accounts:painel')
         documento = get_object_or_404(
             DocumentoInscricaoGerado.objects.select_related('aventureiro', 'aventureiro__responsavel', 'aventureiro__responsavel__user'),
@@ -3603,7 +3603,7 @@ class WhatsAppView(LoginRequiredMixin, View):
 
     def _director_guard(self, request):
         if not _has_menu_permission(request, 'whatsapp'):
-            messages.error(request, 'Seu perfil nÃ£o possui permissÃ£o para acessar WhatsApp.')
+            messages.error(request, 'Seu perfil não possui permissão para acessar WhatsApp.')
             return redirect('accounts:painel')
         return None
 
@@ -3768,12 +3768,12 @@ class WhatsAppView(LoginRequiredMixin, View):
                 )
             messages.success(
                 request,
-                f'PreferÃªncias salvas. Testes enviados: {sent_count}. Falhas: {failed_count}.',
+                f'Preferências salvas. Testes enviados: {sent_count}. Falhas: {failed_count}.',
             )
             if failed_items:
                 messages.error(request, 'Falhas: ' + ' | '.join(failed_items[:3]))
         else:
-            messages.success(request, 'PreferÃªncias de notificaÃ§Ã£o salvas com sucesso.')
+            messages.success(request, 'Preferências de notificação salvas com sucesso.')
 
         if cadastro_enabled:
             preview = ', '.join(cadastro_enabled[:6])
@@ -3783,7 +3783,7 @@ class WhatsAppView(LoginRequiredMixin, View):
                 f'Cadastro marcado para: {preview}{suffix}',
             )
         else:
-            messages.info(request, 'Nenhum contato estÃ¡ marcado para receber notificaÃ§Ã£o de Cadastro.')
+            messages.info(request, 'Nenhum contato está marcado para receber notificação de Cadastro.')
         if diretoria_enabled:
             preview = ', '.join(diretoria_enabled[:6])
             suffix = '...' if len(diretoria_enabled) > 6 else ''
@@ -3792,13 +3792,13 @@ class WhatsAppView(LoginRequiredMixin, View):
                 f'Diretoria marcado para: {preview}{suffix}',
             )
         else:
-            messages.info(request, 'Nenhum contato estÃ¡ marcado para receber notificaÃ§Ã£o de Diretoria.')
+            messages.info(request, 'Nenhum contato está marcado para receber notificação de Diretoria.')
         if financeiro_enabled:
             preview = ', '.join(financeiro_enabled[:6])
             suffix = '...' if len(financeiro_enabled) > 6 else ''
             messages.info(request, f'Pagamento aprovado marcado para: {preview}{suffix}')
         else:
-            messages.info(request, 'Nenhum contato estÃ¡ marcado para receber notificaÃ§Ã£o de Pagamento aprovado.')
+            messages.info(request, 'Nenhum contato está marcado para receber notificação de Pagamento aprovado.')
         context = {
             'rows': self._users_context(),
             'queue': queue_stats(),
@@ -3817,7 +3817,7 @@ class FinanceiroView(LoginRequiredMixin, View):
 
     def _guard(self, request):
         if not _has_menu_permission(request, 'financeiro'):
-            messages.error(request, 'Seu perfil nÃ£o possui permissÃ£o para acessar Financeiro.')
+            messages.error(request, 'Seu perfil não possui permissão para acessar Financeiro.')
             return redirect('accounts:painel')
         return None
 
@@ -3825,7 +3825,7 @@ class FinanceiroView(LoginRequiredMixin, View):
         labels = {
             1: 'Janeiro',
             2: 'Fevereiro',
-            3: 'MarÃ§o',
+            3: 'Março',
             4: 'Abril',
             5: 'Maio',
             6: 'Junho',
@@ -3882,7 +3882,7 @@ class FinanceiroView(LoginRequiredMixin, View):
     def _mp_api_request(self, method, path, payload=None):
         token = self._mp_access_token()
         if not token:
-            raise ValueError('MP_ACCESS_TOKEN_PROD nÃƒÂ£o configurado no servidor.')
+            raise ValueError('MP_ACCESS_TOKEN_PROD não configurado no servidor.')
 
         url = f'https://api.mercadopago.com{path}'
         headers = {
@@ -3995,7 +3995,7 @@ class FinanceiroView(LoginRequiredMixin, View):
         pix_code = tx_data.get('qr_code', '') or ''
         qr_base64 = tx_data.get('qr_code_base64', '') or ''
         if not pix_code or not qr_base64:
-            raise ValueError('Mercado Pago nÃƒÂ£o retornou QR Code Pix para este pagamento.')
+            raise ValueError('Mercado Pago não retornou QR Code Pix para este pagamento.')
         return {
             'payment_id': str(payment.get('id') or ''),
             'external_reference': external_reference,
@@ -4309,7 +4309,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                         selected_ids.append(int(text))
                 selected_ids = list(dict.fromkeys(selected_ids))
                 if not responsavel:
-                    messages.error(request, 'UsuÃ¡rio nÃ£o possui cadastro de responsÃ¡vel vinculado.')
+                    messages.error(request, 'Usuário não possui cadastro de responsável vinculado.')
                 elif not selected_ids:
                     messages.error(request, 'Selecione pelo menos uma mensalidade para pagar.')
                 else:
@@ -4330,7 +4330,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                     )
                     mensalidades = list(mensalidades_qs)
                     if len(mensalidades) != len(selected_ids):
-                        messages.error(request, 'Algumas mensalidades selecionadas sÃ£o invÃ¡lidas ou nÃ£o pertencem ao responsÃ¡vel logado.')
+                        messages.error(request, 'Algumas mensalidades selecionadas são inválidas ou não pertencem ao responsável logado.')
                     else:
                         total = sum((item.valor for item in mensalidades), Decimal('0.00')).quantize(Decimal('0.01'))
                         try:
@@ -4368,7 +4368,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                         except ValueError as exc:
                             messages.error(request, str(exc))
                         except Exception:
-                            messages.error(request, 'NÃ£o foi possÃ­vel iniciar o pagamento no Mercado Pago agora.')
+                            messages.error(request, 'Não foi possível iniciar o pagamento no Mercado Pago agora.')
                         else:
                             if pagamento.status == PagamentoMensalidade.STATUS_PAGO:
                                 messages.success(request, 'Pagamento aprovado e mensalidades marcadas como pagas.')
@@ -4389,7 +4389,7 @@ class FinanceiroView(LoginRequiredMixin, View):
             else:
                 valor = self._parse_valor(valor_input)
                 if valor is None:
-                    messages.error(request, 'Informe um valor vÃ¡lido para a mensalidade.')
+                    messages.error(request, 'Informe um valor válido para a mensalidade.')
                     context = self._mensalidades_context(aventureiro_id, valor_input)
                     context.update({'active_financeiro_tab': 'mensalidades'})
                     context.update(_sidebar_context(request))
@@ -4451,12 +4451,12 @@ class FinanceiroView(LoginRequiredMixin, View):
                 .first()
             )
             if not mensalidade:
-                messages.error(request, 'Mensalidade nÃƒÂ£o encontrada para ediÃƒÂ§ÃƒÂ£o.')
+                messages.error(request, 'Mensalidade não encontrada para edição.')
             else:
                 aventureiro_id = str(mensalidade.aventureiro_id)
                 valor = self._parse_valor(valor_edicao_input)
                 if valor is None:
-                    messages.error(request, 'Informe um valor vÃƒÂ¡lido para editar a mensalidade.')
+                    messages.error(request, 'Informe um valor válido para editar a mensalidade.')
                 else:
                     mensalidade.valor = valor
                     mensalidade.save(update_fields=['valor', 'updated_at'])
@@ -4473,13 +4473,13 @@ class FinanceiroView(LoginRequiredMixin, View):
                 .first()
             )
             if not mensalidade:
-                messages.error(request, 'Mensalidade nÃƒÂ£o encontrada para exclusÃƒÂ£o.')
+                messages.error(request, 'Mensalidade não encontrada para exclusão.')
             else:
                 aventureiro_id = str(mensalidade.aventureiro_id)
                 competencia = f'{self._month_label(mensalidade.mes_referencia)}/{mensalidade.ano_referencia}'
                 aventura_nome = mensalidade.aventureiro.nome
                 mensalidade.delete()
-                messages.success(request, f'Mensalidade {competencia} de {aventura_nome} excluÃƒÂ­da com sucesso.')
+                messages.success(request, f'Mensalidade {competencia} de {aventura_nome} excluída com sucesso.')
         elif action in {'marcar_mensalidade_paga', 'marcar_mensalidade_pendente'}:
             mensalidade_id = str(request.POST.get('mensalidade_id') or '').strip()
             mensalidade = (
@@ -4489,7 +4489,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                 .first()
             )
             if not mensalidade:
-                messages.error(request, 'Mensalidade nÃƒÂ£o encontrada para atualizar status.')
+                messages.error(request, 'Mensalidade não encontrada para atualizar status.')
             else:
                 aventureiro_id = str(mensalidade.aventureiro_id)
                 novo_status = (
@@ -4498,7 +4498,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                     else MensalidadeAventureiro.STATUS_PENDENTE
                 )
                 if mensalidade.status == novo_status:
-                    messages.info(request, f'Mensalidade jÃƒÂ¡ estÃƒÂ¡ como {mensalidade.get_status_display().lower()}.')
+                    messages.info(request, f'Mensalidade já está como {mensalidade.get_status_display().lower()}.')
                 else:
                     mensalidade.status = novo_status
                     mensalidade.save(update_fields=['status', 'updated_at'])
@@ -5068,7 +5068,7 @@ class UsuarioDetalheView(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         if not _has_menu_permission(request, 'usuarios'):
-            messages.error(request, 'Seu perfil nÃ£o possui permissÃ£o para acessar usuÃ¡rios.')
+            messages.error(request, 'Seu perfil não possui permissão para acessar usuários.')
             return redirect('accounts:painel')
         target_user = get_object_or_404(User, pk=pk)
         access = _ensure_user_access(target_user)
@@ -5115,7 +5115,7 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
 
     def _merge_users(self, target_user, source_user):
         if source_user.pk == target_user.pk:
-            return False, 'Selecione outro usuï¿½rio para unificar.'
+            return False, 'Selecione outro usuário para unificar.'
 
         source_responsavel = getattr(source_user, 'responsavel', None)
         source_diretoria = getattr(source_user, 'diretoria', None)
@@ -5123,9 +5123,9 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
         target_diretoria = getattr(target_user, 'diretoria', None)
 
         if source_responsavel and target_responsavel:
-            return False, 'Nï¿½o foi possï¿½vel unificar: ambos jï¿½ possuem cadastro de responsï¿½vel.'
+            return False, 'Não foi possível unificar: ambos já possuem cadastro de responsável.'
         if source_diretoria and target_diretoria:
-            return False, 'Nï¿½o foi possï¿½vel unificar: ambos jï¿½ possuem cadastro de diretoria.'
+            return False, 'Não foi possível unificar: ambos já possuem cadastro de diretoria.'
 
         with transaction.atomic():
             source_access = _ensure_user_access(source_user)
@@ -5176,7 +5176,7 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         if not _has_menu_permission(request, 'usuarios'):
-            messages.error(request, 'Seu perfil nï¿½o possui permissï¿½o para editar usuï¿½rios.')
+            messages.error(request, 'Seu perfil não possui permissão para editar usuários.')
             return redirect('accounts:painel')
         target_user = get_object_or_404(User, pk=pk)
         access = _ensure_user_access(target_user)
@@ -5188,7 +5188,7 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
 
     def post(self, request, pk):
         if not _has_menu_permission(request, 'usuarios'):
-            messages.error(request, 'Seu perfil nï¿½o possui permissï¿½o para editar usuï¿½rios.')
+            messages.error(request, 'Seu perfil não possui permissão para editar usuários.')
             return redirect('accounts:painel')
         target_user = get_object_or_404(User, pk=pk)
         action = str(request.POST.get('action') or '').strip()
@@ -5196,11 +5196,11 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
         if action == 'merge_user':
             source_username = str(request.POST.get('merge_username') or '').strip()
             if not source_username:
-                messages.error(request, 'Informe o username que serï¿½ unificado.')
+                messages.error(request, 'Informe o username que será unificado.')
                 return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
             source_user = User.objects.filter(username=source_username).first()
             if not source_user:
-                messages.error(request, 'Usuï¿½rio para unificaï¿½ï¿½o nï¿½o encontrado.')
+                messages.error(request, 'Usuário para unificação não encontrado.')
                 return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
             ok, error_message = self._merge_users(target_user, source_user)
             if not ok:
@@ -5215,7 +5215,7 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
             )
             messages.success(
                 request,
-                f'Unificaï¿½ï¿½o concluï¿½da: "{source_user.username}" foi incorporado em "{target_user.username}".',
+                f'Unificação concluída: "{source_user.username}" foi incorporado em "{target_user.username}".',
             )
             return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
 
@@ -5239,7 +5239,6 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
                     f'Ativo={"sim" if target_user.is_active else "nao"}'
                 ),
             )
-            messages.success(request, 'Permissï¿½es atualizadas com sucesso.')
+            messages.success(request, 'Permissões atualizadas com sucesso.')
             return redirect('accounts:usuarios')
         return render(request, self.template_name, self._base_context(request, target_user, form))
-
