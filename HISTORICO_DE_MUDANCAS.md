@@ -564,3 +564,7 @@ Arquivo oficial de registro das entregas concluidas.
 - O botão abre uma janela suspensa responsiva com resumo dos pedidos (um por linha), mostrando número do pedido, data/hora, quantidade de itens, status e total.
 - Cada linha pode ser clicada para expandir e ver os detalhes completos do pedido, incluindo itens, variação, quantidade, valores e forma de pagamento.
 - A listagem usa os pedidos do responsável logado e respeita o status atual salvo no sistema (`Pagamento aprovado`, `Aguardando pagamento`, etc.).
+## 25/02/2026 - Loja (Responsável) UX: removido texto técnico do rodapé do carrinho
+
+- Removido do carrinho da `Loja` (perfil `Responsável`) o texto técnico sobre etapas futuras de histórico/gestão de pedidos.
+- Objetivo: deixar a interface mais limpa e focada no cliente final.
