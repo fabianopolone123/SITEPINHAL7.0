@@ -590,3 +590,8 @@ Arquivo oficial de registro das entregas concluidas.
 - Cada pedido mostra resumo por linha (responsável, se está pago/não pago, valor total) e, ao clicar, abre detalhes do pedido.
 - Nos detalhes do pedido, passa a aparecer também o status de entrega (`Entregue` / `Não entregue`) e botão para marcar/desmarcar entrega.
 - Adicionado campo `entregue` em `LojaPedido` para controle de entrega no sistema.
+## 26/02/2026 - Hotfix Loja: campo `entregue` corrigido no model de pedido
+
+- Corrigido erro de modelagem que colocou o campo `entregue` no model `PagamentoMensalidade` em vez de `LojaPedido`.
+- A tela `Loja` (modo diretoria) passou a usar novamente o campo correto de entrega do pedido sem gerar erro 500.
+- Mantida a migração `0037_lojapedido_entregue` (sem nova migração, apenas alinhamento do model ao estado correto).
