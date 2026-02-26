@@ -656,3 +656,13 @@ Arquivo oficial de registro das entregas concluidas.
 - Removida da tela da Apostila a seção `Adicionar subrequisito neste requisito`.
 - Também foi removida a listagem visual de subrequisitos para simplificar o fluxo ao usuário final.
 - O passo a passo no topo foi atualizado para focar apenas em `requisito` e `dicas`.
+
+## 26/02/2026 - Apostila UX: clique na foto do requisito abre visualizacao ampliada
+
+- A foto cadastrada no requisito agora abre em tamanho maior ao clicar.
+- Implementado modal responsivo (desktop e celular) com:
+  - titulo do requisito
+  - botao fechar
+  - fechamento por clique no fundo
+  - fechamento por tecla `Esc`
+- Objetivo: facilitar a leitura da imagem sem perder contexto da tela.
