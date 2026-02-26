@@ -616,3 +616,17 @@ Arquivo oficial de registro das entregas concluidas.
   - resposta (opcional)
 - Criado o model `ApostilaRequisito` com persistência em banco, autoria e ordenação por classe/número.
 - Criada a migration `0038_apostilarequisito` com ajuste automático dos grupos padrão para incluir o menu `apostila` em `diretor` e `professor`.
+
+## 26/02/2026 - Apostila: dicas por requisito e subrequisitos (A, B, C...)
+
+- Cada requisito da Apostila agora possui campo `dicas` (opcional).
+- Implementado novo cadastro de `subrequisitos` por requisito, com:
+  - código do subrequisito (ex.: A, B, C)
+  - descrição
+  - resposta (opcional)
+- A tela de Apostila foi atualizada para exibir:
+  - dicas do requisito
+  - lista dos subrequisitos vinculados ao requisito
+  - formulário de cadastro de subrequisito dentro de cada requisito
+- Criada nova tabela/model `ApostilaSubRequisito` com vínculo ao requisito e bloqueio de código duplicado no mesmo requisito.
+- Criada migration `0039_apostilasubrequisito_apostilarequisito_dicas` para adicionar `dicas` em requisito e criar subrequisitos.

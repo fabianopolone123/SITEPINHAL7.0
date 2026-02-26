@@ -54,6 +54,7 @@ from .models import (
     LojaPedido,
     LojaPedidoItem,
     ApostilaRequisito,
+    ApostilaSubRequisito,
     AventureiroPontosPreset,
     AventureiroPontosLancamento,
 )
@@ -5236,8 +5237,12 @@ class ApostilaView(LoginRequiredMixin, View):
             ApostilaRequisito.objects
             .filter(classe=classe_code)
             .select_related('created_by')
+            .prefetch_related('subrequisitos__created_by')
             .order_by('numero_requisito', 'id')
         )
+        for requisito in requisitos:
+            requisito.subrequisitos_rows = list(requisito.subrequisitos.all())
+
         totals_map = {
             row['classe']: int(row['total'] or 0)
             for row in (
@@ -5285,42 +5290,103 @@ class ApostilaView(LoginRequiredMixin, View):
 
         action = str(request.POST.get('action') or '').strip()
         classe_code = self._classe_codigo_valido(request.POST.get('classe'))
-        numero_requisito = str(request.POST.get('numero_requisito') or '').strip()
-        descricao = str(request.POST.get('descricao') or '').strip()
-        resposta = str(request.POST.get('resposta') or '').strip()
 
-        form_data = {
-            'numero_requisito': numero_requisito,
-            'descricao': descricao,
-            'resposta': resposta,
-        }
+        if action == 'cadastrar_requisito':
+            numero_requisito = str(request.POST.get('numero_requisito') or '').strip()
+            descricao = str(request.POST.get('descricao') or '').strip()
+            resposta = str(request.POST.get('resposta') or '').strip()
+            dicas = str(request.POST.get('dicas') or '').strip()
 
-        if action != 'cadastrar_requisito':
-            messages.error(request, 'Ação inválida para Apostila.')
-            context = self._context(classe_code, form_data=form_data)
+            form_data = {
+                'numero_requisito': numero_requisito,
+                'descricao': descricao,
+                'resposta': resposta,
+                'dicas': dicas,
+            }
+
+            if not numero_requisito:
+                messages.error(request, 'Informe o número do requisito.')
+                context = self._context(classe_code, form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            if not descricao:
+                messages.error(request, 'Informe a descrição do requisito.')
+                context = self._context(classe_code, form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            ApostilaRequisito.objects.create(
+                classe=classe_code,
+                numero_requisito=numero_requisito,
+                descricao=descricao,
+                resposta=resposta,
+                dicas=dicas,
+                created_by=request.user,
+            )
+            messages.success(request, 'Requisito cadastrado com sucesso.')
+            context = self._context(classe_code, form_data={})
             context.update(_sidebar_context(request))
             return render(request, self.template_name, context)
 
-        if not numero_requisito:
-            messages.error(request, 'Informe o número do requisito.')
-            context = self._context(classe_code, form_data=form_data)
+        if action == 'cadastrar_subrequisito':
+            requisito_id_raw = str(request.POST.get('requisito_id') or '').strip()
+            codigo_subrequisito = str(request.POST.get('codigo_subrequisito') or '').strip().upper()
+            descricao_subrequisito = str(request.POST.get('descricao_subrequisito') or '').strip()
+            resposta_subrequisito = str(request.POST.get('resposta_subrequisito') or '').strip()
+
+            form_data = {
+                'sub_requisito_id': requisito_id_raw,
+                'sub_codigo': codigo_subrequisito,
+                'sub_descricao': descricao_subrequisito,
+                'sub_resposta': resposta_subrequisito,
+            }
+
+            requisito = (
+                ApostilaRequisito.objects
+                .filter(pk=requisito_id_raw, classe=classe_code)
+                .first()
+            ) if requisito_id_raw.isdigit() else None
+            if not requisito:
+                messages.error(request, 'Requisito inválido para cadastrar subrequisito.')
+                context = self._context(classe_code, form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            if not codigo_subrequisito:
+                messages.error(request, 'Informe o código do subrequisito (ex.: A, B, C).')
+                context = self._context(classe_code, form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            if not descricao_subrequisito:
+                messages.error(request, 'Informe a descrição do subrequisito.')
+                context = self._context(classe_code, form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            if ApostilaSubRequisito.objects.filter(
+                requisito=requisito,
+                codigo_subrequisito=codigo_subrequisito,
+            ).exists():
+                messages.error(request, f'O subrequisito {codigo_subrequisito} já existe neste requisito.')
+                context = self._context(classe_code, form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            ApostilaSubRequisito.objects.create(
+                requisito=requisito,
+                codigo_subrequisito=codigo_subrequisito,
+                descricao=descricao_subrequisito,
+                resposta=resposta_subrequisito,
+                created_by=request.user,
+            )
+            messages.success(request, f'Subrequisito {codigo_subrequisito} cadastrado no requisito {requisito.numero_requisito}.')
+            context = self._context(classe_code, form_data={})
             context.update(_sidebar_context(request))
             return render(request, self.template_name, context)
 
-        if not descricao:
-            messages.error(request, 'Informe a descrição do requisito.')
-            context = self._context(classe_code, form_data=form_data)
-            context.update(_sidebar_context(request))
-            return render(request, self.template_name, context)
-
-        ApostilaRequisito.objects.create(
-            classe=classe_code,
-            numero_requisito=numero_requisito,
-            descricao=descricao,
-            resposta=resposta,
-            created_by=request.user,
-        )
-        messages.success(request, 'Requisito cadastrado com sucesso.')
+        messages.error(request, 'Ação inválida para Apostila.')
         context = self._context(classe_code, form_data={})
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)

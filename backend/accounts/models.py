@@ -757,6 +757,7 @@ class ApostilaRequisito(models.Model):
     numero_requisito = models.CharField('número do requisito', max_length=64)
     descricao = models.TextField('descrição')
     resposta = models.TextField('resposta', blank=True)
+    dicas = models.TextField('dicas', blank=True)
     created_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -774,6 +775,31 @@ class ApostilaRequisito(models.Model):
 
     def __str__(self):
         return f'{self.get_classe_display()} - {self.numero_requisito}'
+
+
+class ApostilaSubRequisito(models.Model):
+    requisito = models.ForeignKey(ApostilaRequisito, on_delete=models.CASCADE, related_name='subrequisitos')
+    codigo_subrequisito = models.CharField('código do subrequisito', max_length=32)
+    descricao = models.TextField('descrição')
+    resposta = models.TextField('resposta', blank=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='apostila_subrequisitos_criados',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'subrequisito da apostila'
+        verbose_name_plural = 'subrequisitos da apostila'
+        ordering = ('requisito_id', 'codigo_subrequisito', 'id')
+        unique_together = ('requisito', 'codigo_subrequisito')
+
+    def __str__(self):
+        return f'{self.requisito.numero_requisito}.{self.codigo_subrequisito}'
 
 
 class AventureiroPontosPreset(models.Model):

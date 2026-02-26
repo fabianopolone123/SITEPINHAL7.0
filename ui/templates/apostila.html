@@ -32,12 +32,48 @@
       font:inherit;
     }
     .apostila-actions { margin-top:.9rem; display:flex; justify-content:flex-end; }
-    .apostila-table-wrap { overflow:auto; }
-    .apostila-table { width:100%; min-width:760px; border-collapse:collapse; }
-    .apostila-table th, .apostila-table td { text-align:left; padding:.6rem .55rem; border-bottom:1px solid #e2e8f0; vertical-align:top; }
+
+    .apostila-requisito-card {
+      border:1px solid #dbeafe;
+      border-radius:14px;
+      background:#fff;
+      padding:.9rem;
+    }
+    .apostila-requisito-card + .apostila-requisito-card { margin-top:.8rem; }
+    .apostila-requisito-head {
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:.8rem;
+      margin-bottom:.6rem;
+    }
+    .apostila-requisito-head h4 { margin:0; }
+    .apostila-meta { color:#64748b; font-size:.82rem; }
+    .apostila-kv { margin:.22rem 0; }
+    .apostila-kv strong { color:#0f172a; }
+
+    .apostila-sub-list {
+      width:100%;
+      border-collapse:collapse;
+      margin-top:.5rem;
+    }
+    .apostila-sub-list th, .apostila-sub-list td {
+      padding:.5rem .45rem;
+      border-bottom:1px solid #e2e8f0;
+      text-align:left;
+      vertical-align:top;
+      font-size:.92rem;
+    }
+    .apostila-sub-list th { color:#334155; }
+    .apostila-subform {
+      margin-top:.65rem;
+      border-top:1px dashed #dbeafe;
+      padding-top:.65rem;
+    }
 
     @media (max-width: 900px) {
       .apostila-form-grid { grid-template-columns: 1fr; }
+      .apostila-requisito-head { flex-direction:column; }
     }
   </style>
 </head>
@@ -46,7 +82,7 @@
   <main class="painel-content">
     <header class="painel-header">
       <h2>Apostila</h2>
-      <p>Selecione a classe e cadastre os requisitos da apostila um por um.</p>
+      <p>Selecione a classe e cadastre os requisitos com dicas e subrequisitos.</p>
     </header>
 
     <section class="painel-card">
@@ -54,7 +90,7 @@
         {% for message in messages %}
           <p data-state="{{ message.tags }}">{{ message }}</p>
         {% empty %}
-          <p data-state="info">Escolha uma classe abaixo e use o botão Cadastrar para lançar um requisito.</p>
+          <p data-state="info">Escolha uma classe abaixo e cadastre os requisitos da apostila.</p>
         {% endfor %}
       </div>
     </section>
@@ -84,7 +120,7 @@
           <div class="apostila-form-grid">
             <label>
               Número do requisito
-              <input type="text" name="numero_requisito" value="{{ form_data.numero_requisito|default:'' }}" placeholder="Ex.: 1, 1.2, A-03" required />
+              <input type="text" name="numero_requisito" value="{{ form_data.numero_requisito|default:'' }}" placeholder="Ex.: 01, 1.2, A-03" required />
             </label>
             <label>
               Resposta (opcional)
@@ -93,6 +129,10 @@
             <label class="full">
               Descrição
               <textarea name="descricao" rows="4" placeholder="Descreva o requisito..." required>{{ form_data.descricao|default:'' }}</textarea>
+            </label>
+            <label class="full">
+              Dicas (opcional)
+              <textarea name="dicas" rows="3" placeholder="Dicas para executar este requisito...">{{ form_data.dicas|default:'' }}</textarea>
             </label>
           </div>
           <div class="apostila-actions">
@@ -105,35 +145,95 @@
     <section class="painel-card">
       <h3>Requisitos cadastrados</h3>
       {% if requisitos %}
-        <div class="apostila-table-wrap">
-          <table class="apostila-table">
-            <thead>
-              <tr>
-                <th>Número</th>
-                <th>Descrição</th>
-                <th>Resposta</th>
-                <th>Criado por</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for item in requisitos %}
-                <tr>
-                  <td><strong>{{ item.numero_requisito }}</strong></td>
-                  <td>{{ item.descricao }}</td>
-                  <td>{{ item.resposta|default:'-' }}</td>
-                  <td>
-                    {% if item.created_by %}
-                      {{ item.created_by.username }}<br />
-                    {% else %}
-                      -
-                    {% endif %}
-                    <small>{{ item.created_at|date:'d/m/Y H:i' }}</small>
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+        {% for item in requisitos %}
+          <article class="apostila-requisito-card">
+            <div class="apostila-requisito-head">
+              <div>
+                <h4>Requisito {{ item.numero_requisito }}</h4>
+                <p class="apostila-kv"><strong>Descrição:</strong> {{ item.descricao }}</p>
+                <p class="apostila-kv"><strong>Resposta:</strong> {{ item.resposta|default:'-' }}</p>
+                <p class="apostila-kv"><strong>Dicas:</strong> {{ item.dicas|default:'-' }}</p>
+              </div>
+              <div class="apostila-meta">
+                {% if item.created_by %}
+                  {{ item.created_by.username }}<br />
+                {% else %}
+                  -
+                {% endif %}
+                {{ item.created_at|date:'d/m/Y H:i' }}
+              </div>
+            </div>
+
+            <div>
+              <strong>Subrequisitos</strong>
+              {% if item.subrequisitos_rows %}
+                <table class="apostila-sub-list">
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Descrição</th>
+                      <th>Resposta</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for sub in item.subrequisitos_rows %}
+                      <tr>
+                        <td>{{ sub.codigo_subrequisito }}</td>
+                        <td>{{ sub.descricao }}</td>
+                        <td>{{ sub.resposta|default:'-' }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              {% else %}
+                <p class="panel-note" style="margin:.35rem 0 0;">Nenhum subrequisito cadastrado.</p>
+              {% endif %}
+            </div>
+
+            <details class="apostila-subform">
+              <summary><strong>Cadastrar subrequisito</strong></summary>
+              <form method="post" style="margin-top:.65rem;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="cadastrar_subrequisito" />
+                <input type="hidden" name="classe" value="{{ selected_classe }}" />
+                <input type="hidden" name="requisito_id" value="{{ item.id }}" />
+                <div class="apostila-form-grid">
+                  <label>
+                    Código do subrequisito
+                    <input
+                      type="text"
+                      name="codigo_subrequisito"
+                      placeholder="Ex.: A, B, C"
+                      value="{% if form_data.sub_requisito_id == item.id|stringformat:'s' %}{{ form_data.sub_codigo|default:'' }}{% endif %}"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Resposta (opcional)
+                    <input
+                      type="text"
+                      name="resposta_subrequisito"
+                      placeholder="Ex.: Feito, Sim, texto livre"
+                      value="{% if form_data.sub_requisito_id == item.id|stringformat:'s' %}{{ form_data.sub_resposta|default:'' }}{% endif %}"
+                    />
+                  </label>
+                  <label class="full">
+                    Descrição do subrequisito
+                    <textarea
+                      name="descricao_subrequisito"
+                      rows="3"
+                      placeholder="Descreva o subrequisito..."
+                      required
+                    >{% if form_data.sub_requisito_id == item.id|stringformat:'s' %}{{ form_data.sub_descricao|default:'' }}{% endif %}</textarea>
+                  </label>
+                </div>
+                <div class="apostila-actions">
+                  <button type="submit" class="primary">Cadastrar subrequisito</button>
+                </div>
+              </form>
+            </details>
+          </article>
+        {% endfor %}
       {% else %}
         <p class="panel-note">Nenhum requisito cadastrado para esta classe.</p>
       {% endif %}
