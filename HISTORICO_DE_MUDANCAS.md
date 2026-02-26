@@ -538,3 +538,9 @@ Arquivo oficial de registro das entregas concluidas.
 
 - A janela suspensa de visualização de fotos do catálogo da `Loja` passou a permitir alternar entre as imagens da variação selecionada sem fechar o modal.
 - Adicionados controles `anterior/próxima`, contador de fotos e suporte às teclas `←` e `→`.
+## 25/02/2026 - Loja (Responsável): carrinho lateral com itens, total e pagamento (placeholder)
+
+- Implementado carrinho no catálogo da `Loja` para o perfil `Responsável`, com abertura automática em painel lateral ao adicionar item.
+- Carrinho mostra itens adicionados (produto, variação, foto, valor unitário, subtotal) e permite editar quantidade com `+`/`-` e remover item.
+- Exibe total do pedido, seleção de forma de pagamento e botão `Finalizar pedido` (por enquanto como placeholder de próxima etapa).
+- Carrinho fica salvo no navegador (`localStorage`) para manter os itens durante a navegação/atualização da página.
