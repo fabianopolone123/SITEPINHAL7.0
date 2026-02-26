@@ -758,6 +758,7 @@ class ApostilaRequisito(models.Model):
     descricao = models.TextField('descrição')
     resposta = models.TextField('resposta', blank=True)
     dicas = models.TextField('dicas', blank=True)
+    foto_requisito = models.ImageField('foto do requisito', upload_to='apostila/requisitos', null=True, blank=True)
     created_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -800,6 +801,42 @@ class ApostilaSubRequisito(models.Model):
 
     def __str__(self):
         return f'{self.requisito.numero_requisito}.{self.codigo_subrequisito}'
+
+
+class ApostilaDica(models.Model):
+    requisito = models.ForeignKey(ApostilaRequisito, on_delete=models.CASCADE, related_name='dicas_rows')
+    texto = models.TextField('texto da dica')
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='apostila_dicas_criadas',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'dica da apostila'
+        verbose_name_plural = 'dicas da apostila'
+        ordering = ('requisito_id', 'id')
+
+    def __str__(self):
+        return f'Dica do requisito {self.requisito.numero_requisito}'
+
+
+class ApostilaDicaArquivo(models.Model):
+    dica = models.ForeignKey(ApostilaDica, on_delete=models.CASCADE, related_name='arquivos')
+    arquivo = models.FileField('arquivo da dica', upload_to='apostila/dicas/arquivos')
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'arquivo da dica da apostila'
+        verbose_name_plural = 'arquivos das dicas da apostila'
+        ordering = ('dica_id', 'id')
+
+    def __str__(self):
+        return f'Arquivo da dica #{self.dica_id}'
 
 
 class AventureiroPontosPreset(models.Model):

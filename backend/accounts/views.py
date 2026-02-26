@@ -55,6 +55,8 @@ from .models import (
     LojaPedidoItem,
     ApostilaRequisito,
     ApostilaSubRequisito,
+    ApostilaDica,
+    ApostilaDicaArquivo,
     AventureiroPontosPreset,
     AventureiroPontosLancamento,
 )
@@ -5237,11 +5239,12 @@ class ApostilaView(LoginRequiredMixin, View):
             ApostilaRequisito.objects
             .filter(classe=classe_code)
             .select_related('created_by')
-            .prefetch_related('subrequisitos__created_by')
+            .prefetch_related('subrequisitos__created_by', 'dicas_rows__created_by', 'dicas_rows__arquivos')
             .order_by('numero_requisito', 'id')
         )
         for requisito in requisitos:
             requisito.subrequisitos_rows = list(requisito.subrequisitos.all())
+            requisito.dicas_rows_list = list(requisito.dicas_rows.all())
 
         totals_map = {
             row['classe']: int(row['total'] or 0)
@@ -5295,13 +5298,12 @@ class ApostilaView(LoginRequiredMixin, View):
             numero_requisito = str(request.POST.get('numero_requisito') or '').strip()
             descricao = str(request.POST.get('descricao') or '').strip()
             resposta = str(request.POST.get('resposta') or '').strip()
-            dicas = str(request.POST.get('dicas') or '').strip()
+            foto_requisito = request.FILES.get('foto_requisito')
 
             form_data = {
                 'numero_requisito': numero_requisito,
                 'descricao': descricao,
                 'resposta': resposta,
-                'dicas': dicas,
             }
 
             if not numero_requisito:
@@ -5321,10 +5323,54 @@ class ApostilaView(LoginRequiredMixin, View):
                 numero_requisito=numero_requisito,
                 descricao=descricao,
                 resposta=resposta,
-                dicas=dicas,
+                foto_requisito=foto_requisito,
                 created_by=request.user,
             )
             messages.success(request, 'Requisito cadastrado com sucesso.')
+            context = self._context(classe_code, form_data={})
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+
+        if action == 'cadastrar_dica':
+            requisito_id_raw = str(request.POST.get('requisito_id') or '').strip()
+            texto_dica = str(request.POST.get('texto_dica') or '').strip()
+            arquivos_dica = request.FILES.getlist('dica_arquivos')
+
+            form_data = {
+                'dica_requisito_id': requisito_id_raw,
+                'dica_texto': texto_dica,
+            }
+
+            requisito = (
+                ApostilaRequisito.objects
+                .filter(pk=requisito_id_raw, classe=classe_code)
+                .first()
+            ) if requisito_id_raw.isdigit() else None
+            if not requisito:
+                messages.error(request, 'Requisito inválido para cadastrar dica.')
+                context = self._context(classe_code, form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            if not texto_dica:
+                messages.error(request, 'Informe o texto da dica.')
+                context = self._context(classe_code, form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            with transaction.atomic():
+                dica = ApostilaDica.objects.create(
+                    requisito=requisito,
+                    texto=texto_dica,
+                    created_by=request.user,
+                )
+                for arquivo in arquivos_dica:
+                    ApostilaDicaArquivo.objects.create(
+                        dica=dica,
+                        arquivo=arquivo,
+                    )
+
+            messages.success(request, f'Dica cadastrada no requisito {requisito.numero_requisito}.')
             context = self._context(classe_code, form_data={})
             context.update(_sidebar_context(request))
             return render(request, self.template_name, context)

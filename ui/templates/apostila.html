@@ -47,6 +47,16 @@
       gap:.8rem;
       margin-bottom:.6rem;
     }
+    .apostila-requisito-ident { display:flex; gap:.7rem; align-items:flex-start; }
+    .apostila-requisito-foto {
+      width:68px;
+      height:68px;
+      border-radius:10px;
+      object-fit:cover;
+      border:1px solid #dbeafe;
+      background:#f8fafc;
+      flex-shrink:0;
+    }
     .apostila-requisito-head h4 { margin:0; }
     .apostila-meta { color:#64748b; font-size:.82rem; }
     .apostila-kv { margin:.22rem 0; }
@@ -112,7 +122,7 @@
       <h3>{{ selected_classe_label }}</h3>
       <details>
         <summary><strong>Cadastrar requisito</strong></summary>
-        <form method="post" style="margin-top:.85rem;">
+        <form method="post" enctype="multipart/form-data" style="margin-top:.85rem;">
           {% csrf_token %}
           <input type="hidden" name="action" value="cadastrar_requisito" />
           <input type="hidden" name="classe" value="{{ selected_classe }}" />
@@ -131,8 +141,8 @@
               <textarea name="descricao" rows="4" placeholder="Descreva o requisito..." required>{{ form_data.descricao|default:'' }}</textarea>
             </label>
             <label class="full">
-              Dicas (opcional)
-              <textarea name="dicas" rows="3" placeholder="Dicas para executar este requisito...">{{ form_data.dicas|default:'' }}</textarea>
+              Foto do requisito (opcional)
+              <input type="file" name="foto_requisito" accept="image/*" />
             </label>
           </div>
           <div class="apostila-actions">
@@ -148,11 +158,18 @@
         {% for item in requisitos %}
           <article class="apostila-requisito-card">
             <div class="apostila-requisito-head">
-              <div>
-                <h4>Requisito {{ item.numero_requisito }}</h4>
-                <p class="apostila-kv"><strong>Descrição:</strong> {{ item.descricao }}</p>
-                <p class="apostila-kv"><strong>Resposta:</strong> {{ item.resposta|default:'-' }}</p>
-                <p class="apostila-kv"><strong>Dicas:</strong> {{ item.dicas|default:'-' }}</p>
+              <div class="apostila-requisito-ident">
+                {% if item.foto_requisito %}
+                  <img src="{{ item.foto_requisito.url }}" alt="Foto do requisito {{ item.numero_requisito }}" class="apostila-requisito-foto" />
+                {% endif %}
+                <div>
+                  <h4>Requisito {{ item.numero_requisito }}</h4>
+                  <p class="apostila-kv"><strong>Descrição:</strong> {{ item.descricao }}</p>
+                  <p class="apostila-kv"><strong>Resposta:</strong> {{ item.resposta|default:'-' }}</p>
+                  {% if item.dicas %}
+                    <p class="apostila-kv"><strong>Dica (legado):</strong> {{ item.dicas }}</p>
+                  {% endif %}
+                </div>
               </div>
               <div class="apostila-meta">
                 {% if item.created_by %}
@@ -163,6 +180,59 @@
                 {{ item.created_at|date:'d/m/Y H:i' }}
               </div>
             </div>
+
+            <div>
+              <strong>Dicas</strong>
+              {% if item.dicas_rows_list %}
+                <table class="apostila-sub-list">
+                  <thead>
+                    <tr>
+                      <th>Dica</th>
+                      <th>Arquivos</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for dica in item.dicas_rows_list %}
+                      <tr>
+                        <td>{{ dica.texto }}</td>
+                        <td>
+                          {% for arq in dica.arquivos.all %}
+                            <a href="{{ arq.arquivo.url }}" target="_blank" rel="noopener">Arquivo {{ forloop.counter }}</a>{% if not forloop.last %}<br />{% endif %}
+                          {% empty %}
+                            -
+                          {% endfor %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              {% else %}
+                <p class="panel-note" style="margin:.35rem 0 0;">Nenhuma dica cadastrada.</p>
+              {% endif %}
+            </div>
+
+            <details class="apostila-subform">
+              <summary><strong>Cadastrar dica</strong></summary>
+              <form method="post" enctype="multipart/form-data" style="margin-top:.65rem;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="cadastrar_dica" />
+                <input type="hidden" name="classe" value="{{ selected_classe }}" />
+                <input type="hidden" name="requisito_id" value="{{ item.id }}" />
+                <div class="apostila-form-grid">
+                  <label class="full">
+                    Texto da dica
+                    <textarea name="texto_dica" rows="3" placeholder="Ex.: orientar a criança em passos..." required>{% if form_data.dica_requisito_id == item.id|stringformat:'s' %}{{ form_data.dica_texto|default:'' }}{% endif %}</textarea>
+                  </label>
+                  <label class="full">
+                    Arquivos da dica (opcional)
+                    <input type="file" name="dica_arquivos" multiple />
+                  </label>
+                </div>
+                <div class="apostila-actions">
+                  <button type="submit" class="primary">Cadastrar dica</button>
+                </div>
+              </form>
+            </details>
 
             <div>
               <strong>Subrequisitos</strong>

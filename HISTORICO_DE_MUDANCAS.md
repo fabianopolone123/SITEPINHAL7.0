@@ -630,3 +630,13 @@ Arquivo oficial de registro das entregas concluidas.
   - formulário de cadastro de subrequisito dentro de cada requisito
 - Criada nova tabela/model `ApostilaSubRequisito` com vínculo ao requisito e bloqueio de código duplicado no mesmo requisito.
 - Criada migration `0039_apostilasubrequisito_apostilarequisito_dicas` para adicionar `dicas` em requisito e criar subrequisitos.
+
+## 26/02/2026 - Apostila: foto no requisito, multiplas dicas e arquivos por dica
+
+- Adicionada foto opcional em cada requisito da apostila (`foto do requisito`), exibida junto ao card do requisito.
+- O cadastro de requisito passou a aceitar upload de imagem.
+- Implementado cadastro de múltiplas dicas por requisito (não apenas um texto único).
+- Cada dica agora permite anexar múltiplos arquivos.
+- A tela da apostila passou a exibir lista de dicas por requisito e links dos arquivos anexados em cada dica.
+- Criados os novos models `ApostilaDica` e `ApostilaDicaArquivo`.
+- Criada migration `0040_apostiladica_apostiladicaarquivo_and_more` para incluir `foto_requisito` e as novas tabelas de dicas/arquivos.
