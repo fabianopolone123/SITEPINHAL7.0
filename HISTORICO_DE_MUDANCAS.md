@@ -524,3 +524,9 @@ Arquivo oficial de registro das entregas concluidas.
 - Seleção de variação agora atualiza o valor exibido e troca a foto principal/minigaleria conforme as fotos vinculadas à variação.
 - Adicionados controles de quantidade com botões `+` e `-` (mínimo 1) e botão `Adicionar ao carrinho` como placeholder para a próxima etapa.
 - Incluído `Loja` no menu padrão do perfil `Responsável` para novos grupos/perfis.
+## 25/02/2026 - Loja (Responsável) UX: lista suspensa de variações e cards com largura controlada
+
+- No catálogo da `Loja` para `Responsável`, a escolha de variações foi ajustada para `lista suspensa` (select), em vez de lista expandida.
+- Removida do card do responsável a faixa visual de `Produção sob pedido: mínimo de pedidos pagos`.
+- Ajustado o grid dos cards para largura controlada no PC (evitando card gigante quando há poucos produtos) e mantendo responsividade no celular.
+- Mantida exibição da foto principal com `object-fit: contain` e miniaturas sem corte para melhor visualização do produto.

@@ -43,8 +43,8 @@
     .loja-fotos-mini img { width:54px; height:54px; object-fit:cover; border-radius:8px; border:1px solid #dbeafe; background:#f8fafc; }
     .loja-fotos-badge { display:inline-block; margin-top:.4rem; font-size:.76rem; color:#0f172a; background:#eff6ff; border:1px solid #dbeafe; border-radius:999px; padding:.15rem .45rem; }
     .stock-empty { color:#64748b; }
-    .loja-catalog-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap:1rem; }
-    .catalog-card { border:1px solid #dbeafe; border-radius:16px; background:#fff; box-shadow: 0 10px 24px rgba(15,23,42,.05); overflow:hidden; display:flex; flex-direction:column; }
+    .loja-catalog-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 340px)); gap:1rem; justify-content:center; }
+    .catalog-card { width:100%; max-width:340px; justify-self:center; border:1px solid #dbeafe; border-radius:16px; background:#fff; box-shadow: 0 10px 24px rgba(15,23,42,.05); overflow:hidden; display:flex; flex-direction:column; }
     .catalog-media { padding:.8rem .8rem .35rem; }
     .catalog-main-photo-wrap {
       width:100%;
@@ -81,18 +81,26 @@
       cursor:pointer;
       overflow:hidden;
     }
-    .catalog-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+    .catalog-thumb img { width:100%; height:100%; object-fit:contain; display:block; background:#fff; }
     .catalog-body { padding:.35rem .8rem .85rem; display:grid; gap:.75rem; }
     .catalog-title { margin:0; color:#0f172a; font-size:1.02rem; line-height:1.2; }
     .catalog-desc { margin:0; color:#475569; font-size:.9rem; line-height:1.4; }
-    .catalog-min-rule { margin:0; padding:.45rem .55rem; border-radius:10px; border:1px solid #dbeafe; background:#f8fbff; color:#1e3a8a; font-size:.82rem; }
     .catalog-variations { border:1px solid #e2e8f0; border-radius:12px; padding:.65rem; display:grid; gap:.45rem; background:#fcfdff; }
     .catalog-variations h4 { margin:0; font-size:.88rem; color:#0f172a; }
-    .catalog-variation-option { display:flex; align-items:flex-start; gap:.5rem; border:1px solid #e2e8f0; border-radius:10px; padding:.45rem .5rem; background:#fff; }
-    .catalog-variation-option input { margin-top:.12rem; }
-    .catalog-variation-meta { display:grid; gap:.1rem; }
-    .catalog-variation-meta strong { font-size:.88rem; color:#0f172a; }
-    .catalog-variation-meta span { font-size:.8rem; color:#64748b; }
+    .catalog-variation-select {
+      width:100%;
+      padding:.7rem .8rem;
+      border:1px solid #cbd5e1;
+      border-radius:10px;
+      background:#fff;
+      color:#0f172a;
+      font-weight:600;
+    }
+    .catalog-variation-stock {
+      font-size:.8rem;
+      color:#64748b;
+      min-height:1rem;
+    }
     .catalog-buy-row { display:grid; grid-template-columns: 1fr auto; gap:.65rem; align-items:end; }
     .catalog-qty-wrap { display:grid; gap:.25rem; }
     .catalog-label { font-size:.8rem; color:#475569; font-weight:700; }
@@ -185,41 +193,31 @@
                   {% if row.produto.descricao %}
                     <p class="catalog-desc">{{ row.produto.descricao }}</p>
                   {% endif %}
-                  {% if row.produto.minimo_pedidos_pagos %}
-                    <p class="catalog-min-rule">
-                      Produção sob pedido: mínimo de <strong>{{ row.produto.minimo_pedidos_pagos }}</strong> pedidos pagos.
-                    </p>
-                  {% endif %}
                 </div>
 
                 <div class="catalog-variations">
                   <h4>Variações</h4>
                   {% for v in row.variacoes %}
-                    <label class="catalog-variation-option">
-                      <input
-                        type="radio"
-                        name="catalog_variacao_produto_{{ row.produto.id }}"
-                        value="{{ v.id }}"
-                        data-catalog-variation
-                        data-variant-id="{{ v.id }}"
-                        data-price="{{ v.valor }}"
-                        data-price-label="R$ {{ v.valor }}"
-                        {% if forloop.first %}checked{% endif %}
-                      />
-                      <span class="catalog-variation-meta">
-                        <strong>{{ v.nome }}</strong>
-                        <span>
-                          {% if v.estoque is not None %}
-                            Estoque: {{ v.estoque }}
-                          {% else %}
-                            Estoque não informado
-                          {% endif %}
-                        </span>
-                      </span>
-                    </label>
+                    {% if forloop.first %}
+                      <select class="catalog-variation-select" data-catalog-variation-select>
+                    {% endif %}
+                        <option
+                          value="{{ v.id }}"
+                          data-variant-id="{{ v.id }}"
+                          data-price="{{ v.valor }}"
+                          data-stock-label="{% if v.estoque is not None %}Estoque: {{ v.estoque }}{% else %}Estoque não informado{% endif %}"
+                        >
+                          {{ v.nome }}
+                        </option>
+                    {% if forloop.last %}
+                      </select>
+                    {% endif %}
                   {% empty %}
                     <p class="panel-note" style="margin:0;">Sem variações ativas disponíveis.</p>
                   {% endfor %}
+                  {% if row.variacoes %}
+                    <div class="catalog-variation-stock" data-catalog-stock></div>
+                  {% endif %}
                 </div>
 
                 <div class="catalog-price-box">
@@ -424,8 +422,9 @@
         const mainImage = card.querySelector('[data-catalog-main-image]');
         const fallback = card.querySelector('[data-catalog-main-fallback]');
         const thumbsWrap = card.querySelector('[data-catalog-thumbs]');
-        const radios = Array.from(card.querySelectorAll('[data-catalog-variation]'));
+        const variationSelect = card.querySelector('[data-catalog-variation-select]');
         const priceEl = card.querySelector('[data-catalog-price]');
+        const stockEl = card.querySelector('[data-catalog-stock]');
         const qtyInput = card.querySelector('[data-catalog-qty]');
         const btnMinus = card.querySelector('[data-qty-minus]');
         const btnPlus = card.querySelector('[data-qty-plus]');
@@ -481,15 +480,19 @@
         }
 
         function updateBySelection() {
-          const selected = radios.find(function (radio) { return radio.checked; });
+          const selected = variationSelect && variationSelect.options.length
+            ? variationSelect.options[variationSelect.selectedIndex]
+            : null;
           if (!selected) {
             if (priceEl) priceEl.textContent = 'Selecione uma variação';
+            if (stockEl) stockEl.textContent = '';
             const defaultSrc = (mainImage && mainImage.dataset.defaultSrc) || '';
             setMainPhoto(defaultSrc, mainImage ? mainImage.alt : '');
             renderThumbs([]);
             return;
           }
           if (priceEl) priceEl.textContent = formatPrice(selected.dataset.price || '');
+          if (stockEl) stockEl.textContent = selected.dataset.stockLabel || '';
           const photos = getVariantUrls(selected.dataset.variantId || selected.value);
           if (photos.length) {
             setMainPhoto(photos[0].url, photos[0].alt);
@@ -508,24 +511,19 @@
           qtyInput.value = String(next);
         }
 
-        radios.forEach(function (radio) {
-          radio.addEventListener('change', updateBySelection);
-        });
+        if (variationSelect) variationSelect.addEventListener('change', updateBySelection);
         if (btnMinus) btnMinus.addEventListener('click', function () { changeQty(-1); });
         if (btnPlus) btnPlus.addEventListener('click', function () { changeQty(1); });
         if (addBtn) {
           addBtn.addEventListener('click', function () {
-            const selected = radios.find(function (radio) { return radio.checked; });
+            const selected = variationSelect && variationSelect.options.length
+              ? variationSelect.options[variationSelect.selectedIndex]
+              : null;
             if (!selected) {
               if (feedback) feedback.textContent = 'Selecione uma variação para continuar.';
               return;
             }
-            let varLabel = 'Variação';
-            const option = selected.closest('.catalog-variation-option');
-            if (option) {
-              const strong = option.querySelector('.catalog-variation-meta strong');
-              if (strong && strong.textContent) varLabel = strong.textContent;
-            }
+            const varLabel = selected.textContent ? selected.textContent.trim() : 'Variação';
             const qty = qtyInput ? Math.max(1, parseInt(qtyInput.value || '1', 10) || 1) : 1;
             if (feedback) {
               feedback.textContent = 'Produto preparado para o carrinho: ' + varLabel + ' (quantidade ' + qty + ').';
