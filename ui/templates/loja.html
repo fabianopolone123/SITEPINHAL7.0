@@ -114,6 +114,67 @@
     .catalog-cart-btn:hover { filter:brightness(1.03); }
     .catalog-feedback { margin:0; font-size:.8rem; color:#0369a1; min-height:1.1rem; }
     .catalog-hidden-media { display:none; }
+    .image-modal[hidden] { display:none !important; }
+    .image-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      display: grid;
+      place-items: center;
+      padding: .75rem;
+      background: rgba(15, 23, 42, .72);
+      backdrop-filter: blur(2px);
+    }
+    .image-modal-dialog {
+      width: min(980px, 100%);
+      max-height: min(92vh, 820px);
+      background: #fff;
+      border-radius: 16px;
+      border: 1px solid #dbeafe;
+      box-shadow: 0 30px 80px rgba(15,23,42,.35);
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+    }
+    .image-modal-head {
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap:.75rem;
+      padding:.7rem .85rem;
+      border-bottom:1px solid #e2e8f0;
+      background:#f8fbff;
+    }
+    .image-modal-title {
+      margin:0;
+      color:#0f172a;
+      font-size:.95rem;
+      line-height:1.2;
+    }
+    .image-modal-close {
+      border:1px solid #cbd5e1;
+      background:#fff;
+      color:#0f172a;
+      border-radius:10px;
+      padding:.45rem .6rem;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .image-modal-body {
+      padding:.7rem;
+      display:grid;
+      place-items:center;
+      background:#fff;
+    }
+    .image-modal-body img {
+      width:100%;
+      height:100%;
+      max-width: 100%;
+      max-height: min(78vh, 700px);
+      object-fit: contain;
+      border-radius: 12px;
+      background: #fff;
+    }
     @media (max-width: 800px) {
       .loja-form-grid { grid-template-columns: 1fr; }
       .variacao-row { grid-template-columns: 1fr; }
@@ -123,6 +184,12 @@
       .catalog-buy-row { grid-template-columns: 1fr; }
       .catalog-qty-control { width:100%; grid-template-columns: 42px 1fr 42px; }
       .catalog-qty-control input { width:100%; }
+      .image-modal { padding: .4rem; }
+      .image-modal-dialog { max-height: 95vh; border-radius: 12px; }
+      .image-modal-head { padding:.6rem .7rem; }
+      .image-modal-title { font-size:.88rem; }
+      .image-modal-body { padding:.45rem; }
+      .image-modal-body img { max-height: 82vh; border-radius: 10px; }
     }
   </style>
 </head>
@@ -387,6 +454,18 @@
     {% endif %}
   </main>
 
+  <div class="image-modal" id="catalogImageModal" hidden aria-hidden="true">
+    <div class="image-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="catalogImageModalTitle">
+      <div class="image-modal-head">
+        <h3 class="image-modal-title" id="catalogImageModalTitle">Visualização da imagem</h3>
+        <button type="button" class="image-modal-close" id="catalogImageModalClose">Fechar</button>
+      </div>
+      <div class="image-modal-body">
+        <img id="catalogImageModalImg" src="" alt="Visualização ampliada do produto" />
+      </div>
+    </div>
+  </div>
+
   {% if loja_mode != 'responsavel' %}
   <template id="variacao-template">
     <div class="variacao-row">
@@ -410,7 +489,40 @@
   <script>
     (function () {
       const cards = document.querySelectorAll('[data-catalog-card]');
+      const modal = document.getElementById('catalogImageModal');
+      const modalImg = document.getElementById('catalogImageModalImg');
+      const modalTitle = document.getElementById('catalogImageModalTitle');
+      const modalClose = document.getElementById('catalogImageModalClose');
       if (!cards.length) return;
+
+      function openImageModal(url, alt) {
+        if (!modal || !modalImg || !url) return;
+        modalImg.src = url;
+        modalImg.alt = alt || 'Visualização ampliada do produto';
+        if (modalTitle) modalTitle.textContent = alt || 'Visualização da imagem';
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        if (modalClose) modalClose.focus();
+      }
+
+      function closeImageModal() {
+        if (!modal || modal.hidden) return;
+        modal.hidden = true;
+        modal.setAttribute('aria-hidden', 'true');
+        if (modalImg) modalImg.removeAttribute('src');
+      }
+
+      if (modal) {
+        modal.addEventListener('click', function (event) {
+          if (event.target === modal) closeImageModal();
+        });
+      }
+      if (modalClose) {
+        modalClose.addEventListener('click', closeImageModal);
+      }
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') closeImageModal();
+      });
 
       function formatPrice(raw) {
         const value = Number(String(raw || '').replace(',', '.'));
@@ -474,6 +586,7 @@
             btn.appendChild(img);
             btn.addEventListener('click', function () {
               setMainPhoto(photo.url, photo.alt);
+              openImageModal(photo.url, photo.alt);
             });
             thumbsWrap.appendChild(btn);
           });
@@ -514,6 +627,17 @@
         if (variationSelect) variationSelect.addEventListener('change', updateBySelection);
         if (btnMinus) btnMinus.addEventListener('click', function () { changeQty(-1); });
         if (btnPlus) btnPlus.addEventListener('click', function () { changeQty(1); });
+        if (mainImage) {
+          const mainWrap = card.querySelector('.catalog-main-photo-wrap');
+          if (mainWrap) {
+            mainWrap.style.cursor = 'zoom-in';
+            mainWrap.addEventListener('click', function () {
+              if (!mainImage.hidden && mainImage.getAttribute('src')) {
+                openImageModal(mainImage.getAttribute('src'), mainImage.getAttribute('alt'));
+              }
+            });
+          }
+        }
         if (addBtn) {
           addBtn.addEventListener('click', function () {
             const selected = variationSelect && variationSelect.options.length

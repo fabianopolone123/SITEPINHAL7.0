@@ -530,3 +530,7 @@ Arquivo oficial de registro das entregas concluidas.
 - Removida do card do responsável a faixa visual de `Produção sob pedido: mínimo de pedidos pagos`.
 - Ajustado o grid dos cards para largura controlada no PC (evitando card gigante quando há poucos produtos) e mantendo responsividade no celular.
 - Mantida exibição da foto principal com `object-fit: contain` e miniaturas sem corte para melhor visualização do produto.
+## 25/02/2026 - Loja (Responsável): visualização ampliada da foto em modal responsivo
+
+- No catálogo da `Loja` para `Responsável`, clicar na foto principal ou nas miniaturas agora abre uma janela suspensa responsiva com a imagem ampliada.
+- Modal com fechamento por botão, clique no fundo e tecla `Esc`, mantendo a foto em `object-fit: contain` para não cortar a imagem.
