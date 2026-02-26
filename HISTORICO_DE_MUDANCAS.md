@@ -544,3 +544,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Carrinho mostra itens adicionados (produto, variação, foto, valor unitário, subtotal) e permite editar quantidade com `+`/`-` e remover item.
 - Exibe total do pedido, seleção de forma de pagamento e botão `Finalizar pedido` (por enquanto como placeholder de próxima etapa).
 - Carrinho fica salvo no navegador (`localStorage`) para manter os itens durante a navegação/atualização da página.
+## 25/02/2026 - Loja (Responsável): finalização com Pix Mercado Pago (pedido + QR Code + status)
+
+- Implementado backend de `Pedidos da Loja` (`LojaPedido` e `LojaPedidoItem`) com status, itens, total e campos de integração Mercado Pago.
+- O botão `Finalizar pedido` do carrinho agora cria um pedido real da loja e gera pagamento Pix via Mercado Pago.
+- Adicionado modal Pix no catálogo da loja com QR Code, código copia-e-cola, atualização manual de status e polling automático.
+- Criados endpoints para `criar pedido Pix`, consultar `status do pedido` e `webhook` da loja, marcando o pedido como pago quando confirmado pelo Mercado Pago.
+- Mantida forma de pagamento somente `Pix` por enquanto.

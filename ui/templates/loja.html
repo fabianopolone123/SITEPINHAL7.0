@@ -300,6 +300,65 @@
     }
     .cart-foot-note { margin:0; font-size:.78rem; color:#64748b; }
     .cart-inline-feedback { margin:0; font-size:.8rem; color:#0369a1; min-height:1rem; }
+    .pix-modal[hidden] { display:none !important; }
+    .pix-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1150;
+      display: grid;
+      place-items: center;
+      padding: .75rem;
+      background: rgba(15,23,42,.62);
+      backdrop-filter: blur(2px);
+    }
+    .pix-modal-dialog {
+      width: min(560px, 100%);
+      max-height: 94vh;
+      overflow:auto;
+      background:#fff;
+      border:1px solid #dbeafe;
+      border-radius:16px;
+      box-shadow: 0 30px 80px rgba(15,23,42,.25);
+      display:grid;
+      gap:.75rem;
+      padding:.85rem;
+    }
+    .pix-modal-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
+    .pix-modal-title { margin:0; color:#0f172a; font-size:1rem; }
+    .pix-modal-close {
+      border:1px solid #cbd5e1; background:#fff; color:#0f172a;
+      border-radius:10px; padding:.45rem .6rem; font-weight:700; cursor:pointer;
+    }
+    .pix-modal-status {
+      border:1px solid #dbeafe; background:#f8fbff; color:#1e3a8a;
+      border-radius:12px; padding:.55rem .65rem; display:grid; gap:.15rem;
+    }
+    .pix-modal-status strong { color:#0f172a; }
+    .pix-modal-qr-wrap {
+      border:1px solid #e2e8f0; border-radius:14px; background:#fff;
+      padding:.85rem; display:grid; place-items:center;
+    }
+    .pix-modal-qr-wrap img { width:min(320px, 100%); height:auto; object-fit:contain; display:block; }
+    .pix-modal-code-wrap { display:grid; gap:.35rem; }
+    .pix-modal-code-label { font-size:.8rem; color:#475569; font-weight:700; }
+    .pix-modal-code {
+      width:100%; min-height:92px; resize:vertical;
+      border:1px solid #cbd5e1; border-radius:10px;
+      padding:.65rem .75rem; font-family: Consolas, monospace; font-size:.8rem;
+      color:#0f172a; background:#fff;
+    }
+    .pix-modal-actions { display:grid; grid-template-columns: 1fr 1fr; gap:.6rem; }
+    .pix-secondary-btn, .pix-primary-btn {
+      border-radius:12px; padding:.75rem .85rem; font-weight:800; cursor:pointer;
+    }
+    .pix-secondary-btn {
+      border:1px solid #cbd5e1; background:#fff; color:#0f172a;
+    }
+    .pix-primary-btn {
+      border:0; background: linear-gradient(135deg,#1d4ed8,#2563eb); color:#fff;
+      box-shadow: 0 10px 20px rgba(37,99,235,.16);
+    }
+    .pix-modal-note { margin:0; font-size:.8rem; color:#64748b; }
     .image-modal[hidden] { display:none !important; }
     .image-modal {
       position: fixed;
@@ -407,6 +466,9 @@
       .cart-item-remove { width:100%; }
       .cart-item-qty { justify-self:stretch; width:100%; grid-template-columns: 32px 1fr 32px; }
       .cart-item-qty input { width:100%; }
+      .pix-modal { padding:.4rem; }
+      .pix-modal-dialog { border-radius:12px; padding:.7rem; }
+      .pix-modal-actions { grid-template-columns: 1fr; }
       .image-modal { padding: .4rem; }
       .image-modal-dialog { max-height: 95vh; border-radius: 12px; }
       .image-modal-head { padding:.6rem .7rem; }
@@ -704,18 +766,46 @@
         <label style="display:grid; gap:.3rem;">
           <span class="catalog-label">Forma de pagamento</span>
           <select class="cart-payment-select" id="catalogCartPaymentMethod">
-            <option value="">Selecione a forma de pagamento</option>
-            <option value="pix">Pix</option>
-            <option value="dinheiro">Dinheiro</option>
-            <option value="cartao_credito">Cartão de crédito</option>
-            <option value="cartao_debito">Cartão de débito</option>
-            <option value="transferencia">Transferência</option>
+            <option value="pix" selected>Pix</option>
           </select>
         </label>
         <button type="button" class="cart-finalize-btn" id="catalogCartFinalizeBtn" disabled>Finalizar pedido</button>
-        <p class="cart-foot-note">Nesta etapa, o carrinho é de validação. A finalização completa do pedido será implementada na próxima fase.</p>
+        <p class="cart-foot-note">Ao finalizar, o sistema gera o Pix do pedido. As próximas etapas (histórico/gestão completa dos pedidos) serão implementadas depois.</p>
       </div>
     </aside>
+  </div>
+  {% endif %}
+
+  {% if loja_mode == 'responsavel' %}
+  <div
+    id="lojaPixApiConfig"
+    data-create-url="{% url 'accounts:loja_pedido_criar_pix' %}"
+    data-status-url-template="{% url 'accounts:loja_pedido_status' 0 %}"
+  ></div>
+  <div class="pix-modal" id="catalogPixModal" hidden aria-hidden="true">
+    <div class="pix-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="catalogPixModalTitle">
+      <div class="pix-modal-head">
+        <h3 class="pix-modal-title" id="catalogPixModalTitle">Pagamento via Pix</h3>
+        <button type="button" class="pix-modal-close" id="catalogPixModalClose">Fechar</button>
+      </div>
+      <div class="pix-modal-status">
+        <span><strong>Pedido:</strong> <span id="catalogPixPedidoId">-</span></span>
+        <span><strong>Status:</strong> <span id="catalogPixStatusLabel">Aguardando pagamento</span></span>
+        <span><strong>Total:</strong> <span id="catalogPixValorTotal">R$ 0,00</span></span>
+      </div>
+      <div class="pix-modal-qr-wrap">
+        <img id="catalogPixQrImage" alt="QR Code Pix do pedido" />
+      </div>
+      <div class="pix-modal-code-wrap">
+        <span class="pix-modal-code-label">Pix copia e cola</span>
+        <textarea class="pix-modal-code" id="catalogPixCode" readonly></textarea>
+      </div>
+      <div class="pix-modal-actions">
+        <button type="button" class="pix-secondary-btn" id="catalogPixCopyBtn">Copiar código Pix</button>
+        <button type="button" class="pix-primary-btn" id="catalogPixRefreshBtn">Atualizar status</button>
+      </div>
+      <p class="pix-modal-note" id="catalogPixModalNote">Após pagar, aguarde alguns segundos. O status será atualizado automaticamente.</p>
+    </div>
   </div>
   {% endif %}
 
@@ -776,18 +866,33 @@
       const cartPaymentSelect = document.getElementById('catalogCartPaymentMethod');
       const cartFinalizeBtn = document.getElementById('catalogCartFinalizeBtn');
       const cartInlineFeedback = document.getElementById('catalogCartInlineFeedback');
+      const pixApiConfig = document.getElementById('lojaPixApiConfig');
+      const pixModal = document.getElementById('catalogPixModal');
+      const pixModalClose = document.getElementById('catalogPixModalClose');
+      const pixPedidoIdEl = document.getElementById('catalogPixPedidoId');
+      const pixStatusLabelEl = document.getElementById('catalogPixStatusLabel');
+      const pixValorTotalEl = document.getElementById('catalogPixValorTotal');
+      const pixQrImageEl = document.getElementById('catalogPixQrImage');
+      const pixCodeEl = document.getElementById('catalogPixCode');
+      const pixCopyBtn = document.getElementById('catalogPixCopyBtn');
+      const pixRefreshBtn = document.getElementById('catalogPixRefreshBtn');
+      const pixModalNote = document.getElementById('catalogPixModalNote');
       if (!cards.length) return;
 
       const CART_STORAGE_KEY = 'sitepinhal_loja_cart_responsavel_v1';
+      const PIX_CREATE_URL = pixApiConfig ? String(pixApiConfig.dataset.createUrl || '') : '';
+      const PIX_STATUS_URL_TEMPLATE = pixApiConfig ? String(pixApiConfig.dataset.statusUrlTemplate || '') : '';
       let modalGalleryItems = [];
       let modalGalleryIndex = 0;
-      let cartState = { items: [], payment_method: '' };
+      let cartState = { items: [], payment_method: 'pix' };
+      let pixPedidoAtual = null;
+      let pixPollingTimer = null;
 
       function normalizeCartState(raw) {
         const base = (raw && typeof raw === 'object') ? raw : {};
         const items = Array.isArray(base.items) ? base.items : [];
         return {
-          payment_method: String(base.payment_method || ''),
+          payment_method: String(base.payment_method || 'pix') || 'pix',
           items: items
             .filter(function (item) {
               return item && item.key && item.product_id && item.variation_id;
@@ -853,7 +958,8 @@
 
         if (cartOpenCount) cartOpenCount.textContent = String(cartItemsCount());
         cartTotalEl.textContent = formatPriceNumber(total);
-        if (cartPaymentSelect) cartPaymentSelect.value = cartState.payment_method || '';
+        if (!cartState.payment_method) cartState.payment_method = 'pix';
+        if (cartPaymentSelect) cartPaymentSelect.value = cartState.payment_method || 'pix';
         if (cartFinalizeBtn) {
           cartFinalizeBtn.disabled = !(items.length && (cartState.payment_method || '').trim());
         }
@@ -892,6 +998,127 @@
       function setCartFeedback(text) {
         if (!cartInlineFeedback) return;
         cartInlineFeedback.textContent = text || '';
+      }
+
+      function getCookie(name) {
+        const cookies = document.cookie ? document.cookie.split(';') : [];
+        for (let i = 0; i < cookies.length; i += 1) {
+          const cookie = cookies[i].trim();
+          if (cookie.startsWith(name + '=')) {
+            return decodeURIComponent(cookie.slice(name.length + 1));
+          }
+        }
+        return '';
+      }
+
+      function clearPixPolling() {
+        if (pixPollingTimer) {
+          clearTimeout(pixPollingTimer);
+          pixPollingTimer = null;
+        }
+      }
+
+      function closePixModal() {
+        clearPixPolling();
+        if (!pixModal || pixModal.hidden) return;
+        pixModal.hidden = true;
+        pixModal.setAttribute('aria-hidden', 'true');
+      }
+
+      function openPixModal() {
+        if (!pixModal) return;
+        pixModal.hidden = false;
+        pixModal.setAttribute('aria-hidden', 'false');
+        if (pixModalClose) pixModalClose.focus();
+      }
+
+      function renderPixModal(pedido) {
+        if (!pedido) return;
+        pixPedidoAtual = pedido;
+        if (pixPedidoIdEl) pixPedidoIdEl.textContent = String(pedido.pedido_id || pedido.id || '-');
+        if (pixStatusLabelEl) pixStatusLabelEl.textContent = String(pedido.status_label || 'Aguardando pagamento');
+        if (pixValorTotalEl) pixValorTotalEl.textContent = String(pedido.valor_total || 'R$ 0,00');
+        if (pixCodeEl) pixCodeEl.value = String(pedido.pix_code || '');
+        if (pixQrImageEl) {
+          const base64 = String(pedido.qr_base64 || '');
+          pixQrImageEl.src = base64 ? ('data:image/png;base64,' + base64) : '';
+        }
+        if (pixRefreshBtn) pixRefreshBtn.disabled = false;
+        if (pixModalNote) {
+          pixModalNote.textContent = pedido.status === 'pago'
+            ? 'Pagamento aprovado. O pedido foi marcado como pago.'
+            : 'Após pagar, aguarde alguns segundos. O status será atualizado automaticamente.';
+        }
+        openPixModal();
+      }
+
+      async function fetchPixStatus() {
+        if (!pixPedidoAtual || !pixPedidoAtual.pedido_id || !PIX_STATUS_URL_TEMPLATE) return;
+        const url = PIX_STATUS_URL_TEMPLATE.replace('/0/status/', '/' + String(pixPedidoAtual.pedido_id) + '/status/');
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          credentials: 'same-origin',
+        });
+        const data = await response.json().catch(function () { return {}; });
+        if (!response.ok || !data.ok) {
+          throw new Error(data.message || data.error || 'Falha ao consultar status do pedido.');
+        }
+        pixPedidoAtual.status = data.status;
+        pixPedidoAtual.status_label = data.status_label;
+        renderPixModal(pixPedidoAtual);
+        if (data.is_paid) {
+          cartState.items = [];
+          saveCartState();
+          renderCart();
+          setCartFeedback('Pagamento aprovado. Seu pedido foi marcado como pago.');
+          closeCartDrawer();
+          clearPixPolling();
+        }
+        return data;
+      }
+
+      function schedulePixPolling() {
+        clearPixPolling();
+        if (!pixPedidoAtual || pixPedidoAtual.status === 'pago') return;
+        pixPollingTimer = setTimeout(function () {
+          fetchPixStatus()
+            .catch(function () {})
+            .finally(function () {
+              if (pixPedidoAtual && pixPedidoAtual.status !== 'pago' && pixModal && !pixModal.hidden) {
+                schedulePixPolling();
+              }
+            });
+        }, 5000);
+      }
+
+      async function createPixPedidoFromCart() {
+        if (!PIX_CREATE_URL) throw new Error('URL de criação de pedido não configurada.');
+        const payload = {
+          payment_method: 'pix',
+          items: (cartState.items || []).map(function (item) {
+            return {
+              product_id: item.product_id,
+              variation_id: item.variation_id,
+              quantity: item.quantity,
+            };
+          }),
+        };
+        const response = await fetch(PIX_CREATE_URL, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(function () { return {}; });
+        if (!response.ok || !data.ok) {
+          throw new Error(data.message || data.error || 'Não foi possível gerar o pagamento Pix.');
+        }
+        return data.pedido || null;
       }
 
       function openCartDrawer() {
@@ -1050,7 +1277,7 @@
         });
       }
       if (cartFinalizeBtn) {
-        cartFinalizeBtn.addEventListener('click', function () {
+        cartFinalizeBtn.addEventListener('click', async function () {
           if (!cartState.items.length) {
             setCartFeedback('Adicione itens ao carrinho antes de finalizar.');
             return;
@@ -1059,11 +1286,73 @@
             setCartFeedback('Selecione a forma de pagamento para continuar.');
             return;
           }
-          setCartFeedback('Finalização do pedido será implementada na próxima etapa. Seu carrinho está pronto.');
+          try {
+            cartFinalizeBtn.disabled = true;
+            setCartFeedback('Gerando pagamento Pix do pedido...');
+            const pedidoPix = await createPixPedidoFromCart();
+            if (!pedidoPix) throw new Error('Resposta inválida ao gerar pagamento.');
+            renderPixModal(pedidoPix);
+            if (pedidoPix.status !== 'pago') {
+              schedulePixPolling();
+            } else {
+              cartState.items = [];
+              saveCartState();
+              renderCart();
+              closeCartDrawer();
+            }
+            setCartFeedback('');
+          } catch (error) {
+            setCartFeedback((error && error.message) ? error.message : 'Não foi possível gerar o pagamento Pix agora.');
+          } finally {
+            renderCart();
+          }
+        });
+      }
+      if (pixModal) {
+        pixModal.addEventListener('click', function (event) {
+          if (event.target === pixModal) closePixModal();
+        });
+      }
+      if (pixModalClose) pixModalClose.addEventListener('click', closePixModal);
+      if (pixCopyBtn) {
+        pixCopyBtn.addEventListener('click', async function () {
+          const text = pixCodeEl ? String(pixCodeEl.value || '') : '';
+          if (!text) return;
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(text);
+            } else if (pixCodeEl) {
+              pixCodeEl.select();
+              document.execCommand('copy');
+            }
+            if (pixModalNote) pixModalNote.textContent = 'Código Pix copiado para a área de transferência.';
+          } catch (error) {
+            if (pixModalNote) pixModalNote.textContent = 'Não foi possível copiar automaticamente. Copie manualmente o código Pix.';
+          }
+        });
+      }
+      if (pixRefreshBtn) {
+        pixRefreshBtn.addEventListener('click', async function () {
+          try {
+            pixRefreshBtn.disabled = true;
+            if (pixModalNote) pixModalNote.textContent = 'Consultando status do pagamento...';
+            await fetchPixStatus();
+            if (pixPedidoAtual && pixPedidoAtual.status !== 'pago') {
+              if (pixModalNote) pixModalNote.textContent = 'Pagamento ainda pendente. Continue e atualize novamente em alguns segundos.';
+            }
+          } catch (error) {
+            if (pixModalNote) pixModalNote.textContent = (error && error.message) ? error.message : 'Falha ao consultar status do pedido.';
+          } finally {
+            if (pixRefreshBtn) pixRefreshBtn.disabled = false;
+          }
         });
       }
       document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape') {
+          if (pixModal && !pixModal.hidden) {
+            closePixModal();
+            return;
+          }
           if (modal && !modal.hidden) {
             closeImageModal();
             return;

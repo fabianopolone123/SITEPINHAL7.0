@@ -51,6 +51,8 @@ from .models import (
     LojaProduto,
     LojaProdutoVariacao,
     LojaProdutoFoto,
+    LojaPedido,
+    LojaPedidoItem,
     AventureiroPontosPreset,
     AventureiroPontosLancamento,
 )
@@ -5142,6 +5144,173 @@ class LojaView(LoginRequiredMixin, View):
             return None
         return value.quantize(Decimal('0.01'))
 
+    def _format_currency(self, value):
+        try:
+            decimal_value = Decimal(value).quantize(Decimal('0.01'))
+        except (InvalidOperation, ValueError, TypeError):
+            decimal_value = Decimal('0.00')
+        text = f'{decimal_value:,.2f}'
+        return 'R$ ' + text.replace(',', 'X').replace('.', ',').replace('X', '.')
+
+    def _mp_client(self):
+        return FinanceiroView()
+
+    def _mp_api_request(self, method, path, payload=None):
+        return self._mp_client()._mp_api_request(method, path, payload)
+
+    def _get_mp_payment(self, payment_id):
+        return self._mp_client()._get_mp_payment(payment_id)
+
+    def _mp_notification_url_loja(self, request):
+        explicit = os.getenv('MP_NOTIFICATION_URL_LOJA', '').strip()
+        if explicit:
+            return explicit
+        try:
+            return request.build_absolute_uri('/accounts/loja/mp-webhook/')
+        except Exception:
+            return ''
+
+    def _mp_payer_email_loja(self, request, responsavel, pedido):
+        candidate_emails = []
+        if getattr(request.user, 'email', ''):
+            candidate_emails.append(request.user.email.strip())
+        if getattr(responsavel, 'responsavel_email', ''):
+            candidate_emails.append(responsavel.responsavel_email.strip())
+        if getattr(responsavel, 'mae_email', ''):
+            candidate_emails.append(responsavel.mae_email.strip())
+        if getattr(responsavel, 'pai_email', ''):
+            candidate_emails.append(responsavel.pai_email.strip())
+        for email in candidate_emails:
+            if not email:
+                continue
+            try:
+                validate_email(email)
+            except ValidationError:
+                continue
+            return email
+        domain = (
+            os.getenv('MP_PAYER_EMAIL_DOMAIN', '').strip()
+            or os.getenv('SITE_DOMAIN', '').strip()
+            or request.get_host().split(':')[0].strip()
+            or 'pinhaljunior.com.br'
+        )
+        domain = domain.lower().replace('http://', '').replace('https://', '').strip('/')
+        if not domain or '.' not in domain:
+            domain = 'pinhaljunior.com.br'
+        return f'lojapedido{pedido.pk}.{request.user.id}@{domain}'
+
+    def _create_mp_pix_payment_loja(self, request, pedido):
+        responsavel = pedido.responsavel
+        responsible_name = (
+            responsavel.responsavel_nome
+            or responsavel.mae_nome
+            or responsavel.pai_nome
+            or request.user.get_full_name()
+            or request.user.username
+        ).strip()
+        name_parts = [part for part in responsible_name.split() if part]
+        first_name = (name_parts[0] if name_parts else request.user.username)[:60]
+        last_name = (' '.join(name_parts[1:]) if len(name_parts) > 1 else 'Responsavel')[:60]
+        payer_email = self._mp_payer_email_loja(request, responsavel, pedido)
+        external_reference = f'LOJA_PEDIDO_{pedido.pk}'
+        payload = {
+            'transaction_amount': float(pedido.valor_total),
+            'description': f'Loja - Pedido #{pedido.pk}',
+            'payment_method_id': 'pix',
+            'external_reference': external_reference,
+            'payer': {
+                'email': payer_email,
+                'first_name': first_name,
+                'last_name': last_name,
+            },
+        }
+        notification_url = self._mp_notification_url_loja(request)
+        if notification_url:
+            payload['notification_url'] = notification_url
+        payment = self._mp_api_request('POST', '/v1/payments', payload)
+        tx_data = payment.get('point_of_interaction', {}).get('transaction_data', {})
+        pix_code = tx_data.get('qr_code', '') or ''
+        qr_base64 = tx_data.get('qr_code_base64', '') or ''
+        if not pix_code or not qr_base64:
+            raise ValueError('Mercado Pago não retornou QR Code Pix para este pedido.')
+        return {
+            'payment_id': str(payment.get('id') or ''),
+            'external_reference': external_reference,
+            'status': (payment.get('status') or '').lower(),
+            'status_detail': payment.get('status_detail') or '',
+            'pix_code': pix_code,
+            'qr_base64': qr_base64,
+        }
+
+    def _pedido_loja_status_label(self, pedido):
+        if pedido.status == LojaPedido.STATUS_PAGO:
+            return 'Pagamento aprovado'
+        status = (pedido.mp_status or '').lower()
+        status_map = {
+            'pending': 'Aguardando pagamento',
+            'in_process': 'Processando pagamento',
+            'approved': 'Pagamento aprovado',
+            'rejected': 'Pagamento recusado',
+            'cancelled': 'Pagamento cancelado',
+        }
+        return status_map.get(status, 'Aguardando pagamento')
+
+    def _sync_pedido_loja_from_mp(self, pedido, payment_data):
+        mp_status = (payment_data.get('status') or '').lower()
+        mp_status_detail = payment_data.get('status_detail') or ''
+        mp_payment_id = str(payment_data.get('id') or pedido.mp_payment_id or '')
+        mp_external_reference = payment_data.get('external_reference') or pedido.mp_external_reference
+        update_fields = []
+
+        if mp_payment_id != pedido.mp_payment_id:
+            pedido.mp_payment_id = mp_payment_id
+            update_fields.append('mp_payment_id')
+        if (mp_external_reference or '') != pedido.mp_external_reference:
+            pedido.mp_external_reference = mp_external_reference or ''
+            update_fields.append('mp_external_reference')
+        if mp_status != pedido.mp_status:
+            pedido.mp_status = mp_status
+            update_fields.append('mp_status')
+        if mp_status_detail != pedido.mp_status_detail:
+            pedido.mp_status_detail = mp_status_detail
+            update_fields.append('mp_status_detail')
+
+        target_status = pedido.status
+        if mp_status == 'approved':
+            target_status = LojaPedido.STATUS_PAGO
+        elif mp_status in {'pending'}:
+            target_status = LojaPedido.STATUS_PENDENTE
+        elif mp_status in {'in_process'}:
+            target_status = LojaPedido.STATUS_PROCESSANDO
+        elif mp_status in {'cancelled'}:
+            target_status = LojaPedido.STATUS_CANCELADO
+        elif mp_status in {'rejected'}:
+            target_status = LojaPedido.STATUS_FALHA
+        if target_status != pedido.status:
+            pedido.status = target_status
+            update_fields.append('status')
+
+        if mp_status == 'approved' and not pedido.paid_at:
+            pedido.paid_at = timezone.now()
+            update_fields.append('paid_at')
+        elif mp_status != 'approved' and pedido.paid_at:
+            pedido.paid_at = None
+            update_fields.append('paid_at')
+
+        if update_fields:
+            pedido.save(update_fields=list(dict.fromkeys(update_fields)))
+
+    def _pix_modal_context_loja(self, pedido):
+        return {
+            'pedido_id': pedido.pk,
+            'payment_id': pedido.mp_payment_id,
+            'status': pedido.status,
+            'status_label': self._pedido_loja_status_label(pedido),
+            'valor_total': self._format_currency(pedido.valor_total),
+            'qr_base64': pedido.mp_qr_code_base64,
+            'pix_code': pedido.mp_qr_code,
+        }
+
     def _is_responsavel_mode(self, request):
         return _get_active_profile(request) == UserAccess.ROLE_RESPONSAVEL
 
@@ -5421,6 +5590,203 @@ class LojaView(LoginRequiredMixin, View):
         context = self._context()
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
+
+
+class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
+    def post(self, request):
+        if not _has_menu_permission(request, 'loja'):
+            return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+        if _get_active_profile(request) != UserAccess.ROLE_RESPONSAVEL:
+            return JsonResponse({'ok': False, 'error': 'forbidden_profile'}, status=403)
+
+        responsavel = getattr(request.user, 'responsavel', None)
+        if not responsavel:
+            return JsonResponse({'ok': False, 'error': 'responsavel_not_found'}, status=400)
+
+        try:
+            payload = json.loads((request.body or b'').decode('utf-8') or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
+
+        payment_method = str(payload.get('payment_method') or '').strip().lower()
+        if payment_method != LojaPedido.FORMA_PAGAMENTO_PIX:
+            return JsonResponse({'ok': False, 'error': 'unsupported_payment_method', 'message': 'Somente Pix está disponível no momento.'}, status=400)
+
+        raw_items = payload.get('items')
+        if not isinstance(raw_items, list) or not raw_items:
+            return JsonResponse({'ok': False, 'error': 'empty_cart', 'message': 'Carrinho vazio.'}, status=400)
+
+        parsed_items = []
+        total = Decimal('0.00')
+        for idx, item in enumerate(raw_items, start=1):
+            if not isinstance(item, dict):
+                return JsonResponse({'ok': False, 'error': 'invalid_item', 'message': f'Item {idx} inválido.'}, status=400)
+            produto_id = str(item.get('product_id') or '').strip()
+            variacao_id = str(item.get('variation_id') or '').strip()
+            quantity_raw = item.get('quantity')
+            if not (produto_id.isdigit() and variacao_id.isdigit()):
+                return JsonResponse({'ok': False, 'error': 'invalid_item_ids', 'message': f'Produto/variação inválidos no item {idx}.'}, status=400)
+            try:
+                quantity = int(quantity_raw)
+            except (TypeError, ValueError):
+                return JsonResponse({'ok': False, 'error': 'invalid_quantity', 'message': f'Quantidade inválida no item {idx}.'}, status=400)
+            if quantity <= 0:
+                return JsonResponse({'ok': False, 'error': 'invalid_quantity', 'message': f'Quantidade deve ser maior que zero no item {idx}.'}, status=400)
+
+            variacao = (
+                LojaProdutoVariacao.objects
+                .select_related('produto')
+                .filter(pk=int(variacao_id), produto_id=int(produto_id), ativo=True, produto__ativo=True)
+                .first()
+            )
+            if not variacao:
+                return JsonResponse({'ok': False, 'error': 'variation_not_found', 'message': f'Variação inválida ou inativa no item {idx}.'}, status=400)
+
+            unit_price = Decimal(variacao.valor).quantize(Decimal('0.01'))
+            line_total = (unit_price * quantity).quantize(Decimal('0.01'))
+
+            foto_url = ''
+            foto = (
+                LojaProdutoFoto.objects
+                .filter(produto=variacao.produto)
+                .filter(Q(todas_variacoes=True) | Q(variacao=variacao) | Q(variacoes_vinculadas=variacao))
+                .order_by('ordem', 'id')
+                .first()
+            )
+            if foto and getattr(foto, 'foto', None):
+                try:
+                    foto_url = foto.foto.url
+                except Exception:
+                    foto_url = ''
+            if not foto_url and getattr(variacao.produto, 'foto', None):
+                try:
+                    foto_url = variacao.produto.foto.url
+                except Exception:
+                    foto_url = ''
+
+            parsed_items.append({
+                'produto': variacao.produto,
+                'variacao': variacao,
+                'produto_titulo': variacao.produto.titulo,
+                'variacao_nome': variacao.nome,
+                'quantidade': quantity,
+                'valor_unitario': unit_price,
+                'valor_total': line_total,
+                'foto_url': foto_url,
+            })
+            total += line_total
+
+        if not parsed_items:
+            return JsonResponse({'ok': False, 'error': 'empty_cart', 'message': 'Carrinho vazio.'}, status=400)
+
+        loja_view = LojaView()
+        try:
+            with transaction.atomic():
+                pedido = LojaPedido.objects.create(
+                    responsavel=responsavel,
+                    forma_pagamento=LojaPedido.FORMA_PAGAMENTO_PIX,
+                    valor_total=total.quantize(Decimal('0.01')),
+                    created_by=request.user,
+                    status=LojaPedido.STATUS_PENDENTE,
+                )
+                LojaPedidoItem.objects.bulk_create([
+                    LojaPedidoItem(
+                        pedido=pedido,
+                        produto=item['produto'],
+                        variacao=item['variacao'],
+                        produto_titulo=item['produto_titulo'],
+                        variacao_nome=item['variacao_nome'],
+                        quantidade=item['quantidade'],
+                        valor_unitario=item['valor_unitario'],
+                        valor_total=item['valor_total'],
+                        foto_url=item['foto_url'],
+                    )
+                    for item in parsed_items
+                ])
+                mp_payload = loja_view._create_mp_pix_payment_loja(request, pedido)
+                pedido.mp_payment_id = mp_payload['payment_id']
+                pedido.mp_external_reference = mp_payload['external_reference']
+                pedido.mp_status = mp_payload['status']
+                pedido.mp_status_detail = mp_payload['status_detail']
+                pedido.mp_qr_code = mp_payload['pix_code']
+                pedido.mp_qr_code_base64 = mp_payload['qr_base64']
+                if mp_payload['status'] == 'approved':
+                    pedido.status = LojaPedido.STATUS_PAGO
+                    pedido.paid_at = timezone.now()
+                elif mp_payload['status'] == 'in_process':
+                    pedido.status = LojaPedido.STATUS_PROCESSANDO
+                else:
+                    pedido.status = LojaPedido.STATUS_PENDENTE
+                pedido.save(update_fields=[
+                    'mp_payment_id', 'mp_external_reference', 'mp_status', 'mp_status_detail',
+                    'mp_qr_code', 'mp_qr_code_base64', 'status', 'paid_at', 'updated_at',
+                ])
+        except ValueError as exc:
+            return JsonResponse({'ok': False, 'error': 'mercadopago', 'message': str(exc)}, status=400)
+        except Exception:
+            return JsonResponse({'ok': False, 'error': 'pedido_create_failed', 'message': 'Não foi possível gerar o pagamento Pix do pedido agora.'}, status=500)
+
+        return JsonResponse({
+            'ok': True,
+            'pedido': loja_view._pix_modal_context_loja(pedido),
+        })
+
+
+class LojaPedidoStatusApiView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        if not _has_menu_permission(request, 'loja'):
+            return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+        pedido = get_object_or_404(
+            LojaPedido.objects.select_related('responsavel', 'responsavel__user'),
+            pk=pk,
+        )
+        if _get_active_profile(request) == UserAccess.ROLE_RESPONSAVEL:
+            responsavel = getattr(request.user, 'responsavel', None)
+            if not responsavel or pedido.responsavel_id != responsavel.pk:
+                return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+
+        loja_view = LojaView()
+        if pedido.mp_payment_id and pedido.status != LojaPedido.STATUS_PAGO:
+            try:
+                payment_data = loja_view._get_mp_payment(pedido.mp_payment_id)
+                loja_view._sync_pedido_loja_from_mp(pedido, payment_data)
+                pedido.refresh_from_db()
+            except Exception:
+                pass
+
+        return JsonResponse({
+            'ok': True,
+            'pedido_id': pedido.pk,
+            'status': pedido.status,
+            'status_label': loja_view._pedido_loja_status_label(pedido),
+            'mp_status': pedido.mp_status,
+            'mp_status_detail': pedido.mp_status_detail,
+            'is_paid': pedido.status == LojaPedido.STATUS_PAGO,
+        })
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class LojaPedidoWebhookView(PagamentoMensalidadeWebhookView):
+    def _sync_by_payment_id(self, payment_id):
+        finance_view = FinanceiroView()
+        payment_data = finance_view._get_mp_payment(payment_id)
+        external_reference = str(payment_data.get('external_reference') or '').strip()
+
+        pagamento = PagamentoMensalidade.objects.filter(mp_payment_id=str(payment_id)).first()
+        if not pagamento and external_reference:
+            pagamento = PagamentoMensalidade.objects.filter(mp_external_reference=external_reference).first()
+        if pagamento:
+            finance_view._sync_pagamento_from_mp(pagamento, payment_data)
+            return True, ''
+
+        pedido = LojaPedido.objects.filter(mp_payment_id=str(payment_id)).first()
+        if not pedido and external_reference:
+            pedido = LojaPedido.objects.filter(mp_external_reference=external_reference).first()
+        if pedido:
+            LojaView()._sync_pedido_loja_from_mp(pedido, payment_data)
+            return True, ''
+
+        return False, 'payment_not_found_locally'
 
 
 class UsuarioDetalheView(LoginRequiredMixin, View):

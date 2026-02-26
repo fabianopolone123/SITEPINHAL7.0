@@ -661,6 +661,83 @@ class LojaProdutoFoto(models.Model):
         return f'Foto de {self.produto.titulo} ({alvo})'
 
 
+class LojaPedido(models.Model):
+    FORMA_PAGAMENTO_PIX = 'pix'
+    FORMA_PAGAMENTO_CHOICES = [
+        (FORMA_PAGAMENTO_PIX, 'Pix'),
+    ]
+
+    STATUS_PENDENTE = 'pendente'
+    STATUS_PROCESSANDO = 'processando'
+    STATUS_PAGO = 'pago'
+    STATUS_CANCELADO = 'cancelado'
+    STATUS_FALHA = 'falha'
+
+    STATUS_CHOICES = [
+        (STATUS_PENDENTE, 'Pendente'),
+        (STATUS_PROCESSANDO, 'Processando'),
+        (STATUS_PAGO, 'Pago'),
+        (STATUS_CANCELADO, 'Cancelado'),
+        (STATUS_FALHA, 'Falha'),
+    ]
+
+    responsavel = models.ForeignKey('Responsavel', on_delete=models.CASCADE, related_name='pedidos_loja')
+    forma_pagamento = models.CharField(
+        'forma de pagamento',
+        max_length=24,
+        choices=FORMA_PAGAMENTO_CHOICES,
+        default=FORMA_PAGAMENTO_PIX,
+    )
+    valor_total = models.DecimalField('valor total', max_digits=10, decimal_places=2)
+    status = models.CharField('status', max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDENTE)
+    mp_payment_id = models.CharField('MP payment id', max_length=64, blank=True)
+    mp_external_reference = models.CharField('MP external reference', max_length=128, blank=True)
+    mp_status = models.CharField('MP status', max_length=32, blank=True)
+    mp_status_detail = models.CharField('MP status detail', max_length=128, blank=True)
+    mp_qr_code = models.TextField('MP QR code Pix', blank=True)
+    mp_qr_code_base64 = models.TextField('MP QR code base64', blank=True)
+    paid_at = models.DateTimeField('pago em', null=True, blank=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pedidos_loja_criados',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'pedido da loja'
+        verbose_name_plural = 'pedidos da loja'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f'Pedido loja #{self.pk} - {self.responsavel}'
+
+
+class LojaPedidoItem(models.Model):
+    pedido = models.ForeignKey(LojaPedido, on_delete=models.CASCADE, related_name='itens')
+    produto = models.ForeignKey(LojaProduto, on_delete=models.SET_NULL, null=True, blank=True, related_name='itens_pedido')
+    variacao = models.ForeignKey(LojaProdutoVariacao, on_delete=models.SET_NULL, null=True, blank=True, related_name='itens_pedido')
+    produto_titulo = models.CharField('produto (snapshot)', max_length=255)
+    variacao_nome = models.CharField('variação (snapshot)', max_length=255)
+    quantidade = models.PositiveIntegerField('quantidade')
+    valor_unitario = models.DecimalField('valor unitário', max_digits=10, decimal_places=2)
+    valor_total = models.DecimalField('valor total', max_digits=10, decimal_places=2)
+    foto_url = models.TextField('foto URL (snapshot)', blank=True)
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'item do pedido da loja'
+        verbose_name_plural = 'itens dos pedidos da loja'
+        ordering = ('pedido_id', 'id')
+
+    def __str__(self):
+        return f'Item pedido #{self.pedido_id} - {self.produto_titulo} ({self.variacao_nome})'
+
+
 class AventureiroPontosPreset(models.Model):
     nome = models.CharField('nome', max_length=160)
     pontos = models.IntegerField('pontos')
