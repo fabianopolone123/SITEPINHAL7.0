@@ -534,3 +534,7 @@ Arquivo oficial de registro das entregas concluidas.
 
 - No catálogo da `Loja` para `Responsável`, clicar na foto principal ou nas miniaturas agora abre uma janela suspensa responsiva com a imagem ampliada.
 - Modal com fechamento por botão, clique no fundo e tecla `Esc`, mantendo a foto em `object-fit: contain` para não cortar a imagem.
+## 25/02/2026 - Loja (Responsável): navegação entre fotos dentro do modal ampliado
+
+- A janela suspensa de visualização de fotos do catálogo da `Loja` passou a permitir alternar entre as imagens da variação selecionada sem fechar o modal.
+- Adicionados controles `anterior/próxima`, contador de fotos e suporte às teclas `←` e `→`.

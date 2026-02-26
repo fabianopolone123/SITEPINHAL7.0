@@ -163,8 +163,34 @@
     .image-modal-body {
       padding:.7rem;
       display:grid;
-      place-items:center;
+      grid-template-columns: auto 1fr auto;
+      gap:.5rem;
+      align-items:center;
       background:#fff;
+    }
+    .image-modal-nav {
+      border:1px solid #cbd5e1;
+      background:#fff;
+      color:#0f172a;
+      border-radius:10px;
+      width:42px;
+      height:42px;
+      display:grid;
+      place-items:center;
+      font-size:1.1rem;
+      cursor:pointer;
+      font-weight:800;
+      flex:0 0 auto;
+    }
+    .image-modal-nav[disabled] {
+      opacity:.45;
+      cursor:not-allowed;
+    }
+    .image-modal-figure {
+      width:100%;
+      display:grid;
+      gap:.45rem;
+      justify-items:center;
     }
     .image-modal-body img {
       width:100%;
@@ -174,6 +200,11 @@
       object-fit: contain;
       border-radius: 12px;
       background: #fff;
+    }
+    .image-modal-counter {
+      font-size:.82rem;
+      color:#475569;
+      min-height:1rem;
     }
     @media (max-width: 800px) {
       .loja-form-grid { grid-template-columns: 1fr; }
@@ -188,8 +219,9 @@
       .image-modal-dialog { max-height: 95vh; border-radius: 12px; }
       .image-modal-head { padding:.6rem .7rem; }
       .image-modal-title { font-size:.88rem; }
-      .image-modal-body { padding:.45rem; }
+      .image-modal-body { padding:.45rem; grid-template-columns: 1fr; }
       .image-modal-body img { max-height: 82vh; border-radius: 10px; }
+      .image-modal-nav { width:100%; height:40px; }
     }
   </style>
 </head>
@@ -461,7 +493,12 @@
         <button type="button" class="image-modal-close" id="catalogImageModalClose">Fechar</button>
       </div>
       <div class="image-modal-body">
-        <img id="catalogImageModalImg" src="" alt="Visualização ampliada do produto" />
+        <button type="button" class="image-modal-nav" id="catalogImageModalPrev" aria-label="Foto anterior">‹</button>
+        <div class="image-modal-figure">
+          <img id="catalogImageModalImg" src="" alt="Visualização ampliada do produto" />
+          <div class="image-modal-counter" id="catalogImageModalCounter"></div>
+        </div>
+        <button type="button" class="image-modal-nav" id="catalogImageModalNext" aria-label="Próxima foto">›</button>
       </div>
     </div>
   </div>
@@ -493,16 +530,56 @@
       const modalImg = document.getElementById('catalogImageModalImg');
       const modalTitle = document.getElementById('catalogImageModalTitle');
       const modalClose = document.getElementById('catalogImageModalClose');
+      const modalPrev = document.getElementById('catalogImageModalPrev');
+      const modalNext = document.getElementById('catalogImageModalNext');
+      const modalCounter = document.getElementById('catalogImageModalCounter');
       if (!cards.length) return;
 
-      function openImageModal(url, alt) {
-        if (!modal || !modalImg || !url) return;
-        modalImg.src = url;
-        modalImg.alt = alt || 'Visualização ampliada do produto';
-        if (modalTitle) modalTitle.textContent = alt || 'Visualização da imagem';
+      let modalGalleryItems = [];
+      let modalGalleryIndex = 0;
+
+      function renderModalImage() {
+        if (!modal || !modalImg) return;
+        const item = modalGalleryItems[modalGalleryIndex];
+        if (!item || !item.url) return;
+        modalImg.src = item.url;
+        modalImg.alt = item.alt || 'Visualização ampliada do produto';
+        if (modalTitle) modalTitle.textContent = item.alt || 'Visualização da imagem';
+        if (modalCounter) {
+          if (modalGalleryItems.length > 1) {
+            modalCounter.textContent = 'Foto ' + (modalGalleryIndex + 1) + ' de ' + modalGalleryItems.length;
+          } else {
+            modalCounter.textContent = 'Foto única';
+          }
+        }
+        const canNavigate = modalGalleryItems.length > 1;
+        if (modalPrev) modalPrev.disabled = !canNavigate;
+        if (modalNext) modalNext.disabled = !canNavigate;
+      }
+
+      function openImageModalGallery(items, startIndex) {
+        if (!modal || !modalImg || !items || !items.length) return;
+        modalGalleryItems = items.filter(function (item) { return item && item.url; });
+        if (!modalGalleryItems.length) return;
+        modalGalleryIndex = Math.min(
+          Math.max(parseInt(startIndex || 0, 10) || 0, 0),
+          modalGalleryItems.length - 1
+        );
+        renderModalImage();
         modal.hidden = false;
         modal.setAttribute('aria-hidden', 'false');
         if (modalClose) modalClose.focus();
+      }
+
+      function openImageModal(url, alt) {
+        openImageModalGallery([{ url: url, alt: alt }], 0);
+      }
+
+      function moveModalImage(delta) {
+        if (!modalGalleryItems.length || modalGalleryItems.length <= 1) return;
+        const len = modalGalleryItems.length;
+        modalGalleryIndex = (modalGalleryIndex + delta + len) % len;
+        renderModalImage();
       }
 
       function closeImageModal() {
@@ -510,6 +587,8 @@
         modal.hidden = true;
         modal.setAttribute('aria-hidden', 'true');
         if (modalImg) modalImg.removeAttribute('src');
+        modalGalleryItems = [];
+        modalGalleryIndex = 0;
       }
 
       if (modal) {
@@ -520,8 +599,16 @@
       if (modalClose) {
         modalClose.addEventListener('click', closeImageModal);
       }
+      if (modalPrev) modalPrev.addEventListener('click', function () { moveModalImage(-1); });
+      if (modalNext) modalNext.addEventListener('click', function () { moveModalImage(1); });
       document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape') closeImageModal();
+        if (event.key === 'Escape') {
+          closeImageModal();
+          return;
+        }
+        if (!modal || modal.hidden) return;
+        if (event.key === 'ArrowLeft') moveModalImage(-1);
+        if (event.key === 'ArrowRight') moveModalImage(1);
       });
 
       function formatPrice(raw) {
@@ -543,6 +630,7 @@
         const addBtn = card.querySelector('[data-catalog-add-btn]');
         const feedback = card.querySelector('[data-catalog-feedback]');
         const hiddenMedia = card.querySelector('[data-catalog-variant-media]');
+        let currentGalleryPhotos = [];
 
         function getVariantUrls(variantId) {
           if (!hiddenMedia) return [];
@@ -586,7 +674,7 @@
             btn.appendChild(img);
             btn.addEventListener('click', function () {
               setMainPhoto(photo.url, photo.alt);
-              openImageModal(photo.url, photo.alt);
+              openImageModalGallery(photos, idx);
             });
             thumbsWrap.appendChild(btn);
           });
@@ -602,6 +690,7 @@
             const defaultSrc = (mainImage && mainImage.dataset.defaultSrc) || '';
             setMainPhoto(defaultSrc, mainImage ? mainImage.alt : '');
             renderThumbs([]);
+            currentGalleryPhotos = defaultSrc ? [{ url: defaultSrc, alt: (mainImage && mainImage.alt) || 'Foto do produto' }] : [];
             return;
           }
           if (priceEl) priceEl.textContent = formatPrice(selected.dataset.price || '');
@@ -610,10 +699,12 @@
           if (photos.length) {
             setMainPhoto(photos[0].url, photos[0].alt);
             renderThumbs(photos);
+            currentGalleryPhotos = photos.slice();
           } else {
             const defaultSrc = (mainImage && mainImage.dataset.defaultSrc) || '';
             setMainPhoto(defaultSrc, mainImage ? mainImage.alt : '');
             renderThumbs([]);
+            currentGalleryPhotos = defaultSrc ? [{ url: defaultSrc, alt: (mainImage && mainImage.alt) || 'Foto do produto' }] : [];
           }
         }
 
@@ -633,7 +724,20 @@
             mainWrap.style.cursor = 'zoom-in';
             mainWrap.addEventListener('click', function () {
               if (!mainImage.hidden && mainImage.getAttribute('src')) {
-                openImageModal(mainImage.getAttribute('src'), mainImage.getAttribute('alt'));
+                const src = mainImage.getAttribute('src');
+                const alt = mainImage.getAttribute('alt');
+                if (currentGalleryPhotos && currentGalleryPhotos.length) {
+                  let startIndex = 0;
+                  for (let i = 0; i < currentGalleryPhotos.length; i += 1) {
+                    if (currentGalleryPhotos[i].url === src) {
+                      startIndex = i;
+                      break;
+                    }
+                  }
+                  openImageModalGallery(currentGalleryPhotos, startIndex);
+                } else {
+                  openImageModal(src, alt);
+                }
               }
             });
           }
