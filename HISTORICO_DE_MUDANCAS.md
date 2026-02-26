@@ -551,3 +551,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Adicionado modal Pix no catÃ¡logo da loja com QR Code, cÃ³digo copia-e-cola, atualizaÃ§Ã£o manual de status e polling automÃ¡tico.
 - Criados endpoints para `criar pedido Pix`, consultar `status do pedido` e `webhook` da loja, marcando o pedido como pago quando confirmado pelo Mercado Pago.
 - Mantida forma de pagamento somente `Pix` por enquanto.
+## 25/02/2026 - Loja (Responsável): confirmação visual do pedido pago, WhatsApp e ajuste de estoque no catálogo
+
+- Adicionada uma segunda janela suspensa (modal de sucesso) no catálogo da `Loja` para confirmar visualmente quando o pedido Pix for aprovado.
+- O modal de sucesso abre automaticamente quando o status do pedido muda para `Pago` (via polling/manual) e mostra número do pedido, status e total.
+- Pagamentos aprovados de `Pedidos da Loja` agora enviam WhatsApp ao responsável usando a mensagem padrão de `Pagamento aprovado` (Financeiro), incluindo resumo dos itens do pedido; contatos extras marcados nessa notificação também recebem.
+- Adicionado controle `whatsapp_notified_at` em `LojaPedido` para evitar envio duplicado de WhatsApp quando webhook e consulta de status processam o mesmo pagamento.
+- No catálogo do perfil `Responsável`, removida a exibição de `Estoque não informado` quando a variação não possui estoque cadastrado.

@@ -359,6 +359,76 @@
       box-shadow: 0 10px 20px rgba(37,99,235,.16);
     }
     .pix-modal-note { margin:0; font-size:.8rem; color:#64748b; }
+    .order-success-modal[hidden] { display:none !important; }
+    .order-success-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1160;
+      display: grid;
+      place-items: center;
+      padding: .75rem;
+      background: rgba(15,23,42,.66);
+      backdrop-filter: blur(2px);
+    }
+    .order-success-dialog {
+      width: min(520px, 100%);
+      background:#fff;
+      border:1px solid #bbf7d0;
+      border-radius:16px;
+      box-shadow: 0 28px 70px rgba(15,23,42,.28);
+      padding:.95rem;
+      display:grid;
+      gap:.8rem;
+    }
+    .order-success-badge {
+      width:56px;
+      height:56px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background: linear-gradient(135deg,#dcfce7,#bbf7d0);
+      color:#166534;
+      border:1px solid #86efac;
+      font-size:1.5rem;
+      font-weight:900;
+      margin:0 auto;
+    }
+    .order-success-title {
+      margin:0;
+      text-align:center;
+      color:#166534;
+      font-size:1.05rem;
+    }
+    .order-success-text {
+      margin:0;
+      text-align:center;
+      color:#475569;
+      font-size:.9rem;
+      line-height:1.45;
+    }
+    .order-success-summary {
+      border:1px solid #dbeafe;
+      background:#f8fbff;
+      border-radius:12px;
+      padding:.7rem .8rem;
+      display:grid;
+      gap:.3rem;
+      color:#0f172a;
+      font-size:.88rem;
+    }
+    .order-success-summary strong { color:#0f172a; }
+    .order-success-actions { display:grid; gap:.55rem; }
+    .order-success-btn {
+      width:100%;
+      border:0;
+      border-radius:12px;
+      padding:.82rem .9rem;
+      font-weight:800;
+      color:#fff;
+      background: linear-gradient(135deg,#16a34a,#22c55e);
+      box-shadow: 0 10px 20px rgba(34,197,94,.2);
+      cursor:pointer;
+    }
     .image-modal[hidden] { display:none !important; }
     .image-modal {
       position: fixed;
@@ -469,6 +539,8 @@
       .pix-modal { padding:.4rem; }
       .pix-modal-dialog { border-radius:12px; padding:.7rem; }
       .pix-modal-actions { grid-template-columns: 1fr; }
+      .order-success-modal { padding:.4rem; }
+      .order-success-dialog { border-radius:12px; padding:.8rem; }
       .image-modal { padding: .4rem; }
       .image-modal-dialog { max-height: 95vh; border-radius: 12px; }
       .image-modal-head { padding:.6rem .7rem; }
@@ -564,7 +636,7 @@
                           value="{{ v.id }}"
                           data-variant-id="{{ v.id }}"
                           data-price="{{ v.valor }}"
-                          data-stock-label="{% if v.estoque is not None %}Estoque: {{ v.estoque }}{% else %}Estoque não informado{% endif %}"
+                          data-stock-label="{% if v.estoque is not None %}Estoque: {{ v.estoque }}{% endif %}"
                         >
                           {{ v.nome }}
                         </option>
@@ -807,6 +879,24 @@
       <p class="pix-modal-note" id="catalogPixModalNote">Após pagar, aguarde alguns segundos. O status será atualizado automaticamente.</p>
     </div>
   </div>
+
+  <div class="order-success-modal" id="catalogOrderSuccessModal" hidden aria-hidden="true">
+    <div class="order-success-dialog" role="dialog" aria-modal="true" aria-labelledby="catalogOrderSuccessTitle">
+      <div class="order-success-badge" aria-hidden="true">✓</div>
+      <h3 class="order-success-title" id="catalogOrderSuccessTitle">Pagamento aprovado</h3>
+      <p class="order-success-text">
+        Seu pedido da loja foi confirmado com sucesso. Obrigado pelo pagamento.
+      </p>
+      <div class="order-success-summary">
+        <span><strong>Pedido:</strong> <span id="catalogOrderSuccessPedidoId">-</span></span>
+        <span><strong>Status:</strong> <span id="catalogOrderSuccessStatus">Pagamento aprovado</span></span>
+        <span><strong>Total:</strong> <span id="catalogOrderSuccessTotal">R$ 0,00</span></span>
+      </div>
+      <div class="order-success-actions">
+        <button type="button" class="order-success-btn" id="catalogOrderSuccessClose">Continuar na loja</button>
+      </div>
+    </div>
+  </div>
   {% endif %}
 
   <div class="image-modal" id="catalogImageModal" hidden aria-hidden="true">
@@ -877,6 +967,11 @@
       const pixCopyBtn = document.getElementById('catalogPixCopyBtn');
       const pixRefreshBtn = document.getElementById('catalogPixRefreshBtn');
       const pixModalNote = document.getElementById('catalogPixModalNote');
+      const orderSuccessModal = document.getElementById('catalogOrderSuccessModal');
+      const orderSuccessCloseBtn = document.getElementById('catalogOrderSuccessClose');
+      const orderSuccessPedidoId = document.getElementById('catalogOrderSuccessPedidoId');
+      const orderSuccessStatus = document.getElementById('catalogOrderSuccessStatus');
+      const orderSuccessTotal = document.getElementById('catalogOrderSuccessTotal');
       if (!cards.length) return;
 
       const CART_STORAGE_KEY = 'sitepinhal_loja_cart_responsavel_v1';
@@ -887,6 +982,7 @@
       let cartState = { items: [], payment_method: 'pix' };
       let pixPedidoAtual = null;
       let pixPollingTimer = null;
+      let approvedSuccessShownForPedido = '';
 
       function normalizeCartState(raw) {
         const base = (raw && typeof raw === 'object') ? raw : {};
@@ -1032,6 +1128,31 @@
         if (pixModalClose) pixModalClose.focus();
       }
 
+      function closeOrderSuccessModal() {
+        if (!orderSuccessModal || orderSuccessModal.hidden) return;
+        orderSuccessModal.hidden = true;
+        orderSuccessModal.setAttribute('aria-hidden', 'true');
+      }
+
+      function openOrderSuccessModal() {
+        if (!orderSuccessModal) return;
+        orderSuccessModal.hidden = false;
+        orderSuccessModal.setAttribute('aria-hidden', 'false');
+        if (orderSuccessCloseBtn) orderSuccessCloseBtn.focus();
+      }
+
+      function showApprovedOrderSuccessModal(pedido) {
+        if (!pedido) return;
+        const pedidoId = String(pedido.pedido_id || pedido.id || '');
+        if (pedidoId && approvedSuccessShownForPedido === pedidoId) return;
+        approvedSuccessShownForPedido = pedidoId || approvedSuccessShownForPedido;
+        if (orderSuccessPedidoId) orderSuccessPedidoId.textContent = pedidoId || '-';
+        if (orderSuccessStatus) orderSuccessStatus.textContent = String(pedido.status_label || 'Pagamento aprovado');
+        if (orderSuccessTotal) orderSuccessTotal.textContent = String(pedido.valor_total || 'R$ 0,00');
+        closePixModal();
+        openOrderSuccessModal();
+      }
+
       function renderPixModal(pedido) {
         if (!pedido) return;
         pixPedidoAtual = pedido;
@@ -1074,6 +1195,7 @@
           setCartFeedback('Pagamento aprovado. Seu pedido foi marcado como pago.');
           closeCartDrawer();
           clearPixPolling();
+          showApprovedOrderSuccessModal(pixPedidoAtual);
         }
         return data;
       }
@@ -1299,6 +1421,7 @@
               saveCartState();
               renderCart();
               closeCartDrawer();
+              showApprovedOrderSuccessModal(pedidoPix);
             }
             setCartFeedback('');
           } catch (error) {
@@ -1314,6 +1437,14 @@
         });
       }
       if (pixModalClose) pixModalClose.addEventListener('click', closePixModal);
+      if (orderSuccessModal) {
+        orderSuccessModal.addEventListener('click', function (event) {
+          if (event.target === orderSuccessModal) closeOrderSuccessModal();
+        });
+      }
+      if (orderSuccessCloseBtn) {
+        orderSuccessCloseBtn.addEventListener('click', closeOrderSuccessModal);
+      }
       if (pixCopyBtn) {
         pixCopyBtn.addEventListener('click', async function () {
           const text = pixCodeEl ? String(pixCodeEl.value || '') : '';
@@ -1349,6 +1480,10 @@
       }
       document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape') {
+          if (orderSuccessModal && !orderSuccessModal.hidden) {
+            closeOrderSuccessModal();
+            return;
+          }
           if (pixModal && !pixModal.hidden) {
             closePixModal();
             return;

@@ -5256,6 +5256,7 @@ class LojaView(LoginRequiredMixin, View):
         return status_map.get(status, 'Aguardando pagamento')
 
     def _sync_pedido_loja_from_mp(self, pedido, payment_data):
+        was_paid = pedido.status == LojaPedido.STATUS_PAGO
         mp_status = (payment_data.get('status') or '').lower()
         mp_status_detail = payment_data.get('status_detail') or ''
         mp_payment_id = str(payment_data.get('id') or pedido.mp_payment_id or '')
@@ -5299,6 +5300,94 @@ class LojaView(LoginRequiredMixin, View):
 
         if update_fields:
             pedido.save(update_fields=list(dict.fromkeys(update_fields)))
+
+        if mp_status == 'approved' and not was_paid:
+            self._send_whatsapp_pedido_loja_aprovado(pedido)
+
+    def _send_whatsapp_pedido_loja_aprovado(self, pedido):
+        if pedido.whatsapp_notified_at:
+            return
+
+        itens = list(
+            pedido.itens.all().order_by('id')
+        )
+        if not itens:
+            return
+
+        responsavel_user = pedido.responsavel.user
+        responsavel_nome = (
+            pedido.responsavel.responsavel_nome
+            or pedido.responsavel.mae_nome
+            or pedido.responsavel.pai_nome
+            or responsavel_user.get_full_name()
+            or responsavel_user.username
+        ).strip()
+        itens_text = '\n'.join(
+            f"- {item.produto_titulo} - {item.variacao_nome} x{item.quantidade} ({self._format_currency(item.valor_total)})"
+            for item in itens
+        )
+        payload = {
+            'responsavel_nome': responsavel_nome or responsavel_user.username,
+            'mensalidades': f"Pedido da loja #{pedido.pk}\n{itens_text}",
+            'pedido_itens': itens_text,
+            'pedido_id': str(pedido.pk),
+            'valor_total': self._format_currency(pedido.valor_total),
+            'pagamento_id': pedido.mp_payment_id or f'Pedido #{pedido.pk}',
+            'data_hora': timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M:%S'),
+        }
+        message_text = render_message(get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO), payload)
+
+        recipients = []
+        seen_phones = set()
+
+        def add_recipient(user, force_send=False):
+            pref, _ = WhatsAppPreference.objects.get_or_create(user=user)
+            phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(user))
+            if not phone_number or phone_number in seen_phones:
+                return
+            seen_phones.add(phone_number)
+            recipients.append((user, phone_number, force_send))
+
+        add_recipient(responsavel_user, force_send=True)
+        extras = (
+            UserAccess.objects
+            .select_related('user')
+            .filter(user__whatsapp_preference__notify_financeiro=True)
+            .order_by('user__username')
+        )
+        for access in extras:
+            add_recipient(access.user, force_send=False)
+
+        if not recipients:
+            pedido.whatsapp_notified_at = timezone.now()
+            pedido.save(update_fields=['whatsapp_notified_at', 'updated_at'])
+            return
+
+        sent_any = False
+        for user, phone_number, _force_send in recipients:
+            queue_item = WhatsAppQueue.objects.create(
+                user=user,
+                phone_number=phone_number,
+                notification_type=WhatsAppQueue.TYPE_FINANCEIRO,
+                message_text=message_text,
+                status=WhatsAppQueue.STATUS_PENDING,
+            )
+            success, provider_id, error_message = send_wapi_text(phone_number, message_text)
+            queue_item.attempts = 1
+            if success:
+                queue_item.status = WhatsAppQueue.STATUS_SENT
+                queue_item.provider_message_id = provider_id
+                queue_item.sent_at = timezone.now()
+                queue_item.last_error = ''
+                sent_any = True
+            else:
+                queue_item.status = WhatsAppQueue.STATUS_FAILED
+                queue_item.last_error = error_message
+            queue_item.save(update_fields=['status', 'attempts', 'provider_message_id', 'sent_at', 'last_error'])
+
+        if sent_any:
+            pedido.whatsapp_notified_at = timezone.now()
+            pedido.save(update_fields=['whatsapp_notified_at', 'updated_at'])
 
     def _pix_modal_context_loja(self, pedido):
         return {
@@ -5721,6 +5810,8 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
                     'mp_payment_id', 'mp_external_reference', 'mp_status', 'mp_status_detail',
                     'mp_qr_code', 'mp_qr_code_base64', 'status', 'paid_at', 'updated_at',
                 ])
+                if pedido.status == LojaPedido.STATUS_PAGO:
+                    loja_view._send_whatsapp_pedido_loja_aprovado(pedido)
         except ValueError as exc:
             return JsonResponse({'ok': False, 'error': 'mercadopago', 'message': str(exc)}, status=400)
         except Exception:
