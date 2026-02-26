@@ -3243,10 +3243,89 @@ class PresencaView(LoginRequiredMixin, View):
             }
         return data
 
+    def _aventureiro_photo_url(self, av):
+        foto_url = av.foto.url if av.foto else ''
+        if foto_url:
+            return foto_url
+        ficha = getattr(av, 'ficha_completa', None)
+        inscricao_data = (ficha.inscricao_data if ficha else {}) or {}
+        inline_photo = str(inscricao_data.get('foto_3x4') or '').strip()
+        if inline_photo.startswith('data:image/'):
+            return inline_photo
+        return ''
+
+    def _responsavel_context(self, request):
+        responsavel = getattr(request.user, 'responsavel', None)
+        eventos = self._ordered_events()
+        event_rows = []
+        for evento in eventos:
+            event_rows.append({
+                'evento': evento,
+                'relative_label': self._relative_event_time_label(evento.event_date),
+                'status_key': self._event_status_key(evento.event_date),
+            })
+
+        aventureiros = []
+        if responsavel:
+            aventureiros = list(
+                Aventureiro.objects
+                .filter(responsavel=responsavel)
+                .select_related('responsavel', 'responsavel__user', 'ficha_completa')
+                .order_by('nome')
+            )
+
+        presencas_rows = (
+            EventoPresenca.objects
+            .filter(aventureiro__in=aventureiros)
+            .select_related('evento', 'updated_by')
+        ) if aventureiros else []
+        presenca_map = {}
+        for row in presencas_rows:
+            presenca_map[(row.aventureiro_id, row.evento_id)] = row
+
+        aventureiro_cards = []
+        for av in aventureiros:
+            foto_url = self._aventureiro_photo_url(av)
+            eventos_status = []
+            total_presentes = 0
+            for row in event_rows:
+                evento = row['evento']
+                presenca = presenca_map.get((av.id, evento.id))
+                is_present = bool(presenca and presenca.presente)
+                if is_present:
+                    total_presentes += 1
+                eventos_status.append({
+                    'evento': evento,
+                    'relative_label': row['relative_label'],
+                    'status_key': row['status_key'],
+                    'presente': is_present,
+                    'presenca_label': 'Presente' if is_present else 'Ausente',
+                    'updated_at': timezone.localtime(presenca.updated_at) if presenca else None,
+                    'updated_by': (presenca.updated_by.username if presenca and presenca.updated_by else ''),
+                })
+            aventureiro_cards.append({
+                'aventureiro': av,
+                'foto_url': foto_url,
+                'eventos_status': eventos_status,
+                'total_presentes': total_presentes,
+                'total_eventos': len(event_rows),
+            })
+
+        return {
+            'presenca_mode': 'responsavel',
+            'eventos': event_rows,
+            'aventureiro_cards': aventureiro_cards,
+        }
+
     def get(self, request):
         guard = self._guard(request)
         if guard:
             return guard
+
+        if _get_active_profile(request) == UserAccess.ROLE_RESPONSAVEL:
+            context = self._responsavel_context(request)
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
 
         eventos = self._ordered_events()
         selected_event = None
@@ -3262,14 +3341,7 @@ class PresencaView(LoginRequiredMixin, View):
             .order_by('nome')
         )
         for av in aventureiros:
-            foto_url = av.foto.url if av.foto else ''
-            if not foto_url:
-                ficha = getattr(av, 'ficha_completa', None)
-                inscricao_data = (ficha.inscricao_data if ficha else {}) or {}
-                inline_photo = str(inscricao_data.get('foto_3x4') or '').strip()
-                if inline_photo.startswith('data:image/'):
-                    foto_url = inline_photo
-            av.presenca_foto_url = foto_url
+            av.presenca_foto_url = self._aventureiro_photo_url(av)
         presencas_map = self._presence_map(selected_event.id) if selected_event else {}
         present_count = sum(1 for value in presencas_map.values() if value.get('presente'))
 
@@ -3285,6 +3357,7 @@ class PresencaView(LoginRequiredMixin, View):
             selected_event_row = next((row for row in event_rows if row['evento'].id == selected_event.id), None)
 
         context = {
+            'presenca_mode': 'admin',
             'eventos': event_rows,
             'selected_event': selected_event,
             'selected_event_row': selected_event_row,
@@ -3330,6 +3403,8 @@ class PresencaToggleApiView(LoginRequiredMixin, View):
     def post(self, request):
         if not _has_menu_permission(request, 'presenca'):
             return JsonResponse({'ok': False, 'error': 'Sem permissão para marcar presença.'}, status=403)
+        if _get_active_profile(request) == UserAccess.ROLE_RESPONSAVEL:
+            return JsonResponse({'ok': False, 'error': 'Perfil responsável possui acesso somente para consulta de presença.'}, status=403)
 
         event_id_raw = (request.POST.get('evento_id') or '').strip()
         aventureiro_id_raw = (request.POST.get('aventureiro_id') or '').strip()

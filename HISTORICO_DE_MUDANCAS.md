@@ -568,3 +568,10 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Removido do carrinho da `Loja` (perfil `Responsável`) o texto técnico sobre etapas futuras de histórico/gestão de pedidos.
 - Objetivo: deixar a interface mais limpa e focada no cliente final.
+## 25/02/2026 - Presença (Responsável): consulta por aventureiro com foto e histórico por evento
+
+- A tela `Presença` agora tem uma visão própria para o perfil `Responsável` (somente consulta).
+- Exibe cards com foto dos aventureiros vinculados ao responsável logado.
+- Ao clicar no card, abre o histórico completo de eventos daquele aventureiro, mostrando se estava `Presente` ou `Ausente` em cada evento.
+- Mantida a tela de marcação de presença para perfis administrativos (`Diretor/Diretoria`).
+- Bloqueada no backend a API de marcar presença (`toggle`) para perfil `Responsável`.
