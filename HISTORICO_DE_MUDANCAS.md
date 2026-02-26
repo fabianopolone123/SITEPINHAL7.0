@@ -603,3 +603,16 @@ Arquivo oficial de registro das entregas concluidas.
 - Adicionada validacao de schema da Loja apos migracoes: se a tabela `accounts_lojapedido` existir, a coluna `entregue` passa a ser obrigatoria; se faltar, o deploy interrompe com mensagem clara.
 - README atualizado com orientacao obrigatoria para comandos manuais no VPS: carregar `/etc/sitepinhal.env` antes de rodar `manage.py`.
 - `CHECKLIST_DEBUG.md` atualizado com o mesmo alerta para evitar diagnostico em banco errado.
+
+## 26/02/2026 - Apostila para Diretor e Professor (classes + cadastro de requisitos)
+
+- Criado novo menu `Apostila` com permissão dedicada no sistema.
+- O botão `Apostila` foi adicionado na sidebar e na matriz de permissões (grupos e usuário).
+- Implementada a rota `accounts:apostila` com tela exclusiva para perfis ativos `Diretor` e `Professor`.
+- A tela mostra botões por classe (`Abelhinhas`, `Luminares`, `Edificadores`, `Mãos Ajudadoras`) e total de requisitos por classe.
+- Em cada classe, foi adicionado o botão/formulário `Cadastrar requisito` com os campos:
+  - número do requisito
+  - descrição
+  - resposta (opcional)
+- Criado o model `ApostilaRequisito` com persistência em banco, autoria e ordenação por classe/número.
+- Criada a migration `0038_apostilarequisito` com ajuste automático dos grupos padrão para incluir o menu `apostila` em `diretor` e `professor`.

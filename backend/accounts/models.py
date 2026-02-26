@@ -740,6 +740,42 @@ class LojaPedidoItem(models.Model):
         return f'Item pedido #{self.pedido_id} - {self.produto_titulo} ({self.variacao_nome})'
 
 
+class ApostilaRequisito(models.Model):
+    CLASSE_ABELHINHAS = 'abelhinhas'
+    CLASSE_LUMINARES = 'luminares'
+    CLASSE_EDIFICADORES = 'edificadores'
+    CLASSE_MAOS_AJUDADORAS = 'maos_ajudadoras'
+
+    CLASSE_CHOICES = [
+        (CLASSE_ABELHINHAS, 'Abelhinhas'),
+        (CLASSE_LUMINARES, 'Luminares'),
+        (CLASSE_EDIFICADORES, 'Edificadores'),
+        (CLASSE_MAOS_AJUDADORAS, 'Mãos Ajudadoras'),
+    ]
+
+    classe = models.CharField('classe', max_length=32, choices=CLASSE_CHOICES)
+    numero_requisito = models.CharField('número do requisito', max_length=64)
+    descricao = models.TextField('descrição')
+    resposta = models.TextField('resposta', blank=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='apostila_requisitos_criados',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'requisito da apostila'
+        verbose_name_plural = 'requisitos da apostila'
+        ordering = ('classe', 'numero_requisito', 'id')
+
+    def __str__(self):
+        return f'{self.get_classe_display()} - {self.numero_requisito}'
+
+
 class AventureiroPontosPreset(models.Model):
     nome = models.CharField('nome', max_length=160)
     pontos = models.IntegerField('pontos')

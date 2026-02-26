@@ -53,6 +53,7 @@ from .models import (
     LojaProdutoFoto,
     LojaPedido,
     LojaPedidoItem,
+    ApostilaRequisito,
     AventureiroPontosPreset,
     AventureiroPontosLancamento,
 )
@@ -68,7 +69,7 @@ from .whatsapp import (
 )
 from django.http import HttpResponse, JsonResponse
 from django.db import IntegrityError, transaction
-from django.db.models import Q, Sum
+from django.db.models import Count, Q, Sum
 from django.views.decorators.csrf import csrf_exempt
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
@@ -86,6 +87,7 @@ MENU_ITEMS = [
     ('usuarios', 'Usuários'),
     ('financeiro', 'Financeiro'),
     ('pontos', 'Pontos'),
+    ('apostila', 'Apostila'),
     ('loja', 'Loja'),
     ('whatsapp', 'WhatsApp'),
     ('documentos_inscricao', 'Documentos inscrição'),
@@ -233,8 +235,12 @@ def _effective_menu_permissions(user, active_profile=''):
 
     # Fallback de compatibilidade para usuários antigos sem grupos vinculados.
     if matched_group_count == 0:
-        if UserAccess.ROLE_DIRETOR in profiles or UserAccess.ROLE_DIRETORIA in profiles:
+        if UserAccess.ROLE_DIRETOR in profiles:
+            allowed.update({'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'pontos', 'apostila', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes'})
+        if UserAccess.ROLE_DIRETORIA in profiles:
             allowed.update({'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'pontos', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes'})
+        if UserAccess.ROLE_PROFESSOR in profiles:
+            allowed.update({'apostila'})
         if UserAccess.ROLE_RESPONSAVEL in profiles:
             allowed.update({'financeiro', 'pontos'})
     return sorted(allowed)
@@ -366,10 +372,10 @@ def _user_display_data(user):
 
 def _ensure_default_access_groups():
     defaults = [
-        ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'pontos', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes']),
+        ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'pontos', 'apostila', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('diretoria', 'Diretoria', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'pontos', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('responsavel', 'Responsavel', ['inicio', 'meus_dados', 'financeiro', 'pontos', 'loja']),
-        ('professor', 'Professor', ['inicio', 'meus_dados']),
+        ('professor', 'Professor', ['inicio', 'meus_dados', 'apostila']),
     ]
     for code, name, menus in defaults:
         group, _ = AccessGroup.objects.get_or_create(
@@ -383,6 +389,11 @@ def _ensure_default_access_groups():
             current_menus = _normalize_menu_keys(group.menu_permissions)
             if 'financeiro' not in current_menus:
                 group.menu_permissions = list(current_menus) + ['financeiro']
+                group.save(update_fields=['menu_permissions', 'updated_at'])
+        if code in {'diretor', 'professor'}:
+            current_menus = _normalize_menu_keys(group.menu_permissions)
+            if 'apostila' not in current_menus:
+                group.menu_permissions = list(current_menus) + ['apostila']
                 group.save(update_fields=['menu_permissions', 'updated_at'])
 
 
@@ -496,6 +507,13 @@ AVENTUREIRO_CLASSIFICACOES_IDADE = {
     8: 'Edificadores',
     9: 'Mãos Ajudadoras',
 }
+
+APOSTILA_CLASSES = [
+    {'code': ApostilaRequisito.CLASSE_ABELHINHAS, 'label': 'Abelhinhas', 'idade': 6},
+    {'code': ApostilaRequisito.CLASSE_LUMINARES, 'label': 'Luminares', 'idade': 7},
+    {'code': ApostilaRequisito.CLASSE_EDIFICADORES, 'label': 'Edificadores', 'idade': 8},
+    {'code': ApostilaRequisito.CLASSE_MAOS_AJUDADORAS, 'label': 'Mãos Ajudadoras', 'idade': 9},
+]
 
 
 def _idade_em_anos(nascimento, hoje=None):
@@ -5189,6 +5207,121 @@ class PontosView(LoginRequiredMixin, View):
             messages.error(request, 'Ação de pontos inválida.')
 
         context = self._context(form_state=form_state)
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
+
+
+class ApostilaView(LoginRequiredMixin, View):
+    template_name = 'apostila.html'
+
+    def _guard(self, request):
+        if not _has_menu_permission(request, 'apostila'):
+            messages.error(request, 'Seu perfil não possui permissão para acessar Apostila.')
+            return redirect('accounts:painel')
+        active_profile = _get_active_profile(request)
+        if active_profile not in {UserAccess.ROLE_DIRETOR, UserAccess.ROLE_PROFESSOR}:
+            messages.error(request, 'Apostila disponível apenas para os perfis Diretor e Professor.')
+            return redirect('accounts:painel')
+        return None
+
+    def _classe_codigo_valido(self, raw):
+        code = str(raw or '').strip().lower()
+        valid_codes = {item['code'] for item in APOSTILA_CLASSES}
+        if code in valid_codes:
+            return code
+        return APOSTILA_CLASSES[0]['code']
+
+    def _context(self, classe_code, form_data=None):
+        requisitos = list(
+            ApostilaRequisito.objects
+            .filter(classe=classe_code)
+            .select_related('created_by')
+            .order_by('numero_requisito', 'id')
+        )
+        totals_map = {
+            row['classe']: int(row['total'] or 0)
+            for row in (
+                ApostilaRequisito.objects
+                .values('classe')
+                .annotate(total=Count('id'))
+            )
+        }
+
+        classes_rows = []
+        selected_class_label = ''
+        for item in APOSTILA_CLASSES:
+            is_selected = item['code'] == classe_code
+            if is_selected:
+                selected_class_label = item['label']
+            classes_rows.append({
+                'code': item['code'],
+                'label': item['label'],
+                'idade': item['idade'],
+                'total': totals_map.get(item['code'], 0),
+                'is_selected': is_selected,
+            })
+
+        return {
+            'apostila_classes': classes_rows,
+            'selected_classe': classe_code,
+            'selected_classe_label': selected_class_label,
+            'requisitos': requisitos,
+            'form_data': form_data or {},
+        }
+
+    def get(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+        classe_code = self._classe_codigo_valido(request.GET.get('classe'))
+        context = self._context(classe_code)
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+
+        action = str(request.POST.get('action') or '').strip()
+        classe_code = self._classe_codigo_valido(request.POST.get('classe'))
+        numero_requisito = str(request.POST.get('numero_requisito') or '').strip()
+        descricao = str(request.POST.get('descricao') or '').strip()
+        resposta = str(request.POST.get('resposta') or '').strip()
+
+        form_data = {
+            'numero_requisito': numero_requisito,
+            'descricao': descricao,
+            'resposta': resposta,
+        }
+
+        if action != 'cadastrar_requisito':
+            messages.error(request, 'Ação inválida para Apostila.')
+            context = self._context(classe_code, form_data=form_data)
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+
+        if not numero_requisito:
+            messages.error(request, 'Informe o número do requisito.')
+            context = self._context(classe_code, form_data=form_data)
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+
+        if not descricao:
+            messages.error(request, 'Informe a descrição do requisito.')
+            context = self._context(classe_code, form_data=form_data)
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+
+        ApostilaRequisito.objects.create(
+            classe=classe_code,
+            numero_requisito=numero_requisito,
+            descricao=descricao,
+            resposta=resposta,
+            created_by=request.user,
+        )
+        messages.success(request, 'Requisito cadastrado com sucesso.')
+        context = self._context(classe_code, form_data={})
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 

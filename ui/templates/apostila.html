@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Apostila</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    .apostila-classes { display:grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap:.75rem; }
+    .apostila-class-btn {
+      display:block;
+      padding:.85rem;
+      border:1px solid #dbeafe;
+      border-radius:12px;
+      text-decoration:none;
+      color:#0f172a;
+      background:#f8fbff;
+    }
+    .apostila-class-btn.is-active { border-color:#2563eb; box-shadow:0 0 0 2px rgba(37, 99, 235, .14); background:#eff6ff; }
+    .apostila-class-btn strong { display:block; margin-bottom:.15rem; }
+    .apostila-class-btn small { color:#475569; }
+
+    .apostila-form-grid { display:grid; grid-template-columns: 1fr 1fr; gap:.75rem; }
+    .apostila-form-grid .full { grid-column:1 / -1; }
+    .apostila-form-grid label { display:flex; flex-direction:column; gap:.35rem; font-size:.9rem; color:#334155; font-weight:600; }
+    .apostila-form-grid input, .apostila-form-grid textarea {
+      width:100%;
+      border:1px solid #cbd5e1;
+      border-radius:10px;
+      padding:.72rem .85rem;
+      font:inherit;
+    }
+    .apostila-actions { margin-top:.9rem; display:flex; justify-content:flex-end; }
+    .apostila-table-wrap { overflow:auto; }
+    .apostila-table { width:100%; min-width:760px; border-collapse:collapse; }
+    .apostila-table th, .apostila-table td { text-align:left; padding:.6rem .55rem; border-bottom:1px solid #e2e8f0; vertical-align:top; }
+
+    @media (max-width: 900px) {
+      .apostila-form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="painel-page">
+  {% include '_painel_sidebar.html' %}
+  <main class="painel-content">
+    <header class="painel-header">
+      <h2>Apostila</h2>
+      <p>Selecione a classe e cadastre os requisitos da apostila um por um.</p>
+    </header>
+
+    <section class="painel-card">
+      <div class="status" aria-live="polite">
+        {% for message in messages %}
+          <p data-state="{{ message.tags }}">{{ message }}</p>
+        {% empty %}
+          <p data-state="info">Escolha uma classe abaixo e use o botão Cadastrar para lançar um requisito.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="painel-card">
+      <h3>Classes</h3>
+      <div class="apostila-classes">
+        {% for item in apostila_classes %}
+          <a class="apostila-class-btn {% if item.is_selected %}is-active{% endif %}" href="?classe={{ item.code }}">
+            <strong>{{ item.label }}</strong>
+            <small>{{ item.idade }} anos</small><br />
+            <small>{{ item.total }} requisito(s)</small>
+          </a>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="painel-card">
+      <h3>{{ selected_classe_label }}</h3>
+      <details>
+        <summary><strong>Cadastrar requisito</strong></summary>
+        <form method="post" style="margin-top:.85rem;">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="cadastrar_requisito" />
+          <input type="hidden" name="classe" value="{{ selected_classe }}" />
+
+          <div class="apostila-form-grid">
+            <label>
+              Número do requisito
+              <input type="text" name="numero_requisito" value="{{ form_data.numero_requisito|default:'' }}" placeholder="Ex.: 1, 1.2, A-03" required />
+            </label>
+            <label>
+              Resposta (opcional)
+              <input type="text" name="resposta" value="{{ form_data.resposta|default:'' }}" placeholder="Ex.: Sim, Concluído, texto livre" />
+            </label>
+            <label class="full">
+              Descrição
+              <textarea name="descricao" rows="4" placeholder="Descreva o requisito..." required>{{ form_data.descricao|default:'' }}</textarea>
+            </label>
+          </div>
+          <div class="apostila-actions">
+            <button type="submit" class="primary">Cadastrar</button>
+          </div>
+        </form>
+      </details>
+    </section>
+
+    <section class="painel-card">
+      <h3>Requisitos cadastrados</h3>
+      {% if requisitos %}
+        <div class="apostila-table-wrap">
+          <table class="apostila-table">
+            <thead>
+              <tr>
+                <th>Número</th>
+                <th>Descrição</th>
+                <th>Resposta</th>
+                <th>Criado por</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in requisitos %}
+                <tr>
+                  <td><strong>{{ item.numero_requisito }}</strong></td>
+                  <td>{{ item.descricao }}</td>
+                  <td>{{ item.resposta|default:'-' }}</td>
+                  <td>
+                    {% if item.created_by %}
+                      {{ item.created_by.username }}<br />
+                    {% else %}
+                      -
+                    {% endif %}
+                    <small>{{ item.created_at|date:'d/m/Y H:i' }}</small>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="panel-note">Nenhum requisito cadastrado para esta classe.</p>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>
