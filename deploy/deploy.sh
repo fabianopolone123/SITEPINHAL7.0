@@ -127,8 +127,30 @@ log "Instalando/atualizando dependencias..."
 log "Validando configuracao Django..."
 "$PYTHON_BIN" "$MANAGE_PY" check
 
+log "Validando se ha mudancas de model sem migration..."
+"$PYTHON_BIN" "$MANAGE_PY" makemigrations --check --dry-run
+
 log "Aplicando migracoes..."
 "$PYTHON_BIN" "$MANAGE_PY" migrate --noinput
+
+log "Validando compatibilidade de schema para Loja..."
+"$PYTHON_BIN" "$MANAGE_PY" shell -c "
+from django.db import connection
+
+table_name = 'accounts_lojapedido'
+with connection.cursor() as cursor:
+    table_names = set(connection.introspection.table_names(cursor))
+    if table_name not in table_names:
+        print('Tabela accounts_lojapedido nao encontrada (ok se Loja ainda nao foi migrada).')
+    else:
+        columns = {col.name for col in connection.introspection.get_table_description(cursor, table_name)}
+        if 'entregue' not in columns:
+            raise SystemExit(
+                'Schema incompativel: coluna accounts_lojapedido.entregue ausente. '
+                'Execute migrate no banco correto (com ENV_FILE carregado) antes de reiniciar o servico.'
+            )
+        print('Schema da Loja validado: coluna entregue presente em accounts_lojapedido.')
+"
 
 log "Coletando arquivos estaticos..."
 "$PYTHON_BIN" "$MANAGE_PY" collectstatic --noinput

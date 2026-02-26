@@ -595,3 +595,11 @@ Arquivo oficial de registro das entregas concluidas.
 - Corrigido erro de modelagem que colocou o campo `entregue` no model `PagamentoMensalidade` em vez de `LojaPedido`.
 - A tela `Loja` (modo diretoria) passou a usar novamente o campo correto de entrega do pedido sem gerar erro 500.
 - Mantida a migração `0037_lojapedido_entregue` (sem nova migração, apenas alinhamento do model ao estado correto).
+
+## 26/02/2026 - Hardening de deploy e debug (prevencao de drift de banco/migrations)
+
+- O script `deploy/deploy.sh` agora executa `makemigrations --check --dry-run` antes do `migrate`.
+- Com isso, o deploy falha cedo se houver alteracao de model sem migration versionada no Git.
+- Adicionada validacao de schema da Loja apos migracoes: se a tabela `accounts_lojapedido` existir, a coluna `entregue` passa a ser obrigatoria; se faltar, o deploy interrompe com mensagem clara.
+- README atualizado com orientacao obrigatoria para comandos manuais no VPS: carregar `/etc/sitepinhal.env` antes de rodar `manage.py`.
+- `CHECKLIST_DEBUG.md` atualizado com o mesmo alerta para evitar diagnostico em banco errado.

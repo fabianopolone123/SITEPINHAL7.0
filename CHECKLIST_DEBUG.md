@@ -20,6 +20,7 @@ Checklist rapido para investigacao de problemas sem perder contexto.
 - Logs do Django/Gunicorn.
 - Ultimo commit aplicado.
 - Estado de migracoes (`python backend/manage.py showmigrations`).
+- Em VPS, rode `manage.py` com o mesmo env do servico (`set -a; source /etc/sitepinhal.env; set +a`) para apontar para o banco correto.
 
 ## 4. Correcao
 

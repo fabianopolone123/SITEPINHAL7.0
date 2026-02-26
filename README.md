@@ -26,6 +26,20 @@ python backend\manage.py runserver
 - Script principal: `deploy/deploy.sh` (alias comum no VPS: `sitepinhal-deploy`).
 - Fluxo esperado do deploy: atualizar codigo, aplicar migracoes, coletar estaticos e reiniciar servicos.
 
+### Comandos manuais no VPS (importante)
+
+Sempre carregue o mesmo arquivo de ambiente do servico antes de rodar `manage.py`:
+
+```bash
+cd /srv/sitepinhal/current/backend
+source /srv/sitepinhal/venv/bin/activate
+set -a; source /etc/sitepinhal.env; set +a
+python manage.py check
+deactivate
+```
+
+Sem isso, o `manage.py` pode usar outro banco e gerar diagnostico incorreto.
+
 ## Regra operacional obrigatoria
 
 Toda alteracao deve seguir este ciclo:
