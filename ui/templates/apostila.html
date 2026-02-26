@@ -8,6 +8,12 @@
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
   <style>
     .apostila-classes { display:grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap:.75rem; }
+    .apostila-passos {
+      margin:.25rem 0 0;
+      padding-left:1.15rem;
+      color:#334155;
+    }
+    .apostila-passos li { margin:.3rem 0; }
     .apostila-class-btn {
       display:block;
       padding:.85rem;
@@ -92,15 +98,25 @@
   <main class="painel-content">
     <header class="painel-header">
       <h2>Apostila</h2>
-      <p>Selecione a classe e cadastre os requisitos com dicas e subrequisitos.</p>
+      <p>Use os passos abaixo para montar a apostila da classe sem confusão.</p>
     </header>
+
+    <section class="painel-card">
+      <h3>Passo a passo</h3>
+      <ol class="apostila-passos">
+        <li>Escolha a classe.</li>
+        <li>Clique em <strong>Adicionar novo requisito</strong> e salve.</li>
+        <li>Dentro do requisito, use <strong>Adicionar dica neste requisito</strong> para cadastrar quantas dicas quiser.</li>
+        <li>Se precisar dividir o requisito, use <strong>Adicionar subrequisito neste requisito</strong> (A, B, C...).</li>
+      </ol>
+    </section>
 
     <section class="painel-card">
       <div class="status" aria-live="polite">
         {% for message in messages %}
           <p data-state="{{ message.tags }}">{{ message }}</p>
         {% empty %}
-          <p data-state="info">Escolha uma classe abaixo e cadastre os requisitos da apostila.</p>
+          <p data-state="info">Passo 1: escolha uma classe. Passo 2: adicione um requisito.</p>
         {% endfor %}
       </div>
     </section>
@@ -120,8 +136,9 @@
 
     <section class="painel-card">
       <h3>{{ selected_classe_label }}</h3>
-      <details>
-        <summary><strong>Cadastrar requisito</strong></summary>
+      <details open>
+        <summary><strong>Adicionar novo requisito</strong></summary>
+        <p class="panel-note" style="margin:.55rem 0 0;">Preencha os dados e clique em <strong>Salvar requisito</strong>.</p>
         <form method="post" enctype="multipart/form-data" style="margin-top:.85rem;">
           {% csrf_token %}
           <input type="hidden" name="action" value="cadastrar_requisito" />
@@ -146,7 +163,7 @@
             </label>
           </div>
           <div class="apostila-actions">
-            <button type="submit" class="primary">Cadastrar</button>
+            <button type="submit" class="primary">Salvar requisito</button>
           </div>
         </form>
       </details>
@@ -212,7 +229,8 @@
             </div>
 
             <details class="apostila-subform">
-              <summary><strong>Cadastrar dica</strong></summary>
+              <summary><strong>Adicionar dica neste requisito</strong></summary>
+              <p class="panel-note" style="margin:.55rem 0 0;">Você pode repetir este passo para adicionar várias dicas no mesmo requisito.</p>
               <form method="post" enctype="multipart/form-data" style="margin-top:.65rem;">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="cadastrar_dica" />
@@ -229,7 +247,7 @@
                   </label>
                 </div>
                 <div class="apostila-actions">
-                  <button type="submit" class="primary">Cadastrar dica</button>
+                  <button type="submit" class="primary">Salvar dica</button>
                 </div>
               </form>
             </details>
@@ -261,7 +279,8 @@
             </div>
 
             <details class="apostila-subform">
-              <summary><strong>Cadastrar subrequisito</strong></summary>
+              <summary><strong>Adicionar subrequisito neste requisito</strong></summary>
+              <p class="panel-note" style="margin:.55rem 0 0;">Exemplo de código: A, B, C.</p>
               <form method="post" style="margin-top:.65rem;">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="cadastrar_subrequisito" />
@@ -298,7 +317,7 @@
                   </label>
                 </div>
                 <div class="apostila-actions">
-                  <button type="submit" class="primary">Cadastrar subrequisito</button>
+                  <button type="submit" class="primary">Salvar subrequisito</button>
                 </div>
               </form>
             </details>

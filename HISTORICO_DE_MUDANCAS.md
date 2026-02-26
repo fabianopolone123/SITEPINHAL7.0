@@ -640,3 +640,13 @@ Arquivo oficial de registro das entregas concluidas.
 - A tela da apostila passou a exibir lista de dicas por requisito e links dos arquivos anexados em cada dica.
 - Criados os novos models `ApostilaDica` e `ApostilaDicaArquivo`.
 - Criada migration `0040_apostiladica_apostiladicaarquivo_and_more` para incluir `foto_requisito` e as novas tabelas de dicas/arquivos.
+
+## 26/02/2026 - Apostila UX: fluxo guiado por passos e botões mais claros
+
+- Tela da Apostila recebeu bloco `Passo a passo` para orientar o usuário final.
+- Mensagens e rótulos foram simplificados com foco em ação:
+  - `Adicionar novo requisito` / `Salvar requisito`
+  - `Adicionar dica neste requisito` / `Salvar dica`
+  - `Adicionar subrequisito neste requisito` / `Salvar subrequisito`
+- Formulário de requisito ficou aberto por padrão para reduzir cliques e facilitar o início do fluxo.
+- Incluídas dicas contextuais em cada etapa para reduzir dúvida durante o uso.
