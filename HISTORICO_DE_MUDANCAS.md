@@ -558,3 +558,9 @@ Arquivo oficial de registro das entregas concluidas.
 - Pagamentos aprovados de `Pedidos da Loja` agora enviam WhatsApp ao responsável usando a mensagem padrão de `Pagamento aprovado` (Financeiro), incluindo resumo dos itens do pedido; contatos extras marcados nessa notificação também recebem.
 - Adicionado controle `whatsapp_notified_at` em `LojaPedido` para evitar envio duplicado de WhatsApp quando webhook e consulta de status processam o mesmo pagamento.
 - No catálogo do perfil `Responsável`, removida a exibição de `Estoque não informado` quando a variação não possui estoque cadastrado.
+## 25/02/2026 - Loja (Responsável): botão Meus pedidos com resumo e detalhes do pedido
+
+- Adicionado botão `Meus pedidos` na tela da `Loja` para o perfil `Responsável`, ao lado do botão `Carrinho`.
+- O botão abre uma janela suspensa responsiva com resumo dos pedidos (um por linha), mostrando número do pedido, data/hora, quantidade de itens, status e total.
+- Cada linha pode ser clicada para expandir e ver os detalhes completos do pedido, incluindo itens, variação, quantidade, valores e forma de pagamento.
+- A listagem usa os pedidos do responsável logado e respeita o status atual salvo no sistema (`Pagamento aprovado`, `Aguardando pagamento`, etc.).

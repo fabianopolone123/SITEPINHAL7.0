@@ -5461,10 +5461,41 @@ class LojaView(LoginRequiredMixin, View):
         for row in rows:
             row['produto_capa_url'] = row['capa_foto'].url if row.get('capa_foto') else ''
             row['default_variacao'] = row['variacoes'][0] if row['variacoes'] else None
+        meus_pedidos = []
+        responsavel = getattr(request.user, 'responsavel', None)
+        if responsavel:
+            pedidos_qs = (
+                LojaPedido.objects
+                .filter(responsavel=responsavel)
+                .prefetch_related('itens')
+                .order_by('-created_at')
+            )
+            for pedido in pedidos_qs:
+                itens_rows = []
+                total_itens = 0
+                for item in pedido.itens.all():
+                    total_itens += int(item.quantidade or 0)
+                    itens_rows.append({
+                        'produto_titulo': item.produto_titulo,
+                        'variacao_nome': item.variacao_nome,
+                        'quantidade': item.quantidade,
+                        'valor_unitario_fmt': self._format_currency(item.valor_unitario),
+                        'valor_total_fmt': self._format_currency(item.valor_total),
+                        'foto_url': item.foto_url or '',
+                    })
+                meus_pedidos.append({
+                    'pedido': pedido,
+                    'status_label': self._pedido_loja_status_label(pedido),
+                    'status_css': (pedido.status or 'pendente'),
+                    'valor_total_fmt': self._format_currency(pedido.valor_total),
+                    'itens_total': total_itens,
+                    'itens_rows': itens_rows,
+                })
         return {
             'loja_mode': 'responsavel',
             'catalog_rows': rows,
             'responsavel_catalogo_tem_produtos': bool(rows),
+            'meus_pedidos_rows': meus_pedidos,
         }
 
     def get(self, request):
