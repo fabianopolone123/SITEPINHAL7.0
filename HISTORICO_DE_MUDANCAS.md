@@ -575,3 +575,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Ao clicar no card, abre o histórico completo de eventos daquele aventureiro, mostrando se estava `Presente` ou `Ausente` em cada evento.
 - Mantida a tela de marcação de presença para perfis administrativos (`Diretor/Diretoria`).
 - Bloqueada no backend a API de marcar presença (`toggle`) para perfil `Responsável`.
+## 25/02/2026 - Loja (Diretoria) UX: formulário em botão expansível e lista compacta de produtos
+
+- O cadastro de novo produto na `Loja` (modo diretoria/admin) foi colocado dentro de um bloco expansível `Cadastrar novo produto`, reduzindo poluição visual da tela.
+- O formulário continua o mesmo (campos, variações, fotos e JS), apenas com abertura/fechamento por clique.
+- `Produtos cadastrados` deixou de usar cards grandes e passou para uma lista compacta em uma linha por produto.
+- Ao clicar na linha, o produto expande para mostrar detalhes (foto, descrição, regras e variações com fotos vinculadas).
+- Objetivo: melhorar leitura no desktop e no celular sem alterar a lógica de cadastro atual.

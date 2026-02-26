@@ -43,6 +43,215 @@
     .loja-fotos-mini img { width:54px; height:54px; object-fit:cover; border-radius:8px; border:1px solid #dbeafe; background:#f8fafc; }
     .loja-fotos-badge { display:inline-block; margin-top:.4rem; font-size:.76rem; color:#0f172a; background:#eff6ff; border:1px solid #dbeafe; border-radius:999px; padding:.15rem .45rem; }
     .stock-empty { color:#64748b; }
+    .admin-loja-panel {
+      border:1px solid #dbeafe;
+      border-radius:14px;
+      background:#fff;
+      overflow:hidden;
+    }
+    .admin-loja-panel summary {
+      list-style:none;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:.8rem;
+      padding:.85rem .95rem;
+      background:linear-gradient(180deg,#f8fbff,#eef6ff);
+      color:#0f172a;
+      font-weight:800;
+    }
+    .admin-loja-panel summary::-webkit-details-marker { display:none; }
+    .admin-loja-panel summary::after {
+      content:"+";
+      width:30px;
+      height:30px;
+      display:grid;
+      place-items:center;
+      border-radius:999px;
+      border:1px solid #bfdbfe;
+      background:#fff;
+      color:#1d4ed8;
+      font-size:1rem;
+      font-weight:900;
+      flex:0 0 auto;
+    }
+    .admin-loja-panel[open] summary::after { content:"-"; }
+    .admin-loja-panel-body { padding:.95rem; }
+    .admin-panel-subtitle { margin:0; color:#475569; font-size:.86rem; font-weight:500; }
+    .admin-products-list { display:grid; gap:.65rem; }
+    .admin-product-row {
+      border:1px solid #e2e8f0;
+      border-radius:12px;
+      background:#fff;
+      overflow:hidden;
+    }
+    .admin-product-row summary {
+      list-style:none;
+      cursor:pointer;
+      display:grid;
+      grid-template-columns: 54px minmax(0,1fr) auto auto;
+      align-items:center;
+      gap:.65rem;
+      padding:.65rem .75rem;
+      background:#fff;
+    }
+    .admin-product-row summary::-webkit-details-marker { display:none; }
+    .admin-product-row summary::after {
+      content:"+";
+      width:26px;
+      height:26px;
+      display:grid;
+      place-items:center;
+      border-radius:999px;
+      border:1px solid #cbd5e1;
+      color:#1d4ed8;
+      font-weight:900;
+      justify-self:end;
+    }
+    .admin-product-row[open] summary {
+      background:#f8fbff;
+      border-bottom:1px solid #e2e8f0;
+    }
+    .admin-product-row[open] summary::after { content:"-"; }
+    .admin-product-thumb {
+      width:54px;
+      height:54px;
+      object-fit:cover;
+      border-radius:10px;
+      border:1px solid #dbeafe;
+      background:#f8fafc;
+      display:block;
+    }
+    .admin-product-main { min-width:0; display:grid; gap:.18rem; }
+    .admin-product-title {
+      color:#0f172a;
+      font-weight:800;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .admin-product-meta {
+      color:#64748b;
+      font-size:.78rem;
+      display:flex;
+      flex-wrap:wrap;
+      gap:.35rem;
+    }
+    .admin-product-chip {
+      border:1px solid #dbeafe;
+      background:#eff6ff;
+      color:#1d4ed8;
+      border-radius:999px;
+      padding:.16rem .46rem;
+      font-size:.74rem;
+      font-weight:800;
+      white-space:nowrap;
+    }
+    .admin-product-chip.is-muted {
+      border-color:#e2e8f0;
+      background:#f8fafc;
+      color:#475569;
+    }
+    .admin-product-detail {
+      padding:.75rem;
+      display:grid;
+      gap:.8rem;
+    }
+    .admin-product-detail-grid {
+      display:grid;
+      grid-template-columns: minmax(180px, 220px) 1fr;
+      gap:.8rem;
+      align-items:start;
+    }
+    .admin-product-detail-image {
+      width:100%;
+      aspect-ratio:4/3;
+      object-fit:contain;
+      border-radius:12px;
+      border:1px solid #dbeafe;
+      background:#fff;
+      padding:.35rem;
+    }
+    .admin-product-detail-placeholder {
+      width:100%;
+      aspect-ratio:4/3;
+      border-radius:12px;
+      border:1px dashed #cbd5e1;
+      display:grid;
+      place-items:center;
+      color:#64748b;
+      background:#f8fafc;
+      text-align:center;
+      padding:.5rem;
+      font-size:.86rem;
+    }
+    .admin-product-detail-text h4 {
+      margin:0;
+      color:#0f172a;
+      font-size:1rem;
+    }
+    .admin-product-detail-text p {
+      margin:.35rem 0 0;
+      color:#475569;
+      line-height:1.45;
+      white-space:pre-wrap;
+    }
+    .admin-product-detail-note {
+      margin:0;
+      color:#475569;
+      font-size:.8rem;
+      border:1px solid #e2e8f0;
+      background:#f8fafc;
+      border-radius:10px;
+      padding:.45rem .55rem;
+    }
+    .admin-product-variations {
+      display:grid;
+      gap:.55rem;
+    }
+    .admin-product-variation {
+      border:1px solid #e2e8f0;
+      border-radius:10px;
+      padding:.55rem .6rem;
+      background:#fff;
+      display:grid;
+      gap:.3rem;
+    }
+    .admin-product-variation-head {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:.5rem;
+      flex-wrap:wrap;
+      color:#0f172a;
+      font-weight:700;
+    }
+    .admin-product-variation-meta {
+      color:#475569;
+      font-size:.78rem;
+      display:flex;
+      gap:.4rem;
+      flex-wrap:wrap;
+    }
+    @media (max-width: 800px) {
+      .admin-product-row summary {
+        grid-template-columns: 46px minmax(0,1fr) auto;
+      }
+      .admin-product-chip:last-of-type {
+        display:none;
+      }
+      .admin-product-detail-grid {
+        grid-template-columns: 1fr;
+      }
+      .admin-product-thumb {
+        width:46px;
+        height:46px;
+      }
+      .admin-loja-panel summary {
+        padding:.75rem .8rem;
+      }
+    }
     .loja-catalog-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 340px)); gap:1rem; justify-content:center; }
     .catalog-card { width:100%; max-width:340px; justify-self:center; border:1px solid #dbeafe; border-radius:16px; background:#fff; box-shadow: 0 10px 24px rgba(15,23,42,.05); overflow:hidden; display:flex; flex-direction:column; }
     .catalog-media { padding:.8rem .8rem .35rem; }
@@ -859,122 +1068,163 @@
     </section>
     {% else %}
     <section class="painel-card loja-grid">
-      <h3 style="margin:0;">Cadastrar produto</h3>
-      <form method="post" enctype="multipart/form-data" id="loja-form">
-        {% csrf_token %}
-        <div class="loja-form-grid">
-          <label>
-            Título
-            <input type="text" name="titulo" required value="{{ form_data.titulo|default:'' }}" />
-          </label>
-          <div class="panel-note" style="align-self:end;">
-            Cada foto cadastrada abaixo precisa ser vinculada a uma variação.
-          </div>
-          <label class="full">
-            Descrição
-            <textarea name="descricao" rows="4" placeholder="Descrição do produto (opcional)">{{ form_data.descricao|default:'' }}</textarea>
-          </label>
-          <label>
-            Mínimo de pedidos pagos para produção (opcional)
-            <input type="number" name="minimo_pedidos_pagos" min="1" step="1" value="{{ form_data.minimo_pedidos_pagos|default:'' }}" placeholder="Ex.: 10" />
-          </label>
-          <div class="panel-note" style="align-self:end;">
-            Ex.: camiseta de atividade só vai para confecção quando atingir 10 pedidos pagos.
-          </div>
-        </div>
-
-        <div class="variacoes-wrap" style="margin-top:1rem;">
-          <div class="variacoes-head">
-            <div>
-              <strong>Variações</strong>
-              <div class="panel-note">Cadastre pelo menos uma variação com valor. Ex.: P, M, G; cor; tamanho etc.</div>
-            </div>
-            <button type="button" class="secondary" id="btn-add-variacao">Adicionar variação</button>
-          </div>
-          <div class="variacoes-list" id="variacoes-list">
-            {% if form_data.variacoes %}
-              {% for var in form_data.variacoes %}
-                <div class="variacao-row">
-                  <input type="text" name="variacao_nome[]" placeholder="Variação (ex.: P / Azul)" value="{{ var.nome|default:'' }}" />
-                  <input type="text" name="variacao_valor[]" placeholder="Valor" inputmode="decimal" value="{{ var.valor|default:'' }}" />
-                  <input type="number" name="variacao_estoque[]" placeholder="Estoque" min="0" value="{{ var.estoque|default:'' }}" />
-                  <button type="button" class="variacao-remove">Remover</button>
-                </div>
-              {% endfor %}
-            {% else %}
-              <div class="variacao-row">
-                <input type="text" name="variacao_nome[]" placeholder="Variação (ex.: P / Azul)" />
-                <input type="text" name="variacao_valor[]" placeholder="Valor" inputmode="decimal" />
-                <input type="number" name="variacao_estoque[]" placeholder="Estoque" min="0" />
-                <button type="button" class="variacao-remove">Remover</button>
+      <details class="admin-loja-panel" {% if form_data %}open{% endif %}>
+        <summary>
+          <span>Cadastrar novo produto</span>
+          <small class="admin-panel-subtitle">Clique para abrir/fechar o formulário de cadastro</small>
+        </summary>
+        <div class="admin-loja-panel-body">
+          <form method="post" enctype="multipart/form-data" id="loja-form">
+            {% csrf_token %}
+            <div class="loja-form-grid">
+              <label>
+                Título
+                <input type="text" name="titulo" required value="{{ form_data.titulo|default:'' }}" />
+              </label>
+              <div class="panel-note" style="align-self:end;">
+                Cada foto cadastrada abaixo precisa ser vinculada a uma variação.
               </div>
-            {% endif %}
-          </div>
-        </div>
-
-        <div class="fotos-wrap" style="margin-top:1rem;">
-          <div class="fotos-head">
-            <div>
-              <strong>Fotos do produto</strong>
-              <div class="panel-note">Você pode cadastrar várias fotos. Cada foto pode ser vinculada a uma ou mais variações, ou a todas.</div>
-            </div>
-            <button type="button" class="secondary" id="btn-add-foto">Adicionar foto</button>
-          </div>
-          <div class="fotos-list" id="fotos-list">
-            {% if form_data.fotos %}
-              {% for row in form_data.fotos %}
-                <div class="foto-row" data-row-id="{{ row.row_id|default:'foto1' }}">
-                  <input type="hidden" name="foto_row_id[]" value="{{ row.row_id|default:'foto1' }}" />
-                  <input type="file" name="foto_arquivo__{{ row.row_id|default:'foto1' }}" accept="image/*" />
-                  <div class="foto-variacao-select" data-row-id="{{ row.row_id|default:'foto1' }}" data-selected="{{ row.variacao_refs_csv|default:'' }}"></div>
-                  <button type="button" class="foto-remove">Remover</button>
-                </div>
-              {% endfor %}
-            {% else %}
-              <div class="foto-row" data-row-id="foto1">
-                <input type="hidden" name="foto_row_id[]" value="foto1" />
-                <input type="file" name="foto_arquivo__foto1" accept="image/*" />
-                <div class="foto-variacao-select" data-row-id="foto1"></div>
-                <button type="button" class="foto-remove">Remover</button>
+              <label class="full">
+                Descrição
+                <textarea name="descricao" rows="4" placeholder="Descrição do produto (opcional)">{{ form_data.descricao|default:'' }}</textarea>
+              </label>
+              <label>
+                Mínimo de pedidos pagos para produção (opcional)
+                <input type="number" name="minimo_pedidos_pagos" min="1" step="1" value="{{ form_data.minimo_pedidos_pagos|default:'' }}" placeholder="Ex.: 10" />
+              </label>
+              <div class="panel-note" style="align-self:end;">
+                Ex.: camiseta de atividade só vai para confecção quando atingir 10 pedidos pagos.
               </div>
-            {% endif %}
-          </div>
-        </div>
+            </div>
 
-        <div class="loja-actions">
-          <button type="submit" class="primary">Cadastrar produto</button>
+            <div class="variacoes-wrap" style="margin-top:1rem;">
+              <div class="variacoes-head">
+                <div>
+                  <strong>Variações</strong>
+                  <div class="panel-note">Cadastre pelo menos uma variação com valor. Ex.: P, M, G; cor; tamanho etc.</div>
+                </div>
+                <button type="button" class="secondary" id="btn-add-variacao">Adicionar variação</button>
+              </div>
+              <div class="variacoes-list" id="variacoes-list">
+                {% if form_data.variacoes %}
+                  {% for var in form_data.variacoes %}
+                    <div class="variacao-row">
+                      <input type="text" name="variacao_nome[]" placeholder="Variação (ex.: P / Azul)" value="{{ var.nome|default:'' }}" />
+                      <input type="text" name="variacao_valor[]" placeholder="Valor" inputmode="decimal" value="{{ var.valor|default:'' }}" />
+                      <input type="number" name="variacao_estoque[]" placeholder="Estoque" min="0" value="{{ var.estoque|default:'' }}" />
+                      <button type="button" class="variacao-remove">Remover</button>
+                    </div>
+                  {% endfor %}
+                {% else %}
+                  <div class="variacao-row">
+                    <input type="text" name="variacao_nome[]" placeholder="Variação (ex.: P / Azul)" />
+                    <input type="text" name="variacao_valor[]" placeholder="Valor" inputmode="decimal" />
+                    <input type="number" name="variacao_estoque[]" placeholder="Estoque" min="0" />
+                    <button type="button" class="variacao-remove">Remover</button>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="fotos-wrap" style="margin-top:1rem;">
+              <div class="fotos-head">
+                <div>
+                  <strong>Fotos do produto</strong>
+                  <div class="panel-note">Você pode cadastrar várias fotos. Cada foto pode ser vinculada a uma ou mais variações, ou a todas.</div>
+                </div>
+                <button type="button" class="secondary" id="btn-add-foto">Adicionar foto</button>
+              </div>
+              <div class="fotos-list" id="fotos-list">
+                {% if form_data.fotos %}
+                  {% for row in form_data.fotos %}
+                    <div class="foto-row" data-row-id="{{ row.row_id|default:'foto1' }}">
+                      <input type="hidden" name="foto_row_id[]" value="{{ row.row_id|default:'foto1' }}" />
+                      <input type="file" name="foto_arquivo__{{ row.row_id|default:'foto1' }}" accept="image/*" />
+                      <div class="foto-variacao-select" data-row-id="{{ row.row_id|default:'foto1' }}" data-selected="{{ row.variacao_refs_csv|default:'' }}"></div>
+                      <button type="button" class="foto-remove">Remover</button>
+                    </div>
+                  {% endfor %}
+                {% else %}
+                  <div class="foto-row" data-row-id="foto1">
+                    <input type="hidden" name="foto_row_id[]" value="foto1" />
+                    <input type="file" name="foto_arquivo__foto1" accept="image/*" />
+                    <div class="foto-variacao-select" data-row-id="foto1"></div>
+                    <button type="button" class="foto-remove">Remover</button>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="loja-actions">
+              <button type="submit" class="primary">Cadastrar produto</button>
+            </div>
+          </form>
         </div>
-      </form>
+      </details>
     </section>
 
     <section class="painel-card loja-grid">
       <h3 style="margin:0;">Produtos cadastrados</h3>
       {% if produtos %}
-        <div class="loja-products">
+        <div class="admin-products-list">
           {% for row in produtos %}
-            <article class="loja-card">
-              {% if row.capa_foto %}
-                <img src="{{ row.capa_foto.url }}" alt="Foto de {{ row.produto.titulo }}" />
-              {% else %}
-                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='400'%3E%3Crect width='100%25' height='100%25' fill='%23f8fafc'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-size='28'%3ESem foto%3C/text%3E%3C/svg%3E" alt="Sem foto" />
-              {% endif %}
-              <div class="loja-card-body">
-                <h3>{{ row.produto.titulo }}</h3>
-                {% if row.produto.descricao %}<p>{{ row.produto.descricao }}</p>{% endif %}
-                {% if row.produto.minimo_pedidos_pagos %}
-                  <div class="loja-prod-rule">
-                    Produção sob pedido: mínimo de <strong>{{ row.produto.minimo_pedidos_pagos }}</strong> pedido(s) pagos.
-                  </div>
+            <details class="admin-product-row">
+              <summary>
+                {% if row.capa_foto %}
+                  <img src="{{ row.capa_foto.url }}" alt="Foto de {{ row.produto.titulo }}" class="admin-product-thumb" />
+                {% else %}
+                  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Crect width='100%25' height='100%25' fill='%23f8fafc'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-size='18'%3ESem foto%3C/text%3E%3C/svg%3E" alt="Sem foto" class="admin-product-thumb" />
                 {% endif %}
-                <ul class="loja-var-list">
+                <div class="admin-product-main">
+                  <div class="admin-product-title">{{ row.produto.titulo }}</div>
+                  <div class="admin-product-meta">
+                    <span>{{ row.variacoes|length }} variação(ões)</span>
+                    {% if row.produto.descricao %}<span>• com descrição</span>{% endif %}
+                    {% if row.produto.minimo_pedidos_pagos %}<span>• mínimo {{ row.produto.minimo_pedidos_pagos }} pagos</span>{% endif %}
+                  </div>
+                </div>
+                <span class="admin-product-chip">{% if row.produto.ativo %}Ativo{% else %}Inativo{% endif %}</span>
+                <span class="admin-product-chip is-muted">Detalhes</span>
+              </summary>
+              <div class="admin-product-detail">
+                <div class="admin-product-detail-grid">
+                  {% if row.capa_foto %}
+                    <img src="{{ row.capa_foto.url }}" alt="Foto de {{ row.produto.titulo }}" class="admin-product-detail-image" />
+                  {% else %}
+                    <div class="admin-product-detail-placeholder">Sem foto de capa</div>
+                  {% endif %}
+                  <div class="admin-product-detail-text">
+                    <h4>{{ row.produto.titulo }}</h4>
+                    {% if row.produto.descricao %}
+                      <p>{{ row.produto.descricao }}</p>
+                    {% else %}
+                      <p class="panel-note" style="margin:.35rem 0 0;">Sem descrição cadastrada.</p>
+                    {% endif %}
+                    {% if row.produto.minimo_pedidos_pagos %}
+                      <div class="loja-prod-rule" style="margin-top:.55rem;">
+                        Produção sob pedido: mínimo de <strong>{{ row.produto.minimo_pedidos_pagos }}</strong> pedido(s) pagos.
+                      </div>
+                    {% endif %}
+                    <p class="admin-product-detail-note">Clique na linha para ver detalhes. Edição completa do produto ficará neste mesmo fluxo depois.</p>
+                  </div>
+                </div>
+
+                <div class="admin-product-variations">
                   {% for v in row.variacoes %}
-                    <li>
-                      <strong>{{ v.nome }}</strong> - R$ {{ v.valor }}
-                      {% if v.estoque is not None %}
-                        <span>(Estoque: {{ v.estoque }})</span>
-                      {% else %}
-                        <span class="stock-empty">(Estoque não informado)</span>
-                      {% endif %}
+                    <div class="admin-product-variation">
+                      <div class="admin-product-variation-head">
+                        <span>{{ v.nome }}</span>
+                        <span>R$ {{ v.valor }}</span>
+                      </div>
+                      <div class="admin-product-variation-meta">
+                        {% if v.estoque is not None %}
+                          <span>Estoque: {{ v.estoque }}</span>
+                        {% else %}
+                          <span class="stock-empty">Estoque não informado</span>
+                        {% endif %}
+                        <span>•</span>
+                        <span>{% if v.ativo %}Variação ativa{% else %}Variação inativa{% endif %}</span>
+                      </div>
                       {% if v.fotos_vinculadas %}
                         <div class="loja-fotos-badge">{{ v.fotos_vinculadas|length }} foto(s) vinculada(s)</div>
                         <div class="loja-fotos-mini">
@@ -985,11 +1235,13 @@
                           {% endfor %}
                         </div>
                       {% endif %}
-                    </li>
+                    </div>
+                  {% empty %}
+                    <p class="panel-note">Sem variações cadastradas.</p>
                   {% endfor %}
-                </ul>
+                </div>
               </div>
-            </article>
+            </details>
           {% endfor %}
         </div>
       {% else %}
