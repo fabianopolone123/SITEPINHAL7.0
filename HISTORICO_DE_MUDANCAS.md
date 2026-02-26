@@ -582,3 +582,11 @@ Arquivo oficial de registro das entregas concluidas.
 - `Produtos cadastrados` deixou de usar cards grandes e passou para uma lista compacta em uma linha por produto.
 - Ao clicar na linha, o produto expande para mostrar detalhes (foto, descrição, regras e variações com fotos vinculadas).
 - Objetivo: melhorar leitura no desktop e no celular sem alterar a lógica de cadastro atual.
+## 25/02/2026 - Loja (Diretoria): edição de produto e painel de pedidos com pagamento/entrega
+
+- Adicionada edição de produto cadastrado no modo diretoria (dados principais): título, descrição, status ativo/inativo e mínimo de pedidos pagos.
+- A edição fica dentro do detalhe do produto na lista compacta de `Produtos cadastrados`.
+- Criado painel `Pedidos` na `Loja` (diretoria), com lista compacta de todos os pedidos feitos.
+- Cada pedido mostra resumo por linha (responsável, se está pago/não pago, valor total) e, ao clicar, abre detalhes do pedido.
+- Nos detalhes do pedido, passa a aparecer também o status de entrega (`Entregue` / `Não entregue`) e botão para marcar/desmarcar entrega.
+- Adicionado campo `entregue` em `LojaPedido` para controle de entrega no sistema.

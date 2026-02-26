@@ -5525,10 +5525,49 @@ class LojaView(LoginRequiredMixin, View):
 
     def _context(self, form_data=None):
         rows = self._produto_rows()
+        pedidos_rows = []
+        pedidos_qs = (
+            LojaPedido.objects
+            .select_related('responsavel', 'responsavel__user')
+            .prefetch_related('itens')
+            .order_by('-created_at')
+        )
+        for pedido in pedidos_qs:
+            itens_rows = []
+            itens_total = 0
+            for item in pedido.itens.all():
+                itens_total += int(item.quantidade or 0)
+                itens_rows.append({
+                    'produto_titulo': item.produto_titulo,
+                    'variacao_nome': item.variacao_nome,
+                    'quantidade': item.quantidade,
+                    'valor_unitario_fmt': self._format_currency(item.valor_unitario),
+                    'valor_total_fmt': self._format_currency(item.valor_total),
+                    'foto_url': item.foto_url or '',
+                })
+            responsavel_nome = (
+                pedido.responsavel.responsavel_nome
+                or pedido.responsavel.mae_nome
+                or pedido.responsavel.pai_nome
+                or pedido.responsavel.user.get_full_name()
+                or pedido.responsavel.user.username
+            )
+            pedidos_rows.append({
+                'pedido': pedido,
+                'status_label': self._pedido_loja_status_label(pedido),
+                'status_css': (pedido.status or 'pendente'),
+                'valor_total_fmt': self._format_currency(pedido.valor_total),
+                'itens_total': itens_total,
+                'itens_rows': itens_rows,
+                'responsavel_nome': responsavel_nome,
+                'entrega_label': 'Entregue' if pedido.entregue else 'Não entregue',
+                'pago_label': 'Pago' if pedido.status == LojaPedido.STATUS_PAGO else 'Não pago',
+            })
         return {
             'loja_mode': 'admin',
             'produtos': rows,
             'form_data': form_data or {},
+            'pedidos_admin_rows': pedidos_rows,
         }
 
     def _responsavel_context(self, request):
@@ -5591,6 +5630,69 @@ class LojaView(LoginRequiredMixin, View):
         if self._is_responsavel_mode(request):
             messages.info(request, 'Carrinho será implementado nas próximas etapas. Por enquanto, use esta tela para selecionar produtos e validar o catálogo.')
             context = self._responsavel_context(request)
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+
+        action = str(request.POST.get('action') or '').strip()
+        if action == 'editar_produto':
+            produto_id_raw = str(request.POST.get('produto_id') or '').strip()
+            produto = LojaProduto.objects.filter(pk=produto_id_raw).first() if produto_id_raw.isdigit() else None
+            if not produto:
+                messages.error(request, 'Produto não encontrado para edição.')
+                context = self._context()
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            titulo_edit = str(request.POST.get('edit_titulo') or '').strip()
+            descricao_edit = str(request.POST.get('edit_descricao') or '').strip()
+            minimo_raw = str(request.POST.get('edit_minimo_pedidos_pagos') or '').strip()
+            ativo_edit = str(request.POST.get('edit_ativo') or '').strip().lower() in {'1', 'true', 'on', 'sim', 'yes'}
+
+            if not titulo_edit:
+                messages.error(request, 'Informe o título do produto na edição.')
+                context = self._context()
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            minimo_edit = None
+            if minimo_raw:
+                if not re.fullmatch(r'\d+', minimo_raw):
+                    messages.error(request, 'Informe um número inteiro válido no mínimo de pedidos pagos da edição.')
+                    context = self._context()
+                    context.update(_sidebar_context(request))
+                    return render(request, self.template_name, context)
+                minimo_edit = int(minimo_raw)
+                if minimo_edit <= 0:
+                    messages.error(request, 'O mínimo de pedidos pagos da edição deve ser maior que zero.')
+                    context = self._context()
+                    context.update(_sidebar_context(request))
+                    return render(request, self.template_name, context)
+
+            produto.titulo = titulo_edit
+            produto.descricao = descricao_edit
+            produto.minimo_pedidos_pagos = minimo_edit
+            produto.ativo = ativo_edit
+            produto.save(update_fields=['titulo', 'descricao', 'minimo_pedidos_pagos', 'ativo', 'updated_at'])
+            messages.success(request, f'Produto "{produto.titulo}" atualizado com sucesso.')
+            context = self._context()
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+
+        if action == 'toggle_entrega_pedido':
+            pedido_id_raw = str(request.POST.get('pedido_id') or '').strip()
+            pedido = LojaPedido.objects.filter(pk=pedido_id_raw).first() if pedido_id_raw.isdigit() else None
+            if not pedido:
+                messages.error(request, 'Pedido não encontrado.')
+                context = self._context()
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+            pedido.entregue = not bool(pedido.entregue)
+            pedido.save(update_fields=['entregue', 'updated_at'])
+            messages.success(
+                request,
+                f'Pedido #{pedido.pk} marcado como {"entregue" if pedido.entregue else "não entregue"}.'
+            )
+            context = self._context()
             context.update(_sidebar_context(request))
             return render(request, self.template_name, context)
 

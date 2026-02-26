@@ -210,6 +210,70 @@
       display:grid;
       gap:.55rem;
     }
+    .admin-product-edit-form {
+      border:1px solid #dbeafe;
+      border-radius:12px;
+      background:#f8fbff;
+      padding:.7rem;
+      display:grid;
+      gap:.65rem;
+    }
+    .admin-product-edit-form h5 {
+      margin:0;
+      color:#0f172a;
+      font-size:.9rem;
+    }
+    .admin-product-edit-grid {
+      display:grid;
+      grid-template-columns: 1fr 220px 120px;
+      gap:.6rem;
+      align-items:end;
+    }
+    .admin-product-edit-grid label,
+    .admin-product-edit-form label {
+      display:grid;
+      gap:.3rem;
+      color:#334155;
+      font-size:.82rem;
+      font-weight:700;
+    }
+    .admin-product-edit-form input,
+    .admin-product-edit-form textarea,
+    .admin-product-edit-form select {
+      width:100%;
+      border:1px solid #cbd5e1;
+      border-radius:10px;
+      padding:.6rem .7rem;
+      background:#fff;
+      color:#0f172a;
+      font:inherit;
+    }
+    .admin-product-edit-form textarea { min-height:84px; resize:vertical; }
+    .admin-product-edit-actions {
+      display:flex;
+      justify-content:flex-end;
+      gap:.5rem;
+      flex-wrap:wrap;
+    }
+    .admin-secondary-btn {
+      border:1px solid #cbd5e1;
+      border-radius:10px;
+      background:#fff;
+      color:#0f172a;
+      padding:.55rem .8rem;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .admin-primary-btn {
+      border:0;
+      border-radius:10px;
+      background:linear-gradient(135deg,#1d4ed8,#2563eb);
+      color:#fff;
+      padding:.58rem .85rem;
+      font-weight:800;
+      cursor:pointer;
+      box-shadow: 0 8px 18px rgba(37,99,235,.18);
+    }
     .admin-product-variation {
       border:1px solid #e2e8f0;
       border-radius:10px;
@@ -242,6 +306,9 @@
         display:none;
       }
       .admin-product-detail-grid {
+        grid-template-columns: 1fr;
+      }
+      .admin-product-edit-grid {
         grid-template-columns: 1fr;
       }
       .admin-product-thumb {
@@ -1205,9 +1272,40 @@
                         Produção sob pedido: mínimo de <strong>{{ row.produto.minimo_pedidos_pagos }}</strong> pedido(s) pagos.
                       </div>
                     {% endif %}
-                    <p class="admin-product-detail-note">Clique na linha para ver detalhes. Edição completa do produto ficará neste mesmo fluxo depois.</p>
+                    <p class="admin-product-detail-note">Você pode editar abaixo os dados principais do produto sem recriar o cadastro.</p>
                   </div>
                 </div>
+
+                <form method="post" class="admin-product-edit-form">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="editar_produto" />
+                  <input type="hidden" name="produto_id" value="{{ row.produto.id }}" />
+                  <h5>Editar produto</h5>
+                  <div class="admin-product-edit-grid">
+                    <label>
+                      Título
+                      <input type="text" name="edit_titulo" value="{{ row.produto.titulo }}" required />
+                    </label>
+                    <label>
+                      Mínimo pedidos pagos (opcional)
+                      <input type="number" name="edit_minimo_pedidos_pagos" min="1" step="1" value="{{ row.produto.minimo_pedidos_pagos|default:'' }}" />
+                    </label>
+                    <label>
+                      Status
+                      <select name="edit_ativo">
+                        <option value="1" {% if row.produto.ativo %}selected{% endif %}>Ativo</option>
+                        <option value="0" {% if not row.produto.ativo %}selected{% endif %}>Inativo</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label>
+                    Descrição
+                    <textarea name="edit_descricao" rows="3" placeholder="Descrição do produto (opcional)">{{ row.produto.descricao|default:'' }}</textarea>
+                  </label>
+                  <div class="admin-product-edit-actions">
+                    <button type="submit" class="admin-primary-btn">Salvar alterações</button>
+                  </div>
+                </form>
 
                 <div class="admin-product-variations">
                   {% for v in row.variacoes %}
@@ -1247,6 +1345,93 @@
       {% else %}
         <p class="panel-note">Nenhum produto cadastrado ainda.</p>
       {% endif %}
+    </section>
+
+    <section class="painel-card loja-grid">
+      <details class="admin-loja-panel">
+        <summary>
+          <span>Pedidos</span>
+          <small class="admin-panel-subtitle">Lista de pedidos da loja com pagamento, entrega e detalhes</small>
+        </summary>
+        <div class="admin-loja-panel-body">
+          {% if pedidos_admin_rows %}
+            <div class="orders-list">
+              {% for row in pedidos_admin_rows %}
+                <details class="order-row">
+                  <summary>
+                    <div class="order-row-main">
+                      <span class="order-row-title">Pedido #{{ row.pedido.id }} - {{ row.responsavel_nome }}</span>
+                      <span class="order-row-sub">{{ row.pedido.created_at|date:'d/m/Y H:i' }} | {{ row.itens_total }} item(ns)</span>
+                    </div>
+                    <span class="order-row-status {{ row.status_css }}">{{ row.pago_label }}</span>
+                    <span class="order-row-total">{{ row.valor_total_fmt }}</span>
+                  </summary>
+                  <div class="order-detail">
+                    <div class="order-detail-meta">
+                      <div class="meta-box">
+                        <span>Responsável</span>
+                        <strong>{{ row.responsavel_nome }}</strong>
+                      </div>
+                      <div class="meta-box">
+                        <span>Pagamento</span>
+                        <strong>{{ row.status_label }}</strong>
+                      </div>
+                      <div class="meta-box">
+                        <span>Entrega</span>
+                        <strong>{{ row.entrega_label }}</strong>
+                      </div>
+                      <div class="meta-box">
+                        <span>Total</span>
+                        <strong>{{ row.valor_total_fmt }}</strong>
+                      </div>
+                    </div>
+
+                    <form method="post" class="admin-product-edit-form" style="padding:.6rem;">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="toggle_entrega_pedido" />
+                      <input type="hidden" name="pedido_id" value="{{ row.pedido.id }}" />
+                      <h5>Entrega do pedido</h5>
+                      <div class="admin-product-edit-actions" style="justify-content:space-between; align-items:center;">
+                        <span class="panel-note" style="margin:0;">Status atual: <strong>{{ row.entrega_label }}</strong></span>
+                        <button type="submit" class="admin-primary-btn">
+                          {% if row.pedido.entregue %}Marcar como não entregue{% else %}Marcar como entregue{% endif %}
+                        </button>
+                      </div>
+                    </form>
+
+                    <div class="order-items">
+                      {% for item in row.itens_rows %}
+                        <div class="order-item">
+                          <div class="order-item-thumb">
+                            {% if item.foto_url %}
+                              <img src="{{ item.foto_url }}" alt="Foto de {{ item.produto_titulo }}" />
+                            {% else %}
+                              <span>Sem foto</span>
+                            {% endif %}
+                          </div>
+                          <div class="order-item-main">
+                            <strong>{{ item.produto_titulo }}</strong>
+                            <div class="order-item-sub">Variação: {{ item.variacao_nome }}</div>
+                            <div class="order-item-sub">Quantidade: {{ item.quantidade }}</div>
+                          </div>
+                          <div class="order-item-values">
+                            <span>Unit.: {{ item.valor_unitario_fmt }}</span>
+                            <strong>Total: {{ item.valor_total_fmt }}</strong>
+                          </div>
+                        </div>
+                      {% empty %}
+                        <p class="orders-empty" style="margin:0;">Este pedido não possui itens listados.</p>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </details>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="panel-note">Nenhum pedido feito na loja ainda.</p>
+          {% endif %}
+        </div>
+      </details>
     </section>
     {% endif %}
   </main>

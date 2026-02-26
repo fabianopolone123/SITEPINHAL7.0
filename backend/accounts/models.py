@@ -567,6 +567,7 @@ class PagamentoMensalidade(models.Model):
     mp_qr_code = models.TextField('MP QR code Pix', blank=True)
     mp_qr_code_base64 = models.TextField('MP QR code base64', blank=True)
     paid_at = models.DateTimeField('pago em', null=True, blank=True)
+    entregue = models.BooleanField('entregue', default=False)
     whatsapp_notified_at = models.DateTimeField('whatsapp notificado em', null=True, blank=True)
     created_by = models.ForeignKey(
         User,
