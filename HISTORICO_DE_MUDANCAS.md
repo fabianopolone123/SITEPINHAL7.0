@@ -650,3 +650,9 @@ Arquivo oficial de registro das entregas concluidas.
   - `Adicionar subrequisito neste requisito` / `Salvar subrequisito`
 - Formulário de requisito ficou aberto por padrão para reduzir cliques e facilitar o início do fluxo.
 - Incluídas dicas contextuais em cada etapa para reduzir dúvida durante o uso.
+
+## 26/02/2026 - Apostila UX: removida opção de subrequisito da interface
+
+- Removida da tela da Apostila a seção `Adicionar subrequisito neste requisito`.
+- Também foi removida a listagem visual de subrequisitos para simplificar o fluxo ao usuário final.
+- O passo a passo no topo foi atualizado para focar apenas em `requisito` e `dicas`.

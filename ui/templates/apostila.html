@@ -107,7 +107,6 @@
         <li>Escolha a classe.</li>
         <li>Clique em <strong>Adicionar novo requisito</strong> e salve.</li>
         <li>Dentro do requisito, use <strong>Adicionar dica neste requisito</strong> para cadastrar quantas dicas quiser.</li>
-        <li>Se precisar dividir o requisito, use <strong>Adicionar subrequisito neste requisito</strong> (A, B, C...).</li>
       </ol>
     </section>
 
@@ -248,76 +247,6 @@
                 </div>
                 <div class="apostila-actions">
                   <button type="submit" class="primary">Salvar dica</button>
-                </div>
-              </form>
-            </details>
-
-            <div>
-              <strong>Subrequisitos</strong>
-              {% if item.subrequisitos_rows %}
-                <table class="apostila-sub-list">
-                  <thead>
-                    <tr>
-                      <th>Código</th>
-                      <th>Descrição</th>
-                      <th>Resposta</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for sub in item.subrequisitos_rows %}
-                      <tr>
-                        <td>{{ sub.codigo_subrequisito }}</td>
-                        <td>{{ sub.descricao }}</td>
-                        <td>{{ sub.resposta|default:'-' }}</td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              {% else %}
-                <p class="panel-note" style="margin:.35rem 0 0;">Nenhum subrequisito cadastrado.</p>
-              {% endif %}
-            </div>
-
-            <details class="apostila-subform">
-              <summary><strong>Adicionar subrequisito neste requisito</strong></summary>
-              <p class="panel-note" style="margin:.55rem 0 0;">Exemplo de código: A, B, C.</p>
-              <form method="post" style="margin-top:.65rem;">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="cadastrar_subrequisito" />
-                <input type="hidden" name="classe" value="{{ selected_classe }}" />
-                <input type="hidden" name="requisito_id" value="{{ item.id }}" />
-                <div class="apostila-form-grid">
-                  <label>
-                    Código do subrequisito
-                    <input
-                      type="text"
-                      name="codigo_subrequisito"
-                      placeholder="Ex.: A, B, C"
-                      value="{% if form_data.sub_requisito_id == item.id|stringformat:'s' %}{{ form_data.sub_codigo|default:'' }}{% endif %}"
-                      required
-                    />
-                  </label>
-                  <label>
-                    Resposta (opcional)
-                    <input
-                      type="text"
-                      name="resposta_subrequisito"
-                      placeholder="Ex.: Feito, Sim, texto livre"
-                      value="{% if form_data.sub_requisito_id == item.id|stringformat:'s' %}{{ form_data.sub_resposta|default:'' }}{% endif %}"
-                    />
-                  </label>
-                  <label class="full">
-                    Descrição do subrequisito
-                    <textarea
-                      name="descricao_subrequisito"
-                      rows="3"
-                      placeholder="Descreva o subrequisito..."
-                      required
-                    >{% if form_data.sub_requisito_id == item.id|stringformat:'s' %}{{ form_data.sub_descricao|default:'' }}{% endif %}</textarea>
-                  </label>
-                </div>
-                <div class="apostila-actions">
-                  <button type="submit" class="primary">Salvar subrequisito</button>
                 </div>
               </form>
             </details>
