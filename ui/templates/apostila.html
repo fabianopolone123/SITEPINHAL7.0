@@ -8,12 +8,9 @@
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
   <style>
     .apostila-classes { display:grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap:.75rem; }
-    .apostila-passos {
-      margin:.25rem 0 0;
-      padding-left:1.15rem;
-      color:#334155;
-    }
+    .apostila-passos { margin:.25rem 0 0; padding-left:1.15rem; color:#334155; }
     .apostila-passos li { margin:.3rem 0; }
+
     .apostila-class-btn {
       display:block;
       padding:.85rem;
@@ -26,6 +23,32 @@
     .apostila-class-btn.is-active { border-color:#2563eb; box-shadow:0 0 0 2px rgba(37, 99, 235, .14); background:#eff6ff; }
     .apostila-class-btn strong { display:block; margin-bottom:.15rem; }
     .apostila-class-btn small { color:#475569; }
+
+    .apostila-toolbar {
+      margin-top:.2rem;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:.8rem;
+      flex-wrap:wrap;
+    }
+
+    .apostila-btn {
+      border:1px solid #2563eb;
+      background:#2563eb;
+      color:#fff;
+      border-radius:10px;
+      padding:.58rem .9rem;
+      font:inherit;
+      font-weight:600;
+      cursor:pointer;
+    }
+    .apostila-btn.secondary {
+      border:1px solid #cbd5e1;
+      background:#fff;
+      color:#0f172a;
+      font-weight:500;
+    }
 
     .apostila-form-grid { display:grid; grid-template-columns: 1fr 1fr; gap:.75rem; }
     .apostila-form-grid .full { grid-column:1 / -1; }
@@ -93,11 +116,13 @@
       font-size:.92rem;
     }
     .apostila-sub-list th { color:#334155; }
-    .apostila-subform {
+    .apostila-sub-actions {
       margin-top:.65rem;
       border-top:1px dashed #dbeafe;
       padding-top:.65rem;
     }
+
+    .apostila-modal,
     .apostila-foto-modal {
       position:fixed;
       inset:0;
@@ -105,38 +130,43 @@
       display:none;
       align-items:center;
       justify-content:center;
-      z-index:999;
+      z-index:998;
       padding:1rem;
     }
+    .apostila-modal.is-open,
     .apostila-foto-modal.is-open { display:flex; }
+
+    .apostila-modal-dialog,
     .apostila-foto-dialog {
-      width:min(960px, 96vw);
+      width:min(760px, 96vw);
       max-height:92vh;
       background:#fff;
       border-radius:14px;
-      overflow:hidden;
+      overflow:auto;
       box-shadow:0 30px 80px rgba(0, 0, 0, .35);
       display:flex;
       flex-direction:column;
     }
+    .apostila-foto-dialog { width:min(960px, 96vw); overflow:hidden; }
+
+    .apostila-modal-head,
     .apostila-foto-head {
+      position:sticky;
+      top:0;
+      background:#fff;
+      z-index:1;
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:.75rem;
-      padding:.75rem .9rem;
+      padding:.8rem .9rem;
       border-bottom:1px solid #e2e8f0;
     }
+    .apostila-modal-title,
     .apostila-foto-title { margin:0; font-size:1rem; }
-    .apostila-foto-close {
-      border:1px solid #cbd5e1;
-      background:#fff;
-      color:#0f172a;
-      border-radius:9px;
-      padding:.35rem .65rem;
-      cursor:pointer;
-      font:inherit;
-    }
+    .apostila-modal-body { padding:.9rem; }
+    .apostila-modal-note { margin:.2rem 0 .75rem; color:#475569; }
+
     .apostila-foto-body {
       padding:.75rem;
       display:flex;
@@ -156,6 +186,7 @@
     @media (max-width: 900px) {
       .apostila-form-grid { grid-template-columns: 1fr; }
       .apostila-requisito-head { flex-direction:column; }
+      .apostila-modal-dialog,
       .apostila-foto-dialog { width:100%; max-height:95vh; border-radius:12px; }
     }
   </style>
@@ -172,8 +203,8 @@
       <h3>Passo a passo</h3>
       <ol class="apostila-passos">
         <li>Escolha a classe.</li>
-        <li>Clique em <strong>Adicionar novo requisito</strong> e salve.</li>
-        <li>Dentro do requisito, use <strong>Adicionar dica neste requisito</strong> para cadastrar quantas dicas quiser.</li>
+        <li>Clique em <strong>Adicionar novo requisito</strong> para abrir a janela de cadastro.</li>
+        <li>Dentro do requisito, clique em <strong>Adicionar dica neste requisito</strong> para abrir a janela de dicas.</li>
       </ol>
     </section>
 
@@ -202,37 +233,10 @@
 
     <section class="painel-card">
       <h3>{{ selected_classe_label }}</h3>
-      <details open>
-        <summary><strong>Adicionar novo requisito</strong></summary>
-        <p class="panel-note" style="margin:.55rem 0 0;">Preencha os dados e clique em <strong>Salvar requisito</strong>.</p>
-        <form method="post" enctype="multipart/form-data" style="margin-top:.85rem;">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="cadastrar_requisito" />
-          <input type="hidden" name="classe" value="{{ selected_classe }}" />
-
-          <div class="apostila-form-grid">
-            <label>
-              Número do requisito
-              <input type="text" name="numero_requisito" value="{{ form_data.numero_requisito|default:'' }}" placeholder="Ex.: 01, 1.2, A-03" required />
-            </label>
-            <label>
-              Resposta (opcional)
-              <input type="text" name="resposta" value="{{ form_data.resposta|default:'' }}" placeholder="Ex.: Sim, Concluído, texto livre" />
-            </label>
-            <label class="full">
-              Descrição
-              <textarea name="descricao" rows="4" placeholder="Descreva o requisito..." required>{{ form_data.descricao|default:'' }}</textarea>
-            </label>
-            <label class="full">
-              Foto do requisito (opcional)
-              <input type="file" name="foto_requisito" accept="image/*" />
-            </label>
-          </div>
-          <div class="apostila-actions">
-            <button type="submit" class="primary">Salvar requisito</button>
-          </div>
-        </form>
-      </details>
+      <div class="apostila-toolbar">
+        <p class="panel-note" style="margin:0;">Abra o cadastro em janela suspensa para manter a tela organizada.</p>
+        <button type="button" class="apostila-btn" id="apostilaOpenRequisitoModal">Adicionar novo requisito</button>
+      </div>
     </section>
 
     <section class="painel-card">
@@ -303,29 +307,17 @@
               {% endif %}
             </div>
 
-            <details class="apostila-subform">
-              <summary><strong>Adicionar dica neste requisito</strong></summary>
-              <p class="panel-note" style="margin:.55rem 0 0;">Você pode repetir este passo para adicionar várias dicas no mesmo requisito.</p>
-              <form method="post" enctype="multipart/form-data" style="margin-top:.65rem;">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="cadastrar_dica" />
-                <input type="hidden" name="classe" value="{{ selected_classe }}" />
-                <input type="hidden" name="requisito_id" value="{{ item.id }}" />
-                <div class="apostila-form-grid">
-                  <label class="full">
-                    Texto da dica
-                    <textarea name="texto_dica" rows="3" placeholder="Ex.: orientar a criança em passos..." required>{% if form_data.dica_requisito_id == item.id|stringformat:'s' %}{{ form_data.dica_texto|default:'' }}{% endif %}</textarea>
-                  </label>
-                  <label class="full">
-                    Arquivos da dica (opcional)
-                    <input type="file" name="dica_arquivos" multiple />
-                  </label>
-                </div>
-                <div class="apostila-actions">
-                  <button type="submit" class="primary">Salvar dica</button>
-                </div>
-              </form>
-            </details>
+            <div class="apostila-sub-actions">
+              <button
+                type="button"
+                class="apostila-btn secondary"
+                data-apostila-open-dica
+                data-requisito-id="{{ item.id }}"
+                data-requisito-label="Requisito {{ item.numero_requisito }}"
+              >
+                Adicionar dica neste requisito
+              </button>
+            </div>
           </article>
         {% endfor %}
       {% else %}
@@ -334,11 +326,86 @@
     </section>
   </main>
 
+  <div class="apostila-modal" id="apostilaRequisitoModal" aria-hidden="true">
+    <div class="apostila-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="apostilaRequisitoModalTitle">
+      <div class="apostila-modal-head">
+        <h3 class="apostila-modal-title" id="apostilaRequisitoModalTitle">Adicionar novo requisito</h3>
+        <button type="button" class="apostila-btn secondary" id="apostilaCloseRequisitoModal">Fechar</button>
+      </div>
+      <div class="apostila-modal-body">
+        <p class="apostila-modal-note">Preencha os dados e clique em <strong>Salvar requisito</strong>.</p>
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="cadastrar_requisito" />
+          <input type="hidden" name="classe" value="{{ selected_classe }}" />
+
+          <div class="apostila-form-grid">
+            <label>
+              Número do requisito
+              <input type="text" name="numero_requisito" value="{{ form_data.numero_requisito|default:'' }}" placeholder="Ex.: 01, 1.2, A-03" required />
+            </label>
+            <label>
+              Resposta (opcional)
+              <input type="text" name="resposta" value="{{ form_data.resposta|default:'' }}" placeholder="Ex.: Sim, Concluído, texto livre" />
+            </label>
+            <label class="full">
+              Descrição
+              <textarea name="descricao" rows="4" placeholder="Descreva o requisito..." required>{{ form_data.descricao|default:'' }}</textarea>
+            </label>
+            <label class="full">
+              Foto do requisito (opcional)
+              <input type="file" name="foto_requisito" accept="image/*" />
+            </label>
+          </div>
+          <div class="apostila-actions">
+            <button type="submit" class="apostila-btn">Salvar requisito</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="apostila-modal" id="apostilaDicaModal" aria-hidden="true">
+    <div class="apostila-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="apostilaDicaModalTitle">
+      <div class="apostila-modal-head">
+        <h3 class="apostila-modal-title" id="apostilaDicaModalTitle">Adicionar dica</h3>
+        <button type="button" class="apostila-btn secondary" id="apostilaCloseDicaModal">Fechar</button>
+      </div>
+      <div class="apostila-modal-body">
+        <p class="apostila-modal-note">Cadastre a dica e, se quiser, anexe arquivos.</p>
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="cadastrar_dica" />
+          <input type="hidden" name="classe" value="{{ selected_classe }}" />
+          <input type="hidden" name="requisito_id" id="apostilaDicaRequisitoId" value="{{ form_data.dica_requisito_id|default:'' }}" />
+
+          <div class="apostila-form-grid">
+            <label class="full">
+              Requisito selecionado
+              <input type="text" id="apostilaDicaRequisitoLabel" value="" readonly />
+            </label>
+            <label class="full">
+              Texto da dica
+              <textarea name="texto_dica" rows="3" placeholder="Ex.: orientar a criança em passos..." required>{{ form_data.dica_texto|default:'' }}</textarea>
+            </label>
+            <label class="full">
+              Arquivos da dica (opcional)
+              <input type="file" name="dica_arquivos" multiple />
+            </label>
+          </div>
+          <div class="apostila-actions">
+            <button type="submit" class="apostila-btn">Salvar dica</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <div class="apostila-foto-modal" id="apostilaFotoModal" aria-hidden="true">
     <div class="apostila-foto-dialog" role="dialog" aria-modal="true" aria-labelledby="apostilaFotoModalTitle">
       <div class="apostila-foto-head">
         <h3 class="apostila-foto-title" id="apostilaFotoModalTitle">Foto do requisito</h3>
-        <button type="button" class="apostila-foto-close" id="apostilaFotoModalClose">Fechar</button>
+        <button type="button" class="apostila-btn secondary" id="apostilaFotoModalClose">Fechar</button>
       </div>
       <div class="apostila-foto-body">
         <img id="apostilaFotoModalImage" alt="Foto ampliada do requisito" />
@@ -348,43 +415,114 @@
 
   <script>
     (function () {
-      const modal = document.getElementById('apostilaFotoModal');
-      const modalImage = document.getElementById('apostilaFotoModalImage');
-      const modalTitle = document.getElementById('apostilaFotoModalTitle');
-      const closeBtn = document.getElementById('apostilaFotoModalClose');
-      if (!modal || !modalImage || !modalTitle || !closeBtn) return;
+      const requisitoModal = document.getElementById('apostilaRequisitoModal');
+      const openRequisitoBtn = document.getElementById('apostilaOpenRequisitoModal');
+      const closeRequisitoBtn = document.getElementById('apostilaCloseRequisitoModal');
 
-      const openModal = (src, title) => {
-        if (!src) return;
-        modalImage.src = src;
-        modalTitle.textContent = title || 'Foto do requisito';
+      const dicaModal = document.getElementById('apostilaDicaModal');
+      const closeDicaBtn = document.getElementById('apostilaCloseDicaModal');
+      const dicaReqIdInput = document.getElementById('apostilaDicaRequisitoId');
+      const dicaReqLabelInput = document.getElementById('apostilaDicaRequisitoLabel');
+
+      const fotoModal = document.getElementById('apostilaFotoModal');
+      const fotoModalImage = document.getElementById('apostilaFotoModalImage');
+      const fotoModalTitle = document.getElementById('apostilaFotoModalTitle');
+      const closeFotoBtn = document.getElementById('apostilaFotoModalClose');
+
+      const allModals = [requisitoModal, dicaModal, fotoModal].filter(Boolean);
+
+      const lockScroll = () => {
+        if (allModals.some((m) => m.classList.contains('is-open'))) {
+          document.body.style.overflow = 'hidden';
+        } else {
+          document.body.style.overflow = '';
+        }
+      };
+
+      const openModal = (modal) => {
+        if (!modal) return;
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
-        document.body.style.overflow = 'hidden';
+        lockScroll();
       };
 
-      const closeModal = () => {
+      const closeModal = (modal) => {
+        if (!modal) return;
         modal.classList.remove('is-open');
         modal.setAttribute('aria-hidden', 'true');
-        modalImage.removeAttribute('src');
-        document.body.style.overflow = '';
+        lockScroll();
       };
 
-      document.querySelectorAll('[data-apostila-foto-open]').forEach((btn) => {
+      if (openRequisitoBtn) {
+        openRequisitoBtn.addEventListener('click', () => openModal(requisitoModal));
+      }
+      if (closeRequisitoBtn) {
+        closeRequisitoBtn.addEventListener('click', () => closeModal(requisitoModal));
+      }
+
+      const requisitoMap = {};
+      document.querySelectorAll('[data-apostila-open-dica]').forEach((btn) => {
+        const reqId = btn.getAttribute('data-requisito-id') || '';
+        const reqLabel = btn.getAttribute('data-requisito-label') || '';
+        if (reqId) requisitoMap[reqId] = reqLabel;
+
         btn.addEventListener('click', () => {
-          openModal(btn.getAttribute('data-foto-src'), btn.getAttribute('data-foto-title'));
+          if (dicaReqIdInput) dicaReqIdInput.value = reqId;
+          if (dicaReqLabelInput) dicaReqLabelInput.value = reqLabel || ('Requisito #' + reqId);
+          openModal(dicaModal);
         });
       });
 
-      closeBtn.addEventListener('click', closeModal);
-      modal.addEventListener('click', (event) => {
-        if (event.target === modal) closeModal();
+      if (closeDicaBtn) {
+        closeDicaBtn.addEventListener('click', () => closeModal(dicaModal));
+      }
+
+      document.querySelectorAll('[data-apostila-foto-open]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const src = btn.getAttribute('data-foto-src') || '';
+          const title = btn.getAttribute('data-foto-title') || 'Foto do requisito';
+          if (!src || !fotoModalImage || !fotoModalTitle) return;
+          fotoModalImage.src = src;
+          fotoModalTitle.textContent = title;
+          openModal(fotoModal);
+        });
       });
+
+      if (closeFotoBtn) {
+        closeFotoBtn.addEventListener('click', () => {
+          closeModal(fotoModal);
+          if (fotoModalImage) fotoModalImage.removeAttribute('src');
+        });
+      }
+
+      allModals.forEach((modal) => {
+        modal.addEventListener('click', (event) => {
+          if (event.target === modal) {
+            closeModal(modal);
+            if (modal === fotoModal && fotoModalImage) fotoModalImage.removeAttribute('src');
+          }
+        });
+      });
+
       document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && modal.classList.contains('is-open')) {
-          closeModal();
-        }
+        if (event.key !== 'Escape') return;
+        allModals.forEach((modal) => {
+          if (modal.classList.contains('is-open')) closeModal(modal);
+        });
+        if (fotoModalImage) fotoModalImage.removeAttribute('src');
       });
+
+      const hasRequisitoFormData = !!("{{ form_data.numero_requisito|default:'' }}".trim() || "{{ form_data.descricao|default:'' }}".trim());
+      if (hasRequisitoFormData) {
+        openModal(requisitoModal);
+      }
+
+      const initialDicaReqId = ("{{ form_data.dica_requisito_id|default:'' }}" || '').trim();
+      if (initialDicaReqId) {
+        if (dicaReqIdInput) dicaReqIdInput.value = initialDicaReqId;
+        if (dicaReqLabelInput) dicaReqLabelInput.value = requisitoMap[initialDicaReqId] || ('Requisito #' + initialDicaReqId);
+        openModal(dicaModal);
+      }
     })();
   </script>
 </body>

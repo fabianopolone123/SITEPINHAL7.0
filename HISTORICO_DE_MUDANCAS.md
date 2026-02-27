@@ -666,3 +666,15 @@ Arquivo oficial de registro das entregas concluidas.
   - fechamento por clique no fundo
   - fechamento por tecla `Esc`
 - Objetivo: facilitar a leitura da imagem sem perder contexto da tela.
+
+## 26/02/2026 - Apostila UI: formulários em janelas suspensas responsivas
+
+- A tela da Apostila foi reorganizada para reduzir poluição visual sem sair do padrão do sistema.
+- O cadastro de requisito saiu do bloco fixo e agora abre em modal responsivo (`Adicionar novo requisito`).
+- O cadastro de dica também passou para modal responsivo por requisito (`Adicionar dica neste requisito`).
+- Mantido o modal de foto ampliada do requisito.
+- Melhorias de usabilidade:
+  - menos rolagem na tela principal
+  - foco no conteúdo dos requisitos
+  - fechamento de modais por botão, clique no fundo e tecla `Esc`
+  - reabertura automática do modal de requisito/dica quando há erro de validação
