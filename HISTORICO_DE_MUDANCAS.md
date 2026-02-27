@@ -678,3 +678,13 @@ Arquivo oficial de registro das entregas concluidas.
   - foco no conteúdo dos requisitos
   - fechamento de modais por botão, clique no fundo e tecla `Esc`
   - reabertura automática do modal de requisito/dica quando há erro de validação
+
+## 27/02/2026 - Apostila UX: edicao de requisito e conteudo recolhido por clique
+
+- Implementada acao editar_requisito no backend da Apostila com validacao de classe/requisito, atualizacao de numero, descricao, resposta e foto.
+- Adicionado suporte para remover foto atual do requisito durante a edicao.
+- A lista de requisitos foi alterada para abrir os dados somente ao clicar no item (cards recolhidos por padrao).
+- Dentro de cada requisito, os blocos Resposta e Dicas passaram a ficar minimizados por padrao, com abertura sob demanda.
+- Criado modal responsivo Editar requisito, preenchido automaticamente ao clicar no botao Editar requisito da linha.
+
+

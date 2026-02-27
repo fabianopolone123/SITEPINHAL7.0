@@ -5331,6 +5331,59 @@ class ApostilaView(LoginRequiredMixin, View):
             context.update(_sidebar_context(request))
             return render(request, self.template_name, context)
 
+        if action == 'editar_requisito':
+            requisito_id_raw = str(request.POST.get('requisito_id') or '').strip()
+            numero_requisito = str(request.POST.get('numero_requisito') or '').strip()
+            descricao = str(request.POST.get('descricao') or '').strip()
+            resposta = str(request.POST.get('resposta') or '').strip()
+            foto_requisito = request.FILES.get('foto_requisito')
+            remover_foto = str(request.POST.get('remover_foto') or '').strip().lower() in {'1', 'true', 'on', 'yes'}
+
+            form_data = {
+                'edit_requisito_id': requisito_id_raw,
+                'edit_numero_requisito': numero_requisito,
+                'edit_descricao': descricao,
+                'edit_resposta': resposta,
+            }
+
+            requisito = (
+                ApostilaRequisito.objects
+                .filter(pk=requisito_id_raw, classe=classe_code)
+                .first()
+            ) if requisito_id_raw.isdigit() else None
+            if not requisito:
+                messages.error(request, 'Requisito inválido para edição.')
+                context = self._context(classe_code, form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            if not numero_requisito:
+                messages.error(request, 'Informe o número do requisito.')
+                context = self._context(classe_code, form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            if not descricao:
+                messages.error(request, 'Informe a descrição do requisito.')
+                context = self._context(classe_code, form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            requisito.numero_requisito = numero_requisito
+            requisito.descricao = descricao
+            requisito.resposta = resposta
+            if remover_foto and requisito.foto_requisito:
+                requisito.foto_requisito.delete(save=False)
+                requisito.foto_requisito = None
+            if foto_requisito:
+                requisito.foto_requisito = foto_requisito
+            requisito.save()
+
+            messages.success(request, f'Requisito {requisito.numero_requisito} atualizado com sucesso.')
+            context = self._context(classe_code, form_data={})
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+
         if action == 'cadastrar_dica':
             requisito_id_raw = str(request.POST.get('requisito_id') or '').strip()
             texto_dica = str(request.POST.get('texto_dica') or '').strip()

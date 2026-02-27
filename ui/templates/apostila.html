@@ -66,9 +66,33 @@
       border:1px solid #dbeafe;
       border-radius:14px;
       background:#fff;
-      padding:.9rem;
+      overflow:hidden;
     }
     .apostila-requisito-card + .apostila-requisito-card { margin-top:.8rem; }
+    .apostila-requisito-summary {
+      list-style:none;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:.8rem;
+      padding:.9rem;
+      background:#f8fbff;
+    }
+    .apostila-requisito-summary::-webkit-details-marker { display:none; }
+    .apostila-requisito-summary h4 { margin:0; }
+    .apostila-requisito-summary small { color:#475569; }
+    .apostila-requisito-card[open] .apostila-requisito-summary {
+      border-bottom:1px solid #dbeafe;
+      background:#eff6ff;
+    }
+    .apostila-expand-indicator {
+      font-size:.83rem;
+      color:#1d4ed8;
+      font-weight:600;
+      white-space:nowrap;
+    }
+    .apostila-requisito-body { padding:.9rem; }
     .apostila-requisito-head {
       display:flex;
       align-items:flex-start;
@@ -102,11 +126,32 @@
     .apostila-meta { color:#64748b; font-size:.82rem; }
     .apostila-kv { margin:.22rem 0; }
     .apostila-kv strong { color:#0f172a; }
+    .apostila-minimized-group {
+      margin-top:.7rem;
+      border:1px solid #e2e8f0;
+      border-radius:10px;
+      background:#f8fafc;
+      overflow:hidden;
+    }
+    .apostila-minimized-title {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:.7rem;
+      padding:.58rem .7rem;
+      cursor:pointer;
+      list-style:none;
+      color:#1e293b;
+      font-weight:600;
+      background:#f8fafc;
+    }
+    .apostila-minimized-title::-webkit-details-marker { display:none; }
+    .apostila-minimized-content { padding:.65rem .75rem .75rem; background:#fff; }
 
     .apostila-sub-list {
       width:100%;
       border-collapse:collapse;
-      margin-top:.5rem;
+      margin-top:.2rem;
     }
     .apostila-sub-list th, .apostila-sub-list td {
       padding:.5rem .45rem;
@@ -118,8 +163,11 @@
     .apostila-sub-list th { color:#334155; }
     .apostila-sub-actions {
       margin-top:.65rem;
-      border-top:1px dashed #dbeafe;
+      border-top:1px dashed #cfe0ff;
       padding-top:.65rem;
+      display:flex;
+      gap:.55rem;
+      flex-wrap:wrap;
     }
 
     .apostila-modal,
@@ -243,82 +291,117 @@
       <h3>Requisitos cadastrados</h3>
       {% if requisitos %}
         {% for item in requisitos %}
-          <article class="apostila-requisito-card">
-            <div class="apostila-requisito-head">
-              <div class="apostila-requisito-ident">
-                {% if item.foto_requisito %}
-                  <button
-                    type="button"
-                    class="apostila-requisito-foto-btn"
-                    data-apostila-foto-open
-                    data-foto-src="{{ item.foto_requisito.url }}"
-                    data-foto-title="Requisito {{ item.numero_requisito }}"
-                    aria-label="Ampliar foto do requisito {{ item.numero_requisito }}"
-                  >
-                    <img src="{{ item.foto_requisito.url }}" alt="Foto do requisito {{ item.numero_requisito }}" class="apostila-requisito-foto" />
-                  </button>
-                {% endif %}
-                <div>
-                  <h4>Requisito {{ item.numero_requisito }}</h4>
-                  <p class="apostila-kv"><strong>Descrição:</strong> {{ item.descricao }}</p>
-                  <p class="apostila-kv"><strong>Resposta:</strong> {{ item.resposta|default:'-' }}</p>
-                  {% if item.dicas %}
-                    <p class="apostila-kv"><strong>Dica (legado):</strong> {{ item.dicas }}</p>
+          <details class="apostila-requisito-card">
+            <summary class="apostila-requisito-summary">
+              <div>
+                <h4>Requisito {{ item.numero_requisito }}</h4>
+                <small>Clique para abrir os dados</small>
+              </div>
+              <span class="apostila-expand-indicator">Abrir</span>
+            </summary>
+
+            <div class="apostila-requisito-body">
+              <div class="apostila-requisito-head">
+                <div class="apostila-requisito-ident">
+                  {% if item.foto_requisito %}
+                    <button
+                      type="button"
+                      class="apostila-requisito-foto-btn"
+                      data-apostila-foto-open
+                      data-foto-src="{{ item.foto_requisito.url }}"
+                      data-foto-title="Requisito {{ item.numero_requisito }}"
+                      aria-label="Ampliar foto do requisito {{ item.numero_requisito }}"
+                    >
+                      <img src="{{ item.foto_requisito.url }}" alt="Foto do requisito {{ item.numero_requisito }}" class="apostila-requisito-foto" />
+                    </button>
                   {% endif %}
+                  <div>
+                    <p class="apostila-kv"><strong>Descrição:</strong> {{ item.descricao }}</p>
+                  </div>
+                </div>
+                <div class="apostila-meta">
+                  {% if item.created_by %}
+                    {{ item.created_by.username }}<br />
+                  {% else %}
+                    -
+                  {% endif %}
+                  {{ item.created_at|date:'d/m/Y H:i' }}
                 </div>
               </div>
-              <div class="apostila-meta">
-                {% if item.created_by %}
-                  {{ item.created_by.username }}<br />
-                {% else %}
-                  -
-                {% endif %}
-                {{ item.created_at|date:'d/m/Y H:i' }}
+
+              <details class="apostila-minimized-group">
+                <summary class="apostila-minimized-title">
+                  <span>Resposta</span>
+                  <span class="apostila-expand-indicator">Mostrar</span>
+                </summary>
+                <div class="apostila-minimized-content">
+                  <p class="apostila-kv"><strong>Resposta:</strong> {{ item.resposta|default:'-' }}</p>
+                </div>
+              </details>
+
+              <details class="apostila-minimized-group">
+                <summary class="apostila-minimized-title">
+                  <span>Dicas</span>
+                  <span class="apostila-expand-indicator">Mostrar</span>
+                </summary>
+                <div class="apostila-minimized-content">
+                  {% if item.dicas_rows_list %}
+                    <table class="apostila-sub-list">
+                      <thead>
+                        <tr>
+                          <th>Dica</th>
+                          <th>Arquivos</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for dica in item.dicas_rows_list %}
+                          <tr>
+                            <td>{{ dica.texto }}</td>
+                            <td>
+                              {% for arq in dica.arquivos.all %}
+                                <a href="{{ arq.arquivo.url }}" target="_blank" rel="noopener">Arquivo {{ forloop.counter }}</a>{% if not forloop.last %}<br />{% endif %}
+                              {% empty %}
+                                -
+                              {% endfor %}
+                            </td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  {% else %}
+                    <p class="panel-note" style="margin:.2rem 0 0;">Nenhuma dica cadastrada.</p>
+                  {% endif %}
+                  {% if item.dicas %}
+                    <p class="apostila-kv" style="margin-top:.6rem;"><strong>Dica (legado):</strong> {{ item.dicas }}</p>
+                  {% endif %}
+                </div>
+              </details>
+
+              <input type="hidden" data-requisito-numero value="{{ item.numero_requisito }}" />
+              <input type="hidden" data-requisito-resposta value="{{ item.resposta|default:'' }}" />
+              <textarea hidden data-requisito-descricao>{{ item.descricao }}</textarea>
+
+              <div class="apostila-sub-actions">
+                <button
+                  type="button"
+                  class="apostila-btn secondary"
+                  data-apostila-open-edit
+                  data-requisito-id="{{ item.id }}"
+                >
+                  Editar requisito
+                </button>
+                <button
+                  type="button"
+                  class="apostila-btn secondary"
+                  data-apostila-open-dica
+                  data-requisito-id="{{ item.id }}"
+                  data-requisito-label="Requisito {{ item.numero_requisito }}"
+                >
+                  Adicionar dica neste requisito
+                </button>
               </div>
             </div>
-
-            <div>
-              <strong>Dicas</strong>
-              {% if item.dicas_rows_list %}
-                <table class="apostila-sub-list">
-                  <thead>
-                    <tr>
-                      <th>Dica</th>
-                      <th>Arquivos</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for dica in item.dicas_rows_list %}
-                      <tr>
-                        <td>{{ dica.texto }}</td>
-                        <td>
-                          {% for arq in dica.arquivos.all %}
-                            <a href="{{ arq.arquivo.url }}" target="_blank" rel="noopener">Arquivo {{ forloop.counter }}</a>{% if not forloop.last %}<br />{% endif %}
-                          {% empty %}
-                            -
-                          {% endfor %}
-                        </td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              {% else %}
-                <p class="panel-note" style="margin:.35rem 0 0;">Nenhuma dica cadastrada.</p>
-              {% endif %}
-            </div>
-
-            <div class="apostila-sub-actions">
-              <button
-                type="button"
-                class="apostila-btn secondary"
-                data-apostila-open-dica
-                data-requisito-id="{{ item.id }}"
-                data-requisito-label="Requisito {{ item.numero_requisito }}"
-              >
-                Adicionar dica neste requisito
-              </button>
-            </div>
-          </article>
+          </details>
         {% endfor %}
       {% else %}
         <p class="panel-note">Nenhum requisito cadastrado para esta classe.</p>
@@ -359,6 +442,54 @@
           </div>
           <div class="apostila-actions">
             <button type="submit" class="apostila-btn">Salvar requisito</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="apostila-modal" id="apostilaEditRequisitoModal" aria-hidden="true">
+    <div class="apostila-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="apostilaEditRequisitoModalTitle">
+      <div class="apostila-modal-head">
+        <h3 class="apostila-modal-title" id="apostilaEditRequisitoModalTitle">Editar requisito</h3>
+        <button type="button" class="apostila-btn secondary" id="apostilaCloseEditRequisitoModal">Fechar</button>
+      </div>
+      <div class="apostila-modal-body">
+        <p class="apostila-modal-note">Ajuste os dados e clique em <strong>Salvar alterações</strong>.</p>
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="editar_requisito" />
+          <input type="hidden" name="classe" value="{{ selected_classe }}" />
+          <input type="hidden" name="requisito_id" id="apostilaEditRequisitoId" value="{{ form_data.edit_requisito_id|default:'' }}" />
+
+          <div class="apostila-form-grid">
+            <label class="full">
+              Requisito selecionado
+              <input type="text" id="apostilaEditRequisitoLabel" value="" readonly />
+            </label>
+            <label>
+              Número do requisito
+              <input type="text" name="numero_requisito" id="apostilaEditNumeroRequisito" value="{{ form_data.edit_numero_requisito|default:'' }}" placeholder="Ex.: 01, 1.2, A-03" required />
+            </label>
+            <label>
+              Resposta (opcional)
+              <input type="text" name="resposta" id="apostilaEditResposta" value="{{ form_data.edit_resposta|default:'' }}" placeholder="Ex.: Sim, Concluído, texto livre" />
+            </label>
+            <label class="full">
+              Descrição
+              <textarea name="descricao" id="apostilaEditDescricao" rows="4" placeholder="Descreva o requisito..." required>{{ form_data.edit_descricao|default:'' }}</textarea>
+            </label>
+            <label class="full">
+              Nova foto do requisito (opcional)
+              <input type="file" name="foto_requisito" accept="image/*" />
+            </label>
+            <label class="full" style="display:flex; flex-direction:row; align-items:center; gap:.55rem; font-weight:500;">
+              <input type="checkbox" name="remover_foto" value="1" />
+              Remover foto atual
+            </label>
+          </div>
+          <div class="apostila-actions">
+            <button type="submit" class="apostila-btn">Salvar alterações</button>
           </div>
         </form>
       </div>
@@ -419,6 +550,14 @@
       const openRequisitoBtn = document.getElementById('apostilaOpenRequisitoModal');
       const closeRequisitoBtn = document.getElementById('apostilaCloseRequisitoModal');
 
+      const editRequisitoModal = document.getElementById('apostilaEditRequisitoModal');
+      const closeEditRequisitoBtn = document.getElementById('apostilaCloseEditRequisitoModal');
+      const editRequisitoIdInput = document.getElementById('apostilaEditRequisitoId');
+      const editRequisitoLabelInput = document.getElementById('apostilaEditRequisitoLabel');
+      const editNumeroInput = document.getElementById('apostilaEditNumeroRequisito');
+      const editDescricaoInput = document.getElementById('apostilaEditDescricao');
+      const editRespostaInput = document.getElementById('apostilaEditResposta');
+
       const dicaModal = document.getElementById('apostilaDicaModal');
       const closeDicaBtn = document.getElementById('apostilaCloseDicaModal');
       const dicaReqIdInput = document.getElementById('apostilaDicaRequisitoId');
@@ -429,7 +568,7 @@
       const fotoModalTitle = document.getElementById('apostilaFotoModalTitle');
       const closeFotoBtn = document.getElementById('apostilaFotoModalClose');
 
-      const allModals = [requisitoModal, dicaModal, fotoModal].filter(Boolean);
+      const allModals = [requisitoModal, editRequisitoModal, dicaModal, fotoModal].filter(Boolean);
 
       const lockScroll = () => {
         if (allModals.some((m) => m.classList.contains('is-open'))) {
@@ -459,6 +598,9 @@
       if (closeRequisitoBtn) {
         closeRequisitoBtn.addEventListener('click', () => closeModal(requisitoModal));
       }
+      if (closeEditRequisitoBtn) {
+        closeEditRequisitoBtn.addEventListener('click', () => closeModal(editRequisitoModal));
+      }
 
       const requisitoMap = {};
       document.querySelectorAll('[data-apostila-open-dica]').forEach((btn) => {
@@ -470,6 +612,24 @@
           if (dicaReqIdInput) dicaReqIdInput.value = reqId;
           if (dicaReqLabelInput) dicaReqLabelInput.value = reqLabel || ('Requisito #' + reqId);
           openModal(dicaModal);
+        });
+      });
+
+      document.querySelectorAll('[data-apostila-open-edit]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const reqId = btn.getAttribute('data-requisito-id') || '';
+          const card = btn.closest('.apostila-requisito-card');
+          const reqNumero = card?.querySelector('[data-requisito-numero]')?.value || '';
+          const reqResposta = card?.querySelector('[data-requisito-resposta]')?.value || '';
+          const reqDescricao = card?.querySelector('[data-requisito-descricao]')?.value || '';
+
+          if (editRequisitoIdInput) editRequisitoIdInput.value = reqId;
+          if (editRequisitoLabelInput) editRequisitoLabelInput.value = reqNumero ? ('Requisito ' + reqNumero) : ('Requisito #' + reqId);
+          if (editNumeroInput) editNumeroInput.value = reqNumero;
+          if (editRespostaInput) editRespostaInput.value = reqResposta;
+          if (editDescricaoInput) editDescricaoInput.value = reqDescricao;
+
+          openModal(editRequisitoModal);
         });
       });
 
@@ -517,6 +677,16 @@
         openModal(requisitoModal);
       }
 
+      const initialEditReqId = ("{{ form_data.edit_requisito_id|default:'' }}" || '').trim();
+      if (initialEditReqId) {
+        if (editRequisitoIdInput) editRequisitoIdInput.value = initialEditReqId;
+        if (editRequisitoLabelInput) {
+          const fallback = ("{{ form_data.edit_numero_requisito|default:'' }}" || '').trim();
+          editRequisitoLabelInput.value = fallback ? ('Requisito ' + fallback) : ('Requisito #' + initialEditReqId);
+        }
+        openModal(editRequisitoModal);
+      }
+
       const initialDicaReqId = ("{{ form_data.dica_requisito_id|default:'' }}" || '').trim();
       if (initialDicaReqId) {
         if (dicaReqIdInput) dicaReqIdInput.value = initialDicaReqId;
@@ -527,3 +697,4 @@
   </script>
 </body>
 </html>
+
