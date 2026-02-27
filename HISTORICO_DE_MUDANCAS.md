@@ -688,3 +688,7 @@ Arquivo oficial de registro das entregas concluidas.
 - Criado modal responsivo Editar requisito, preenchido automaticamente ao clicar no botao Editar requisito da linha.
 
 
+## 27/02/2026 - Apostila UI: removida frase auxiliar no topo da classe
+
+- Removido o texto "Abra o cadastro em janela suspensa para manter a tela organizada." da tela da Apostila.
+- Mantido apenas o botao Adicionar novo requisito no topo da secao da classe.
