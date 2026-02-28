@@ -6,6 +6,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Detalhes do usuário</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    .usuario-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 0.75rem;
+    }
+    .usuario-item {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 0.65rem 0.75rem;
+      background: #fff;
+    }
+    .usuario-item strong {
+      display: block;
+      margin-bottom: 0.15rem;
+      color: #1e293b;
+      font-size: 0.86rem;
+    }
+    .usuario-assinatura {
+      max-height: 120px;
+      width: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #fff;
+      padding: 0.25rem;
+    }
+    .usuario-link-voltar {
+      display: inline-block;
+      margin-top: 0.35rem;
+    }
+  </style>
 </head>
 <body class="painel-page">
   {% include '_painel_sidebar.html' %}
@@ -13,36 +44,109 @@
     <header class="painel-header">
       <h2>{{ target_user.username }}</h2>
       <p>{{ nome_completo }}</p>
-      <p><a href="{% url 'accounts:usuarios' %}">Voltar para usuários</a></p>
+      <p><a class="usuario-link-voltar" href="{% url 'accounts:usuarios' %}">Voltar para usuários</a></p>
     </header>
 
     <section class="painel-card">
       {% if foto_url %}
         <p><img class="confirmation-photo" src="{{ foto_url }}" alt="Foto de {{ nome_completo }}" /></p>
       {% endif %}
-      <p><strong>Perfis:</strong> {{ access.get_profiles_display|join:", " }}</p>
-      <p><strong>Status:</strong> {% if target_user.is_active %}Ativo{% else %}Inativo{% endif %}</p>
+      <div class="usuario-grid">
+        <div class="usuario-item">
+          <strong>Usuário</strong>
+          <span>{{ target_user.username }}</span>
+        </div>
+        <div class="usuario-item">
+          <strong>E-mail (login)</strong>
+          <span>{{ target_user.email|default:"-" }}</span>
+        </div>
+        <div class="usuario-item">
+          <strong>Perfis</strong>
+          <span>{{ access.get_profiles_display|join:", " }}</span>
+        </div>
+        <div class="usuario-item">
+          <strong>Status</strong>
+          <span>{% if target_user.is_active %}Ativo{% else %}Inativo{% endif %}</span>
+        </div>
+      </div>
     </section>
 
     {% if diretoria %}
       <section class="painel-card">
-        <h3>Dados da diretoria</h3>
-        <p><strong>Nome:</strong> {{ diretoria.nome }}</p>
-        <p><strong>Igreja:</strong> {{ diretoria.igreja }}</p>
-        <p><strong>E-mail:</strong> {{ diretoria.email }}</p>
-        <p><strong>WhatsApp:</strong> {{ diretoria.whatsapp }}</p>
-        <p><strong>Cidade/UF:</strong> {{ diretoria.cidade }} - {{ diretoria.estado }}</p>
+        <h3>Cadastro da diretoria</h3>
+        <div class="usuario-grid">
+          <div class="usuario-item"><strong>Nome</strong><span>{{ diretoria.nome|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Igreja</strong><span>{{ diretoria.igreja|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>E-mail</strong><span>{{ diretoria.email|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>WhatsApp</strong><span>{{ diretoria.whatsapp|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Telefone residencial</strong><span>{{ diretoria.telefone_residencial|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Telefone comercial</strong><span>{{ diretoria.telefone_comercial|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Nascimento</strong><span>{{ diretoria.nascimento|date:"d/m/Y"|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Estado civil</strong><span>{{ diretoria.estado_civil|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>CPF</strong><span>{{ diretoria.cpf|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>RG</strong><span>{{ diretoria.rg|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Cônjuge</strong><span>{{ diretoria.conjuge|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Filho(a) 1</strong><span>{{ diretoria.filho_1|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Filho(a) 2</strong><span>{{ diretoria.filho_2|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Filho(a) 3</strong><span>{{ diretoria.filho_3|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Endereço</strong><span>{{ diretoria.endereco|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Número</strong><span>{{ diretoria.numero|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Bairro</strong><span>{{ diretoria.bairro|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Distrito</strong><span>{{ diretoria.distrito|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Cidade</strong><span>{{ diretoria.cidade|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Estado</strong><span>{{ diretoria.estado|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>CEP</strong><span>{{ diretoria.cep|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Escolaridade</strong><span>{{ diretoria.escolaridade|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Limitação de saúde?</strong><span>{{ diretoria.possui_limitacao_saude|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Descrição da limitação</strong><span>{{ diretoria.limitacao_saude_descricao|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Autorização de imagem</strong><span>{% if diretoria.autorizacao_imagem %}Sim{% else %}Não{% endif %}</span></div>
+          <div class="usuario-item"><strong>Declaração médica</strong><span>{% if diretoria.declaracao_medica %}Sim{% else %}Não{% endif %}</span></div>
+          <div class="usuario-item"><strong>Criado em</strong><span>{{ diretoria.created_at|date:"d/m/Y H:i"|default:"-" }}</span></div>
+        </div>
+
+        {% if diretoria.foto %}
+          <p><strong>Foto:</strong><br /><img class="confirmation-photo" src="{{ diretoria.foto.url }}" alt="Foto da diretoria" /></p>
+        {% endif %}
+        {% if diretoria.assinatura %}
+          <p><strong>Assinatura:</strong><br /><img class="usuario-assinatura" src="{{ diretoria.assinatura.url }}" alt="Assinatura da diretoria" /></p>
+        {% endif %}
       </section>
     {% endif %}
 
     {% if responsavel %}
       <section class="painel-card">
-        <h3>Dados do responsável</h3>
-        <p><strong>Pai:</strong> {{ responsavel.pai_nome|default:"-" }}</p>
-        <p><strong>Mãe:</strong> {{ responsavel.mae_nome|default:"-" }}</p>
-        <p><strong>Responsável legal:</strong> {{ responsavel.responsavel_nome|default:"-" }}</p>
-        <p><strong>Endereço:</strong> {{ responsavel.endereco|default:"-" }}</p>
-        <p><strong>Cidade/UF:</strong> {{ responsavel.cidade|default:"-" }} - {{ responsavel.estado|default:"-" }}</p>
+        <h3>Cadastro do responsável</h3>
+        <div class="usuario-grid">
+          <div class="usuario-item"><strong>Nome do pai</strong><span>{{ responsavel.pai_nome|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>CPF do pai</strong><span>{{ responsavel.pai_cpf|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>E-mail do pai</strong><span>{{ responsavel.pai_email|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Telefone do pai</strong><span>{{ responsavel.pai_telefone|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Celular do pai</strong><span>{{ responsavel.pai_celular|default:"-" }}</span></div>
+
+          <div class="usuario-item"><strong>Nome da mãe</strong><span>{{ responsavel.mae_nome|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>CPF da mãe</strong><span>{{ responsavel.mae_cpf|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>E-mail da mãe</strong><span>{{ responsavel.mae_email|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Telefone da mãe</strong><span>{{ responsavel.mae_telefone|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Celular da mãe</strong><span>{{ responsavel.mae_celular|default:"-" }}</span></div>
+
+          <div class="usuario-item"><strong>Nome do responsável legal</strong><span>{{ responsavel.responsavel_nome|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Parentesco</strong><span>{{ responsavel.responsavel_parentesco|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>CPF do responsável legal</strong><span>{{ responsavel.responsavel_cpf|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>E-mail do responsável legal</strong><span>{{ responsavel.responsavel_email|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Telefone do responsável legal</strong><span>{{ responsavel.responsavel_telefone|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Celular do responsável legal</strong><span>{{ responsavel.responsavel_celular|default:"-" }}</span></div>
+
+          <div class="usuario-item"><strong>Endereço</strong><span>{{ responsavel.endereco|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Bairro</strong><span>{{ responsavel.bairro|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Cidade</strong><span>{{ responsavel.cidade|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Estado</strong><span>{{ responsavel.estado|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>CEP</strong><span>{{ responsavel.cep|default:"-" }}</span></div>
+          <div class="usuario-item"><strong>Criado em</strong><span>{{ responsavel.created_at|date:"d/m/Y H:i"|default:"-" }}</span></div>
+        </div>
+
+        {% if responsavel.signature %}
+          <p><strong>Assinatura:</strong><br /><img class="usuario-assinatura" src="{{ responsavel.signature.url }}" alt="Assinatura do responsável" /></p>
+        {% endif %}
       </section>
     {% endif %}
 
@@ -54,7 +158,9 @@
             <tr>
               <th>Foto</th>
               <th>Nome</th>
+              <th>Nascimento</th>
               <th>Série</th>
+              <th>Cadastro</th>
             </tr>
           </thead>
           <tbody>
@@ -67,8 +173,10 @@
                     -
                   {% endif %}
                 </td>
-                <td><a href="{% url 'accounts:aventureiro_geral' av.pk %}">{{ av.nome }}</a></td>
+                <td>{{ av.nome }}</td>
+                <td>{{ av.nascimento|date:"d/m/Y"|default:"-" }}</td>
                 <td>{{ av.serie|default:"-" }}</td>
+                <td><a href="{% url 'accounts:aventureiro_geral' av.pk %}">Ver cadastro completo</a></td>
               </tr>
             {% endfor %}
           </tbody>

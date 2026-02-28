@@ -2983,15 +2983,17 @@ class AventureiroGeralDetalheView(LoginRequiredMixin, View):
     template_name = 'meus_dados_aventureiro.html'
 
     def get(self, request, pk):
-        if not _has_menu_permission(request, 'aventureiros'):
+        has_aventureiros = _has_menu_permission(request, 'aventureiros')
+        has_usuarios = _has_menu_permission(request, 'usuarios')
+        if not (has_aventureiros or has_usuarios):
             messages.error(request, 'Seu perfil não possui permissão para visualizar esse aventureiro.')
             return redirect('accounts:painel')
         aventureiro = get_object_or_404(Aventureiro, pk=pk)
 
         context = {
             'aventureiro': aventureiro,
-            'back_url_name': 'accounts:aventureiros_gerais',
-            'back_label': 'Voltar para aventureiros',
+            'back_url_name': 'accounts:aventureiros_gerais' if has_aventureiros else 'accounts:usuarios',
+            'back_label': 'Voltar para aventureiros' if has_aventureiros else 'Voltar para usuários',
             'can_edit': False,
         }
         context.update(_build_aventureiro_saude_display(aventureiro))
@@ -3549,6 +3551,10 @@ class UsuariosView(LoginRequiredMixin, View):
             messages.error(request, 'Seu perfil não possui permissão para acessar usuários.')
             return redirect('accounts:painel')
 
+        selected_grupo = str(request.GET.get('grupo') or 'diretoria').strip().lower()
+        if selected_grupo not in {'diretoria', 'responsaveis', 'aventureiros'}:
+            selected_grupo = 'diretoria'
+
         users = (
             UserAccess.objects
             .select_related('user', 'user__responsavel', 'user__diretoria')
@@ -3556,14 +3562,50 @@ class UsuariosView(LoginRequiredMixin, View):
         user_rows = []
         for access in users:
             display = _user_display_data(access.user)
+            responsavel = getattr(access.user, 'responsavel', None)
+            diretoria = getattr(access.user, 'diretoria', None)
             user_rows.append({
                 'access': access,
                 'user': access.user,
                 'nome_completo': display['nome_completo'],
                 'foto_url': display['foto_url'],
+                'responsavel': responsavel,
+                'diretoria': diretoria,
             })
         user_rows.sort(key=lambda row: (_profile_order_weight(row['access']), row['user'].username.lower()))
-        context = {'users': user_rows}
+
+        diretoria_rows = [row for row in user_rows if row['diretoria'] is not None]
+        responsavel_rows = [row for row in user_rows if row['responsavel'] is not None]
+
+        aventureiros = list(
+            Aventureiro.objects
+            .select_related('responsavel', 'responsavel__user')
+            .order_by('nome')
+        )
+        aventureiro_rows = []
+        for av in aventureiros:
+            responsavel_nome = (
+                av.responsavel.responsavel_nome
+                or av.responsavel.mae_nome
+                or av.responsavel.pai_nome
+                or av.responsavel.user.get_full_name()
+                or av.responsavel.user.username
+            )
+            aventureiro_rows.append({
+                'id': av.pk,
+                'nome': av.nome,
+                'foto_url': av.foto.url if av.foto else '',
+                'responsavel_nome': responsavel_nome,
+                'serie': av.serie or '-',
+            })
+
+        context = {
+            'users': user_rows,
+            'selected_grupo': selected_grupo,
+            'diretoria_rows': diretoria_rows,
+            'responsavel_rows': responsavel_rows,
+            'aventureiro_rows': aventureiro_rows,
+        }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 

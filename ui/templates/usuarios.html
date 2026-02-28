@@ -6,49 +6,217 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Usuários</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    .users-groups {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+    .users-group-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      padding: 0.55rem 0.85rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      text-decoration: none;
+      color: #0f172a;
+      background: #fff;
+      font-weight: 600;
+    }
+    .users-group-link.is-active {
+      border-color: #2563eb;
+      background: #eff6ff;
+      color: #1d4ed8;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+    }
+    .users-section-title {
+      margin: 0 0 0.75rem;
+    }
+    .users-table-wrap {
+      overflow-x: auto;
+    }
+    .users-table td:last-child,
+    .users-table th:last-child {
+      white-space: nowrap;
+    }
+    .users-action-link {
+      display: inline-block;
+      padding: 0.4rem 0.55rem;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      text-decoration: none;
+      color: #0f172a;
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+    .users-action-link:hover {
+      border-color: #2563eb;
+      color: #1d4ed8;
+    }
+  </style>
 </head>
 <body class="painel-page">
   {% include '_painel_sidebar.html' %}
   <main class="painel-content">
     <header class="painel-header">
       <h2>Usuários</h2>
-      <p>Visualize usuários e ajuste os perfis de permissão.</p>
+      <p>Clique em uma categoria para listar os cadastros e abrir os dados completos.</p>
     </header>
 
     <section class="painel-card">
-      <table class="users-table">
-        <thead>
-          <tr>
-            <th>Foto</th>
-            <th>Usuário</th>
-            <th>Nome completo</th>
-            <th>Perfis</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in users %}
-            <tr>
-              <td>
-                {% if item.foto_url %}
-                  <img class="confirmation-photo" src="{{ item.foto_url }}" alt="Foto de {{ item.nome_completo }}" />
-                {% else %}
-                  -
-                {% endif %}
-              </td>
-              <td><a href="{% url 'accounts:usuario_detalhe' item.user.pk %}">{{ item.user.username }}</a></td>
-              <td>{{ item.nome_completo }}</td>
-              <td>{{ item.access.get_profiles_display|join:", " }}</td>
-              <td>{% if item.user.is_active %}Ativo{% else %}Inativo{% endif %}</td>
-            </tr>
-          {% empty %}
-            <tr>
-              <td colspan="5">Nenhum usuário encontrado.</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="users-groups">
+        <a class="users-group-link {% if selected_grupo == 'diretoria' %}is-active{% endif %}" href="?grupo=diretoria">
+          Diretoria
+          <span>({{ diretoria_rows|length }})</span>
+        </a>
+        <a class="users-group-link {% if selected_grupo == 'responsaveis' %}is-active{% endif %}" href="?grupo=responsaveis">
+          Responsáveis
+          <span>({{ responsavel_rows|length }})</span>
+        </a>
+        <a class="users-group-link {% if selected_grupo == 'aventureiros' %}is-active{% endif %}" href="?grupo=aventureiros">
+          Aventureiros
+          <span>({{ aventureiro_rows|length }})</span>
+        </a>
+      </div>
     </section>
+
+    {% if selected_grupo == 'diretoria' %}
+      <section class="painel-card">
+        <h3 class="users-section-title">Diretoria</h3>
+        <div class="users-table-wrap">
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>Foto</th>
+                <th>Usuário</th>
+                <th>Nome completo</th>
+                <th>Perfis</th>
+                <th>Status</th>
+                <th>Cadastro</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in diretoria_rows %}
+                <tr>
+                  <td>
+                    {% if item.foto_url %}
+                      <img class="confirmation-photo" src="{{ item.foto_url }}" alt="Foto de {{ item.nome_completo }}" />
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td>{{ item.user.username }}</td>
+                  <td>{{ item.nome_completo }}</td>
+                  <td>{{ item.access.get_profiles_display|join:", " }}</td>
+                  <td>{% if item.user.is_active %}Ativo{% else %}Inativo{% endif %}</td>
+                  <td>
+                    <a class="users-action-link" href="{% url 'accounts:usuario_detalhe' item.user.pk %}">
+                      Ver cadastro completo
+                    </a>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="6">Nenhum usuário da diretoria encontrado.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% endif %}
+
+    {% if selected_grupo == 'responsaveis' %}
+      <section class="painel-card">
+        <h3 class="users-section-title">Responsáveis</h3>
+        <div class="users-table-wrap">
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>Foto</th>
+                <th>Usuário</th>
+                <th>Nome completo</th>
+                <th>Perfis</th>
+                <th>Status</th>
+                <th>Cadastro</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in responsavel_rows %}
+                <tr>
+                  <td>
+                    {% if item.foto_url %}
+                      <img class="confirmation-photo" src="{{ item.foto_url }}" alt="Foto de {{ item.nome_completo }}" />
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td>{{ item.user.username }}</td>
+                  <td>{{ item.nome_completo }}</td>
+                  <td>{{ item.access.get_profiles_display|join:", " }}</td>
+                  <td>{% if item.user.is_active %}Ativo{% else %}Inativo{% endif %}</td>
+                  <td>
+                    <a class="users-action-link" href="{% url 'accounts:usuario_detalhe' item.user.pk %}">
+                      Ver cadastro completo
+                    </a>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="6">Nenhum responsável encontrado.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% endif %}
+
+    {% if selected_grupo == 'aventureiros' %}
+      <section class="painel-card">
+        <h3 class="users-section-title">Aventureiros</h3>
+        <div class="users-table-wrap">
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>Foto</th>
+                <th>Nome</th>
+                <th>Responsável</th>
+                <th>Série</th>
+                <th>Cadastro</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for av in aventureiro_rows %}
+                <tr>
+                  <td>
+                    {% if av.foto_url %}
+                      <img class="confirmation-photo" src="{{ av.foto_url }}" alt="Foto de {{ av.nome }}" />
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td>{{ av.nome }}</td>
+                  <td>{{ av.responsavel_nome }}</td>
+                  <td>{{ av.serie }}</td>
+                  <td>
+                    <a class="users-action-link" href="{% url 'accounts:aventureiro_geral' av.id %}">
+                      Ver cadastro completo
+                    </a>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="5">Nenhum aventureiro encontrado.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% endif %}
   </main>
 </body>
 </html>

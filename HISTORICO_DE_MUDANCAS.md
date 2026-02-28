@@ -692,3 +692,13 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Removido o texto "Abra o cadastro em janela suspensa para manter a tela organizada." da tela da Apostila.
 - Mantido apenas o botao Adicionar novo requisito no topo da secao da classe.
+
+## 28/02/2026 - Usuarios: separacao por categoria e acesso ao cadastro completo
+
+- Tela Usuarios reorganizada em 3 categorias clicaveis: Diretoria, Responsaveis e Aventureiros.
+- Cada categoria agora lista somente os registros correspondentes e mostra contagem por grupo.
+- Adicionado botao Ver cadastro completo em cada linha para abrir os dados detalhados do registro selecionado.
+- Para Aventureiros, a listagem usa todos os aventureiros cadastrados e linka para o detalhe individual.
+- O detalhe de usuario (usuario_detalhe.html) foi ampliado para exibir os campos completos de Diretoria e Responsavel.
+- Ajustado o acesso ao detalhe de aventureiro para permitir abertura tambem quando o usuario veio pelo modulo Usuarios.
+
