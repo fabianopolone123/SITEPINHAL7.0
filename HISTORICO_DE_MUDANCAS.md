@@ -702,3 +702,13 @@ Arquivo oficial de registro das entregas concluidas.
 - O detalhe de usuario (usuario_detalhe.html) foi ampliado para exibir os campos completos de Diretoria e Responsavel.
 - Ajustado o acesso ao detalhe de aventureiro para permitir abertura tambem quando o usuario veio pelo modulo Usuarios.
 
+## 28/02/2026 - Perfis controlados por Permissoes (grupos)
+
+- A regra de perfis ativos passou a considerar apenas os grupos marcados em Permissoes.
+- Removida a heranca automatica de perfil por existencia de cadastro Diretoria/Responsavel.
+- Sincronizacao de UserAccess.profiles agora usa somente os codigos dos grupos vinculados ao usuario.
+- Cadastro novo de diretoria agora vincula automaticamente o grupo diretoria e sincroniza perfis.
+- Cadastro novo de responsavel continua vinculando responsavel, com sincronizacao de perfis por grupo.
+- Tela de Usuarios e usuario_detalhe agora exibem perfis calculados pela regra de grupos.
+
+

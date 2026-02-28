@@ -108,11 +108,10 @@ def _ensure_user_access(user):
     access = getattr(user, 'access', None)
     if access:
         return access
-    if hasattr(user, 'diretoria'):
-        role = UserAccess.ROLE_DIRETORIA
-    else:
-        role = UserAccess.ROLE_RESPONSAVEL
-    access, _ = UserAccess.objects.get_or_create(user=user, defaults={'role': role})
+    access, _ = UserAccess.objects.get_or_create(
+        user=user,
+        defaults={'role': UserAccess.ROLE_RESPONSAVEL, 'profiles': []},
+    )
     return access
 
 
@@ -130,18 +129,12 @@ def _normalize_menu_keys(values):
 
 
 def _available_profiles(access):
+    # Regra oficial: perfis ativos são definidos pelos grupos marcados em Permissões.
     profiles = []
     if access.user_id:
         profiles.extend(
             access.user.access_groups.order_by('code').values_list('code', flat=True)
         )
-        if hasattr(access.user, 'diretoria'):
-            profiles.append(UserAccess.ROLE_DIRETORIA)
-        if hasattr(access.user, 'responsavel'):
-            profiles.append(UserAccess.ROLE_RESPONSAVEL)
-    profiles.extend(list(access.profiles or []))
-    if access.role and access.profiles:
-        profiles.append(access.role)
     deduped = []
     seen = set()
     for item in profiles:
@@ -164,10 +157,6 @@ def _sync_access_profiles_from_groups(user, access=None):
     profiles = []
     group_codes = user.access_groups.order_by('code').values_list('code', flat=True)
     profiles.extend(str(code or '').strip().lower() for code in group_codes)
-    if hasattr(user, 'diretoria'):
-        profiles.append(UserAccess.ROLE_DIRETORIA)
-    if hasattr(user, 'responsavel'):
-        profiles.append(UserAccess.ROLE_RESPONSAVEL)
     deduped = []
     seen = set()
     for item in profiles:
@@ -2096,14 +2085,13 @@ class NovoCadastroResumoView(View):
                 )
                 access, _ = UserAccess.objects.get_or_create(
                     user=user,
-                    defaults={'role': UserAccess.ROLE_RESPONSAVEL, 'profiles': [UserAccess.ROLE_RESPONSAVEL]},
+                    defaults={'role': UserAccess.ROLE_RESPONSAVEL, 'profiles': []},
                 )
-                access.add_profile(UserAccess.ROLE_RESPONSAVEL)
-                access.save(update_fields=['role', 'profiles', 'updated_at'])
                 _ensure_default_access_groups()
                 responsavel_group = AccessGroup.objects.filter(code='responsavel').first()
                 if responsavel_group:
                     user.access_groups.add(responsavel_group)
+                _sync_access_profiles_from_groups(user, access=access)
                 responsavel = Responsavel.objects.create(
                     user=user,
                     pai_nome=first.get('nome_pai', ''),
@@ -2489,10 +2477,13 @@ class NovoCadastroDiretoriaResumoView(View):
                 user = User.objects.create_user(username=username, password=password)
                 access, _ = UserAccess.objects.get_or_create(
                     user=user,
-                    defaults={'role': UserAccess.ROLE_DIRETORIA, 'profiles': [UserAccess.ROLE_DIRETORIA]},
+                    defaults={'role': UserAccess.ROLE_RESPONSAVEL, 'profiles': []},
                 )
-                access.add_profile(UserAccess.ROLE_DIRETORIA)
-                access.save(update_fields=['role', 'profiles', 'updated_at'])
+                _ensure_default_access_groups()
+                diretoria_group = AccessGroup.objects.filter(code='diretoria').first()
+                if diretoria_group:
+                    user.access_groups.add(diretoria_group)
+                _sync_access_profiles_from_groups(user, access=access)
 
                 diretoria = Diretoria.objects.create(
                     user=user,
@@ -3564,6 +3555,8 @@ class UsuariosView(LoginRequiredMixin, View):
             display = _user_display_data(access.user)
             responsavel = getattr(access.user, 'responsavel', None)
             diretoria = getattr(access.user, 'diretoria', None)
+            perfis_codes = _available_profiles(access)
+            perfis_display = ', '.join(_profile_display_name(code) for code in perfis_codes) or '-'
             user_rows.append({
                 'access': access,
                 'user': access.user,
@@ -3571,6 +3564,7 @@ class UsuariosView(LoginRequiredMixin, View):
                 'foto_url': display['foto_url'],
                 'responsavel': responsavel,
                 'diretoria': diretoria,
+                'perfis_display': perfis_display,
             })
         user_rows.sort(key=lambda row: (_profile_order_weight(row['access']), row['user'].username.lower()))
 
@@ -6441,9 +6435,12 @@ class UsuarioDetalheView(LoginRequiredMixin, View):
         responsavel = getattr(target_user, 'responsavel', None)
         diretoria = getattr(target_user, 'diretoria', None)
         aventureiros = responsavel.aventures.order_by('nome') if responsavel else []
+        perfis_codes = _available_profiles(access)
+        perfis_display = ', '.join(_profile_display_name(code) for code in perfis_codes) or '-'
         context = {
             'target_user': target_user,
             'access': access,
+            'perfis_display': perfis_display,
             'nome_completo': display['nome_completo'],
             'foto_url': display['foto_url'],
             'responsavel': responsavel,

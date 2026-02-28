@@ -109,7 +109,7 @@
                   </td>
                   <td>{{ item.user.username }}</td>
                   <td>{{ item.nome_completo }}</td>
-                  <td>{{ item.access.get_profiles_display|join:", " }}</td>
+                  <td>{{ item.perfis_display }}</td>
                   <td>{% if item.user.is_active %}Ativo{% else %}Inativo{% endif %}</td>
                   <td>
                     <a class="users-action-link" href="{% url 'accounts:usuario_detalhe' item.user.pk %}">
@@ -155,7 +155,7 @@
                   </td>
                   <td>{{ item.user.username }}</td>
                   <td>{{ item.nome_completo }}</td>
-                  <td>{{ item.access.get_profiles_display|join:", " }}</td>
+                  <td>{{ item.perfis_display }}</td>
                   <td>{% if item.user.is_active %}Ativo{% else %}Inativo{% endif %}</td>
                   <td>
                     <a class="users-action-link" href="{% url 'accounts:usuario_detalhe' item.user.pk %}">
