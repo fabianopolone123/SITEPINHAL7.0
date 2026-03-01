@@ -6,40 +6,122 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cadastro Diretoria - Login inicial</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    .novo-login-shell {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 10% 10%, rgba(37, 99, 235, .12), transparent 45%),
+        radial-gradient(circle at 90% 20%, rgba(14, 165, 233, .12), transparent 42%),
+        linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+      padding: 2rem 1rem;
+      display: grid;
+      place-items: center;
+    }
+    .novo-login-wrap {
+      width: min(920px, 100%);
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 1rem;
+      align-items: stretch;
+    }
+    .novo-login-hero {
+      background: linear-gradient(160deg, #0f172a, #1d4ed8 60%, #2563eb);
+      color: #fff;
+      border-radius: 18px;
+      padding: 1.3rem;
+      box-shadow: 0 18px 50px rgba(15, 23, 42, .22);
+      position: relative;
+      overflow: hidden;
+    }
+    .novo-login-hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -40px -60px auto;
+      width: 180px;
+      height: 180px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.12);
+      filter: blur(2px);
+    }
+    .novo-login-card {
+      background: #fff;
+      border: 1px solid #dbeafe;
+      border-radius: 18px;
+      padding: 1.15rem;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, .10);
+    }
+    .novo-login-form label {
+      display: flex;
+      flex-direction: column;
+      gap: .35rem;
+      margin-bottom: .75rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .novo-login-form input {
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: .75rem .9rem;
+      font-size: .95rem;
+      background: #fff;
+    }
+    .novo-login-form input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, .12);
+    }
+    .step-list { margin: .8rem 0 0; padding-left: 1rem; }
+    .step-list li { margin: .35rem 0; color: rgba(255,255,255,.9); }
+    @media (max-width: 860px) {
+      .novo-login-wrap { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-  <div class="page-shell">
-    <div class="branding">
-      <p class="eyebrow">Novo cadastro</p>
-      <h1>Cadastro da diretoria</h1>
-      <p class="subtitle">Etapa 1: crie o usuário e senha para continuar.</p>
+  <div class="novo-login-shell">
+    <div class="novo-login-wrap">
+      <section class="novo-login-hero">
+        <p class="eyebrow" style="color:#bfdbfe;">Cadastro de diretoria</p>
+        <h1 style="margin:.2rem 0 0;">Comece seu cadastro</h1>
+        <p class="subtitle" style="color:rgba(255,255,255,.92);margin-top:.5rem;">
+          Crie seu acesso para preencher as etapas de compromisso e termo de imagem.
+        </p>
+        <ul class="step-list">
+          <li>Etapa 1: login de acesso da diretoria</li>
+          <li>Etapa 2: compromisso para voluntários</li>
+          <li>Etapa 3: termo de autorização de imagem</li>
+          <li>Etapa 4: revisão e finalização do cadastro</li>
+        </ul>
+      </section>
+      <main class="novo-login-card">
+        <form class="novo-login-form" method="post">
+          {% csrf_token %}
+          <label>Username
+            <input type="text" name="username" value="{{ form.username.value|default:'' }}" required />
+          </label>
+          {% if form.username.errors %}<p class="field-error">{{ form.username.errors|join:' ' }}</p>{% endif %}
+          <label>Senha
+            <input type="password" name="password" required />
+          </label>
+          {% if form.password.errors %}<p class="field-error">{{ form.password.errors|join:' ' }}</p>{% endif %}
+          <label>Confirmar senha
+            <input type="password" name="password_confirm" required />
+          </label>
+          {% if form.password_confirm.errors %}<p class="field-error">{{ form.password_confirm.errors|join:' ' }}</p>{% endif %}
+
+          <div class="status" aria-live="polite">
+            {% for message in messages %}
+              <p data-state="{{ message.tags }}">{{ message }}</p>
+            {% endfor %}
+            {% for error in form.non_field_errors %}
+              <p data-state="error">{{ error }}</p>
+            {% endfor %}
+          </div>
+
+          <button class="primary" type="submit">Iniciar fichas</button>
+        </form>
+      </main>
     </div>
-    <main class="login-card">
-      <form class="login-form" method="post">
-        {% csrf_token %}
-        <label>Username
-          <input type="text" name="username" value="{{ form.username.value|default:'' }}" required />
-        </label>
-        {% if form.username.errors %}<p class="field-error">{{ form.username.errors|join:' ' }}</p>{% endif %}
-        <label>Senha
-          <input type="password" name="password" required />
-        </label>
-        {% if form.password.errors %}<p class="field-error">{{ form.password.errors|join:' ' }}</p>{% endif %}
-        <label>Confirmar senha
-          <input type="password" name="password_confirm" required />
-        </label>
-        {% if form.password_confirm.errors %}<p class="field-error">{{ form.password_confirm.errors|join:' ' }}</p>{% endif %}
-        <div class="status" aria-live="polite">
-          {% for message in messages %}
-            <p data-state="{{ message.tags }}">{{ message }}</p>
-          {% endfor %}
-          {% for error in form.non_field_errors %}
-            <p data-state="error">{{ error }}</p>
-          {% endfor %}
-        </div>
-        <button class="primary" type="submit">Próximo</button>
-      </form>
-    </main>
   </div>
 </body>
 </html>

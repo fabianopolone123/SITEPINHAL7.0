@@ -6,31 +6,82 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Resumo do cadastro da diretoria</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    .resumo-progress {
+      margin-top: .65rem;
+      padding: .75rem .9rem;
+      border: 1px solid #dbeafe;
+      background: #f8fbff;
+      border-radius: 12px;
+    }
+    .resumo-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .75rem;
+      margin-top: .35rem;
+    }
+    .resumo-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      padding: .35rem .65rem;
+      font-weight: 700;
+      font-size: .85rem;
+    }
+    .checklist { margin: .3rem 0 0; padding-left: 1.1rem; }
+    .checklist li { margin: .3rem 0; }
+  </style>
 </head>
 <body>
   <div class="page-shell">
     <div class="branding">
-      <p class="eyebrow">Novo cadastro</p>
-      <h1>Resumo da diretoria</h1>
+      <p class="eyebrow">Resumo</p>
+      <h1>Confirmação do cadastro da diretoria</h1>
       <p class="subtitle">Confira os dados e finalize o cadastro.</p>
+      <div class="resumo-progress">
+        <strong>Progresso:</strong> 3/3 etapas prontas para finalização.
+        <div class="resumo-meta">
+          <span class="resumo-pill">Login OK</span>
+          <span class="resumo-pill">Compromisso OK</span>
+          <span class="resumo-pill">Termo de imagem OK</span>
+        </div>
+      </div>
     </div>
+
     <main class="login-card">
-      <h2>{{ nome_diretoria }}</h2>
-      <p><strong>Usuário:</strong> {{ login_username }}</p>
-      <ul>
-        {% for item in ok_items %}
-          <li>{{ item }} OK</li>
-        {% endfor %}
-      </ul>
+      <section class="section-block">
+        <div class="section-header"><span>OK</span><h2>Diretoria</h2></div>
+        <p><strong>Nome:</strong> {{ nome_diretoria|default:'-' }}</p>
+        <p><strong>Usuário:</strong> {{ login_username|default:'-' }}</p>
+      </section>
+
+      <section class="section-block">
+        <div class="section-header"><span>OK</span><h2>Itens concluídos</h2></div>
+        <ul class="checklist">
+          {% for item in ok_items %}
+            <li>{{ item }}</li>
+          {% empty %}
+            <li>Nenhum item encontrado.</li>
+          {% endfor %}
+        </ul>
+      </section>
+
       <div class="status" aria-live="polite">
         {% for message in messages %}
           <p data-state="{{ message.tags }}">{{ message }}</p>
         {% endfor %}
       </div>
-      <form method="post">
-        {% csrf_token %}
-        <button class="primary" type="submit">Finalizar</button>
-      </form>
+
+      <div class="action-row">
+        <a class="secondary" href="{% url 'accounts:novo_diretoria_termo' %}">Voltar</a>
+        <form method="post">
+          {% csrf_token %}
+          <button class="primary" type="submit">Finalizar</button>
+        </form>
+      </div>
     </main>
   </div>
 </body>

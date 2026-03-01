@@ -30,6 +30,7 @@ from .forms import (
     DiretoriaDadosForm,
     UserAccessForm,
     NovoCadastroLoginForm,
+    NovoCadastroDiretoriaLoginForm,
 )
 from .models import (
     Responsavel,
@@ -2263,10 +2264,10 @@ class NovoCadastroDiretoriaLoginView(View):
 
     def get(self, request):
         _clear_new_diretoria_flow(request.session)
-        return render(request, self.template_name, {'form': NovoCadastroLoginForm()})
+        return render(request, self.template_name, {'form': NovoCadastroDiretoriaLoginForm()})
 
     def post(self, request):
-        form = NovoCadastroLoginForm(request.POST)
+        form = NovoCadastroDiretoriaLoginForm(request.POST)
         if not form.is_valid():
             messages.error(request, 'Corrija os campos para continuar.')
             return render(request, self.template_name, {'form': form})
@@ -2317,7 +2318,7 @@ class NovoCadastroDiretoriaCompromissoView(View):
             'nome', 'igreja', 'endereco', 'distrito', 'numero', 'bairro', 'cep', 'cidade',
             'estado', 'email', 'whatsapp',
             'nascimento', 'estado_civil', 'cpf', 'rg',
-            'possui_limitacao_saude', 'foto_3x4', 'assinatura_compromisso',
+            'possui_limitacao_saude', 'escolaridade', 'foto_3x4', 'assinatura_compromisso',
         ]
         missing = [name for name in required if not str(fields.get(name, '')).strip()]
         if not fields.get('declaracao_medica'):
@@ -2325,6 +2326,21 @@ class NovoCadastroDiretoriaCompromissoView(View):
         if missing:
             messages.error(request, 'Preencha todos os campos obrigatórios do compromisso.')
             return render(request, self.template_name, {'step_data': fields})
+
+        try:
+            validate_email(fields.get('email', ''))
+        except ValidationError:
+            messages.error(request, 'Informe um e-mail válido no compromisso.')
+            return render(request, self.template_name, {'step_data': fields})
+
+        try:
+            date.fromisoformat(fields.get('nascimento', ''))
+        except Exception:
+            messages.error(request, 'Informe uma data de nascimento válida no compromisso.')
+            return render(request, self.template_name, {'step_data': fields})
+
+        if fields.get('possui_limitacao_saude') != 'sim':
+            fields['limitacao_saude_descricao'] = ''
 
         cpf_duplicate = _find_duplicate_document('cpf_diretoria', fields.get('cpf'), scope='diretoria')
         if cpf_duplicate:
@@ -2413,6 +2429,14 @@ class NovoCadastroDiretoriaTermoView(View):
             missing.append('autorizacao_imagem')
         if missing:
             messages.error(request, 'Preencha todos os campos obrigatórios do termo de imagem.')
+            initial = _date_parts_today()
+            initial.update(fields)
+            return render(request, self.template_name, {'initial': initial, 'step_data': fields})
+
+        try:
+            validate_email(fields.get('email_contato_termo', ''))
+        except ValidationError:
+            messages.error(request, 'Informe um e-mail de contato válido no termo de imagem.')
             initial = _date_parts_today()
             initial.update(fields)
             return render(request, self.template_name, {'initial': initial, 'step_data': fields})

@@ -758,3 +758,11 @@ Arquivo oficial de registro das entregas concluidas.
 - Backend atualizado para calcular a classe do aventureiro pela mesma regra de idade do sistema e criar os lancamentos em massa da classe selecionada.
 - Mensagens de retorno ajustadas para confirmar quantidade de aventureiros afetados por classe.
 - Interface ajustada para mostrar apenas os campos relevantes conforme o modo de destino selecionado.
+
+## 01/03/2026 - Cadastro Diretoria: layout alinhado e validacoes revisadas
+
+- Fluxo novo de diretoria atualizado para o mesmo padrao visual do cadastro de aventureiro nas telas de login, compromisso, termo e resumo.
+- Tela de login da diretoria agora usa formulario especifico (sem quantidade de aventureiros), corrigindo erro de validacao que impedia avancar.
+- Reforcadas validacoes no compromisso: escolaridade obrigatoria, e-mail valido e data de nascimento valida.
+- Reforcada validacao no termo de imagem: e-mail de contato obrigatoriamente valido.
+- Ajustado tratamento de saude para limpar descricao quando a opcao for nao.
