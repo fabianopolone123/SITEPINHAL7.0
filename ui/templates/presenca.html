@@ -530,8 +530,15 @@
         <div class="attendance-control-card">
           <div class="attendance-control-title">Buscar aventureiro</div>
           <label for="attendance-search">
-            <input type="text" id="attendance-search" placeholder="Digite nome, responsável ou username" />
+            <input
+              type="text"
+              id="attendance-search"
+              list="attendance-search-suggestions"
+              autocomplete="off"
+              placeholder="Digite nome, responsável ou username"
+            />
           </label>
+          <datalist id="attendance-search-suggestions"></datalist>
         </div>
       </div>
 
@@ -558,7 +565,14 @@
         </div>
         <div class="attendance-list" id="attendance-list">
           {% for av in aventureiros %}
-            <article class="attendance-row" data-aventureiro-id="{{ av.id }}" data-search="{{ av.nome|lower }} {{ av.responsavel.responsavel_nome|default:''|lower }} {{ av.responsavel.user.username|lower }}">
+            <article
+              class="attendance-row"
+              data-aventureiro-id="{{ av.id }}"
+              data-search="{{ av.nome|lower }} {{ av.responsavel.responsavel_nome|default:''|lower }} {{ av.responsavel.user.username|lower }}"
+              data-name-display="{{ av.nome }}"
+              data-responsavel-display="{{ av.responsavel.responsavel_nome|default:'' }}"
+              data-username-display="{{ av.responsavel.user.username }}"
+            >
               <div class="attendance-person">
                 {% if av.presenca_foto_url %}
                   <button
@@ -609,6 +623,7 @@
     (function () {
       const eventSelect = document.getElementById('evento-select');
       const searchInput = document.getElementById('attendance-search');
+      const searchSuggestionsNode = document.getElementById('attendance-search-suggestions');
       const listNode = document.getElementById('attendance-list');
       const counterNode = document.getElementById('attendance-counter');
       const lastSyncNode = document.getElementById('last-sync-label');
@@ -670,6 +685,32 @@
         listNode.querySelectorAll('.attendance-row').forEach((row) => {
           const haystack = row.getAttribute('data-search') || '';
           row.style.display = (!term || haystack.includes(term)) ? '' : 'none';
+        });
+      };
+
+      const buildSearchSuggestions = () => {
+        if (!listNode || !searchSuggestionsNode) return;
+        const uniqueValues = new Map();
+        listNode.querySelectorAll('.attendance-row').forEach((row) => {
+          [
+            row.getAttribute('data-name-display'),
+            row.getAttribute('data-responsavel-display'),
+            row.getAttribute('data-username-display'),
+          ].forEach((rawValue) => {
+            const value = (rawValue || '').trim();
+            if (!value) return;
+            const key = value.toLocaleLowerCase('pt-BR');
+            if (!uniqueValues.has(key)) {
+              uniqueValues.set(key, value);
+            }
+          });
+        });
+        const sortedValues = Array.from(uniqueValues.values()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        searchSuggestionsNode.innerHTML = '';
+        sortedValues.forEach((value) => {
+          const option = document.createElement('option');
+          option.value = value;
+          searchSuggestionsNode.appendChild(option);
         });
       };
 
@@ -789,6 +830,7 @@
 
       presencas = parseInitData();
       applyAllRows();
+      buildSearchSuggestions();
       filterRows();
       fetchPresence();
       setInterval(fetchPresence, 2000);
