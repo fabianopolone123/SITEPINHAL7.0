@@ -782,3 +782,8 @@ Arquivo oficial de registro das entregas concluidas.
 
 
 
+## 01/03/2026 - Presenca (admin): busca sem acento e sem caractere especial
+
+- Ajustada a pesquisa da Presenca (admin) para ignorar acentos e caracteres especiais no texto digitado.
+- Exemplo: ao digitar perola, o sistema tambem encontra Pérola.
+- Mantido o autocomplete e o filtro em tempo real da lista.
