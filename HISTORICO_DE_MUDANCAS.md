@@ -815,3 +815,8 @@ Arquivo oficial de registro das entregas concluidas.
 - Ao tocar em qualquer item do menu no celular, o menu recolhe automaticamente para nao atrapalhar a visualizacao.
 - No desktop, o comportamento continua expandido normalmente.
 
+## 01/03/2026 - Menu lateral mobile/tablet: correcao de carregamento inicial
+
+- Corrigido o comportamento para mobile e tablet: agora o menu inicia fechado ao abrir ou atualizar a pagina.
+- Ajustado breakpoint para incluir tablet (ate 1100px) com o mesmo comportamento de menu recolhido.
+- No desktop, a barra lateral permanece fixa e aberta com os menus visiveis.

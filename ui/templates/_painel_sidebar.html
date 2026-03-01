@@ -1,5 +1,5 @@
 ﻿{% load static %}
-<aside class="painel-sidebar is-collapsed" id="painel-sidebar">
+<aside class="painel-sidebar" id="painel-sidebar">
   <div class="painel-sidebar-brand">
     <div class="painel-logo-wrap">
       <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
@@ -63,33 +63,34 @@
     const toggleBtn = document.getElementById('painel-sidebar-toggle');
     if (!sidebar || !toggleBtn) return;
 
-    const media = window.matchMedia('(max-width: 900px)');
+    const media = window.matchMedia('(max-width: 1100px)');
 
     const syncToggleLabel = () => {
-      const isCollapsed = sidebar.classList.contains('is-collapsed');
-      toggleBtn.setAttribute('aria-expanded', String(!isCollapsed));
-      toggleBtn.setAttribute('aria-label', isCollapsed ? 'Abrir menu' : 'Fechar menu');
-      toggleBtn.textContent = isCollapsed ? 'Menu' : 'Fechar';
+      const isOpen = sidebar.classList.contains('is-open');
+      toggleBtn.setAttribute('aria-expanded', String(isOpen));
+      toggleBtn.setAttribute('aria-label', isOpen ? 'Fechar menu' : 'Abrir menu');
+      toggleBtn.textContent = isOpen ? 'Fechar' : 'Menu';
     };
 
     const applyResponsiveDefault = () => {
       if (media.matches) {
-        sidebar.classList.add('is-collapsed');
+        sidebar.classList.remove('is-open');
       } else {
-        sidebar.classList.remove('is-collapsed');
+        sidebar.classList.add('is-open');
       }
       syncToggleLabel();
     };
 
     toggleBtn.addEventListener('click', () => {
-      sidebar.classList.toggle('is-collapsed');
+      if (!media.matches) return;
+      sidebar.classList.toggle('is-open');
       syncToggleLabel();
     });
 
     sidebar.querySelectorAll('.painel-menu a').forEach((link) => {
       link.addEventListener('click', () => {
         if (!media.matches) return;
-        sidebar.classList.add('is-collapsed');
+        sidebar.classList.remove('is-open');
         syncToggleLabel();
       });
     });
