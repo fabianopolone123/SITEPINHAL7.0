@@ -734,3 +734,12 @@ Arquivo oficial de registro das entregas concluidas.
 - Erros HTTP do Mercado Pago agora exibem mensagem mais completa (incluindo causa quando enviada pela API).
 - Quando ocorre falha inesperada ao iniciar pagamento, o sistema grava log tecnico e mostra detalhe resumido na tela.
 
+
+## 01/03/2026 - Financeiro: correcao do campo entregue em PagamentoMensalidade
+
+- Corrigido erro ao iniciar pagamento de mensalidades: NOT NULL constraint failed: accounts_pagamentomensalidade.entregue.
+- Adicionado campo entregue no model PagamentoMensalidade com default False para garantir insert consistente.
+- Criada migration de guarda (0041_pagamentomensalidade_entregue_guard) para alinhar bancos com drift.
+- Se a coluna entregue ja existe, normaliza valores nulos para 0.
+- Se a coluna nao existe, cria com NOT NULL e default seguro.
+- Com isso, o fluxo de geracao de pagamento Pix em mensalidades volta a funcionar sem ajuste manual no banco.
