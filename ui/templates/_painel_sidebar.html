@@ -1,10 +1,13 @@
 ﻿{% load static %}
-<aside class="painel-sidebar">
+<aside class="painel-sidebar is-collapsed" id="painel-sidebar">
   <div class="painel-sidebar-brand">
     <div class="painel-logo-wrap">
       <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
     </div>
     <h1>Painel</h1>
+    <button type="button" class="painel-sidebar-toggle" id="painel-sidebar-toggle" aria-label="Abrir menu" aria-expanded="false">
+      Menu
+    </button>
     <p class="painel-profile-title">Perfil ativo</p>
     <p class="painel-profile-value">
       {% if active_profile_label %}
@@ -54,4 +57,49 @@
     </ul>
   </nav>
 </aside>
+<script>
+  (function () {
+    const sidebar = document.getElementById('painel-sidebar');
+    const toggleBtn = document.getElementById('painel-sidebar-toggle');
+    if (!sidebar || !toggleBtn) return;
+
+    const media = window.matchMedia('(max-width: 900px)');
+
+    const syncToggleLabel = () => {
+      const isCollapsed = sidebar.classList.contains('is-collapsed');
+      toggleBtn.setAttribute('aria-expanded', String(!isCollapsed));
+      toggleBtn.setAttribute('aria-label', isCollapsed ? 'Abrir menu' : 'Fechar menu');
+      toggleBtn.textContent = isCollapsed ? 'Menu' : 'Fechar';
+    };
+
+    const applyResponsiveDefault = () => {
+      if (media.matches) {
+        sidebar.classList.add('is-collapsed');
+      } else {
+        sidebar.classList.remove('is-collapsed');
+      }
+      syncToggleLabel();
+    };
+
+    toggleBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('is-collapsed');
+      syncToggleLabel();
+    });
+
+    sidebar.querySelectorAll('.painel-menu a').forEach((link) => {
+      link.addEventListener('click', () => {
+        if (!media.matches) return;
+        sidebar.classList.add('is-collapsed');
+        syncToggleLabel();
+      });
+    });
+
+    applyResponsiveDefault();
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', applyResponsiveDefault);
+    } else if (typeof media.addListener === 'function') {
+      media.addListener(applyResponsiveDefault);
+    }
+  })();
+</script>
 

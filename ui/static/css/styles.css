@@ -1001,6 +1001,10 @@ a.secondary {
   margin-bottom: 0.75rem;
 }
 
+.painel-sidebar-toggle {
+  display: none;
+}
+
 .painel-logo-wrap {
   width: 96px;
   height: 96px;
@@ -1328,6 +1332,40 @@ a.secondary {
     border-right: none;
     border-bottom: 1px solid rgba(148, 163, 184, 0.25);
     overflow: visible;
+    padding: 0.9rem 1rem;
+  }
+
+  .painel-sidebar-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    justify-self: end;
+    grid-area: toggle;
+    border: 1px solid rgba(147, 197, 253, 0.45);
+    border-radius: 10px;
+    background: rgba(30, 64, 175, 0.32);
+    color: #dbeafe;
+    font-size: 0.84rem;
+    font-weight: 800;
+    padding: 0.4rem 0.62rem;
+    min-height: 34px;
+    cursor: pointer;
+  }
+
+  .painel-sidebar-toggle:focus-visible {
+    outline: 3px solid rgba(59, 130, 246, 0.45);
+    outline-offset: 2px;
+  }
+
+  .painel-sidebar.is-collapsed .painel-menu {
+    display: none;
+  }
+
+  .painel-sidebar.is-collapsed .painel-profile-title,
+  .painel-sidebar.is-collapsed .painel-profile-value,
+  .painel-sidebar.is-collapsed .painel-profile-switch,
+  .painel-sidebar.is-collapsed .painel-profile-all {
+    display: none;
   }
 
   .painel-content {
@@ -1337,13 +1375,19 @@ a.secondary {
 
   .painel-sidebar-brand {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto 1fr auto;
     grid-template-areas:
-      "logo title"
-      "logo profiletitle"
-      "logo profilevalue";
+      "logo title toggle"
+      "logo profiletitle profiletitle"
+      "logo profilevalue profilevalue";
     column-gap: 0.85rem;
     align-items: center;
+  }
+
+  .painel-sidebar.is-collapsed .painel-sidebar-brand {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "logo title toggle";
+    margin-bottom: 0;
   }
 
   .painel-logo-wrap {

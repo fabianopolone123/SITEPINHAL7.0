@@ -802,7 +802,16 @@ Arquivo oficial de registro das entregas concluidas.
 - Fotos grandes agora sao redimensionadas e comprimidas no navegador antes de enviar ao servidor.
 - Mantido fallback automatico para envio original caso a otimizacao nao seja possivel.
 - Resultado: menos tempo de upload em conexoes moveis e menor chance de lentidao ao salvar.
+
 ## 01/03/2026 - Presenca (admin): foto ampliada acima do modal de falta inscricao
 
 - Ajustada a camada (z-index) da janela de foto ampliada para abrir por cima da janela Falta inscricao.
 - Agora, ao clicar na foto em Falta inscricao, a imagem ampliada fica visivel corretamente para melhor visualizacao.
+
+## 01/03/2026 - Menu lateral no celular: inicia minimizado e recolhe apos clique
+
+- Ajustado o menu lateral para abrir minimizado por padrao em telas de celular.
+- Adicionado botao Menu/Fechar no topo da barra lateral para expandir e recolher manualmente.
+- Ao tocar em qualquer item do menu no celular, o menu recolhe automaticamente para nao atrapalhar a visualizacao.
+- No desktop, o comportamento continua expandido normalmente.
+
