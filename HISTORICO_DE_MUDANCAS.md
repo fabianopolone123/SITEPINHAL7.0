@@ -743,3 +743,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Se a coluna entregue ja existe, normaliza valores nulos para 0.
 - Se a coluna nao existe, cria com NOT NULL e default seguro.
 - Com isso, o fluxo de geracao de pagamento Pix em mensalidades volta a funcionar sem ajuste manual no banco.
+
+## 01/03/2026 - Eventos: exclusao com senha de override apos data/hora
+
+- Mantido o bloqueio padrao de exclusao para eventos cuja data/hora ja foi atingida.
+- Adicionada excecao por senha: ao excluir evento passado, o sistema pede senha e permite excluir quando a senha informada for pinhal.
+- Incluido campo oculto de senha no formulario de exclusao e prompt no frontend somente para eventos que ja passaram.
+- Backend validando a senha antes de excluir, com mensagem clara quando a senha nao e informada ou esta incorreta.

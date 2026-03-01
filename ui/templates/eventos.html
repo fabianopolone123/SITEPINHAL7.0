@@ -190,7 +190,14 @@
                 {% csrf_token %}
                 <input type="hidden" name="action" value="delete_event" />
                 <input type="hidden" name="event_id" value="{{ evento.id }}" />
-                <button type="submit" class="secondary js-confirm-delete-event">Excluir evento</button>
+                <input type="hidden" name="delete_password" value="" class="js-delete-password" />
+                <button
+                  type="submit"
+                  class="secondary js-confirm-delete-event"
+                  data-requires-password="{% if row.requires_delete_password %}1{% else %}0{% endif %}"
+                >
+                  Excluir evento
+                </button>
               </form>
             </article>
           {% endwith %}
@@ -447,6 +454,22 @@
           const ok = window.confirm('Tem certeza que deseja excluir este evento?');
           if (!ok) {
             event.preventDefault();
+            return;
+          }
+          const form = button.closest('form');
+          const passwordInput = form ? form.querySelector('.js-delete-password') : null;
+          if (passwordInput) {
+            passwordInput.value = '';
+          }
+          if (button.dataset.requiresPassword === '1') {
+            const senha = window.prompt('Este evento já ocorreu. Digite a senha para excluir:');
+            if (!senha) {
+              event.preventDefault();
+              return;
+            }
+            if (passwordInput) {
+              passwordInput.value = senha;
+            }
           }
         });
       });

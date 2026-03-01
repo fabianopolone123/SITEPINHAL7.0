@@ -2994,6 +2994,7 @@ class AventureiroGeralDetalheView(LoginRequiredMixin, View):
 
 class EventosView(LoginRequiredMixin, View):
     template_name = 'eventos.html'
+    DELETE_OVERRIDE_PASSWORD = 'pinhal'
 
     def _guard(self, request):
         if not _has_menu_permission(request, 'eventos'):
@@ -3023,6 +3024,7 @@ class EventosView(LoginRequiredMixin, View):
             event_rows.append({
                 'evento': evento,
                 'relative_label': self._relative_event_time_label(evento.event_date),
+                'requires_delete_password': self._event_delete_requires_password(evento),
             })
         presets = list(EventoPreset.objects.select_related('created_by').all())
         presets_json = [
@@ -3044,6 +3046,14 @@ class EventosView(LoginRequiredMixin, View):
         }
         context.update(_sidebar_context(request))
         return context
+
+    def _event_delete_requires_password(self, evento):
+        if not (evento.event_date and evento.event_time):
+            return False
+        event_dt = datetime.combine(evento.event_date, evento.event_time)
+        if timezone.is_naive(event_dt):
+            event_dt = timezone.make_aware(event_dt, timezone.get_current_timezone())
+        return timezone.now() >= event_dt
 
     def get(self, request):
         guard = self._guard(request)
@@ -3155,18 +3165,16 @@ class EventosView(LoginRequiredMixin, View):
 
         elif action == 'delete_event':
             event_id = request.POST.get('event_id')
+            delete_password = (request.POST.get('delete_password') or '').strip()
             evento = Evento.objects.filter(pk=event_id).first()
             if not evento:
                 messages.error(request, 'Evento não encontrado.')
             else:
-                if evento.event_date and evento.event_time:
-                    event_dt = datetime.combine(evento.event_date, evento.event_time)
-                    if timezone.is_naive(event_dt):
-                        event_dt = timezone.make_aware(event_dt, timezone.get_current_timezone())
-                    if timezone.now() >= event_dt:
+                if self._event_delete_requires_password(evento):
+                    if delete_password != self.DELETE_OVERRIDE_PASSWORD:
                         messages.error(
                             request,
-                            'Este evento não pode ser excluído porque a data/hora já foi atingida.',
+                            'Este evento já atingiu data/hora. Para excluir, digite a senha de exclusão.',
                         )
                         return render(request, self.template_name, self._context(request))
                 evento.delete()
