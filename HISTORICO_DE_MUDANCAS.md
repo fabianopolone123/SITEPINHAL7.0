@@ -750,3 +750,11 @@ Arquivo oficial de registro das entregas concluidas.
 - Adicionada excecao por senha: ao excluir evento passado, o sistema pede senha e permite excluir quando a senha informada for pinhal.
 - Incluido campo oculto de senha no formulario de exclusao e prompt no frontend somente para eventos que ja passaram.
 - Backend validando a senha antes de excluir, com mensagem clara quando a senha nao e informada ou esta incorreta.
+
+## 01/03/2026 - Pontos: lancamento por classe
+
+- No modulo Pontos, o destino do lancamento agora aceita tres modos: Individual, Por classe e Todos os aventureiros.
+- Adicionado seletor de classe (Abelhinhas, Luminares, Edificadores e Maos Ajudadoras) para aplicar pontos em lote por classe.
+- Backend atualizado para calcular a classe do aventureiro pela mesma regra de idade do sistema e criar os lancamentos em massa da classe selecionada.
+- Mensagens de retorno ajustadas para confirmar quantidade de aventureiros afetados por classe.
+- Interface ajustada para mostrar apenas os campos relevantes conforme o modo de destino selecionado.

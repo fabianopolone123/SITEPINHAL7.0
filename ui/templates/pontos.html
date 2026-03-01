@@ -63,7 +63,7 @@
     <header class="painel-header">
       <h2>Pontos</h2>
       {% if pontos_mode != 'responsavel' %}
-      <p>Lance pontos positivos/negativos para aventureiros, individualmente ou para todos, e use pré-registros padrão.</p>
+      <p>Lance pontos positivos/negativos para aventureiros individualmente, por classe ou para todos, e use pré-registros padrão.</p>
       {% endif %}
     </header>
 
@@ -178,15 +178,27 @@
         <fieldset class="target-box" style="margin-top:.9rem;">
           <legend>Destino</legend>
           <div class="target-row">
-            <label><input type="radio" name="target_mode" value="individual" {% if form_state.target_mode != 'todos' %}checked{% endif %}> Individual</label>
+            <label><input type="radio" name="target_mode" value="individual" {% if form_state.target_mode == 'individual' %}checked{% endif %}> Individual</label>
+            <label><input type="radio" name="target_mode" value="classe" {% if form_state.target_mode == 'classe' %}checked{% endif %}> Por classe</label>
             <label><input type="radio" name="target_mode" value="todos" {% if form_state.target_mode == 'todos' %}checked{% endif %}> Todos os aventureiros</label>
           </div>
-          <label>
+          <label id="target-aventureiro-wrap">
             Aventureiro (quando individual)
-            <select name="aventureiro_id">
+            <select name="aventureiro_id" id="target_aventureiro_id">
               <option value="">Selecione...</option>
               {% for av in aventureiros %}
                 <option value="{{ av.pk }}" {% if form_state.aventureiro_id == av.pk|stringformat:'s' %}selected{% endif %}>{{ av.nome }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label id="target-classe-wrap">
+            Classe (quando por classe)
+            <select name="target_classe" id="target_classe">
+              <option value="">Selecione...</option>
+              {% for classe in pontos_classes %}
+                <option value="{{ classe.code }}" {% if form_state.target_classe == classe.code %}selected{% endif %}>
+                  {{ classe.label }} ({{ classe.count }})
+                </option>
               {% endfor %}
             </select>
           </label>
@@ -299,6 +311,26 @@
           if (motivoInput) motivoInput.value = opt.dataset.presetMotivo || '';
         });
       }
+
+      const targetRadios = document.querySelectorAll('input[name="target_mode"]');
+      const avWrap = document.getElementById('target-aventureiro-wrap');
+      const avSelect = document.getElementById('target_aventureiro_id');
+      const classeWrap = document.getElementById('target-classe-wrap');
+      const classeSelect = document.getElementById('target_classe');
+
+      function toggleTargetFields() {
+        const checked = document.querySelector('input[name="target_mode"]:checked');
+        const mode = checked ? checked.value : 'individual';
+        if (avWrap) avWrap.style.display = mode === 'individual' ? '' : 'none';
+        if (classeWrap) classeWrap.style.display = mode === 'classe' ? '' : 'none';
+        if (avSelect) avSelect.disabled = mode !== 'individual';
+        if (classeSelect) classeSelect.disabled = mode !== 'classe';
+      }
+
+      targetRadios.forEach((radio) => {
+        radio.addEventListener('change', toggleTargetFields);
+      });
+      toggleTargetFields();
 
       const successMsg = document.querySelector('.status p[data-state*="success"]');
       if (successMsg) {

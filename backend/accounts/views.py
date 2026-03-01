@@ -5080,6 +5080,59 @@ class PontosView(LoginRequiredMixin, View):
             .order_by('nome')
         )
 
+    def _classes_opcoes(self):
+        return [
+            {'code': 'abelhinhas', 'label': 'Abelhinhas'},
+            {'code': 'luminares', 'label': 'Luminares'},
+            {'code': 'edificadores', 'label': 'Edificadores'},
+            {'code': 'maos_ajudadoras', 'label': 'Mãos Ajudadoras'},
+        ]
+
+    def _classe_label_por_code(self, classe_code):
+        code = str(classe_code or '').strip().lower()
+        for item in self._classes_opcoes():
+            if item['code'] == code:
+                return item['label']
+        return ''
+
+    def _aventureiros_por_classe_label(self, aventureiros):
+        hoje = timezone.localdate()
+        class_map = {item['label']: [] for item in self._classes_opcoes()}
+        for av in aventureiros:
+            _, classe_label = _classe_aventureiro_por_idade(av.nascimento, hoje=hoje)
+            if classe_label in class_map:
+                class_map[classe_label].append(av)
+        return class_map
+
+    def _classes_rows(self, aventureiros):
+        class_map = self._aventureiros_por_classe_label(aventureiros)
+        return [
+            {
+                'code': item['code'],
+                'label': item['label'],
+                'count': len(class_map.get(item['label'], [])),
+            }
+            for item in self._classes_opcoes()
+        ]
+
+    def _default_form_state(self):
+        return {
+            'target_mode': 'individual',
+            'aventureiro_id': '',
+            'target_classe': '',
+            'pontos': '',
+            'motivo': '',
+            'preset_select_id': '',
+            'preset_nome': '',
+            'preset_pontos': '',
+            'preset_motivo': '',
+            'preset_ativo': False,
+            'preset_apply_target_mode': 'individual',
+            'preset_apply_aventureiro_id': '',
+            'preset_apply_target_classe': '',
+            'preset_apply_id': '',
+        }
+
     def _totais_rows(self):
         aventureiros = self._aventureiros()
         totals = {}
@@ -5109,13 +5162,18 @@ class PontosView(LoginRequiredMixin, View):
         return list(AventureiroPontosPreset.objects.filter(ativo=True).order_by('nome'))
 
     def _context(self, form_state=None):
+        aventureiros = self._aventureiros()
+        final_form_state = self._default_form_state()
+        if form_state:
+            final_form_state.update(form_state)
         return {
             'pontos_mode': 'admin',
-            'aventureiros': self._aventureiros(),
+            'aventureiros': aventureiros,
+            'pontos_classes': self._classes_rows(aventureiros),
             'presets': self._presets(),
             'totais_rows': self._totais_rows(),
             'lancamentos_recentes': self._recentes(),
-            'form_state': form_state or {},
+            'form_state': final_form_state,
         }
 
     def _responsavel_context(self, request):
@@ -5182,6 +5240,7 @@ class PontosView(LoginRequiredMixin, View):
         form_state = {
             'target_mode': request.POST.get('target_mode', 'individual'),
             'aventureiro_id': request.POST.get('aventureiro_id', ''),
+            'target_classe': request.POST.get('target_classe', ''),
             'pontos': request.POST.get('pontos', ''),
             'motivo': request.POST.get('motivo', ''),
             'preset_select_id': request.POST.get('preset_select_id', ''),
@@ -5191,6 +5250,7 @@ class PontosView(LoginRequiredMixin, View):
             'preset_ativo': bool(request.POST.get('preset_ativo')),
             'preset_apply_target_mode': request.POST.get('preset_apply_target_mode', 'individual'),
             'preset_apply_aventureiro_id': request.POST.get('preset_apply_aventureiro_id', ''),
+            'preset_apply_target_classe': request.POST.get('preset_apply_target_classe', ''),
             'preset_apply_id': request.POST.get('preset_apply_id', ''),
         }
 
@@ -5199,6 +5259,7 @@ class PontosView(LoginRequiredMixin, View):
             motivo = str(request.POST.get('motivo') or '').strip()
             target_mode = str(request.POST.get('target_mode') or 'individual').strip()
             aventureiro_id = str(request.POST.get('aventureiro_id') or '').strip()
+            target_classe = str(request.POST.get('target_classe') or '').strip().lower()
             preset_selected_id = str(request.POST.get('preset_select_id') or '').strip()
             preset_obj = AventureiroPontosPreset.objects.filter(pk=preset_selected_id, ativo=True).first() if preset_selected_id else None
             if pontos is None:
@@ -5206,8 +5267,9 @@ class PontosView(LoginRequiredMixin, View):
             elif not motivo:
                 messages.error(request, 'Informe o motivo do lançamento.')
             else:
+                aventureiros_all = self._aventureiros()
                 if target_mode == 'todos':
-                    aventureiros = self._aventureiros()
+                    aventureiros = aventureiros_all
                     if not aventureiros:
                         messages.error(request, 'Nenhum aventureiro disponível para lançar pontos.')
                     else:
@@ -5222,6 +5284,29 @@ class PontosView(LoginRequiredMixin, View):
                             for av in aventureiros
                         ])
                         messages.success(request, f'Lançamento aplicado para todos os aventureiros ({len(aventureiros)}).')
+                elif target_mode == 'classe':
+                    classe_label = self._classe_label_por_code(target_classe)
+                    if not classe_label:
+                        messages.error(request, 'Selecione uma classe válida para lançar pontos.')
+                    else:
+                        aventureiros = self._aventureiros_por_classe_label(aventureiros_all).get(classe_label, [])
+                        if not aventureiros:
+                            messages.error(request, f'Nenhum aventureiro encontrado na classe {classe_label}.')
+                        else:
+                            AventureiroPontosLancamento.objects.bulk_create([
+                                AventureiroPontosLancamento(
+                                    aventureiro=av,
+                                    pontos=pontos,
+                                    motivo=motivo,
+                                    preset=preset_obj,
+                                    created_by=request.user,
+                                )
+                                for av in aventureiros
+                            ])
+                            messages.success(
+                                request,
+                                f'Lançamento aplicado para a classe {classe_label} ({len(aventureiros)} aventureiro(s)).',
+                            )
                 else:
                     av = Aventureiro.objects.filter(pk=aventureiro_id).first()
                     if not av:
@@ -5288,12 +5373,14 @@ class PontosView(LoginRequiredMixin, View):
             preset_id = str(request.POST.get('preset_apply_id') or '').strip()
             target_mode = str(request.POST.get('preset_apply_target_mode') or 'individual').strip()
             aventureiro_id = str(request.POST.get('preset_apply_aventureiro_id') or '').strip()
+            target_classe = str(request.POST.get('preset_apply_target_classe') or '').strip().lower()
             preset = AventureiroPontosPreset.objects.filter(pk=preset_id).first()
             if not preset:
                 messages.error(request, 'Selecione um pré-registro válido para aplicar.')
             else:
+                aventureiros_all = self._aventureiros()
                 if target_mode == 'todos':
-                    aventureiros = self._aventureiros()
+                    aventureiros = aventureiros_all
                     if not aventureiros:
                         messages.error(request, 'Nenhum aventureiro disponível para aplicar o pré-registro.')
                     else:
@@ -5308,6 +5395,29 @@ class PontosView(LoginRequiredMixin, View):
                             for av in aventureiros
                         ])
                         messages.success(request, f'Pré-registro "{preset.nome}" aplicado para todos ({len(aventureiros)}).')
+                elif target_mode == 'classe':
+                    classe_label = self._classe_label_por_code(target_classe)
+                    if not classe_label:
+                        messages.error(request, 'Selecione uma classe válida para aplicar o pré-registro.')
+                    else:
+                        aventureiros = self._aventureiros_por_classe_label(aventureiros_all).get(classe_label, [])
+                        if not aventureiros:
+                            messages.error(request, f'Nenhum aventureiro encontrado na classe {classe_label}.')
+                        else:
+                            AventureiroPontosLancamento.objects.bulk_create([
+                                AventureiroPontosLancamento(
+                                    aventureiro=av,
+                                    pontos=preset.pontos,
+                                    motivo=preset.motivo_padrao,
+                                    preset=preset,
+                                    created_by=request.user,
+                                )
+                                for av in aventureiros
+                            ])
+                            messages.success(
+                                request,
+                                f'Pré-registro "{preset.nome}" aplicado para a classe {classe_label} ({len(aventureiros)}).',
+                            )
                 else:
                     av = Aventureiro.objects.filter(pk=aventureiro_id).first()
                     if not av:
