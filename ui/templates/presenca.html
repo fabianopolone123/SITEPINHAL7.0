@@ -18,6 +18,24 @@
       border-radius: 12px;
       padding: 0.7rem;
     }
+    .attendance-control-card.is-action {
+      display: grid;
+      align-content: end;
+    }
+    .attendance-open-missing-btn {
+      border: 1px solid #1d4ed8;
+      border-radius: 10px;
+      background: #1d4ed8;
+      color: #fff;
+      font-weight: 800;
+      padding: 0.52rem 0.72rem;
+      cursor: pointer;
+      width: 100%;
+    }
+    .attendance-open-missing-btn:hover {
+      background: #1e40af;
+      border-color: #1e40af;
+    }
     .attendance-control-title {
       font-size: 0.78rem;
       text-transform: uppercase;
@@ -220,6 +238,166 @@
       opacity: 0.6;
       cursor: wait;
     }
+    .missing-inscricao-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, .72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 1250;
+    }
+    .missing-inscricao-modal.is-open {
+      display: flex;
+    }
+    .missing-inscricao-content {
+      width: min(96vw, 720px);
+      max-height: 92vh;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid #cbd5e1;
+      box-shadow: 0 22px 50px rgba(15, 23, 42, .35);
+    }
+    .missing-inscricao-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .6rem;
+      padding: .65rem .8rem;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+    .missing-inscricao-title {
+      font-weight: 800;
+      color: #0f172a;
+      font-size: .95rem;
+    }
+    .missing-inscricao-close {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+      padding: .25rem .55rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .missing-inscricao-body {
+      overflow: auto;
+      padding: .75rem;
+      display: grid;
+      gap: .8rem;
+      background: #fff;
+    }
+    .missing-inscricao-form {
+      border: 1px solid #dbeafe;
+      background: #f8fbff;
+      border-radius: 12px;
+      padding: .7rem;
+      display: grid;
+      gap: .55rem;
+    }
+    .missing-inscricao-grid {
+      display: grid;
+      gap: .55rem;
+      grid-template-columns: 1fr 1fr;
+    }
+    .missing-inscricao-form label {
+      display: grid;
+      gap: .3rem;
+      font-size: .86rem;
+      color: #334155;
+      font-weight: 700;
+    }
+    .missing-inscricao-form input[type="text"],
+    .missing-inscricao-form input[type="file"] {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #fff;
+      padding: .48rem .55rem;
+      font-size: .93rem;
+    }
+    .missing-inscricao-submit {
+      border: 1px solid #15803d;
+      border-radius: 10px;
+      background: #16a34a;
+      color: #fff;
+      font-weight: 800;
+      padding: .5rem .75rem;
+      cursor: pointer;
+      width: fit-content;
+    }
+    .missing-inscricao-submit:disabled {
+      opacity: .65;
+      cursor: wait;
+    }
+    .missing-inscricao-status {
+      margin: 0;
+      font-size: .82rem;
+      color: #475569;
+      min-height: 1.1rem;
+    }
+    .missing-inscricao-status[data-state="ok"] {
+      color: #166534;
+      font-weight: 700;
+    }
+    .missing-inscricao-status[data-state="error"] {
+      color: #991b1b;
+      font-weight: 700;
+    }
+    .missing-inscricao-list {
+      display: grid;
+      gap: .55rem;
+    }
+    .missing-inscricao-item {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: .55rem .6rem;
+      background: #fff;
+      display: grid;
+      grid-template-columns: 54px 1fr;
+      gap: .6rem;
+      align-items: center;
+    }
+    .missing-inscricao-photo-btn {
+      border: 0;
+      background: transparent;
+      border-radius: 10px;
+      padding: 0;
+      line-height: 0;
+      cursor: zoom-in;
+    }
+    .missing-inscricao-photo {
+      width: 54px;
+      height: 54px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      display: block;
+    }
+    .missing-inscricao-name {
+      color: #0f172a;
+      font-weight: 800;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+    .missing-inscricao-meta {
+      color: #64748b;
+      font-size: .78rem;
+      margin-top: .12rem;
+    }
+    .missing-inscricao-empty {
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      padding: .55rem .6rem;
+      background: #f8fafc;
+      color: #64748b;
+      font-size: .84rem;
+    }
     .resp-presence-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -359,6 +537,9 @@
       .presence-toggle {
         width: 100%;
       }
+      .missing-inscricao-grid {
+        grid-template-columns: 1fr;
+      }
       .resp-presence-card summary {
         grid-template-columns: 56px 1fr;
       }
@@ -431,6 +612,7 @@
 <body class="painel-page">
   {% if presenca_mode != 'responsavel' %}
     {{ presencas_json|json_script:"presencas-init-data" }}
+    {{ faltas_inscricao_json|json_script:"faltas-inscricao-init-data" }}
   {% endif %}
   {% include '_painel_sidebar.html' %}
   <main class="painel-content">
@@ -540,6 +722,11 @@
           </label>
           <datalist id="attendance-search-suggestions"></datalist>
         </div>
+        <div class="attendance-control-card is-action">
+          <button type="button" class="attendance-open-missing-btn" id="open-missing-inscricao-btn" {% if not selected_event %}disabled{% endif %}>
+            Falta inscrição
+          </button>
+        </div>
       </div>
 
       <div class="event-highlight-list">
@@ -608,6 +795,58 @@
   </main>
 
   {% if presenca_mode != 'responsavel' %}
+  <div class="missing-inscricao-modal" id="missing-inscricao-modal" aria-hidden="true">
+    <div class="missing-inscricao-content" role="dialog" aria-modal="true" aria-labelledby="missing-inscricao-title">
+      <div class="missing-inscricao-header">
+        <div class="missing-inscricao-title" id="missing-inscricao-title">Registrar falta inscrição</div>
+        <button type="button" class="missing-inscricao-close" id="missing-inscricao-close" aria-label="Fechar">Fechar</button>
+      </div>
+      <div class="missing-inscricao-body">
+        <form id="missing-inscricao-form" class="missing-inscricao-form" novalidate>
+          <input type="hidden" id="missing-inscricao-evento-id" value="{% if selected_event %}{{ selected_event.id }}{% endif %}" />
+          <div class="missing-inscricao-grid">
+            <label for="missing-inscricao-nome">
+              Nome
+              <input type="text" id="missing-inscricao-nome" name="nome" maxlength="255" required placeholder="Nome de quem faltou inscrição" />
+            </label>
+            <label for="missing-inscricao-foto">
+              Foto
+              <input type="file" id="missing-inscricao-foto" name="foto" accept="image/*" capture="environment" required />
+            </label>
+          </div>
+          <button type="submit" class="missing-inscricao-submit" id="missing-inscricao-submit">Salvar</button>
+          <p class="missing-inscricao-status" id="missing-inscricao-status" aria-live="polite"></p>
+        </form>
+
+        <div class="missing-inscricao-list" id="missing-inscricao-list">
+          {% if faltas_inscricao %}
+            {% for item in faltas_inscricao %}
+              <article class="missing-inscricao-item">
+                <button
+                  type="button"
+                  class="missing-inscricao-photo-btn js-open-presence-photo"
+                  data-photo-url="{{ item.foto.url }}"
+                  data-photo-title="Falta inscrição - {{ item.nome|escape }}"
+                  aria-label="Ampliar foto de {{ item.nome }}"
+                >
+                  <img src="{{ item.foto.url }}" alt="Foto de {{ item.nome }}" class="missing-inscricao-photo" loading="lazy" />
+                </button>
+                <div>
+                  <div class="missing-inscricao-name">{{ item.nome }}</div>
+                  <div class="missing-inscricao-meta">
+                    {{ item.created_at|date:"d/m/Y H:i" }}{% if item.created_by %} | por {{ item.created_by.username }}{% endif %}
+                  </div>
+                </div>
+              </article>
+            {% endfor %}
+          {% else %}
+            <div class="missing-inscricao-empty">Nenhum registro de falta inscrição neste evento ainda.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="presence-photo-modal" id="presence-photo-modal" aria-hidden="true">
     <div class="presence-photo-content" role="dialog" aria-modal="true" aria-labelledby="presence-photo-title">
       <div class="presence-photo-header">
@@ -628,11 +867,23 @@
       const counterNode = document.getElementById('attendance-counter');
       const lastSyncNode = document.getElementById('last-sync-label');
       const initNode = document.getElementById('presencas-init-data');
+      const faltasInitNode = document.getElementById('faltas-inscricao-init-data');
+      const openMissingBtn = document.getElementById('open-missing-inscricao-btn');
+      const missingModal = document.getElementById('missing-inscricao-modal');
+      const missingClose = document.getElementById('missing-inscricao-close');
+      const missingForm = document.getElementById('missing-inscricao-form');
+      const missingEventInput = document.getElementById('missing-inscricao-evento-id');
+      const missingNomeInput = document.getElementById('missing-inscricao-nome');
+      const missingFotoInput = document.getElementById('missing-inscricao-foto');
+      const missingSubmit = document.getElementById('missing-inscricao-submit');
+      const missingStatus = document.getElementById('missing-inscricao-status');
+      const missingListNode = document.getElementById('missing-inscricao-list');
       const photoModal = document.getElementById('presence-photo-modal');
       const photoImage = document.getElementById('presence-photo-image');
       const photoTitle = document.getElementById('presence-photo-title');
       const photoClose = document.getElementById('presence-photo-close');
       let presencas = {};
+      let faltasInscricao = [];
 
       const parseInitData = () => {
         if (!initNode) return {};
@@ -641,6 +892,15 @@
           return (parsed && typeof parsed === 'object') ? parsed : {};
         } catch (_error) {
           return {};
+        }
+      };
+      const parseFaltasInitData = () => {
+        if (!faltasInitNode) return [];
+        try {
+          const parsed = JSON.parse(faltasInitNode.textContent || '[]');
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (_error) {
+          return [];
         }
       };
 
@@ -659,6 +919,64 @@
           .replace(/\s+/g, ' ')
           .trim()
       );
+      const escapeHtml = (value) => String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+      const selectedEventName = () => {
+        if (!eventSelect) return '';
+        const option = eventSelect.options[eventSelect.selectedIndex];
+        return option ? (option.textContent || '').trim() : '';
+      };
+      const openPhotoModal = (url, title) => {
+        if (!photoModal || !photoImage || !url) return;
+        photoImage.src = url;
+        if (photoTitle) photoTitle.textContent = title || 'Foto';
+        photoModal.classList.add('is-open');
+        photoModal.setAttribute('aria-hidden', 'false');
+      };
+      const setMissingStatus = (message, state) => {
+        if (!missingStatus) return;
+        missingStatus.textContent = message || '';
+        if (!state) {
+          missingStatus.removeAttribute('data-state');
+          return;
+        }
+        missingStatus.setAttribute('data-state', state);
+      };
+      const renderMissingList = () => {
+        if (!missingListNode) return;
+        if (!faltasInscricao.length) {
+          missingListNode.innerHTML = '<div class="missing-inscricao-empty">Nenhum registro de falta inscrição neste evento ainda.</div>';
+          return;
+        }
+        missingListNode.innerHTML = faltasInscricao.map((item) => {
+          const nome = escapeHtml(item.nome || '-');
+          const fotoUrl = escapeHtml(item.foto_url || '');
+          const createdAt = escapeHtml(item.created_at_label || '');
+          const createdBy = escapeHtml(item.created_by || '');
+          const auditLabel = createdBy ? `${createdAt} | por ${createdBy}` : createdAt;
+          return `
+            <article class="missing-inscricao-item">
+              <button
+                type="button"
+                class="missing-inscricao-photo-btn js-open-presence-photo"
+                data-photo-url="${fotoUrl}"
+                data-photo-title="Falta inscrição - ${nome}"
+                aria-label="Ampliar foto de ${nome}"
+              >
+                <img src="${fotoUrl}" alt="Foto de ${nome}" class="missing-inscricao-photo" loading="lazy" />
+              </button>
+              <div>
+                <div class="missing-inscricao-name">${nome}</div>
+                <div class="missing-inscricao-meta">${auditLabel}</div>
+              </div>
+            </article>
+          `;
+        }).join('');
+      };
 
       const applyRowState = (row, payload) => {
         if (!row) return;
@@ -749,6 +1067,25 @@
           })
           .catch(() => {});
       };
+      const fetchMissingInscricaoList = () => {
+        const eventId = selectedEventId();
+        if (!eventId) return Promise.resolve();
+        if (missingEventInput) missingEventInput.value = eventId;
+        return fetch("{% url 'accounts:presenca_falta_inscricao_api' %}?evento_id=" + encodeURIComponent(eventId), {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (!data || !data.ok) {
+              throw new Error((data && data.error) || 'Não foi possível carregar os registros.');
+            }
+            faltasInscricao = Array.isArray(data.itens) ? data.itens : [];
+            renderMissingList();
+          })
+          .catch((error) => {
+            setMissingStatus(error.message || 'Falha ao carregar os registros.', 'error');
+          });
+      };
 
       const sendToggle = (button) => {
         const eventId = selectedEventId();
@@ -785,6 +1122,55 @@
             button.disabled = false;
           });
       };
+      const submitMissingInscricao = () => {
+        const eventId = selectedEventId();
+        if (!eventId) {
+          setMissingStatus('Selecione um evento antes de registrar.', 'error');
+          return Promise.resolve();
+        }
+        const nome = (missingNomeInput ? missingNomeInput.value : '').trim();
+        const foto = (missingFotoInput && missingFotoInput.files) ? missingFotoInput.files[0] : null;
+        if (!nome) {
+          setMissingStatus('Informe o nome.', 'error');
+          if (missingNomeInput) missingNomeInput.focus();
+          return Promise.resolve();
+        }
+        if (!foto) {
+          setMissingStatus('Capture ou selecione uma foto.', 'error');
+          return Promise.resolve();
+        }
+        if (missingSubmit) missingSubmit.disabled = true;
+        setMissingStatus('Salvando...', null);
+        const formData = new FormData();
+        formData.append('evento_id', eventId);
+        formData.append('nome', nome);
+        formData.append('foto', foto);
+        return fetch("{% url 'accounts:presenca_falta_inscricao_api' %}", {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (!data || !data.ok || !data.item) {
+              throw new Error((data && data.error) || 'Não foi possível salvar o registro.');
+            }
+            faltasInscricao = [data.item].concat(faltasInscricao || []);
+            renderMissingList();
+            setMissingStatus('Registro salvo com sucesso.', 'ok');
+            if (missingForm) missingForm.reset();
+            if (missingNomeInput) missingNomeInput.focus();
+          })
+          .catch((error) => {
+            setMissingStatus(error.message || 'Falha ao salvar o registro.', 'error');
+          })
+          .finally(() => {
+            if (missingSubmit) missingSubmit.disabled = false;
+          });
+      };
 
       if (eventSelect) {
         eventSelect.addEventListener('change', () => {
@@ -808,14 +1194,57 @@
             return;
           }
           const photoBtn = event.target.closest('.js-open-presence-photo');
-          if (!photoBtn || !photoModal || !photoImage) return;
+          if (!photoBtn) return;
           const url = photoBtn.getAttribute('data-photo-url') || '';
           const title = photoBtn.getAttribute('data-photo-title') || 'Foto do aventureiro';
-          if (!url) return;
-          photoImage.src = url;
-          if (photoTitle) photoTitle.textContent = title;
-          photoModal.classList.add('is-open');
-          photoModal.setAttribute('aria-hidden', 'false');
+          openPhotoModal(url, title);
+        });
+      }
+
+      if (openMissingBtn && missingModal) {
+        openMissingBtn.addEventListener('click', () => {
+          const eventId = selectedEventId();
+          if (!eventId) return;
+          if (missingEventInput) missingEventInput.value = eventId;
+          missingModal.classList.add('is-open');
+          missingModal.setAttribute('aria-hidden', 'false');
+          setMissingStatus('Evento: ' + selectedEventName(), null);
+          fetchMissingInscricaoList();
+          setTimeout(() => {
+            if (missingNomeInput) missingNomeInput.focus();
+          }, 30);
+        });
+      }
+
+      function closeMissingModal() {
+        if (!missingModal) return;
+        missingModal.classList.remove('is-open');
+        missingModal.setAttribute('aria-hidden', 'true');
+        setMissingStatus('', null);
+      }
+      if (missingClose) {
+        missingClose.addEventListener('click', closeMissingModal);
+      }
+      if (missingModal) {
+        missingModal.addEventListener('click', (event) => {
+          if (event.target === missingModal) {
+            closeMissingModal();
+          }
+        });
+      }
+      if (missingForm) {
+        missingForm.addEventListener('submit', (event) => {
+          event.preventDefault();
+          submitMissingInscricao();
+        });
+      }
+      if (missingListNode) {
+        missingListNode.addEventListener('click', (event) => {
+          const photoBtn = event.target.closest('.js-open-presence-photo');
+          if (!photoBtn) return;
+          const url = photoBtn.getAttribute('data-photo-url') || '';
+          const title = photoBtn.getAttribute('data-photo-title') || 'Falta inscrição';
+          openPhotoModal(url, title);
         });
       }
 
@@ -838,14 +1267,20 @@
       }
       document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
+          if (missingModal && missingModal.classList.contains('is-open')) {
+            closeMissingModal();
+            return;
+          }
           closePhotoModal();
         }
       });
 
       presencas = parseInitData();
+      faltasInscricao = parseFaltasInitData();
       applyAllRows();
       buildSearchSuggestions();
       filterRows();
+      renderMissingList();
       fetchPresence();
       setInterval(fetchPresence, 2000);
     })();

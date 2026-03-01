@@ -48,6 +48,7 @@ from .models import (
     Evento,
     EventoPreset,
     EventoPresenca,
+    EventoFaltaInscricao,
     AuditLog,
     MensalidadeAventureiro,
     PagamentoMensalidade,
@@ -3300,6 +3301,17 @@ class PresencaView(LoginRequiredMixin, View):
             return inline_photo
         return ''
 
+    def _falta_inscricao_payload(self, row):
+        created_at_local = timezone.localtime(row.created_at)
+        return {
+            'id': row.id,
+            'nome': row.nome,
+            'foto_url': row.foto.url if row.foto else '',
+            'created_at': created_at_local.isoformat(),
+            'created_at_label': created_at_local.strftime('%d/%m/%Y %H:%M'),
+            'created_by': row.created_by.username if row.created_by else '',
+        }
+
     def _responsavel_context(self, request):
         responsavel = getattr(request.user, 'responsavel', None)
         eventos = self._ordered_events()
@@ -3390,6 +3402,16 @@ class PresencaView(LoginRequiredMixin, View):
             av.presenca_foto_url = self._aventureiro_photo_url(av)
         presencas_map = self._presence_map(selected_event.id) if selected_event else {}
         present_count = sum(1 for value in presencas_map.values() if value.get('presente'))
+        faltas_inscricao = []
+        faltas_inscricao_json = []
+        if selected_event:
+            faltas_inscricao = list(
+                EventoFaltaInscricao.objects
+                .filter(evento=selected_event)
+                .select_related('created_by')
+                .order_by('-created_at')
+            )
+            faltas_inscricao_json = [self._falta_inscricao_payload(row) for row in faltas_inscricao]
 
         event_rows = []
         for evento in eventos:
@@ -3411,6 +3433,8 @@ class PresencaView(LoginRequiredMixin, View):
             'presencas_json': presencas_map,
             'present_count': present_count,
             'total_count': len(aventureiros),
+            'faltas_inscricao': faltas_inscricao,
+            'faltas_inscricao_json': faltas_inscricao_json,
         }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
@@ -3494,6 +3518,89 @@ class PresencaToggleApiView(LoginRequiredMixin, View):
             'updated_at': timezone.localtime(presenca.updated_at).isoformat(),
             'updated_by': request.user.username,
             'present_count': present_count,
+        })
+
+
+class PresencaFaltaInscricaoApiView(LoginRequiredMixin, View):
+    def _guard(self, request):
+        if not _has_menu_permission(request, 'presenca'):
+            return JsonResponse({'ok': False, 'error': 'Sem permissão para acessar presença.'}, status=403)
+        if _get_active_profile(request) == UserAccess.ROLE_RESPONSAVEL:
+            return JsonResponse({'ok': False, 'error': 'Perfil responsável não pode cadastrar falta de inscrição.'}, status=403)
+        return None
+
+    def _get_evento(self, event_id_raw):
+        if not str(event_id_raw or '').strip().isdigit():
+            return None
+        return Evento.objects.filter(pk=int(event_id_raw)).first()
+
+    def _serialize_item(self, row):
+        created_at_local = timezone.localtime(row.created_at)
+        return {
+            'id': row.id,
+            'nome': row.nome,
+            'foto_url': row.foto.url if row.foto else '',
+            'created_at': created_at_local.isoformat(),
+            'created_at_label': created_at_local.strftime('%d/%m/%Y %H:%M'),
+            'created_by': row.created_by.username if row.created_by else '',
+        }
+
+    def get(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+
+        evento = self._get_evento((request.GET.get('evento_id') or '').strip())
+        if not evento:
+            return JsonResponse({'ok': False, 'error': 'Evento inválido.'}, status=400)
+
+        rows = (
+            EventoFaltaInscricao.objects
+            .filter(evento=evento)
+            .select_related('created_by')
+            .order_by('-created_at')
+        )
+        return JsonResponse({
+            'ok': True,
+            'evento_id': evento.id,
+            'itens': [self._serialize_item(row) for row in rows],
+        })
+
+    def post(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+
+        evento = self._get_evento((request.POST.get('evento_id') or '').strip())
+        if not evento:
+            return JsonResponse({'ok': False, 'error': 'Evento inválido.'}, status=400)
+
+        nome = (request.POST.get('nome') or '').strip()
+        if not nome:
+            return JsonResponse({'ok': False, 'error': 'Informe o nome.'}, status=400)
+        foto = request.FILES.get('foto')
+        if not foto:
+            return JsonResponse({'ok': False, 'error': 'Capture ou selecione uma foto.'}, status=400)
+        if not str(getattr(foto, 'content_type', '')).startswith('image/'):
+            return JsonResponse({'ok': False, 'error': 'Arquivo inválido. Envie uma imagem.'}, status=400)
+
+        item = EventoFaltaInscricao.objects.create(
+            evento=evento,
+            nome=nome,
+            foto=foto,
+            created_by=request.user,
+        )
+        record_audit(
+            action='Cadastro falta inscrição',
+            user=request.user,
+            request=request,
+            location='Presença',
+            details=f'Evento="{evento.name}" | Nome="{nome}"',
+        )
+        return JsonResponse({
+            'ok': True,
+            'evento_id': evento.id,
+            'item': self._serialize_item(item),
         })
 
 

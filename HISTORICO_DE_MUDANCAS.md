@@ -787,3 +787,12 @@ Arquivo oficial de registro das entregas concluidas.
 - Ajustada a pesquisa da Presenca (admin) para ignorar acentos e caracteres especiais no texto digitado.
 - Exemplo: ao digitar perola, o sistema tambem encontra Pérola.
 - Mantido o autocomplete e o filtro em tempo real da lista.
+
+## 01/03/2026 - Presenca (admin): modal de falta inscricao com foto
+
+- Adicionado botao Falta inscricao na tela de Presenca (modo administrativo).
+- Ao clicar, abre uma janela suspensa para registrar nome e foto de quem esta sem inscricao no evento selecionado.
+- O campo de foto aceita captura direta da camera no celular (input com capture).
+- Na mesma janela, agora aparece a lista dos ja cadastrados de falta inscricao para o evento.
+- Adicionado endpoint de API para listar e cadastrar esses registros sem recarregar a tela.
+

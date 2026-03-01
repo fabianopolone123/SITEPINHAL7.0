@@ -13,6 +13,13 @@ def signature_upload_to(instance, filename):
     return f"{prefix}/{role}/{timestamp}_{filename}" if filename else f"{prefix}/{role}/{timestamp}.png"
 
 
+def presenca_falta_inscricao_upload_to(instance, filename):
+    timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
+    safe_name = (filename or 'foto.jpg').replace(' ', '_')
+    event_part = f'evento_{instance.evento_id or "sem_evento"}'
+    return f'photos/presenca_falta_inscricao/{event_part}/{timestamp}_{safe_name}'
+
+
 class UserAccess(models.Model):
     ROLE_RESPONSAVEL = 'responsavel'
     ROLE_DIRETORIA = 'diretoria'
@@ -496,6 +503,28 @@ class EventoPresenca(models.Model):
     def __str__(self):
         status = 'presente' if self.presente else 'ausente'
         return f'{self.evento.name} - {self.aventureiro.nome} ({status})'
+
+
+class EventoFaltaInscricao(models.Model):
+    evento = models.ForeignKey(Evento, on_delete=models.CASCADE, related_name='faltas_inscricao')
+    nome = models.CharField('nome informado', max_length=255)
+    foto = models.ImageField('foto', upload_to=presenca_falta_inscricao_upload_to)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='faltas_inscricao_cadastradas',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'falta de inscrição em evento'
+        verbose_name_plural = 'faltas de inscrição em eventos'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f'{self.nome} - {self.evento.name}'
 
 
 class MensalidadeAventureiro(models.Model):
