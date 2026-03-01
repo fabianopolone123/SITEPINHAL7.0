@@ -796,3 +796,9 @@ Arquivo oficial de registro das entregas concluidas.
 - Na mesma janela, agora aparece a lista dos ja cadastrados de falta inscricao para o evento.
 - Adicionado endpoint de API para listar e cadastrar esses registros sem recarregar a tela.
 
+## 01/03/2026 - Presenca (admin): upload mais rapido no falta inscricao
+
+- Melhorado o envio de foto no modal Falta inscricao com otimizacao da imagem antes do upload.
+- Fotos grandes agora sao redimensionadas e comprimidas no navegador antes de enviar ao servidor.
+- Mantido fallback automatico para envio original caso a otimizacao nao seja possivel.
+- Resultado: menos tempo de upload em conexoes moveis e menor chance de lentidao ao salvar.
