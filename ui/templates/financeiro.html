@@ -123,13 +123,25 @@
       <div class="responsavel-financeiro">
         <p class="panel-note">
           Selecione as mensalidades pendentes dos seus aventureiros para pagamento.
-          São exibidas apenas mensalidades atrasadas e do mês atual ({{ mes_atual_label }}/{{ ano_atual }}).
+          {% if responsavel_incluir_ano_todo %}
+            Estão sendo exibidas as mensalidades pendentes atrasadas e também as futuras do ano {{ ano_atual }}.
+          {% else %}
+            São exibidas apenas mensalidades atrasadas e do mês atual ({{ mes_atual_label }}/{{ ano_atual }}).
+          {% endif %}
         </p>
+
+        <form method="get" style="margin:.55rem 0 1rem;">
+          <label style="display:inline-flex; align-items:center; gap:.45rem; font-weight:600; color:#0f172a;">
+            <input type="checkbox" name="incluir_ano_todo" value="1" {% if responsavel_incluir_ano_todo %}checked{% endif %} onchange="this.form.submit();" />
+            Incluir também mensalidades futuras do ano ({{ ano_atual }})
+          </label>
+        </form>
 
         {% if responsavel_rows %}
           <form method="post">
             {% csrf_token %}
             <input type="hidden" name="action" value="pagar_mensalidades" />
+            <input type="hidden" name="incluir_ano_todo" value="{% if responsavel_incluir_ano_todo %}1{% else %}0{% endif %}" />
             <table>
               <thead>
                 <tr>
@@ -163,6 +175,8 @@
                 <span id="financeiroTotalSelecionadoValor">R$ 0,00</span>
               </div>
               <div class="financeiro-actions">
+                <button type="button" class="secondary" id="financeiroSelecionarTodas">Selecionar todas</button>
+                <button type="button" class="secondary" id="financeiroLimparSelecao">Limpar</button>
                 <button type="submit" class="primary">Pagar</button>
               </div>
             </div>
@@ -456,6 +470,8 @@
     (function () {
       const checks = Array.from(document.querySelectorAll('input[name="mensalidades_ids"][data-valor]'));
       const totalNode = document.getElementById('financeiroTotalSelecionadoValor');
+      const btnSelecionarTodas = document.getElementById('financeiroSelecionarTodas');
+      const btnLimparSelecao = document.getElementById('financeiroLimparSelecao');
 
       function parseMoedaBRL(texto) {
         const normalizado = String(texto || '')
@@ -484,6 +500,20 @@
           check.addEventListener('change', atualizarTotal);
         });
         atualizarTotal();
+      }
+
+      if (btnSelecionarTodas) {
+        btnSelecionarTodas.addEventListener('click', function () {
+          checks.forEach(function (check) { check.checked = true; });
+          atualizarTotal();
+        });
+      }
+
+      if (btnLimparSelecao) {
+        btnLimparSelecao.addEventListener('click', function () {
+          checks.forEach(function (check) { check.checked = false; });
+          atualizarTotal();
+        });
       }
 
       const pixModal = document.getElementById('pixPagamentoModal');

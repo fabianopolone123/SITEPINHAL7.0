@@ -716,3 +716,13 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Ajustada a regra de classificacao para que qualquer crianca com idade real abaixo de 6 anos seja classificada em Abelhinhas.
 - Removida a regra anterior de corte em 30/06 para esse caso.
+
+## 28/02/2026 - Financeiro: robustez no Pix e opcao de pagar ano todo
+
+- Ajustado o fluxo de criacao de pagamento Pix de mensalidades para reduzir falhas na geracao de QR Code.
+- O sistema agora tenta reconsultar o pagamento no Mercado Pago quando o retorno inicial nao traz transaction_data completo.
+- O pagamento nao falha mais apenas por ausencia de qr_code_base64 quando o pix_code existe.
+- Adicionada opcao no perfil Responsavel para incluir mensalidades futuras do ano atual na listagem de pagamento.
+- Com essa opcao marcada, fica possivel pagar todas as mensalidades pendentes do ano de uma vez.
+- Incluidos botoes Selecionar todas e Limpar para agilizar a selecao em lote das mensalidades.
+

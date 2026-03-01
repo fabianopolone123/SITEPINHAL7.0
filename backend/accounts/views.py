@@ -4323,16 +4323,34 @@ class FinanceiroView(LoginRequiredMixin, View):
             payload['notification_url'] = notification_url
 
         payment = self._mp_api_request('POST', '/v1/payments', payload)
+        payment_id = str(payment.get('id') or '')
+        status = (payment.get('status') or '').lower()
+        status_detail = payment.get('status_detail') or ''
         tx_data = payment.get('point_of_interaction', {}).get('transaction_data', {})
         pix_code = tx_data.get('qr_code', '') or ''
         qr_base64 = tx_data.get('qr_code_base64', '') or ''
-        if not pix_code or not qr_base64:
-            raise ValueError('Mercado Pago não retornou QR Code Pix para este pagamento.')
+
+        # Alguns retornos do MP chegam sem transaction_data completo na criação.
+        # Tenta reconsultar o pagamento para recuperar o código Pix.
+        if not pix_code and payment_id:
+            try:
+                refreshed = self._get_mp_payment(payment_id)
+                status = (refreshed.get('status') or status).lower()
+                status_detail = refreshed.get('status_detail') or status_detail
+                tx_data_refreshed = refreshed.get('point_of_interaction', {}).get('transaction_data', {})
+                pix_code = tx_data_refreshed.get('qr_code', '') or pix_code
+                qr_base64 = tx_data_refreshed.get('qr_code_base64', '') or qr_base64
+            except Exception:
+                pass
+
+        if not pix_code and status != 'approved':
+            raise ValueError('Mercado Pago não retornou o código Pix deste pagamento.')
+
         return {
-            'payment_id': str(payment.get('id') or ''),
+            'payment_id': payment_id,
             'external_reference': external_reference,
-            'status': (payment.get('status') or '').lower(),
-            'status_detail': payment.get('status_detail') or '',
+            'status': status,
+            'status_detail': status_detail,
             'pix_code': pix_code,
             'qr_base64': qr_base64,
         }
@@ -4489,7 +4507,25 @@ class FinanceiroView(LoginRequiredMixin, View):
             pagamento.whatsapp_notified_at = timezone.now()
             pagamento.save(update_fields=['whatsapp_notified_at', 'updated_at'])
 
-    def _mensalidades_responsavel_context(self, request):
+    def _mensalidades_responsavel_base_queryset(self, responsavel, hoje, incluir_ano_todo=False):
+        qs = (
+            MensalidadeAventureiro.objects
+            .filter(
+                aventureiro__responsavel=responsavel,
+                status=MensalidadeAventureiro.STATUS_PENDENTE,
+            )
+        )
+        if incluir_ano_todo:
+            return qs.filter(
+                Q(ano_referencia__lt=hoje.year)
+                | Q(ano_referencia=hoje.year)
+            )
+        return qs.filter(
+            Q(ano_referencia__lt=hoje.year)
+            | Q(ano_referencia=hoje.year, mes_referencia__lte=hoje.month)
+        )
+
+    def _mensalidades_responsavel_context(self, request, incluir_ano_todo=False):
         hoje = timezone.localdate()
         responsavel = getattr(request.user, 'responsavel', None)
         rows = []
@@ -4501,15 +4537,12 @@ class FinanceiroView(LoginRequiredMixin, View):
             )
             if aventureiros:
                 itens = (
-                    MensalidadeAventureiro.objects
-                    .filter(
-                        aventureiro__in=aventureiros,
-                        status=MensalidadeAventureiro.STATUS_PENDENTE,
+                    self._mensalidades_responsavel_base_queryset(
+                        responsavel=responsavel,
+                        hoje=hoje,
+                        incluir_ano_todo=incluir_ano_todo,
                     )
-                    .filter(
-                        Q(ano_referencia__lt=hoje.year)
-                        | Q(ano_referencia=hoje.year, mes_referencia__lte=hoje.month)
-                    )
+                    .filter(aventureiro__in=aventureiros)
                     .select_related('aventureiro')
                     .order_by('aventureiro__nome', 'ano_referencia', 'mes_referencia')
                 )
@@ -4535,6 +4568,7 @@ class FinanceiroView(LoginRequiredMixin, View):
             'financeiro_mode': 'responsavel',
             'responsavel_rows': rows,
             'responsavel_tem_aventureiros': bool(getattr(request.user, 'responsavel', None) and request.user.responsavel.aventures.exists()),
+            'responsavel_incluir_ano_todo': bool(incluir_ano_todo),
             'mes_atual_label': self._month_label(hoje.month),
             'ano_atual': hoje.year,
             'responsavel_pix_pagamento': None,
@@ -4613,7 +4647,8 @@ class FinanceiroView(LoginRequiredMixin, View):
         if guard:
             return guard
         if self._is_responsavel_mode(request):
-            context = self._mensalidades_responsavel_context(request)
+            incluir_ano_todo = str(request.GET.get('incluir_ano_todo') or '').strip().lower() in {'1', 'true', 'on', 'yes'}
+            context = self._mensalidades_responsavel_context(request, incluir_ano_todo=incluir_ano_todo)
         else:
             context = self._mensalidades_context(
                 request.GET.get('aventureiro'),
@@ -4631,7 +4666,8 @@ class FinanceiroView(LoginRequiredMixin, View):
             return guard
         if self._is_responsavel_mode(request):
             action = str(request.POST.get('action') or '').strip()
-            context = self._mensalidades_responsavel_context(request)
+            incluir_ano_todo = str(request.POST.get('incluir_ano_todo') or '').strip().lower() in {'1', 'true', 'on', 'yes'}
+            context = self._mensalidades_responsavel_context(request, incluir_ano_todo=incluir_ano_todo)
             responsavel = getattr(request.user, 'responsavel', None)
             if action == 'pagar_mensalidades':
                 selected_ids = []
@@ -4647,17 +4683,13 @@ class FinanceiroView(LoginRequiredMixin, View):
                 else:
                     hoje = timezone.localdate()
                     mensalidades_qs = (
-                        MensalidadeAventureiro.objects
+                        self._mensalidades_responsavel_base_queryset(
+                            responsavel=responsavel,
+                            hoje=hoje,
+                            incluir_ano_todo=incluir_ano_todo,
+                        )
+                        .filter(pk__in=selected_ids)
                         .select_related('aventureiro')
-                        .filter(
-                            pk__in=selected_ids,
-                            aventureiro__responsavel=responsavel,
-                            status=MensalidadeAventureiro.STATUS_PENDENTE,
-                        )
-                        .filter(
-                            Q(ano_referencia__lt=hoje.year)
-                            | Q(ano_referencia=hoje.year, mes_referencia__lte=hoje.month)
-                        )
                         .order_by('aventureiro__nome', 'ano_referencia', 'mes_referencia')
                     )
                     mensalidades = list(mensalidades_qs)
@@ -4706,7 +4738,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                                 messages.success(request, 'Pagamento aprovado e mensalidades marcadas como pagas.')
                             else:
                                 messages.success(request, 'Pagamento Pix gerado com sucesso. Use o QR Code para concluir.')
-                            context = self._mensalidades_responsavel_context(request)
+                            context = self._mensalidades_responsavel_context(request, incluir_ano_todo=incluir_ano_todo)
                             context['responsavel_pix_pagamento'] = self._pix_modal_context(pagamento)
             context.update({'active_financeiro_tab': 'mensalidades'})
             context.update(_sidebar_context(request))
