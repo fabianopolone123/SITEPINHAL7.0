@@ -712,3 +712,7 @@ Arquivo oficial de registro das entregas concluidas.
 - Tela de Usuarios e usuario_detalhe agora exibem perfis calculados pela regra de grupos.
 
 
+## 28/02/2026 - Classificacao de aventureiros: abaixo de 6 anos em Abelhinhas
+
+- Ajustada a regra de classificacao para que qualquer crianca com idade real abaixo de 6 anos seja classificada em Abelhinhas.
+- Removida a regra anterior de corte em 30/06 para esse caso.
