@@ -802,3 +802,7 @@ Arquivo oficial de registro das entregas concluidas.
 - Fotos grandes agora sao redimensionadas e comprimidas no navegador antes de enviar ao servidor.
 - Mantido fallback automatico para envio original caso a otimizacao nao seja possivel.
 - Resultado: menos tempo de upload em conexoes moveis e menor chance de lentidao ao salvar.
+## 01/03/2026 - Presenca (admin): foto ampliada acima do modal de falta inscricao
+
+- Ajustada a camada (z-index) da janela de foto ampliada para abrir por cima da janela Falta inscricao.
+- Agora, ao clicar na foto em Falta inscricao, a imagem ampliada fica visivel corretamente para melhor visualizacao.
