@@ -4,6 +4,8 @@ import os
 import re
 import hashlib
 import hmac
+import logging
+import time
 from random import randint
 from decimal import Decimal, InvalidOperation
 from urllib import request as urllib_request, error as urllib_error
@@ -77,6 +79,8 @@ from django.views.decorators.csrf import csrf_exempt
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 from datetime import date, datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -4228,18 +4232,48 @@ class FinanceiroView(LoginRequiredMixin, View):
             data = json.dumps(payload).encode('utf-8')
 
         req = urllib_request.Request(url=url, data=data, headers=headers, method=method)
-        try:
-            with urllib_request.urlopen(req, timeout=30) as response:
-                body = response.read().decode('utf-8')
-                return json.loads(body) if body else {}
-        except urllib_error.HTTPError as exc:
+        max_attempts = 2
+        for attempt in range(1, max_attempts + 1):
             try:
-                body = exc.read().decode('utf-8')
-                details = json.loads(body)
-                message = details.get('message') or details.get('error') or body
-            except Exception:
-                message = str(exc)
-            raise ValueError(f'Erro Mercado Pago: {message}') from exc
+                with urllib_request.urlopen(req, timeout=30) as response:
+                    body = response.read().decode('utf-8')
+                    return json.loads(body) if body else {}
+            except urllib_error.HTTPError as exc:
+                try:
+                    body = exc.read().decode('utf-8')
+                    details = json.loads(body) if body else {}
+                    message = (
+                        details.get('message')
+                        or details.get('error_description')
+                        or details.get('error')
+                        or body
+                        or str(exc)
+                    )
+                    causes = details.get('cause') or []
+                    if isinstance(causes, list) and causes:
+                        first_cause = causes[0] if isinstance(causes[0], dict) else {}
+                        cause_msg = first_cause.get('description') or first_cause.get('code') or ''
+                        if cause_msg and cause_msg not in message:
+                            message = f'{message} ({cause_msg})'
+                except Exception:
+                    message = str(exc)
+                raise ValueError(f'Erro Mercado Pago: {message}') from exc
+            except urllib_error.URLError as exc:
+                if attempt < max_attempts:
+                    time.sleep(0.4)
+                    continue
+                reason = getattr(exc, 'reason', '') or str(exc)
+                raise ValueError(f'Erro Mercado Pago: falha de conexão ({reason}).') from exc
+            except TimeoutError as exc:
+                if attempt < max_attempts:
+                    time.sleep(0.4)
+                    continue
+                raise ValueError('Erro Mercado Pago: tempo de resposta excedido.') from exc
+            except Exception as exc:
+                if attempt < max_attempts:
+                    time.sleep(0.4)
+                    continue
+                raise ValueError(f'Erro Mercado Pago: {exc}') from exc
 
     def _mp_notification_url(self, request):
         explicit = os.getenv('MP_NOTIFICATION_URL', '').strip()
@@ -4731,8 +4765,18 @@ class FinanceiroView(LoginRequiredMixin, View):
                                     self._send_whatsapp_pagamento_aprovado(pagamento)
                         except ValueError as exc:
                             messages.error(request, str(exc))
-                        except Exception:
-                            messages.error(request, 'Não foi possível iniciar o pagamento no Mercado Pago agora.')
+                        except Exception as exc:
+                            logger.exception(
+                                'Falha ao iniciar pagamento de mensalidades. user_id=%s responsavel_id=%s mensalidades=%s',
+                                getattr(request.user, 'id', None),
+                                getattr(responsavel, 'id', None) if responsavel else None,
+                                selected_ids,
+                            )
+                            detalhe = str(exc).strip()
+                            if detalhe:
+                                messages.error(request, f'Não foi possível iniciar o pagamento no Mercado Pago agora. {detalhe}')
+                            else:
+                                messages.error(request, 'Não foi possível iniciar o pagamento no Mercado Pago agora.')
                         else:
                             if pagamento.status == PagamentoMensalidade.STATUS_PAGO:
                                 messages.success(request, 'Pagamento aprovado e mensalidades marcadas como pagas.')

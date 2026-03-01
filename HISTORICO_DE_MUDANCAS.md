@@ -726,3 +726,11 @@ Arquivo oficial de registro das entregas concluidas.
 - Com essa opcao marcada, fica possivel pagar todas as mensalidades pendentes do ano de uma vez.
 - Incluidos botoes Selecionar todas e Limpar para agilizar a selecao em lote das mensalidades.
 
+
+## 01/03/2026 - Financeiro: diagnostico e resiliencia no pagamento Pix de mensalidades
+
+- Melhorado o cliente do Mercado Pago para tratar melhor falhas de conexao e timeout no inicio do pagamento Pix.
+- Adicionado retry automatico (2 tentativas) para erros de rede antes de falhar a criacao do pagamento.
+- Erros HTTP do Mercado Pago agora exibem mensagem mais completa (incluindo causa quando enviada pela API).
+- Quando ocorre falha inesperada ao iniciar pagamento, o sistema grava log tecnico e mostra detalhe resumido na tela.
+
