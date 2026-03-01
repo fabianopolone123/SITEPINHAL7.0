@@ -820,3 +820,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Corrigido o comportamento para mobile e tablet: agora o menu inicia fechado ao abrir ou atualizar a pagina.
 - Ajustado breakpoint para incluir tablet (ate 1100px) com o mesmo comportamento de menu recolhido.
 - No desktop, a barra lateral permanece fixa e aberta com os menus visiveis.
+
+## 01/03/2026 - Menu lateral mobile/tablet: fix robusto de abrir/fechar
+
+- Reforcado controle do menu lateral no proprio JavaScript para esconder/mostrar os blocos do sidebar mesmo com cache antigo de CSS.
+- Adicionado controle por hidden nos blocos do menu e dados de perfil conforme estado aberto/fechado.
+- Botao Menu/Fechar e recolhimento apos clique agora funcionam de forma consistente em celular e tablet.
+

@@ -1,5 +1,5 @@
 ﻿{% load static %}
-<aside class="painel-sidebar" id="painel-sidebar">
+<aside class="painel-sidebar is-collapsed" id="painel-sidebar">
   <div class="painel-sidebar-brand">
     <div class="painel-logo-wrap">
       <img src="{% static 'images/logo.jpeg' %}" alt="logo do Clube de Aventureiros Pinhal Junior" class="logo" />
@@ -64,6 +64,18 @@
     if (!sidebar || !toggleBtn) return;
 
     const media = window.matchMedia('(max-width: 1100px)');
+    const detailsNodes = Array.from(
+      sidebar.querySelectorAll('.painel-menu, .painel-profile-title, .painel-profile-value, .painel-profile-switch, .painel-profile-all')
+    );
+
+    const applyDetailsVisibility = () => {
+      const isMobileOrTablet = media.matches;
+      const isOpen = sidebar.classList.contains('is-open');
+      const mustShow = !isMobileOrTablet || isOpen;
+      detailsNodes.forEach((node) => {
+        node.hidden = !mustShow;
+      });
+    };
 
     const syncToggleLabel = () => {
       const isOpen = sidebar.classList.contains('is-open');
@@ -74,16 +86,21 @@
 
     const applyResponsiveDefault = () => {
       if (media.matches) {
+        sidebar.classList.add('is-collapsed');
         sidebar.classList.remove('is-open');
       } else {
+        sidebar.classList.remove('is-collapsed');
         sidebar.classList.add('is-open');
       }
+      applyDetailsVisibility();
       syncToggleLabel();
     };
 
     toggleBtn.addEventListener('click', () => {
       if (!media.matches) return;
       sidebar.classList.toggle('is-open');
+      sidebar.classList.toggle('is-collapsed', !sidebar.classList.contains('is-open'));
+      applyDetailsVisibility();
       syncToggleLabel();
     });
 
@@ -91,6 +108,8 @@
       link.addEventListener('click', () => {
         if (!media.matches) return;
         sidebar.classList.remove('is-open');
+        sidebar.classList.add('is-collapsed');
+        applyDetailsVisibility();
         syncToggleLabel();
       });
     });
