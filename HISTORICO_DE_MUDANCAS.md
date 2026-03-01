@@ -827,3 +827,8 @@ Arquivo oficial de registro das entregas concluidas.
 - Adicionado controle por hidden nos blocos do menu e dados de perfil conforme estado aberto/fechado.
 - Botao Menu/Fechar e recolhimento apos clique agora funcionam de forma consistente em celular e tablet.
 
+## 01/03/2026 - Sidebar mobile/tablet: botao Menu/Fechar maior e com visual melhorado
+
+- Aumentado tamanho do botao Menu/Fechar para facilitar o toque no celular e tablet.
+- Ajustado visual com gradiente, cantos mais arredondados e sombra para melhor destaque.
+- Adicionados estados de hover/active para feedback visual mais claro.

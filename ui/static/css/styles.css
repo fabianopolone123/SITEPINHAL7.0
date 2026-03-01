@@ -1341,15 +1341,28 @@ a.secondary {
     justify-content: center;
     justify-self: end;
     grid-area: toggle;
-    border: 1px solid rgba(147, 197, 253, 0.45);
-    border-radius: 10px;
-    background: rgba(30, 64, 175, 0.32);
-    color: #dbeafe;
-    font-size: 0.84rem;
+    border: 1px solid rgba(147, 197, 253, 0.55);
+    border-radius: 12px;
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+    color: #eff6ff;
+    font-size: 0.92rem;
     font-weight: 800;
-    padding: 0.4rem 0.62rem;
-    min-height: 34px;
+    letter-spacing: 0.01em;
+    padding: 0.58rem 0.92rem;
+    min-height: 46px;
+    min-width: 102px;
     cursor: pointer;
+    box-shadow: 0 8px 18px rgba(30, 64, 175, 0.35);
+    transition: transform .14s ease, box-shadow .14s ease, filter .14s ease;
+  }
+
+  .painel-sidebar-toggle:hover {
+    filter: brightness(1.06);
+    box-shadow: 0 10px 22px rgba(30, 64, 175, 0.4);
+  }
+
+  .painel-sidebar-toggle:active {
+    transform: translateY(1px);
   }
 
   .painel-sidebar-toggle:focus-visible {
