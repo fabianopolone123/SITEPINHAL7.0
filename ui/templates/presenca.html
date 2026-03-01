@@ -154,6 +154,19 @@
       border: 1px solid #cbd5e1;
       background: #f8fafc;
     }
+    .attendance-avatar-trigger {
+      border: 0;
+      padding: 0;
+      margin: 0;
+      background: transparent;
+      border-radius: 12px;
+      line-height: 0;
+      cursor: zoom-in;
+    }
+    .attendance-avatar-trigger:focus-visible {
+      outline: 3px solid rgba(59, 130, 246, .38);
+      outline-offset: 2px;
+    }
     .attendance-avatar-placeholder {
       width: 52px;
       height: 52px;
@@ -355,6 +368,64 @@
         grid-template-columns: auto auto;
       }
     }
+    .presence-photo-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, .72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 1200;
+    }
+    .presence-photo-modal.is-open {
+      display: flex;
+    }
+    .presence-photo-content {
+      width: min(92vw, 640px);
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid #cbd5e1;
+      box-shadow: 0 22px 50px rgba(15, 23, 42, .35);
+      overflow: hidden;
+    }
+    .presence-photo-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .6rem;
+      padding: .6rem .8rem;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+    .presence-photo-title {
+      font-weight: 700;
+      color: #0f172a;
+      font-size: .95rem;
+    }
+    .presence-photo-close {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+      padding: .25rem .55rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .presence-photo-body {
+      padding: .7rem;
+      display: grid;
+      place-items: center;
+      background: #fff;
+    }
+    .presence-photo-image {
+      width: 100%;
+      max-height: 80vh;
+      object-fit: contain;
+      border-radius: 10px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
   </style>
 </head>
 <body class="painel-page">
@@ -490,7 +561,15 @@
             <article class="attendance-row" data-aventureiro-id="{{ av.id }}" data-search="{{ av.nome|lower }} {{ av.responsavel.responsavel_nome|default:''|lower }} {{ av.responsavel.user.username|lower }}">
               <div class="attendance-person">
                 {% if av.presenca_foto_url %}
-                  <img src="{{ av.presenca_foto_url }}" alt="Foto de {{ av.nome }}" class="attendance-avatar" loading="lazy" />
+                  <button
+                    type="button"
+                    class="attendance-avatar-trigger js-open-presence-photo"
+                    data-photo-url="{{ av.presenca_foto_url }}"
+                    data-photo-title="Foto de {{ av.nome|escape }}"
+                    aria-label="Ampliar foto de {{ av.nome }}"
+                  >
+                    <img src="{{ av.presenca_foto_url }}" alt="Foto de {{ av.nome }}" class="attendance-avatar" loading="lazy" />
+                  </button>
                 {% else %}
                   <div class="attendance-avatar-placeholder">Sem foto</div>
                 {% endif %}
@@ -515,6 +594,17 @@
   </main>
 
   {% if presenca_mode != 'responsavel' %}
+  <div class="presence-photo-modal" id="presence-photo-modal" aria-hidden="true">
+    <div class="presence-photo-content" role="dialog" aria-modal="true" aria-labelledby="presence-photo-title">
+      <div class="presence-photo-header">
+        <div class="presence-photo-title" id="presence-photo-title">Foto do aventureiro</div>
+        <button type="button" class="presence-photo-close" id="presence-photo-close" aria-label="Fechar">Fechar</button>
+      </div>
+      <div class="presence-photo-body">
+        <img id="presence-photo-image" class="presence-photo-image" src="" alt="Foto ampliada do aventureiro" />
+      </div>
+    </div>
+  </div>
   <script>
     (function () {
       const eventSelect = document.getElementById('evento-select');
@@ -523,6 +613,10 @@
       const counterNode = document.getElementById('attendance-counter');
       const lastSyncNode = document.getElementById('last-sync-label');
       const initNode = document.getElementById('presencas-init-data');
+      const photoModal = document.getElementById('presence-photo-modal');
+      const photoImage = document.getElementById('presence-photo-image');
+      const photoTitle = document.getElementById('presence-photo-title');
+      const photoClose = document.getElementById('presence-photo-close');
       let presencas = {};
 
       const parseInitData = () => {
@@ -654,10 +748,44 @@
       if (listNode) {
         listNode.addEventListener('click', (event) => {
           const button = event.target.closest('.presence-toggle');
-          if (!button) return;
-          sendToggle(button);
+          if (button) {
+            sendToggle(button);
+            return;
+          }
+          const photoBtn = event.target.closest('.js-open-presence-photo');
+          if (!photoBtn || !photoModal || !photoImage) return;
+          const url = photoBtn.getAttribute('data-photo-url') || '';
+          const title = photoBtn.getAttribute('data-photo-title') || 'Foto do aventureiro';
+          if (!url) return;
+          photoImage.src = url;
+          if (photoTitle) photoTitle.textContent = title;
+          photoModal.classList.add('is-open');
+          photoModal.setAttribute('aria-hidden', 'false');
         });
       }
+
+      function closePhotoModal() {
+        if (!photoModal) return;
+        photoModal.classList.remove('is-open');
+        photoModal.setAttribute('aria-hidden', 'true');
+        if (photoImage) photoImage.src = '';
+      }
+
+      if (photoClose) {
+        photoClose.addEventListener('click', closePhotoModal);
+      }
+      if (photoModal) {
+        photoModal.addEventListener('click', (event) => {
+          if (event.target === photoModal) {
+            closePhotoModal();
+          }
+        });
+      }
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          closePhotoModal();
+        }
+      });
 
       presencas = parseInitData();
       applyAllRows();

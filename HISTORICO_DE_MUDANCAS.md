@@ -766,3 +766,9 @@ Arquivo oficial de registro das entregas concluidas.
 - Reforcadas validacoes no compromisso: escolaridade obrigatoria, e-mail valido e data de nascimento valida.
 - Reforcada validacao no termo de imagem: e-mail de contato obrigatoriamente valido.
 - Ajustado tratamento de saude para limpar descricao quando a opcao for nao.
+## 01/03/2026 - Presenca (admin): ampliacao de foto do aventureiro
+
+- Na tela de Presenca para perfis administrativos, a miniatura da foto do aventureiro agora pode ser clicada para abrir em tamanho grande.
+- Adicionada janela suspensa responsiva com foto ampliada, titulo e botao fechar.
+- Fechamento da janela por botao, clique fora da imagem e tecla Esc.
+- Alteracao aplicada somente no modo de marcacao de presenca (nao afeta a visao do perfil responsavel).
