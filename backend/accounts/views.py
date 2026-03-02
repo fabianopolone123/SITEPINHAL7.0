@@ -292,6 +292,26 @@ def _require_menu_or_redirect(request, menu_key, message):
 def _generate_financeiro_entries_for_aventureiro(aventureiro, created_by=None, valor=None, reference_date=None):
     base_value = (valor if isinstance(valor, Decimal) else Decimal(valor or '30.00')).quantize(Decimal('0.01'))
     ref_date = reference_date or timezone.localdate()
+    if isinstance(ref_date, datetime):
+        ref_date = ref_date.date()
+    if reference_date is None and getattr(aventureiro, 'created_at', None):
+        try:
+            created_date = timezone.localtime(aventureiro.created_at).date()
+        except Exception:
+            created_date = aventureiro.created_at.date() if hasattr(aventureiro.created_at, 'date') else None
+        if created_date:
+            current_month_first = ref_date.replace(day=1)
+            prev_month_last = current_month_first - timedelta(days=1)
+            prev_year = prev_month_last.year
+            prev_month = prev_month_last.month
+            if created_date.year == prev_year and created_date.month == prev_month:
+                has_prev_month_entry = MensalidadeAventureiro.objects.filter(
+                    aventureiro=aventureiro,
+                    ano_referencia=prev_year,
+                    mes_referencia=prev_month,
+                ).exists()
+                if not has_prev_month_entry:
+                    ref_date = prev_month_last
     created_count = 0
     created_inscricao = 0
     created_mensalidades = 0

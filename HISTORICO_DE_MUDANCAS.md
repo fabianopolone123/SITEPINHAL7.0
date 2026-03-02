@@ -832,3 +832,11 @@ Arquivo oficial de registro das entregas concluidas.
 - Aumentado tamanho do botao Menu/Fechar para facilitar o toque no celular e tablet.
 - Ajustado visual com gradiente, cantos mais arredondados e sombra para melhor destaque.
 - Adicionados estados de hover/active para feedback visual mais claro.
+
+## 01/03/2026 - Mensalidades: gerar desde o mes passado para inscricoes recentes
+
+- Ajustada a geracao de mensalidades para considerar inscricao no mes passado.
+- Quando o aventureiro foi inscrito no mes passado e ainda nao existe cobranca daquele mes, a geracao inicia no mes passado.
+- Mantido o comportamento atual para os demais casos (inicio no mes atual).
+- Regra aplicada tanto na geracao individual quanto em Gerar para todos (mesmo helper).
+
