@@ -4618,6 +4618,20 @@ class FinanceiroView(LoginRequiredMixin, View):
     def _send_whatsapp_pagamento_aprovado(self, pagamento):
         if pagamento.whatsapp_notified_at:
             return
+        claimed_at = None
+        with transaction.atomic():
+            locked = (
+                PagamentoMensalidade.objects
+                .select_for_update()
+                .filter(pk=pagamento.pk)
+                .first()
+            )
+            if not locked or locked.whatsapp_notified_at:
+                return
+            claimed_at = timezone.now()
+            locked.whatsapp_notified_at = claimed_at
+            locked.save(update_fields=['whatsapp_notified_at', 'updated_at'])
+            pagamento = locked
 
         mensalidades = list(
             pagamento.mensalidades.select_related('aventureiro').order_by('aventureiro__nome', 'ano_referencia', 'mes_referencia')
@@ -4668,8 +4682,6 @@ class FinanceiroView(LoginRequiredMixin, View):
             add_recipient(access.user, force_send=False)
 
         if not recipients:
-            pagamento.whatsapp_notified_at = timezone.now()
-            pagamento.save(update_fields=['whatsapp_notified_at', 'updated_at'])
             return
 
         sent_any = False
@@ -4696,9 +4708,11 @@ class FinanceiroView(LoginRequiredMixin, View):
                 update_fields=['status', 'attempts', 'provider_message_id', 'sent_at', 'last_error']
             )
 
-        if sent_any:
-            pagamento.whatsapp_notified_at = timezone.now()
-            pagamento.save(update_fields=['whatsapp_notified_at', 'updated_at'])
+        if not sent_any and claimed_at:
+            PagamentoMensalidade.objects.filter(
+                pk=pagamento.pk,
+                whatsapp_notified_at=claimed_at,
+            ).update(whatsapp_notified_at=None)
 
     def _mensalidades_responsavel_base_queryset(self, responsavel, hoje, incluir_ano_todo=False):
         qs = (

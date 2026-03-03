@@ -840,3 +840,8 @@ Arquivo oficial de registro das entregas concluidas.
 - Mantido o comportamento atual para os demais casos (inicio no mes atual).
 - Regra aplicada tanto na geracao individual quanto em Gerar para todos (mesmo helper).
 
+## 02/03/2026 - Financeiro: evita mensagem WhatsApp duplicada em pagamento aprovado
+
+- Corrigido envio de confirmacao de pagamento de mensalidades para disparar apenas uma vez por pagamento aprovado.
+- Adicionado lock transacional no pagamento para evitar corrida entre webhook e consulta de status (polling) que podia gerar mensagem duplicada.
+- Se nenhum envio for concluido com sucesso, o marcador de notificacao e liberado para permitir nova tentativa depois.
