@@ -115,6 +115,9 @@
                     <a class="users-action-link" href="{% url 'accounts:usuario_detalhe' item.user.pk %}">
                       Ver cadastro completo
                     </a>
+                    <a class="users-action-link" href="{% url 'accounts:editar_usuario_permissoes' item.user.pk %}">
+                      Editar permissões/WhatsApp
+                    </a>
                   </td>
                 </tr>
               {% empty %}
@@ -160,6 +163,9 @@
                   <td>
                     <a class="users-action-link" href="{% url 'accounts:usuario_detalhe' item.user.pk %}">
                       Ver cadastro completo
+                    </a>
+                    <a class="users-action-link" href="{% url 'accounts:editar_usuario_permissoes' item.user.pk %}">
+                      Editar permissões/WhatsApp
                     </a>
                   </td>
                 </tr>

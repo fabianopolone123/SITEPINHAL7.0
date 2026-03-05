@@ -44,9 +44,9 @@
     <header class="painel-header">
       <h2>{{ target_user.username }}</h2>
       <p>{{ nome_completo }}</p>
-      <p><a class="usuario-link-voltar" href="{% url 'accounts:usuarios' %}">Voltar para usuários</a></p>
+      <p><a class="usuario-link-voltar" href="{% url 'accounts:usuarios' %}">Voltar para usuarios</a></p>
+      <p><a class="usuario-link-voltar" href="{% url 'accounts:editar_usuario_permissoes' target_user.pk %}">Editar permissoes/WhatsApp</a></p>
     </header>
-
     <section class="painel-card">
       {% if foto_url %}
         <p><img class="confirmation-photo" src="{{ foto_url }}" alt="Foto de {{ nome_completo }}" /></p>
@@ -186,3 +186,4 @@
   </main>
 </body>
 </html>
+

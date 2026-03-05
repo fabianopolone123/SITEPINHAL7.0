@@ -852,3 +852,9 @@ Arquivo oficial de registro das entregas concluidas.
 - O diretor pode escolher: modo automatico, um dos telefones do cadastro (responsavel/mae/pai) ou informar telefone manual.
 - O telefone escolhido passa a ser salvo em `WhatsAppPreference.phone_number`, que tem prioridade no envio (inclusive na recuperacao de senha).
 - Incluida exibicao do telefone efetivo atual e registro em auditoria da alteracao realizada.
+
+## 05/03/2026 - Usuarios: atalhos visiveis para editar permissoes e WhatsApp
+
+- Adicionado atalho `Editar permissoes/WhatsApp` na listagem de Usuarios (Diretoria e Responsaveis).
+- Adicionado o mesmo atalho no topo da tela de detalhe do usuario.
+- Objetivo: facilitar acesso ao ponto onde o diretor define o telefone de WhatsApp do responsavel.
