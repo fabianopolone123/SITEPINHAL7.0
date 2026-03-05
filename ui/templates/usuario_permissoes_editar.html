@@ -39,6 +39,42 @@
       <button type="submit" class="primary">Salvar permissões</button>
     </form>
 
+    {% if show_whatsapp_selector %}
+    <form method="post" class="login-card form-card">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_whatsapp_phone" />
+      <h3>WhatsApp do responsavel</h3>
+      <p>Escolha qual telefone sera usado para envio de mensagens de WhatsApp deste usuario.</p>
+
+      <label for="whatsapp-source">Origem do telefone</label>
+      <select id="whatsapp-source" name="whatsapp_source">
+        <option value="auto" {% if responsavel_whatsapp_source == 'auto' %}selected{% endif %}>
+          Automatico (ordem padrao do cadastro)
+        </option>
+        {% for item in responsavel_whatsapp_options %}
+          <option value="{{ item.key }}" {% if responsavel_whatsapp_source == item.key %}selected{% endif %} {% if not item.is_valid %}disabled{% endif %}>
+            {{ item.label }} {% if item.raw_value %}- {{ item.raw_value }}{% else %}- sem numero{% endif %}
+          </option>
+        {% endfor %}
+        <option value="manual" {% if responsavel_whatsapp_source == 'manual' %}selected{% endif %}>
+          Telefone manual
+        </option>
+      </select>
+
+      <label for="whatsapp-manual-phone">Telefone manual (somente para opcao manual)</label>
+      <input
+        id="whatsapp-manual-phone"
+        type="text"
+        name="whatsapp_manual_phone"
+        value="{{ responsavel_whatsapp_manual_phone|default:'' }}"
+        placeholder="5511999999999"
+      />
+
+      <p>Telefone efetivo atual: <strong>{{ responsavel_whatsapp_effective_phone|default:'-' }}</strong></p>
+      <button type="submit" class="secondary">Salvar telefone WhatsApp</button>
+    </form>
+    {% endif %}
+
     <form method="post" class="login-card form-card">
       {% csrf_token %}
       <input type="hidden" name="action" value="merge_user" />

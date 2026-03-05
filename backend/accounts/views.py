@@ -6810,6 +6810,66 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
     template_name = 'usuario_permissoes_editar.html'
     merge_lookup_limit = 200
 
+    def _responsavel_phone_options(self, responsavel):
+        if not responsavel:
+            return []
+        options = [
+            ('responsavel_celular', 'Celular do responsavel', responsavel.responsavel_celular),
+            ('mae_celular', 'Celular da mae', responsavel.mae_celular),
+            ('pai_celular', 'Celular do pai', responsavel.pai_celular),
+            ('responsavel_telefone', 'Telefone do responsavel', responsavel.responsavel_telefone),
+            ('mae_telefone', 'Telefone da mae', responsavel.mae_telefone),
+            ('pai_telefone', 'Telefone do pai', responsavel.pai_telefone),
+        ]
+        rows = []
+        for key, label, raw_value in options:
+            normalized = normalize_phone_number(raw_value or '')
+            rows.append({
+                'key': key,
+                'label': label,
+                'raw_value': raw_value or '',
+                'normalized': normalized,
+                'is_valid': bool(normalized),
+            })
+        return rows
+
+    def _responsavel_whatsapp_context(self, target_user):
+        responsavel = getattr(target_user, 'responsavel', None)
+        if not responsavel:
+            return {
+                'show_whatsapp_selector': False,
+                'responsavel_whatsapp_options': [],
+                'responsavel_whatsapp_source': 'auto',
+                'responsavel_whatsapp_manual_phone': '',
+                'responsavel_whatsapp_pref_phone': '',
+                'responsavel_whatsapp_effective_phone': '',
+            }
+
+        pref, _ = WhatsAppPreference.objects.get_or_create(user=target_user)
+        pref_phone = pref.phone_number or ''
+        pref_normalized = normalize_phone_number(pref_phone)
+        options = self._responsavel_phone_options(responsavel)
+        selected_source = 'auto'
+        manual_phone = ''
+
+        if pref_normalized:
+            matched = next((item for item in options if item['normalized'] and item['normalized'] == pref_normalized), None)
+            if matched:
+                selected_source = matched['key']
+            else:
+                selected_source = 'manual'
+                manual_phone = pref_phone
+
+        effective_phone = normalize_phone_number(pref_phone or resolve_user_phone(target_user))
+        return {
+            'show_whatsapp_selector': True,
+            'responsavel_whatsapp_options': options,
+            'responsavel_whatsapp_source': selected_source,
+            'responsavel_whatsapp_manual_phone': manual_phone,
+            'responsavel_whatsapp_pref_phone': pref_phone,
+            'responsavel_whatsapp_effective_phone': effective_phone,
+        }
+
     def _merge_candidates(self, target_user):
         return (
             User.objects
@@ -6827,6 +6887,7 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
             'foto_url': display['foto_url'],
             'merge_candidates': self._merge_candidates(target_user),
         }
+        context.update(self._responsavel_whatsapp_context(target_user))
         context.update(_sidebar_context(request))
         return context
 
@@ -6934,6 +6995,51 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
                 request,
                 f'Unificação concluída: "{source_user.username}" foi incorporado em "{target_user.username}".',
             )
+            return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
+
+        if action == 'save_whatsapp_phone':
+            responsavel = getattr(target_user, 'responsavel', None)
+            if not responsavel:
+                messages.error(request, 'Este usuario nao possui cadastro de responsavel.')
+                return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
+
+            source = str(request.POST.get('whatsapp_source') or 'auto').strip()
+            manual_phone = str(request.POST.get('whatsapp_manual_phone') or '').strip()
+            options_map = {item['key']: item for item in self._responsavel_phone_options(responsavel)}
+            pref, _ = WhatsAppPreference.objects.get_or_create(user=target_user)
+
+            if source == 'auto':
+                pref.phone_number = ''
+            elif source == 'manual':
+                normalized_manual = normalize_phone_number(manual_phone)
+                if not normalized_manual:
+                    messages.error(request, 'Telefone manual invalido. Use formato com DDD.')
+                    return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
+                pref.phone_number = normalized_manual
+            elif source in options_map:
+                selected = options_map[source]
+                if not selected['is_valid']:
+                    messages.error(request, 'Telefone selecionado esta vazio ou invalido.')
+                    return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
+                pref.phone_number = selected['normalized']
+            else:
+                messages.error(request, 'Opcao de telefone invalida.')
+                return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
+
+            pref.save(update_fields=['phone_number', 'updated_at'])
+            effective_phone = normalize_phone_number(pref.phone_number or resolve_user_phone(target_user))
+            record_audit(
+                action='Alteracao telefone WhatsApp',
+                user=request.user,
+                request=request,
+                location='Usuarios',
+                details=(
+                    f'Usuario "{target_user.username}" | '
+                    f'Origem={source} | '
+                    f'Telefone={effective_phone or "-"}'
+                ),
+            )
+            messages.success(request, 'Telefone de WhatsApp atualizado com sucesso.')
             return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
 
         access = _ensure_user_access(target_user)

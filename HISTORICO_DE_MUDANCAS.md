@@ -845,3 +845,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Corrigido envio de confirmacao de pagamento de mensalidades para disparar apenas uma vez por pagamento aprovado.
 - Adicionado lock transacional no pagamento para evitar corrida entre webhook e consulta de status (polling) que podia gerar mensagem duplicada.
 - Se nenhum envio for concluido com sucesso, o marcador de notificacao e liberado para permitir nova tentativa depois.
+
+## 05/03/2026 - Usuarios: diretor define telefone WhatsApp do responsavel na edicao
+
+- Na tela de edicao de usuario, quando o perfil possui cadastro de responsavel, foi adicionada secao para definir qual telefone sera usado no envio de WhatsApp.
+- O diretor pode escolher: modo automatico, um dos telefones do cadastro (responsavel/mae/pai) ou informar telefone manual.
+- O telefone escolhido passa a ser salvo em `WhatsAppPreference.phone_number`, que tem prioridade no envio (inclusive na recuperacao de senha).
+- Incluida exibicao do telefone efetivo atual e registro em auditoria da alteracao realizada.
