@@ -858,3 +858,9 @@ Arquivo oficial de registro das entregas concluidas.
 - Adicionado atalho `Editar permissoes/WhatsApp` na listagem de Usuarios (Diretoria e Responsaveis).
 - Adicionado o mesmo atalho no topo da tela de detalhe do usuario.
 - Objetivo: facilitar acesso ao ponto onde o diretor define o telefone de WhatsApp do responsavel.
+
+## 05/03/2026 - Usuarios: selecao explicita do telefone principal de WhatsApp
+
+- A tela de edicao de usuario (responsavel) passou a mostrar as opcoes de telefone em lista com selecao direta de principal.
+- As opcoes aparecem por origem (celular/telefone de responsavel, mae e pai), com indicacao quando nao ha numero cadastrado.
+- Mantida opcao de telefone manual, agora com habilitacao automatica apenas quando a opcao manual estiver marcada.

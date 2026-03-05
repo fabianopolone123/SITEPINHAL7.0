@@ -46,22 +46,36 @@
       <h3>WhatsApp do responsavel</h3>
       <p>Escolha qual telefone sera usado para envio de mensagens de WhatsApp deste usuario.</p>
 
-      <label for="whatsapp-source">Origem do telefone</label>
-      <select id="whatsapp-source" name="whatsapp_source">
-        <option value="auto" {% if responsavel_whatsapp_source == 'auto' %}selected{% endif %}>
-          Automatico (ordem padrao do cadastro)
-        </option>
+      <label>Telefone principal para WhatsApp</label>
+      <div class="checkbox-grid">
+        <label class="checkbox-full">
+          <input type="radio" name="whatsapp_source" value="auto" {% if responsavel_whatsapp_source == 'auto' %}checked{% endif %} />
+          Automatico (usa a ordem padrao do cadastro)
+        </label>
         {% for item in responsavel_whatsapp_options %}
-          <option value="{{ item.key }}" {% if responsavel_whatsapp_source == item.key %}selected{% endif %} {% if not item.is_valid %}disabled{% endif %}>
-            {{ item.label }} {% if item.raw_value %}- {{ item.raw_value }}{% else %}- sem numero{% endif %}
-          </option>
+          <label class="checkbox-full">
+            <input
+              type="radio"
+              name="whatsapp_source"
+              value="{{ item.key }}"
+              {% if responsavel_whatsapp_source == item.key %}checked{% endif %}
+              {% if not item.is_valid %}disabled{% endif %}
+            />
+            {{ item.label }}
+            {% if item.raw_value %}
+              - {{ item.raw_value }}
+            {% else %}
+              - sem numero cadastrado
+            {% endif %}
+          </label>
         {% endfor %}
-        <option value="manual" {% if responsavel_whatsapp_source == 'manual' %}selected{% endif %}>
+        <label class="checkbox-full">
+          <input type="radio" name="whatsapp_source" value="manual" {% if responsavel_whatsapp_source == 'manual' %}checked{% endif %} />
           Telefone manual
-        </option>
-      </select>
+        </label>
+      </div>
 
-      <label for="whatsapp-manual-phone">Telefone manual (somente para opcao manual)</label>
+      <label for="whatsapp-manual-phone">Telefone manual (somente se marcar "Telefone manual")</label>
       <input
         id="whatsapp-manual-phone"
         type="text"
@@ -73,6 +87,27 @@
       <p>Telefone efetivo atual: <strong>{{ responsavel_whatsapp_effective_phone|default:'-' }}</strong></p>
       <button type="submit" class="secondary">Salvar telefone WhatsApp</button>
     </form>
+    <script>
+      (function () {
+        var manualInput = document.getElementById('whatsapp-manual-phone');
+        var radios = document.querySelectorAll('input[name="whatsapp_source"]');
+        if (!manualInput || !radios.length) return;
+        function syncManualState() {
+          var selected = document.querySelector('input[name="whatsapp_source"]:checked');
+          var isManual = selected && selected.value === 'manual';
+          manualInput.disabled = !isManual;
+          if (!isManual) {
+            manualInput.removeAttribute('required');
+          } else {
+            manualInput.setAttribute('required', 'required');
+          }
+        }
+        radios.forEach(function (radio) {
+          radio.addEventListener('change', syncManualState);
+        });
+        syncManualState();
+      })();
+    </script>
     {% endif %}
 
     <form method="post" class="login-card form-card">
