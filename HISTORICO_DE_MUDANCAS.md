@@ -884,3 +884,8 @@ Arquivo oficial de registro das entregas concluidas.
 - O fluxo de catalogo, carrinho, Pix e consulta de status da loja foi liberado tambem para o perfil `professor`.
 - Quando o usuario professor nao possui cadastro de responsavel, o sistema cria automaticamente um cadastro auxiliar a partir dos dados da diretoria para viabilizar os pedidos da loja.
 - Objetivo: permitir que usuarios de diretoria/professor tambem comprem na loja com fluxo igual ao de responsavel.
+
+## 08/03/2026 - Permissoes: cabecalho fixo nas tabelas com rolagem
+
+- Ajustado o CSS das tabelas `Usuarios por grupo` e `Excecao por usuario` para manter o cabecalho visivel durante a rolagem.
+- O cabecalho agora fica fixo no topo da area rolavel, facilitando identificar os grupos e menus enquanto navega pela lista.
