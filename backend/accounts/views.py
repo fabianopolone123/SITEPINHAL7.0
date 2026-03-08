@@ -2526,8 +2526,11 @@ class NovoCadastroDiretoriaResumoView(View):
                 )
                 _ensure_default_access_groups()
                 diretoria_group = AccessGroup.objects.filter(code='diretoria').first()
+                professor_group = AccessGroup.objects.filter(code='professor').first()
                 if diretoria_group:
                     user.access_groups.add(diretoria_group)
+                if professor_group:
+                    user.access_groups.add(professor_group)
                 _sync_access_profiles_from_groups(user, access=access)
 
                 diretoria = Diretoria.objects.create(

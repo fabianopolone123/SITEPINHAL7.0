@@ -345,6 +345,7 @@ class DiretoriaForm(forms.ModelForm):
         if commit:
             diretoria.save()
             _upsert_user_profile(user, UserAccess.ROLE_DIRETORIA)
+            _upsert_user_profile(user, UserAccess.ROLE_PROFESSOR)
         return diretoria
 
 

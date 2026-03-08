@@ -871,3 +871,9 @@ Arquivo oficial de registro das entregas concluidas.
 - A nova visao lista pagamentos de mensalidades pagos e pedidos pagos da loja.
 - Incluidos cards de totais com `Caixa bruto` (mensalidades pagas + pedidos pagos da loja) e `Caixa liquido` (apenas mensalidades pagas).
 - Regra aplicada: pedidos da loja entram no bruto, mas nao somam no saldo liquido do caixa.
+
+## 08/03/2026 - Cadastro diretoria: novos usuarios entram tambem como professor
+
+- Ajustado o cadastro novo de diretoria para vincular automaticamente os grupos `diretoria` e `professor`.
+- Com isso, novos usuarios de diretoria passam a receber tambem o perfil e as permissoes de professor.
+- O fluxo legado de cadastro de diretoria tambem passou a marcar o perfil `professor` junto com `diretoria`.
