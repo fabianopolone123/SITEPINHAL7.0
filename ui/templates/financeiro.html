@@ -90,6 +90,56 @@
     .pix-status-box.is-paid { background:#ecfdf5; border-color:#bbf7d0; color:#166534; }
     .pix-modal-row { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:.45rem; }
     .pix-modal-row small { color:#64748b; }
+    .financeiro-report-cards {
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+      gap:.75rem;
+      margin:1rem 0 1.1rem;
+    }
+    .financeiro-report-card {
+      border:1px solid #dbeafe;
+      border-radius:14px;
+      background:linear-gradient(180deg, #ffffff, #f8fbff);
+      padding:.95rem 1rem;
+    }
+    .financeiro-report-card strong {
+      display:block;
+      font-size:.85rem;
+      color:#334155;
+      margin-bottom:.35rem;
+    }
+    .financeiro-report-card span {
+      display:block;
+      font-size:1.35rem;
+      font-weight:800;
+      color:#0f172a;
+    }
+    .financeiro-report-note {
+      margin:.25rem 0 0;
+      color:#64748b;
+      font-size:.82rem;
+    }
+    .financeiro-report-section {
+      margin-top:1rem;
+    }
+    .financeiro-report-section table {
+      width:100%;
+      border-collapse:collapse;
+    }
+    .financeiro-report-section th,
+    .financeiro-report-section td {
+      padding:.7rem .6rem;
+      border-bottom:1px solid #e2e8f0;
+      text-align:left;
+      vertical-align:top;
+    }
+    .financeiro-report-section ul {
+      margin:.15rem 0 0;
+      padding-left:1rem;
+    }
+    .financeiro-report-section li {
+      margin:.15rem 0;
+    }
     @media (max-width: 768px) {
       .financeiro-grid { grid-template-columns: 1fr; }
       .financeiro-grid .primary { width:100%; }
@@ -116,7 +166,10 @@
 
     <section class="painel-card">
       <div class="financeiro-tabs" role="tablist" aria-label="Seções do financeiro">
-        <a class="financeiro-tab is-active" href="{% url 'accounts:financeiro' %}" aria-current="page">Mensalidades</a>
+        <a class="financeiro-tab{% if active_financeiro_tab == 'mensalidades' %} is-active{% endif %}" href="{% url 'accounts:financeiro' %}" {% if active_financeiro_tab == 'mensalidades' %}aria-current="page"{% endif %}>Mensalidades</a>
+        {% if show_financeiro_relatorios_tab %}
+          <a class="financeiro-tab{% if active_financeiro_tab == 'relatorios' %} is-active{% endif %}" href="{% url 'accounts:financeiro' %}?tab=relatorios" {% if active_financeiro_tab == 'relatorios' %}aria-current="page"{% endif %}>Relatórios</a>
+        {% endif %}
       </div>
 
       {% if financeiro_mode == 'responsavel' %}
@@ -188,6 +241,105 @@
           </div>
         {% else %}
           <p class="panel-note">Nenhum aventureiro vinculado ao seu usuário de responsável.</p>
+        {% endif %}
+      </div>
+      {% elif active_financeiro_tab == 'relatorios' %}
+      <div class="financeiro-report-cards">
+        <div class="financeiro-report-card">
+          <strong>Caixa bruto</strong>
+          <span>{{ relatorios_caixa_bruto }}</span>
+          <p class="financeiro-report-note">Soma de mensalidades pagas + pedidos da loja pagos.</p>
+        </div>
+        <div class="financeiro-report-card">
+          <strong>Caixa liquido</strong>
+          <span>{{ relatorios_caixa_liquido }}</span>
+          <p class="financeiro-report-note">Considera somente mensalidades pagas no saldo positivo do caixa.</p>
+        </div>
+        <div class="financeiro-report-card">
+          <strong>Total mensalidades pagas</strong>
+          <span>{{ relatorios_total_mensalidades_pago }}</span>
+          <p class="financeiro-report-note">Entra no saldo liquido.</p>
+        </div>
+        <div class="financeiro-report-card">
+          <strong>Total loja pago</strong>
+          <span>{{ relatorios_total_loja_pago }}</span>
+          <p class="financeiro-report-note">Entra no bruto, mas nao soma no liquido.</p>
+        </div>
+      </div>
+
+      <div class="financeiro-report-section">
+        <h3>Pagamentos de mensalidades</h3>
+        {% if relatorios_mensalidades_rows %}
+          <div class="financeiro-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Responsavel</th>
+                  <th>Pago em</th>
+                  <th>Valor</th>
+                  <th>Mensalidades</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in relatorios_mensalidades_rows %}
+                  <tr>
+                    <td>#{{ row.id }}</td>
+                    <td>{{ row.responsavel_nome }}<small>{{ row.username }}</small></td>
+                    <td>{{ row.pago_em }}</td>
+                    <td>{{ row.valor_total }}</td>
+                    <td>
+                      <ul>
+                        {% for item in row.competencias %}
+                          <li>{{ item }}</li>
+                        {% endfor %}
+                      </ul>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="panel-note">Nenhum pagamento de mensalidade pago foi encontrado.</p>
+        {% endif %}
+      </div>
+
+      <div class="financeiro-report-section">
+        <h3>Pedidos pagos da loja</h3>
+        {% if relatorios_loja_rows %}
+          <div class="financeiro-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Responsavel</th>
+                  <th>Pago em</th>
+                  <th>Valor</th>
+                  <th>Itens</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in relatorios_loja_rows %}
+                  <tr>
+                    <td>#{{ row.id }}</td>
+                    <td>{{ row.responsavel_nome }}<small>{{ row.username }}</small></td>
+                    <td>{{ row.pago_em }}</td>
+                    <td>{{ row.valor_total }}</td>
+                    <td>
+                      <ul>
+                        {% for item in row.itens %}
+                          <li>{{ item }}</li>
+                        {% endfor %}
+                      </ul>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="panel-note">Nenhum pedido pago da loja foi encontrado.</p>
         {% endif %}
       </div>
       {% else %}
@@ -352,7 +504,7 @@
   </div>
   {% endif %}
 
-  {% if financeiro_mode != 'responsavel' %}
+  {% if financeiro_mode != 'responsavel' and active_financeiro_tab == 'mensalidades' %}
   <div class="modal-backdrop" id="mensalidadeModal" aria-hidden="true">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="mensalidadeModalTitle">
       <h3 id="mensalidadeModalTitle">Editar mensalidade</h3>

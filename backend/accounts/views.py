@@ -4368,6 +4368,9 @@ class FinanceiroView(LoginRequiredMixin, View):
     def _is_responsavel_mode(self, request):
         return _get_active_profile(request) == UserAccess.ROLE_RESPONSAVEL
 
+    def _is_diretor_mode(self, request):
+        return _get_active_profile(request) == UserAccess.ROLE_DIRETOR
+
     def _mp_access_token(self):
         return (
             os.getenv('MP_ACCESS_TOKEN_PROD', '').strip()
@@ -4849,6 +4852,93 @@ class FinanceiroView(LoginRequiredMixin, View):
             'resumo_rows': list(resumo_rows_map.values()),
         }
 
+    def _relatorios_context(self):
+        mensalidades_pagas = list(
+            PagamentoMensalidade.objects
+            .filter(status=PagamentoMensalidade.STATUS_PAGO)
+            .select_related('responsavel', 'responsavel__user')
+            .prefetch_related('mensalidades', 'mensalidades__aventureiro')
+            .order_by('-paid_at', '-created_at')
+        )
+        pedidos_loja_pagos = list(
+            LojaPedido.objects
+            .filter(status=LojaPedido.STATUS_PAGO)
+            .select_related('responsavel', 'responsavel__user')
+            .prefetch_related('itens')
+            .order_by('-paid_at', '-created_at')
+        )
+
+        total_mensalidades_pago = (
+            PagamentoMensalidade.objects
+            .filter(status=PagamentoMensalidade.STATUS_PAGO)
+            .aggregate(total=Sum('valor_total'))
+            .get('total')
+            or Decimal('0.00')
+        )
+        total_loja_pago = (
+            LojaPedido.objects
+            .filter(status=LojaPedido.STATUS_PAGO)
+            .aggregate(total=Sum('valor_total'))
+            .get('total')
+            or Decimal('0.00')
+        )
+        caixa_bruto = (Decimal(total_mensalidades_pago) + Decimal(total_loja_pago)).quantize(Decimal('0.01'))
+        caixa_liquido = Decimal(total_mensalidades_pago).quantize(Decimal('0.01'))
+
+        mensalidades_rows = []
+        for pagamento in mensalidades_pagas:
+            responsavel_nome = (
+                pagamento.responsavel.responsavel_nome
+                or pagamento.responsavel.mae_nome
+                or pagamento.responsavel.pai_nome
+                or pagamento.responsavel.user.username
+            )
+            competencias = []
+            for item in pagamento.mensalidades.all():
+                competencias.append(
+                    f'{item.aventureiro.nome} - {item.get_tipo_display()} - {self._month_label(item.mes_referencia)}/{item.ano_referencia}'
+                )
+            mensalidades_rows.append({
+                'id': pagamento.pk,
+                'responsavel_nome': responsavel_nome,
+                'username': pagamento.responsavel.user.username,
+                'valor_total': self._format_currency(pagamento.valor_total),
+                'pago_em': timezone.localtime(pagamento.paid_at or pagamento.created_at).strftime('%d/%m/%Y %H:%M'),
+                'competencias': competencias,
+            })
+
+        pedidos_loja_rows = []
+        for pedido in pedidos_loja_pagos:
+            responsavel_nome = (
+                pedido.responsavel.responsavel_nome
+                or pedido.responsavel.mae_nome
+                or pedido.responsavel.pai_nome
+                or pedido.responsavel.user.username
+            )
+            itens = []
+            for item in pedido.itens.all():
+                descricao = f'{item.quantidade}x {item.produto_titulo}'
+                if item.variacao_nome:
+                    descricao += f' ({item.variacao_nome})'
+                itens.append(descricao)
+            pedidos_loja_rows.append({
+                'id': pedido.pk,
+                'responsavel_nome': responsavel_nome,
+                'username': pedido.responsavel.user.username,
+                'valor_total': self._format_currency(pedido.valor_total),
+                'pago_em': timezone.localtime(pedido.paid_at or pedido.created_at).strftime('%d/%m/%Y %H:%M'),
+                'itens': itens,
+            })
+
+        return {
+            'relatorios_mensalidades_rows': mensalidades_rows,
+            'relatorios_loja_rows': pedidos_loja_rows,
+            'relatorios_total_mensalidades_pago': self._format_currency(total_mensalidades_pago),
+            'relatorios_total_loja_pago': self._format_currency(total_loja_pago),
+            'relatorios_caixa_bruto': self._format_currency(caixa_bruto),
+            'relatorios_caixa_liquido': self._format_currency(caixa_liquido),
+        }
+
     def get(self, request):
         guard = self._guard(request)
         if guard:
@@ -4856,13 +4946,19 @@ class FinanceiroView(LoginRequiredMixin, View):
         if self._is_responsavel_mode(request):
             incluir_ano_todo = str(request.GET.get('incluir_ano_todo') or '').strip().lower() in {'1', 'true', 'on', 'yes'}
             context = self._mensalidades_responsavel_context(request, incluir_ano_todo=incluir_ano_todo)
+            active_tab = 'mensalidades'
+        elif str(request.GET.get('tab') or '').strip().lower() == 'relatorios' and self._is_diretor_mode(request):
+            context = self._relatorios_context()
+            active_tab = 'relatorios'
         else:
             context = self._mensalidades_context(
                 request.GET.get('aventureiro'),
                 request.GET.get('valor', '30'),
             )
+            active_tab = 'mensalidades'
         context.update({
-            'active_financeiro_tab': 'mensalidades',
+            'active_financeiro_tab': active_tab,
+            'show_financeiro_relatorios_tab': self._is_diretor_mode(request),
         })
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
@@ -4958,6 +5054,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                             context = self._mensalidades_responsavel_context(request, incluir_ano_todo=incluir_ano_todo)
                             context['responsavel_pix_pagamento'] = self._pix_modal_context(pagamento)
             context.update({'active_financeiro_tab': 'mensalidades'})
+            context.update({'show_financeiro_relatorios_tab': self._is_diretor_mode(request)})
             context.update(_sidebar_context(request))
             return render(request, self.template_name, context)
         action = str(request.POST.get('action') or '').strip()
@@ -5091,6 +5188,7 @@ class FinanceiroView(LoginRequiredMixin, View):
         context = self._mensalidades_context(aventureiro_id, valor_input)
         context.update({
             'active_financeiro_tab': 'mensalidades',
+            'show_financeiro_relatorios_tab': self._is_diretor_mode(request),
         })
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)

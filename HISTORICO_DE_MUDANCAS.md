@@ -864,3 +864,10 @@ Arquivo oficial de registro das entregas concluidas.
 - A tela de edicao de usuario (responsavel) passou a mostrar as opcoes de telefone em lista com selecao direta de principal.
 - As opcoes aparecem por origem (celular/telefone de responsavel, mae e pai), com indicacao quando nao ha numero cadastrado.
 - Mantida opcao de telefone manual, agora com habilitacao automatica apenas quando a opcao manual estiver marcada.
+
+## 08/03/2026 - Financeiro: relatorios para diretor com bruto e liquido
+
+- Adicionada aba `Relatorios` no modulo Financeiro quando o perfil ativo e Diretor.
+- A nova visao lista pagamentos de mensalidades pagos e pedidos pagos da loja.
+- Incluidos cards de totais com `Caixa bruto` (mensalidades pagas + pedidos pagos da loja) e `Caixa liquido` (apenas mensalidades pagas).
+- Regra aplicada: pedidos da loja entram no bruto, mas nao somam no saldo liquido do caixa.
