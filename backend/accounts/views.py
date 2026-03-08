@@ -238,7 +238,7 @@ def _effective_menu_permissions(user, active_profile=''):
         if UserAccess.ROLE_DIRETORIA in profiles:
             allowed.update({'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'pontos', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes'})
         if UserAccess.ROLE_PROFESSOR in profiles:
-            allowed.update({'apostila'})
+            allowed.update({'apostila', 'loja'})
         if UserAccess.ROLE_RESPONSAVEL in profiles:
             allowed.update({'financeiro', 'pontos'})
     return sorted(allowed)
@@ -253,6 +253,7 @@ def _has_menu_permission(user_or_request, menu_key):
 
 
 def _sidebar_context(request):
+    _ensure_default_access_groups()
     access = _ensure_user_access(request.user)
     active_profile = _get_active_profile(request, access=access)
     profile_options = [
@@ -393,7 +394,7 @@ def _ensure_default_access_groups():
         ('diretor', 'Diretor', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'pontos', 'apostila', 'loja', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('diretoria', 'Diretoria', ['inicio', 'meus_dados', 'aventureiros', 'eventos', 'presenca', 'auditoria', 'usuarios', 'financeiro', 'pontos', 'whatsapp', 'documentos_inscricao', 'permissoes']),
         ('responsavel', 'Responsavel', ['inicio', 'meus_dados', 'financeiro', 'pontos', 'loja']),
-        ('professor', 'Professor', ['inicio', 'meus_dados', 'apostila']),
+        ('professor', 'Professor', ['inicio', 'meus_dados', 'apostila', 'loja']),
     ]
     for code, name, menus in defaults:
         group, _ = AccessGroup.objects.get_or_create(
@@ -410,8 +411,13 @@ def _ensure_default_access_groups():
                 group.save(update_fields=['menu_permissions', 'updated_at'])
         if code in {'diretor', 'professor'}:
             current_menus = _normalize_menu_keys(group.menu_permissions)
+            extras = []
             if 'apostila' not in current_menus:
-                group.menu_permissions = list(current_menus) + ['apostila']
+                extras.append('apostila')
+            if code == 'professor' and 'loja' not in current_menus:
+                extras.append('loja')
+            if extras:
+                group.menu_permissions = list(current_menus) + extras
                 group.save(update_fields=['menu_permissions', 'updated_at'])
 
 
@@ -6268,6 +6274,33 @@ class LojaView(LoginRequiredMixin, View):
     def _is_responsavel_mode(self, request):
         return _get_active_profile(request) == UserAccess.ROLE_RESPONSAVEL
 
+    def _is_catalog_mode(self, request):
+        return _get_active_profile(request) in {UserAccess.ROLE_RESPONSAVEL, UserAccess.ROLE_PROFESSOR}
+
+    def _ensure_loja_responsavel(self, user, create=False):
+        responsavel = getattr(user, 'responsavel', None)
+        if responsavel:
+            return responsavel
+        diretoria = getattr(user, 'diretoria', None)
+        if not diretoria or not create:
+            return None
+        responsavel, _created = Responsavel.objects.get_or_create(
+            user=user,
+            defaults={
+                'responsavel_nome': diretoria.nome or '',
+                'responsavel_parentesco': 'Diretoria',
+                'responsavel_cpf': diretoria.cpf or '',
+                'responsavel_email': diretoria.email or '',
+                'responsavel_celular': diretoria.whatsapp or '',
+                'endereco': diretoria.endereco or '',
+                'bairro': diretoria.bairro or '',
+                'cidade': diretoria.cidade or '',
+                'cep': diretoria.cep or '',
+                'estado': diretoria.estado or '',
+            },
+        )
+        return responsavel
+
     def _produto_rows(self, *, only_active=False, only_active_variacoes=False):
         produtos = (
             LojaProduto.objects
@@ -6366,7 +6399,7 @@ class LojaView(LoginRequiredMixin, View):
             row['produto_capa_url'] = row['capa_foto'].url if row.get('capa_foto') else ''
             row['default_variacao'] = row['variacoes'][0] if row['variacoes'] else None
         meus_pedidos = []
-        responsavel = getattr(request.user, 'responsavel', None)
+        responsavel = self._ensure_loja_responsavel(request.user, create=False)
         if responsavel:
             pedidos_qs = (
                 LojaPedido.objects
@@ -6400,13 +6433,14 @@ class LojaView(LoginRequiredMixin, View):
             'catalog_rows': rows,
             'responsavel_catalogo_tem_produtos': bool(rows),
             'meus_pedidos_rows': meus_pedidos,
+            'loja_buyer_label': 'Professor' if _get_active_profile(request) == UserAccess.ROLE_PROFESSOR else 'Responsavel',
         }
 
     def get(self, request):
         guard = self._guard(request)
         if guard:
             return guard
-        if self._is_responsavel_mode(request):
+        if self._is_catalog_mode(request):
             context = self._responsavel_context(request)
         else:
             context = self._context()
@@ -6417,7 +6451,7 @@ class LojaView(LoginRequiredMixin, View):
         guard = self._guard(request)
         if guard:
             return guard
-        if self._is_responsavel_mode(request):
+        if self._is_catalog_mode(request):
             messages.info(request, 'Carrinho será implementado nas próximas etapas. Por enquanto, use esta tela para selecionar produtos e validar o catálogo.')
             context = self._responsavel_context(request)
             context.update(_sidebar_context(request))
@@ -6683,10 +6717,11 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
     def post(self, request):
         if not _has_menu_permission(request, 'loja'):
             return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
-        if _get_active_profile(request) != UserAccess.ROLE_RESPONSAVEL:
+        if _get_active_profile(request) not in {UserAccess.ROLE_RESPONSAVEL, UserAccess.ROLE_PROFESSOR}:
             return JsonResponse({'ok': False, 'error': 'forbidden_profile'}, status=403)
 
-        responsavel = getattr(request.user, 'responsavel', None)
+        loja_view = LojaView()
+        responsavel = loja_view._ensure_loja_responsavel(request.user, create=True)
         if not responsavel:
             return JsonResponse({'ok': False, 'error': 'responsavel_not_found'}, status=400)
 
@@ -6766,7 +6801,6 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
         if not parsed_items:
             return JsonResponse({'ok': False, 'error': 'empty_cart', 'message': 'Carrinho vazio.'}, status=400)
 
-        loja_view = LojaView()
         try:
             with transaction.atomic():
                 pedido = LojaPedido.objects.create(
@@ -6829,9 +6863,8 @@ class LojaPedidoStatusApiView(LoginRequiredMixin, View):
             LojaPedido.objects.select_related('responsavel', 'responsavel__user'),
             pk=pk,
         )
-        if _get_active_profile(request) == UserAccess.ROLE_RESPONSAVEL:
-            responsavel = getattr(request.user, 'responsavel', None)
-            if not responsavel or pedido.responsavel_id != responsavel.pk:
+        if _get_active_profile(request) in {UserAccess.ROLE_RESPONSAVEL, UserAccess.ROLE_PROFESSOR}:
+            if pedido.responsavel.user_id != request.user.id:
                 return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
 
         loja_view = LojaView()

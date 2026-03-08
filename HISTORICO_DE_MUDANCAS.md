@@ -877,3 +877,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Ajustado o cadastro novo de diretoria para vincular automaticamente os grupos `diretoria` e `professor`.
 - Com isso, novos usuarios de diretoria passam a receber tambem o perfil e as permissoes de professor.
 - O fluxo legado de cadastro de diretoria tambem passou a marcar o perfil `professor` junto com `diretoria`.
+
+## 08/03/2026 - Loja: perfil professor com acesso de compra como responsavel
+
+- O perfil `professor` passou a enxergar o menu `Loja`.
+- O fluxo de catalogo, carrinho, Pix e consulta de status da loja foi liberado tambem para o perfil `professor`.
+- Quando o usuario professor nao possui cadastro de responsavel, o sistema cria automaticamente um cadastro auxiliar a partir dos dados da diretoria para viabilizar os pedidos da loja.
+- Objetivo: permitir que usuarios de diretoria/professor tambem comprem na loja com fluxo igual ao de responsavel.
