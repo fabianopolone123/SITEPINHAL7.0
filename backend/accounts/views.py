@@ -4139,6 +4139,7 @@ class WhatsAppView(LoginRequiredMixin, View):
         diretoria_template = get_template_message(WhatsAppTemplate.TYPE_DIRETORIA)
         confirmacao_template = get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO)
         financeiro_template = get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO)
+        loja_template = get_template_message(WhatsAppTemplate.TYPE_LOJA)
         teste_template = get_template_message(WhatsAppTemplate.TYPE_TESTE)
         context = {
             'rows': self._users_context(),
@@ -4147,6 +4148,7 @@ class WhatsAppView(LoginRequiredMixin, View):
             'diretoria_template': diretoria_template,
             'confirmacao_template': confirmacao_template,
             'financeiro_template': financeiro_template,
+            'loja_template': loja_template,
             'teste_template': teste_template,
         }
         context.update(_sidebar_context(request))
@@ -4160,6 +4162,7 @@ class WhatsAppView(LoginRequiredMixin, View):
         cadastro_enabled = []
         diretoria_enabled = []
         financeiro_enabled = []
+        loja_enabled = []
         for row in rows:
             user = row['user']
             pref = row['pref']
@@ -4168,6 +4171,7 @@ class WhatsAppView(LoginRequiredMixin, View):
             pref.notify_cadastro = bool(request.POST.get(f'{prefix}_cadastro'))
             pref.notify_diretoria = bool(request.POST.get(f'{prefix}_diretoria'))
             pref.notify_financeiro = bool(request.POST.get(f'{prefix}_financeiro'))
+            pref.notify_loja = bool(request.POST.get(f'{prefix}_loja'))
             pref.notify_geral = False
             pref.save(
                 update_fields=[
@@ -4175,6 +4179,7 @@ class WhatsAppView(LoginRequiredMixin, View):
                     'notify_cadastro',
                     'notify_diretoria',
                     'notify_financeiro',
+                    'notify_loja',
                     'notify_geral',
                     'updated_at',
                 ]
@@ -4185,6 +4190,8 @@ class WhatsAppView(LoginRequiredMixin, View):
                 diretoria_enabled.append(user.username)
             if pref.notify_financeiro:
                 financeiro_enabled.append(user.username)
+            if pref.notify_loja:
+                loja_enabled.append(user.username)
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_CADASTRO,
             defaults={'message_text': request.POST.get('template_cadastro', '').strip()},
@@ -4200,6 +4207,10 @@ class WhatsAppView(LoginRequiredMixin, View):
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_FINANCEIRO,
             defaults={'message_text': request.POST.get('template_financeiro', '').strip()},
+        )
+        WhatsAppTemplate.objects.update_or_create(
+            notification_type=WhatsAppTemplate.TYPE_LOJA,
+            defaults={'message_text': request.POST.get('template_loja', '').strip()},
         )
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_TESTE,
@@ -4221,6 +4232,7 @@ class WhatsAppView(LoginRequiredMixin, View):
                     'diretoria_template': get_template_message(WhatsAppTemplate.TYPE_DIRETORIA),
                     'confirmacao_template': get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO),
                     'financeiro_template': get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO),
+                    'loja_template': get_template_message(WhatsAppTemplate.TYPE_LOJA),
                     'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
                 }
                 context.update(_sidebar_context(request))
@@ -4303,6 +4315,12 @@ class WhatsAppView(LoginRequiredMixin, View):
             messages.info(request, f'Pagamento aprovado marcado para: {preview}{suffix}')
         else:
             messages.info(request, 'Nenhum contato está marcado para receber notificação de Pagamento aprovado.')
+        if loja_enabled:
+            preview = ', '.join(loja_enabled[:6])
+            suffix = '...' if len(loja_enabled) > 6 else ''
+            messages.info(request, f'Pedido da loja pago marcado para: {preview}{suffix}')
+        else:
+            messages.info(request, 'Nenhum contato está marcado para receber notificação de Pedido da loja pago.')
         context = {
             'rows': self._users_context(),
             'queue': queue_stats(),
@@ -4310,6 +4328,7 @@ class WhatsAppView(LoginRequiredMixin, View):
             'diretoria_template': get_template_message(WhatsAppTemplate.TYPE_DIRETORIA),
             'confirmacao_template': get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO),
             'financeiro_template': get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO),
+            'loja_template': get_template_message(WhatsAppTemplate.TYPE_LOJA),
             'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
         }
         context.update(_sidebar_context(request))
@@ -6206,7 +6225,7 @@ class LojaView(LoginRequiredMixin, View):
             'pagamento_id': pedido.mp_payment_id or f'Pedido #{pedido.pk}',
             'data_hora': timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M:%S'),
         }
-        message_text = render_message(get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO), payload)
+        message_text = render_message(get_template_message(WhatsAppTemplate.TYPE_LOJA), payload)
 
         recipients = []
         seen_phones = set()
@@ -6223,7 +6242,7 @@ class LojaView(LoginRequiredMixin, View):
         extras = (
             UserAccess.objects
             .select_related('user')
-            .filter(user__whatsapp_preference__notify_financeiro=True)
+            .filter(user__whatsapp_preference__notify_loja=True)
             .order_by('user__username')
         )
         for access in extras:
@@ -6239,7 +6258,7 @@ class LojaView(LoginRequiredMixin, View):
             queue_item = WhatsAppQueue.objects.create(
                 user=user,
                 phone_number=phone_number,
-                notification_type=WhatsAppQueue.TYPE_FINANCEIRO,
+                notification_type=WhatsAppQueue.TYPE_LOJA,
                 message_text=message_text,
                 status=WhatsAppQueue.STATUS_PENDING,
             )

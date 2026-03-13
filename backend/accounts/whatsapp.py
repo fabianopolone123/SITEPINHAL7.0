@@ -47,6 +47,18 @@ DEFAULT_FINANCEIRO_MESSAGE = (
     'Obrigado! 🙏'
 )
 
+DEFAULT_LOJA_MESSAGE = (
+    'Pedido da loja pago no Pinhal Junior!\n'
+    'Ola, {responsavel_nome}.\n'
+    'Seu pedido foi pago com sucesso.\n'
+    'Pedido: {pedido_id}\n'
+    'Itens:\n'
+    '{pedido_itens}\n'
+    'Total pago: {valor_total}\n'
+    'Pagamento: {pagamento_id}\n'
+    'Data/Hora: {data_hora}'
+)
+
 DEFAULT_TESTE_MESSAGE = (
     '✅ Mensagem de teste do sistema Pinhal Junior.\n'
     'Se voce recebeu este aviso, o canal WhatsApp esta ativo.'
@@ -208,6 +220,7 @@ def get_template_message(notification_type):
         WhatsAppTemplate.TYPE_DIRETORIA: DEFAULT_DIRETORIA_MESSAGE,
         WhatsAppTemplate.TYPE_CONFIRMACAO: DEFAULT_CONFIRMACAO_MESSAGE,
         WhatsAppTemplate.TYPE_FINANCEIRO: DEFAULT_FINANCEIRO_MESSAGE,
+        WhatsAppTemplate.TYPE_LOJA: DEFAULT_LOJA_MESSAGE,
         WhatsAppTemplate.TYPE_TESTE: DEFAULT_TESTE_MESSAGE,
     }
     default_message = defaults.get(notification_type, DEFAULT_TESTE_MESSAGE)

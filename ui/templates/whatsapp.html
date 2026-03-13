@@ -31,6 +31,7 @@
       <p class="panel-note">As notificações de cadastro são enviadas automaticamente quando um novo cadastro é concluído.</p>
       <p class="panel-note">A confirmação de inscrição também é automática e vai para o WhatsApp do próprio inscrito (uma vez por conclusão).</p>
       <p class="panel-note">Pagamento aprovado sempre notifica o responsável do pagamento; as caixas abaixo servem para contatos adicionais.</p>
+      <p class="panel-note">Pedido da loja pago sempre notifica o responsável do pedido; as caixas abaixo servem para contatos adicionais.</p>
     </section>
 
     <section class="painel-card message-template-wrap">
@@ -54,6 +55,10 @@
           <textarea name="template_financeiro" form="whatsapp-form" rows="6">{{ financeiro_template|default:'' }}</textarea>
         </label>
         <label class="message-template-card">
+          <span class="message-template-title">Mensagem de Pedido da loja pago</span>
+          <textarea name="template_loja" form="whatsapp-form" rows="6">{{ loja_template|default:'' }}</textarea>
+        </label>
+        <label class="message-template-card">
           <span class="message-template-title">Mensagem de Teste</span>
           <textarea name="template_teste" form="whatsapp-form" rows="6">{{ teste_template|default:'' }}</textarea>
         </label>
@@ -66,6 +71,9 @@
       </p>
       <p class="panel-note">
         Placeholders para pagamento aprovado: <code>{responsavel_nome}</code>, <code>{mensalidades}</code>, <code>{valor_total}</code>, <code>{pagamento_id}</code>, <code>{data_hora}</code>.
+      </p>
+      <p class="panel-note">
+        Placeholders para pedido da loja pago: <code>{responsavel_nome}</code>, <code>{pedido_id}</code>, <code>{pedido_itens}</code>, <code>{valor_total}</code>, <code>{pagamento_id}</code>, <code>{data_hora}</code>.
       </p>
     </section>
 
@@ -80,6 +88,7 @@
             <th>Cadastro responsável</th>
             <th>Cadastro diretoria</th>
             <th>Pagamento aprovado</th>
+            <th>Pedido loja pago</th>
             <th>Teste</th>
           </tr>
         </thead>
@@ -103,11 +112,12 @@
               <td data-label="Cadastro responsável"><input type="checkbox" name="u{{ item.user.pk }}_cadastro" {% if item.pref.notify_cadastro %}checked{% endif %} /></td>
               <td data-label="Cadastro diretoria"><input type="checkbox" name="u{{ item.user.pk }}_diretoria" {% if item.pref.notify_diretoria %}checked{% endif %} /></td>
               <td data-label="Pagamento aprovado"><input type="checkbox" name="u{{ item.user.pk }}_financeiro" {% if item.pref.notify_financeiro %}checked{% endif %} /></td>
+              <td data-label="Pedido loja pago"><input type="checkbox" name="u{{ item.user.pk }}_loja" {% if item.pref.notify_loja %}checked{% endif %} /></td>
               <td data-label="Teste"><input type="checkbox" name="u{{ item.user.pk }}_send_test" /></td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="6">Nenhum usuário disponível.</td>
+              <td colspan="7">Nenhum usuário disponível.</td>
             </tr>
           {% endfor %}
         </tbody>

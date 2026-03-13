@@ -889,3 +889,10 @@ Arquivo oficial de registro das entregas concluidas.
 
 - Ajustado o CSS das tabelas `Usuarios por grupo` e `Excecao por usuario` para manter o cabecalho visivel durante a rolagem.
 - O cabecalho agora fica fixo no topo da area rolavel, facilitando identificar os grupos e menus enquanto navega pela lista.
+
+## 13/03/2026 - WhatsApp: notificacao de pedido da loja pago com destinatarios dedicados
+
+- Adicionada nova categoria de notificacao Loja no modulo WhatsApp, com coluna propria para marcar os usuarios que receberao alerta de pedido da loja pago.
+- Incluido template padrao especifico para pedido da loja pago na tela de configuracao do WhatsApp.
+- O envio de pedido da loja aprovado agora usa preferencia e fila proprias (notify_loja / TYPE_LOJA).
+- Mantido o fluxo financeiro separado: pagamento de mensalidades continua usando notify_financeiro / TYPE_FINANCEIRO.

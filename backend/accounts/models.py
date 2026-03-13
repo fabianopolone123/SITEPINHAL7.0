@@ -181,6 +181,7 @@ class WhatsAppPreference(models.Model):
     NOTIFY_DIRETORIA = 'diretoria'
     NOTIFY_CONFIRMACAO = 'confirmacao'
     NOTIFY_FINANCEIRO = 'financeiro'
+    NOTIFY_LOJA = 'loja'
     NOTIFY_GERAL = 'geral'
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='whatsapp_preference')
@@ -189,6 +190,7 @@ class WhatsAppPreference(models.Model):
     notify_diretoria = models.BooleanField('notificacao de cadastro de diretoria', default=False)
     notify_confirmacao = models.BooleanField('notificacao de confirmacao de inscricao', default=False)
     notify_financeiro = models.BooleanField('notificacao financeira', default=False)
+    notify_loja = models.BooleanField('notificacao de pedido loja pago', default=False)
     notify_geral = models.BooleanField('notificacao geral', default=False)
     cadastro_message = models.TextField('mensagem de cadastro', blank=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -202,6 +204,7 @@ class WhatsAppPreference(models.Model):
             self.NOTIFY_DIRETORIA: self.notify_diretoria,
             self.NOTIFY_CONFIRMACAO: self.notify_confirmacao,
             self.NOTIFY_FINANCEIRO: self.notify_financeiro,
+            self.NOTIFY_LOJA: self.notify_loja,
             self.NOTIFY_GERAL: self.notify_geral,
         }
         return mapping.get(notification_type, False)
@@ -212,6 +215,7 @@ class WhatsAppQueue(models.Model):
     TYPE_DIRETORIA = WhatsAppPreference.NOTIFY_DIRETORIA
     TYPE_CONFIRMACAO = WhatsAppPreference.NOTIFY_CONFIRMACAO
     TYPE_FINANCEIRO = WhatsAppPreference.NOTIFY_FINANCEIRO
+    TYPE_LOJA = WhatsAppPreference.NOTIFY_LOJA
     TYPE_GERAL = WhatsAppPreference.NOTIFY_GERAL
     TYPE_TESTE = 'teste'
 
@@ -220,6 +224,7 @@ class WhatsAppQueue(models.Model):
         (TYPE_DIRETORIA, 'Diretoria'),
         (TYPE_CONFIRMACAO, 'Confirmação'),
         (TYPE_FINANCEIRO, 'Financeiro'),
+        (TYPE_LOJA, 'Loja'),
         (TYPE_GERAL, 'Geral'),
         (TYPE_TESTE, 'Teste'),
     ]
@@ -257,6 +262,7 @@ class WhatsAppTemplate(models.Model):
     TYPE_DIRETORIA = WhatsAppPreference.NOTIFY_DIRETORIA
     TYPE_CONFIRMACAO = WhatsAppPreference.NOTIFY_CONFIRMACAO
     TYPE_FINANCEIRO = WhatsAppPreference.NOTIFY_FINANCEIRO
+    TYPE_LOJA = WhatsAppPreference.NOTIFY_LOJA
     TYPE_TESTE = 'teste'
 
     TYPE_CHOICES = [
@@ -264,6 +270,7 @@ class WhatsAppTemplate(models.Model):
         (TYPE_DIRETORIA, 'Diretoria'),
         (TYPE_CONFIRMACAO, 'Confirmação'),
         (TYPE_FINANCEIRO, 'Financeiro'),
+        (TYPE_LOJA, 'Loja'),
         (TYPE_TESTE, 'Teste'),
     ]
 
