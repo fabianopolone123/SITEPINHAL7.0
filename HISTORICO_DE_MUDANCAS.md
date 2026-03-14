@@ -921,3 +921,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Criada pagina publica do evento com 2 passos: inscricao e compra de itens do evento via Pix.
 - Compras do evento reutilizam o fluxo de pedido Pix da loja, mas ficam vinculadas ao evento para relatorio.
 - Adicionado relatorio em janela suspensa na tela de eventos, mostrando inscricoes e pedidos recentes do evento.
+
+## 14/03/2026 - Hotfix Eventos: correcao de erro 500 no cadastro com campos
+
+- Corrigido erro de template ao renderizar campos dinamicos do evento quando o registro nao possuia chave label.
+- Ajustada exibicao para usar fallback seguro entre 
+ame e label sem quebrar a tela.
+- Confirmado cadastro de evento com campos funcionando apos aplicar as migracoes pendentes.

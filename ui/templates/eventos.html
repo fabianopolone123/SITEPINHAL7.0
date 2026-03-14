@@ -179,7 +179,7 @@
                 <ul class="event-fields-list">
                   {% for campo in evento.fields_data %}
                     <li class="event-field-pill">
-                      <span>{{ campo.name|default:campo.label|default:"Campo" }}</span>
+                      <span>{% firstof campo.name campo.label "Campo" %}</span>
                       <span class="event-field-type">{{ campo.type|default:"texto" }}</span>
                       <span>{{ campo.required|yesno:"Obrigatório,Opcional" }}</span>
                     </li>
@@ -218,7 +218,7 @@
                       {% if evento.fields_data %}
                         {% for campo in evento.fields_data %}
                           <div class="event-field-row">
-                            <input type="text" name="field_name[]" value="{{ campo.name|default:campo.label|default:'' }}" placeholder="Nome do campo" />
+                            <input type="text" name="field_name[]" value="{% firstof campo.name campo.label '' %}" placeholder="Nome do campo" />
                             <select name="field_type[]">
                               <option value="texto" {% if campo.type|default:'texto' == 'texto' %}selected{% endif %}>Texto</option>
                               <option value="data" {% if campo.type == 'data' %}selected{% endif %}>Data</option>
