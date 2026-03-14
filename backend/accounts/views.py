@@ -108,6 +108,14 @@ MENU_ITEMS = [
 MENU_KEYS = {item[0] for item in MENU_ITEMS}
 
 
+def _evento_public_inscricao_session_key(evento_id):
+    try:
+        event_part = int(evento_id)
+    except (TypeError, ValueError):
+        event_part = str(evento_id or '').strip() or '0'
+    return f'evento_public_inscricao_{event_part}'
+
+
 def _get_pending_aventures(session):
     return session.get('aventures_pending', [])
 
@@ -3601,6 +3609,15 @@ class EventoPublicoView(View):
                 .filter(evento=evento, user=request.user)
                 .first()
             )
+        else:
+            session_key = _evento_public_inscricao_session_key(evento.id)
+            inscricao_id = request.session.get(session_key)
+            if inscricao_id:
+                inscricao = (
+                    EventoInscricao.objects
+                    .filter(pk=inscricao_id, evento=evento, user__isnull=True)
+                    .first()
+                )
         produtos = self._produto_rows_evento(evento)
         pedido_modal = {}
         if request.user.is_authenticated and 'last_evento_pedido_id' in request.session:
@@ -3672,42 +3689,118 @@ class EventoPublicoView(View):
                 },
             )
         else:
-            EventoInscricao.objects.create(
-                evento=evento,
-                user=None,
-                responsavel=None,
-                dados=dados,
-                quer_comprar_itens=False,
-            )
+            session_key = _evento_public_inscricao_session_key(evento.id)
+            inscricao_id = request.session.get(session_key)
+            inscricao_obj = None
+            if inscricao_id:
+                inscricao_obj = (
+                    EventoInscricao.objects
+                    .filter(pk=inscricao_id, evento=evento, user__isnull=True)
+                    .first()
+                )
+            if inscricao_obj:
+                inscricao_obj.dados = dados
+                inscricao_obj.quer_comprar_itens = quer_comprar_itens
+                inscricao_obj.save(update_fields=['dados', 'quer_comprar_itens', 'updated_at'])
+            else:
+                inscricao_obj = EventoInscricao.objects.create(
+                    evento=evento,
+                    user=None,
+                    responsavel=None,
+                    dados=dados,
+                    quer_comprar_itens=quer_comprar_itens,
+                )
+                request.session[session_key] = inscricao_obj.pk
         messages.success(request, 'Inscrição do evento salva com sucesso.')
         return render(request, self.template_name, self._context(request, evento))
 
 
-class EventoPedidoCreatePixApiView(LoginRequiredMixin, View):
-    def post(self, request, event_id):
-        evento = get_object_or_404(Evento, pk=event_id)
+class EventoPedidoCreatePixApiView(View):
+    def _authenticated_profile_allowed(self, request):
+        if not request.user.is_authenticated:
+            return False
         access = _ensure_user_access(request.user)
-        if not (
+        return (
             access.has_profile(UserAccess.ROLE_RESPONSAVEL)
             or access.has_profile(UserAccess.ROLE_PROFESSOR)
             or access.has_profile(UserAccess.ROLE_DIRETOR)
             or access.has_profile(UserAccess.ROLE_DIRETORIA)
-        ):
+        )
+
+    def _guest_responsavel_from_payload(self, payload, evento):
+        buyer_name = str(payload.get('buyer_name') or '').strip()
+        buyer_email = str(payload.get('buyer_email') or '').strip()
+        buyer_phone = str(payload.get('buyer_phone') or '').strip()
+        if not buyer_name:
+            return None, 'Informe o nome para compra no evento.'
+        if buyer_email:
+            try:
+                validate_email(buyer_email)
+            except ValidationError:
+                return None, 'E-mail inválido para compra no evento.'
+        username = ''
+        for _ in range(8):
+            candidate = f'evento_guest_{evento.id}_{timezone.now().strftime("%Y%m%d%H%M%S")}_{randint(100,999)}'
+            if not User.objects.filter(username=candidate).exists():
+                username = candidate
+                break
+        if not username:
+            return None, 'Não foi possível gerar usuário temporário para compra.'
+        user = User.objects.create(
+            username=username,
+            email=buyer_email,
+            is_active=True,
+        )
+        user.set_unusable_password()
+        user.save(update_fields=['password'])
+        responsavel = Responsavel.objects.create(
+            user=user,
+            responsavel_nome=buyer_name,
+            responsavel_parentesco='Convidado evento',
+            responsavel_email=buyer_email,
+            responsavel_celular=buyer_phone,
+        )
+        return responsavel, ''
+
+    def post(self, request, event_id):
+        evento = get_object_or_404(Evento, pk=event_id)
+        if not bool(evento.inscricao_publica) and not self._authenticated_profile_allowed(request):
             return JsonResponse({'ok': False, 'error': 'forbidden_profile'}, status=403)
-
-        inscricao = EventoInscricao.objects.filter(evento=evento, user=request.user).first()
-        if not inscricao:
-            return JsonResponse({'ok': False, 'error': 'missing_registration', 'message': 'Faça sua inscrição no evento antes de comprar.'}, status=400)
-
-        loja_view = LojaView()
-        responsavel = loja_view._ensure_loja_responsavel(request.user, create=True)
-        if not responsavel:
-            return JsonResponse({'ok': False, 'error': 'responsavel_not_found'}, status=400)
 
         try:
             payload = json.loads((request.body or b'').decode('utf-8') or '{}')
         except json.JSONDecodeError:
             return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
+
+        inscricao = None
+        if request.user.is_authenticated:
+            inscricao = EventoInscricao.objects.filter(evento=evento, user=request.user).first()
+        else:
+            session_key = _evento_public_inscricao_session_key(evento.id)
+            inscricao_id = request.session.get(session_key)
+            if inscricao_id:
+                inscricao = (
+                    EventoInscricao.objects
+                    .filter(pk=inscricao_id, evento=evento, user__isnull=True)
+                    .first()
+                )
+        if not inscricao:
+            return JsonResponse({'ok': False, 'error': 'missing_registration', 'message': 'Faça sua inscrição no evento antes de comprar.'}, status=400)
+
+        loja_view = LojaView()
+        if request.user.is_authenticated:
+            responsavel = loja_view._ensure_loja_responsavel(request.user, create=True)
+        else:
+            if not bool(evento.inscricao_publica):
+                return JsonResponse({'ok': False, 'error': 'forbidden_profile'}, status=403)
+            responsavel, guest_error = self._guest_responsavel_from_payload(payload, evento)
+            if guest_error:
+                return JsonResponse({'ok': False, 'error': 'guest_invalid', 'message': guest_error}, status=400)
+        if not responsavel:
+            return JsonResponse({'ok': False, 'error': 'responsavel_not_found'}, status=400)
+        if not inscricao.responsavel_id:
+            inscricao.responsavel = responsavel
+            inscricao.save(update_fields=['responsavel', 'updated_at'])
 
         payment_method = str(payload.get('payment_method') or '').strip().lower()
         if payment_method != LojaPedido.FORMA_PAGAMENTO_PIX:
@@ -3780,7 +3873,7 @@ class EventoPedidoCreatePixApiView(LoginRequiredMixin, View):
                     evento=evento,
                     forma_pagamento=LojaPedido.FORMA_PAGAMENTO_PIX,
                     valor_total=total.quantize(Decimal('0.01')),
-                    created_by=request.user,
+                    created_by=request.user if request.user.is_authenticated else None,
                     status=LojaPedido.STATUS_PENDENTE,
                 )
                 LojaPedidoItem.objects.bulk_create([

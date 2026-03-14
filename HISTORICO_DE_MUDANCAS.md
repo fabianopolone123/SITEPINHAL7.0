@@ -942,3 +942,10 @@ ame e label sem quebrar a tela.
 - Quando marcado, a pagina do evento pode ser aberta sem autenticar.
 - Quando desmarcado, a pagina continua privada e redireciona para login.
 - Mantido fluxo de compra com login; visitante sem login consegue enviar inscricao publica.
+
+## 14/03/2026 - Evento publico: compra segue mesma regra de acesso
+
+- Compra de itens do evento passou a seguir a mesma regra da pagina de inscricao (publico/privado).
+- Em evento publico, visitante sem login pode comprar apos concluir a inscricao publica.
+- Em evento privado, compra continua exigindo login/perfil permitido.
+- Adicionados campos de comprador na pagina publica para pedido sem login (nome, email opcional, celular opcional).

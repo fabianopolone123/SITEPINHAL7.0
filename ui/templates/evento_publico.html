@@ -105,13 +105,14 @@
 
     <section class="painel-card event-step">
       <h3>Passo 2: Compra de itens</h3>
-      {% if not is_authenticated %}
-        <p class="panel-note">Para comprar itens do evento, faça login no sistema.</p>
-      {% elif not inscricao %}
+      {% if not inscricao %}
         <p class="panel-note">Finalize o passo 1 para liberar a compra de itens.</p>
       {% elif not has_produtos %}
         <p class="panel-note">Este evento não possui itens para venda.</p>
       {% else %}
+        {% if not is_authenticated %}
+          <p class="panel-note">Compra liberada sem login porque este evento está público.</p>
+        {% endif %}
         <div class="event-products-grid" id="event-products-grid">
           {% for row in produtos %}
             <article class="event-product-card" data-product-id="{{ row.produto.id }}">
@@ -154,6 +155,23 @@
             </thead>
             <tbody id="event-cart-body"></tbody>
           </table>
+          {% if not is_authenticated %}
+            <div class="field-section" style="margin-top:0.75rem;">
+              <h4>Dados do comprador</h4>
+              <label>
+                Nome *
+                <input type="text" id="event-guest-name" placeholder="Seu nome completo" />
+              </label>
+              <label>
+                E-mail (opcional)
+                <input type="email" id="event-guest-email" placeholder="seu@email.com" />
+              </label>
+              <label>
+                Celular (opcional)
+                <input type="text" id="event-guest-phone" placeholder="5511999999999" />
+              </label>
+            </div>
+          {% endif %}
           <p><strong>Total:</strong> <span id="event-cart-total">R$ 0,00</span></p>
           <div class="action-row">
             <button type="button" class="primary" id="event-generate-pix">Gerar Pix</button>
@@ -198,6 +216,9 @@
       const pixQrWrap = document.getElementById('event-pix-qr-wrap');
       const pixCode = document.getElementById('event-pix-code');
       const checkStatusBtn = document.getElementById('event-check-status');
+      const guestNameInput = document.getElementById('event-guest-name');
+      const guestEmailInput = document.getElementById('event-guest-email');
+      const guestPhoneInput = document.getElementById('event-guest-phone');
       const statusUrlTemplate = "{% url 'accounts:loja_pedido_status' 0 %}";
       let lastPedidoId = Number(pixPedidoId ? pixPedidoId.textContent : 0) || 0;
 
@@ -271,6 +292,11 @@
             window.alert('Adicione pelo menos um item ao carrinho.');
             return;
           }
+          if (guestNameInput && !String(guestNameInput.value || '').trim()) {
+            window.alert('Informe o nome do comprador.');
+            guestNameInput.focus();
+            return;
+          }
           generatePixBtn.disabled = true;
           try {
             const response = await fetch("{% url 'accounts:evento_comprar_pix' evento.id %}", {
@@ -281,6 +307,9 @@
               },
               body: JSON.stringify({
                 payment_method: 'pix',
+                buyer_name: guestNameInput ? String(guestNameInput.value || '').trim() : '',
+                buyer_email: guestEmailInput ? String(guestEmailInput.value || '').trim() : '',
+                buyer_phone: guestPhoneInput ? String(guestPhoneInput.value || '').trim() : '',
                 items: cart.map((item) => ({
                   product_id: item.productId,
                   variation_id: item.variationId,
