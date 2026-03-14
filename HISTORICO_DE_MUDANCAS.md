@@ -935,3 +935,10 @@ ame e label sem quebrar a tela.
 - Adicionado bloqueio de duplo envio no botao de salvar do modal de criacao (evita clique repetido).
 - Excluir evento agora so e permitido antes do horario de inicio.
 - Removido fluxo antigo de senha para excluir evento apos horario.
+
+## 14/03/2026 - Eventos: opcao de pagina publica de inscricao
+
+- Adicionada opcao no evento para marcar "Pagina publica de inscricao (sem login)" no criar/editar.
+- Quando marcado, a pagina do evento pode ser aberta sem autenticar.
+- Quando desmarcado, a pagina continua privada e redireciona para login.
+- Mantido fluxo de compra com login; visitante sem login consegue enviar inscricao publica.

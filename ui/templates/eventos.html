@@ -169,6 +169,7 @@
               <h4>{{ evento.name }}</h4>
               <p class="event-meta">
                 Tipo: {{ evento.event_type|default:"-" }} |
+                Página: {% if evento.inscricao_publica %}Pública{% else %}Privada{% endif %} |
                 Data do evento: {{ evento.event_date|date:"d/m/Y"|default:"-" }} |
                 Início: {{ evento.event_time|time:"H:i"|default:"-" }} |
                 Fim: {{ evento.event_end_time|time:"H:i"|default:"-" }} |
@@ -208,6 +209,7 @@
                   <div class="field-section">
                     <label>Nome do evento <input type="text" name="name" value="{{ evento.name }}" required /></label>
                     <label>Tipo <input type="text" name="event_type" value="{{ evento.event_type|default:'' }}" /></label>
+                    <label><input type="checkbox" name="inscricao_publica" value="1" {% if evento.inscricao_publica %}checked{% endif %} /> Página pública de inscrição (sem login)</label>
                     <label>Data <input type="date" name="event_date" value="{{ evento.event_date|date:'Y-m-d' }}" required /></label>
                     <label>Hora início <input type="time" name="event_time" value="{{ evento.event_time|time:'H:i' }}" required /></label>
                     <label>Hora fim <input type="time" name="event_end_time" value="{{ evento.event_end_time|time:'H:i' }}" required /></label>
@@ -449,6 +451,10 @@
           <label>
             Tipo do evento (opcional)
             <input type="text" name="event_type" id="event-type" placeholder="Ex.: reunião, vendas, acampamento" />
+          </label>
+          <label>
+            <input type="checkbox" name="inscricao_publica" id="event-public" value="1" />
+            Página pública de inscrição (sem login)
           </label>
           <label>
             Data do evento *

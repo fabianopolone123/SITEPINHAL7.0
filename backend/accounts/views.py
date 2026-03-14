@@ -20,6 +20,7 @@ from django.utils.crypto import constant_time_compare
 from django.utils.decorators import method_decorator
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from django.urls import reverse
 
 from .forms import (
     ResponsavelForm,
@@ -3330,6 +3331,7 @@ class EventosView(LoginRequiredMixin, View):
         if action == 'create_event':
             name = (request.POST.get('name') or '').strip()
             event_type = (request.POST.get('event_type') or '').strip()
+            inscricao_publica = bool(request.POST.get('inscricao_publica'))
             event_date_raw = (request.POST.get('event_date') or '').strip()
             event_time_raw = (request.POST.get('event_time') or '').strip()
             event_end_time_raw = (request.POST.get('event_end_time') or '').strip()
@@ -3364,6 +3366,7 @@ class EventosView(LoginRequiredMixin, View):
                 Evento.objects.create(
                     name=name,
                     event_type=event_type,
+                    inscricao_publica=inscricao_publica,
                     event_date=event_date_value,
                     event_time=event_time_value,
                     event_end_time=event_end_time_value,
@@ -3425,6 +3428,7 @@ class EventosView(LoginRequiredMixin, View):
                 return render(request, self.template_name, self._context(request))
             name = (request.POST.get('name') or '').strip()
             event_type = (request.POST.get('event_type') or '').strip()
+            inscricao_publica = bool(request.POST.get('inscricao_publica'))
             event_date_raw = (request.POST.get('event_date') or '').strip()
             event_time_raw = (request.POST.get('event_time') or '').strip()
             event_end_time_raw = (request.POST.get('event_end_time') or '').strip()
@@ -3458,11 +3462,12 @@ class EventosView(LoginRequiredMixin, View):
                 return render(request, self.template_name, self._context(request))
             evento.name = name
             evento.event_type = event_type
+            evento.inscricao_publica = inscricao_publica
             evento.event_date = event_date_value
             evento.event_time = event_time_value
             evento.event_end_time = event_end_time_value
             evento.fields_data = fields_data
-            evento.save(update_fields=['name', 'event_type', 'event_date', 'event_time', 'event_end_time', 'fields_data', 'updated_at'])
+            evento.save(update_fields=['name', 'event_type', 'inscricao_publica', 'event_date', 'event_time', 'event_end_time', 'fields_data', 'updated_at'])
             messages.success(request, 'Evento atualizado com sucesso.')
         elif action == 'add_event_product':
             event_id = request.POST.get('event_id')
@@ -3525,21 +3530,24 @@ class EventosView(LoginRequiredMixin, View):
         return render(request, self.template_name, self._context(request))
 
 
-class EventoPublicoView(LoginRequiredMixin, View):
+class EventoPublicoView(View):
     template_name = 'evento_publico.html'
 
-    def _guard_profile(self, request):
+    def _authenticated_profile_allowed(self, request):
+        if not request.user.is_authenticated:
+            return False
         access = _ensure_user_access(request.user)
-        allowed = (
+        return (
             access.has_profile(UserAccess.ROLE_RESPONSAVEL)
             or access.has_profile(UserAccess.ROLE_PROFESSOR)
             or access.has_profile(UserAccess.ROLE_DIRETOR)
             or access.has_profile(UserAccess.ROLE_DIRETORIA)
         )
-        if not allowed:
-            messages.error(request, 'Seu perfil não possui acesso à página de inscrição do evento.')
-            return redirect('accounts:painel')
-        return None
+
+    def _can_access_page(self, request, evento):
+        if bool(evento.inscricao_publica):
+            return True
+        return self._authenticated_profile_allowed(request)
 
     def _format_currency(self, value):
         return LojaView()._format_currency(value)
@@ -3586,14 +3594,16 @@ class EventoPublicoView(LoginRequiredMixin, View):
 
     def _context(self, request, evento):
         schema = self._event_schema(evento)
-        inscricao = (
-            EventoInscricao.objects
-            .filter(evento=evento, user=request.user)
-            .first()
-        )
+        inscricao = None
+        if request.user.is_authenticated:
+            inscricao = (
+                EventoInscricao.objects
+                .filter(evento=evento, user=request.user)
+                .first()
+            )
         produtos = self._produto_rows_evento(evento)
         pedido_modal = {}
-        if 'last_evento_pedido_id' in request.session:
+        if request.user.is_authenticated and 'last_evento_pedido_id' in request.session:
             pedido_id = request.session.pop('last_evento_pedido_id', None)
             if pedido_id:
                 pedido = LojaPedido.objects.filter(pk=pedido_id, evento=evento).first()
@@ -3608,22 +3618,33 @@ class EventoPublicoView(LoginRequiredMixin, View):
             'has_produtos': bool(produtos),
             'can_buy': bool(inscricao and produtos),
             'pedido_modal': pedido_modal,
+            'is_public_page': bool(evento.inscricao_publica),
+            'is_authenticated': bool(request.user.is_authenticated),
         }
-        context.update(_sidebar_context(request))
+        if request.user.is_authenticated:
+            context.update(_sidebar_context(request))
         return context
 
     def get(self, request, event_id):
-        guard = self._guard_profile(request)
-        if guard:
-            return guard
         evento = get_object_or_404(Evento, pk=event_id)
+        if not self._can_access_page(request, evento):
+            if not request.user.is_authenticated:
+                login_url = reverse('accounts:login')
+                next_path = request.get_full_path()
+                return redirect(f'{login_url}?next={next_path}')
+            messages.error(request, 'Este evento não está com página pública habilitada.')
+            return redirect('accounts:painel')
         return render(request, self.template_name, self._context(request, evento))
 
     def post(self, request, event_id):
-        guard = self._guard_profile(request)
-        if guard:
-            return guard
         evento = get_object_or_404(Evento, pk=event_id)
+        if not self._can_access_page(request, evento):
+            if not request.user.is_authenticated:
+                login_url = reverse('accounts:login')
+                next_path = request.get_full_path()
+                return redirect(f'{login_url}?next={next_path}')
+            messages.error(request, 'Este evento não está com página pública habilitada.')
+            return redirect('accounts:painel')
         action = str(request.POST.get('action') or '').strip()
         if action != 'register_event':
             messages.error(request, 'Ação inválida na página do evento.')
@@ -3638,17 +3659,26 @@ class EventoPublicoView(LoginRequiredMixin, View):
                 return render(request, self.template_name, self._context(request, evento))
             dados[field['name']] = value
 
-        responsavel = LojaView()._ensure_loja_responsavel(request.user, create=False)
         quer_comprar_itens = bool(request.POST.get('quer_comprar_itens'))
-        EventoInscricao.objects.update_or_create(
-            evento=evento,
-            user=request.user,
-            defaults={
-                'responsavel': responsavel,
-                'dados': dados,
-                'quer_comprar_itens': quer_comprar_itens,
-            },
-        )
+        if request.user.is_authenticated:
+            responsavel = LojaView()._ensure_loja_responsavel(request.user, create=False)
+            EventoInscricao.objects.update_or_create(
+                evento=evento,
+                user=request.user,
+                defaults={
+                    'responsavel': responsavel,
+                    'dados': dados,
+                    'quer_comprar_itens': quer_comprar_itens,
+                },
+            )
+        else:
+            EventoInscricao.objects.create(
+                evento=evento,
+                user=None,
+                responsavel=None,
+                dados=dados,
+                quer_comprar_itens=False,
+            )
         messages.success(request, 'Inscrição do evento salva com sucesso.')
         return render(request, self.template_name, self._context(request, evento))
 
