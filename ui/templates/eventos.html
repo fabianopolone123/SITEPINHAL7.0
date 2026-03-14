@@ -54,6 +54,9 @@
     .event-item h4 {
       margin-bottom: 0.25rem;
     }
+    .event-item .action-row form {
+      margin: 0;
+    }
     .event-meta {
       color: #475569;
       font-size: 0.9rem;
@@ -190,9 +193,17 @@
                 <p class="panel-note">Sem campos adicionais.</p>
               {% endif %}
               <div class="action-row">
+                <span class="event-status-chip">{% if evento.inscricao_publica %}Público{% else %}Privado{% endif %}</span>
                 <span class="event-field-pill">Inscrições: {{ row.inscricoes_count }}</span>
                 <span class="event-field-pill">Pedidos: {{ row.pedidos_count }}</span>
                 <span class="event-field-pill">Total pago: {{ row.pedidos_total_pago_fmt }}</span>
+                <form method="post">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="toggle_event_public" />
+                  <input type="hidden" name="event_id" value="{{ evento.id }}" />
+                  <input type="hidden" name="publico" value="{% if evento.inscricao_publica %}0{% else %}1{% endif %}" />
+                  <button type="submit" class="secondary">{% if evento.inscricao_publica %}Tornar privado{% else %}Tornar público{% endif %}</button>
+                </form>
                 <button type="button" class="secondary js-open-report" data-modal-id="event-report-{{ evento.id }}">Relatório</button>
                 {% if row.has_public_page %}
                   <a href="{% url 'accounts:evento_publico' evento.id %}" class="secondary">Visualizar página do evento</a>

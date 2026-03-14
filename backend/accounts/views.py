@@ -3415,6 +3415,19 @@ class EventosView(LoginRequiredMixin, View):
                 created_by=request.user,
             )
             messages.success(request, 'Pré-configuração salva com sucesso.')
+        elif action == 'toggle_event_public':
+            event_id = request.POST.get('event_id')
+            evento = Evento.objects.filter(pk=event_id).first()
+            if not evento:
+                messages.error(request, 'Evento não encontrado.')
+                return render(request, self.template_name, self._context(request))
+            make_public = str(request.POST.get('publico') or '').strip() == '1'
+            evento.inscricao_publica = make_public
+            evento.save(update_fields=['inscricao_publica', 'updated_at'])
+            messages.success(
+                request,
+                f'Evento marcado como {"público" if make_public else "privado"} com sucesso.',
+            )
 
         elif action == 'delete_event':
             event_id = request.POST.get('event_id')

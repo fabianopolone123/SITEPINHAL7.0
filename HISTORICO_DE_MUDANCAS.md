@@ -957,3 +957,9 @@ ame e label sem quebrar a tela.
 - Garantida unicidade do codigo por evento com constraint no banco.
 - Incluido campo somente leitura na pagina de inscricao exibindo o codigo (ou aviso de geracao ao salvar).
 - Relatorio de inscricoes do evento passou a mostrar a coluna de codigo.
+
+## 14/03/2026 - Eventos: botao rapido de publico/privado por card
+
+- Adicionado selo visivel de status (Publico/Privado) em cada evento da listagem.
+- Adicionado botao direto no card para alternar Tornar publico / Tornar privado.
+- Mantida opcao dentro de editar evento para quem preferir ajustar por formulario.
