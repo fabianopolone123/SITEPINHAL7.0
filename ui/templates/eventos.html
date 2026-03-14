@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Eventos</title>
+  <title>Eventos de Inscrição</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
   <style>
     .event-top-actions {
@@ -32,7 +32,7 @@
     }
     .event-field-row {
       display: grid;
-      grid-template-columns: minmax(180px, 1fr) minmax(120px, 180px) auto;
+      grid-template-columns: minmax(180px, 1fr) minmax(120px, 180px) minmax(140px, 180px) auto;
       gap: 0.55rem;
       align-items: center;
     }
@@ -120,8 +120,8 @@
   {% include '_painel_sidebar.html' %}
   <main class="painel-content">
     <header class="painel-header">
-      <h2>Eventos</h2>
-      <p>Cadastre eventos e monte os campos de cada evento (ex.: Local, Data, Hora, Comentário).</p>
+      <h2>Eventos de Inscrição</h2>
+      <p>Cadastre eventos para inscrição dos pais, com data, horário e campos personalizados.</p>
       <div class="event-top-actions">
         <button type="button" class="primary" id="open-create-event">Criar novo evento</button>
       </div>
@@ -170,7 +170,8 @@
               <p class="event-meta">
                 Tipo: {{ evento.event_type|default:"-" }} |
                 Data do evento: {{ evento.event_date|date:"d/m/Y"|default:"-" }} |
-                Hora do evento: {{ evento.event_time|time:"H:i"|default:"-" }} |
+                Início: {{ evento.event_time|time:"H:i"|default:"-" }} |
+                Fim: {{ evento.event_end_time|time:"H:i"|default:"-" }} |
                 Criado por: {{ evento.created_by.username|default:"sistema" }} |
                 Data do cadastro: {{ evento.created_at|date:"d/m/Y H:i" }}
               </p>
@@ -180,6 +181,7 @@
                     <li class="event-field-pill">
                       <span>{{ campo.name|default:campo.label|default:"Campo" }}</span>
                       <span class="event-field-type">{{ campo.type|default:"texto" }}</span>
+                      <span>{{ campo.required|yesno:"Obrigatório,Opcional" }}</span>
                     </li>
                   {% endfor %}
                 </ul>
@@ -249,8 +251,12 @@
             <input type="date" name="event_date" id="event-date" required />
           </label>
           <label>
-            Hora do evento *
+            Hora de início *
             <input type="time" name="event_time" id="event-time" required />
+          </label>
+          <label>
+            Hora de fim *
+            <input type="time" name="event_end_time" id="event-end-time" required />
           </label>
         </div>
 
@@ -268,6 +274,10 @@
                 <option value="numero">Número</option>
                 <option value="booleano">Sim/Não</option>
               </select>
+              <select name="field_required[]">
+                <option value="1">Obrigatório</option>
+                <option value="0">Opcional</option>
+              </select>
               <button type="button" class="secondary remove-field" disabled>Remover</button>
             </div>
           </div>
@@ -275,6 +285,11 @@
           <div class="action-row">
             <button type="button" class="secondary" id="add-field">+ Adicionar campo</button>
           </div>
+        </div>
+
+        <div class="field-section">
+          <h3>Produtos para venda no evento (opcional)</h3>
+          <p class="panel-note">Essa etapa será habilitada na próxima atualização.</p>
         </div>
 
         <div class="action-row">
@@ -347,7 +362,7 @@
         }
       };
 
-      const createFieldRow = (nameValue, typeValue) => {
+      const createFieldRow = (nameValue, typeValue, requiredValue) => {
         const row = document.createElement('div');
         row.className = 'event-field-row';
         row.innerHTML = '' +
@@ -359,17 +374,23 @@
             '<option value="numero">Número</option>' +
             '<option value="booleano">Sim/Não</option>' +
           '</select>' +
+          '<select name="field_required[]">' +
+            '<option value="1">Obrigatório</option>' +
+            '<option value="0">Opcional</option>' +
+          '</select>' +
           '<button type="button" class="secondary remove-field">Remover</button>';
         const input = row.querySelector('input[name="field_name[]"]');
         const select = row.querySelector('select[name="field_type[]"]');
+        const requiredSelect = row.querySelector('select[name="field_required[]"]');
         if (input) input.value = nameValue || '';
         if (select && typeValue) select.value = typeValue;
+        if (requiredSelect) requiredSelect.value = String(requiredValue || '1');
         return row;
       };
 
       const clearFieldsToDefault = () => {
         fieldsContainer.innerHTML = '';
-        fieldsContainer.appendChild(createFieldRow('', 'texto'));
+        fieldsContainer.appendChild(createFieldRow('', 'texto', '1'));
         attachRemoveHandlers();
       };
 
@@ -380,13 +401,20 @@
         document.getElementById('event-type').value = preset.event_type || '';
         document.getElementById('event-date').value = preset.event_date || '';
         document.getElementById('event-time').value = preset.event_time || '';
+        document.getElementById('event-end-time').value = preset.event_end_time || '';
         fieldsContainer.innerHTML = '';
         const rows = Array.isArray(preset.fields_data) ? preset.fields_data : [];
         if (!rows.length) {
-          fieldsContainer.appendChild(createFieldRow('', 'texto'));
+          fieldsContainer.appendChild(createFieldRow('', 'texto', '1'));
         } else {
           rows.forEach((field) => {
-            fieldsContainer.appendChild(createFieldRow(field.name || field.label || '', field.type || 'texto'));
+            fieldsContainer.appendChild(
+              createFieldRow(
+                field.name || field.label || '',
+                field.type || 'texto',
+                field.required ? '1' : '0'
+              )
+            );
           });
         }
         attachRemoveHandlers();
@@ -415,7 +443,7 @@
       if (!fieldsContainer || !addButton || !form || !actionInput) return;
 
       addButton.addEventListener('click', () => {
-        fieldsContainer.appendChild(createFieldRow('', 'texto'));
+        fieldsContainer.appendChild(createFieldRow('', 'texto', '1'));
         attachRemoveHandlers();
       });
 

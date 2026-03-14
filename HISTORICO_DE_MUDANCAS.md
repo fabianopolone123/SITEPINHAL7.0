@@ -903,3 +903,12 @@ Arquivo oficial de registro das entregas concluidas.
 - Agora o envio considera apenas usuarios da diretoria/diretor marcados na coluna Pedido loja pago.
 - Confirmado que o fluxo de pedido da loja usa template e tipo Loja (nao usa a mensagem de Pagamento aprovado).
 - Atualizado o texto da tela de WhatsApp para refletir esse comportamento.
+
+## 14/03/2026 - Eventos de inscricao: inicio/fim e campos obrigatorios/opcionais
+
+- Atualizada a tela de eventos para foco em inscricao dos pais, com titulo e descricao ajustados.
+- No cadastro do evento, adicionado horario de inicio e horario de fim (ambos obrigatorios ao criar evento).
+- Incluida validacao para impedir hora de fim menor/igual a hora de inicio.
+- Campos dinamicos do formulario agora permitem marcar cada campo como Obrigatorio ou Opcional.
+- Listagem de eventos passou a exibir inicio/fim e o status de obrigatoriedade de cada campo.
+- Estrutura de dados preparada para produtos do evento com secao visual "em breve" no modal.

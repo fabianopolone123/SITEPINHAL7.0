@@ -3089,6 +3089,7 @@ class EventosView(LoginRequiredMixin, View):
                 'event_type': preset.event_type or '',
                 'event_date': preset.event_date.isoformat() if preset.event_date else '',
                 'event_time': preset.event_time.strftime('%H:%M') if preset.event_time else '',
+                'event_end_time': preset.event_end_time.strftime('%H:%M') if preset.event_end_time else '',
                 'fields_data': preset.fields_data or [],
             }
             for preset in presets
@@ -3102,9 +3103,10 @@ class EventosView(LoginRequiredMixin, View):
         return context
 
     def _event_delete_requires_password(self, evento):
-        if not (evento.event_date and evento.event_time):
+        check_time = evento.event_end_time or evento.event_time
+        if not (evento.event_date and check_time):
             return False
-        event_dt = datetime.combine(evento.event_date, evento.event_time)
+        event_dt = datetime.combine(evento.event_date, check_time)
         if timezone.is_naive(event_dt):
             event_dt = timezone.make_aware(event_dt, timezone.get_current_timezone())
         return timezone.now() >= event_dt
@@ -3123,12 +3125,14 @@ class EventosView(LoginRequiredMixin, View):
         def _parse_event_schema():
             labels = request.POST.getlist('field_name[]') or request.POST.getlist('field_label[]')
             field_types = request.POST.getlist('field_type[]')
+            field_required = request.POST.getlist('field_required[]')
             values = request.POST.getlist('field_value[]')
             fields_data = []
             allowed_types = {'texto', 'data', 'hora', 'numero', 'booleano'}
             for index, label in enumerate(labels):
                 current_label = (label or '').strip()
                 current_type = (field_types[index] if index < len(field_types) else 'texto').strip().lower() or 'texto'
+                current_required_raw = (field_required[index] if index < len(field_required) else '1').strip().lower()
                 current_value = (values[index] if index < len(values) else '').strip()
                 if not (current_label or current_value):
                     continue
@@ -3138,27 +3142,41 @@ class EventosView(LoginRequiredMixin, View):
                 if current_type not in allowed_types:
                     messages.error(request, f'Tipo de campo inválido: {current_type}.')
                     return None
+                is_required = current_required_raw in {'1', 'true', 'sim', 'obrigatorio', 'obrigatório'}
                 fields_data.append({
                     'name': current_label,
                     'type': current_type,
+                    'required': bool(is_required),
                 })
             return fields_data
 
-        def _parse_date_and_time(event_date_raw, event_time_raw, required):
+        def _parse_date_and_time(event_date_raw, event_time_raw, event_end_time_raw, required):
             event_date_raw = (event_date_raw or '').strip()
             event_time_raw = (event_time_raw or '').strip()
-            if required and (not event_date_raw or not event_time_raw):
-                messages.error(request, 'Data e hora do evento são obrigatórias.')
-                return None, None
-            if not event_date_raw and not event_time_raw:
-                return None, None
+            event_end_time_raw = (event_end_time_raw or '').strip()
+            if required and (not event_date_raw or not event_time_raw or not event_end_time_raw):
+                messages.error(request, 'Data, hora de início e hora de fim são obrigatórias.')
+                return None, None, None
+            if not required and (event_date_raw or event_time_raw or event_end_time_raw):
+                if not (event_date_raw and event_time_raw and event_end_time_raw):
+                    messages.error(
+                        request,
+                        'Para salvar horário padrão, preencha data, hora de início e hora de fim.',
+                    )
+                    return None, None, None
+            if not event_date_raw and not event_time_raw and not event_end_time_raw:
+                return None, None, None
             try:
                 parsed_date = date.fromisoformat(event_date_raw) if event_date_raw else None
                 parsed_time = datetime.strptime(event_time_raw, '%H:%M').time() if event_time_raw else None
+                parsed_end_time = datetime.strptime(event_end_time_raw, '%H:%M').time() if event_end_time_raw else None
             except ValueError:
                 messages.error(request, 'Data ou hora do evento inválida.')
-                return None, None
-            return parsed_date, parsed_time
+                return None, None, None
+            if parsed_time and parsed_end_time and parsed_end_time <= parsed_time:
+                messages.error(request, 'A hora de fim deve ser maior que a hora de início.')
+                return None, None, None
+            return parsed_date, parsed_time, parsed_end_time
 
         action = (request.POST.get('action') or '').strip()
         if action == 'create_event':
@@ -3166,6 +3184,7 @@ class EventosView(LoginRequiredMixin, View):
             event_type = (request.POST.get('event_type') or '').strip()
             event_date_raw = (request.POST.get('event_date') or '').strip()
             event_time_raw = (request.POST.get('event_time') or '').strip()
+            event_end_time_raw = (request.POST.get('event_end_time') or '').strip()
             fields_data = _parse_event_schema()
             if fields_data is None:
                 return render(request, self.template_name, self._context(request))
@@ -3173,16 +3192,17 @@ class EventosView(LoginRequiredMixin, View):
             if not name:
                 messages.error(request, 'Informe o nome do evento.')
             else:
-                event_date_value, event_time_value = _parse_date_and_time(
-                    event_date_raw, event_time_raw, required=True
+                event_date_value, event_time_value, event_end_time_value = _parse_date_and_time(
+                    event_date_raw, event_time_raw, event_end_time_raw, required=True
                 )
-                if event_date_value is None or event_time_value is None:
+                if event_date_value is None or event_time_value is None or event_end_time_value is None:
                     return render(request, self.template_name, self._context(request))
                 Evento.objects.create(
                     name=name,
                     event_type=event_type,
                     event_date=event_date_value,
                     event_time=event_time_value,
+                    event_end_time=event_end_time_value,
                     fields_data=fields_data,
                     created_by=request.user,
                 )
@@ -3194,16 +3214,19 @@ class EventosView(LoginRequiredMixin, View):
             event_type = (request.POST.get('event_type') or '').strip()
             event_date_raw = (request.POST.get('event_date') or '').strip()
             event_time_raw = (request.POST.get('event_time') or '').strip()
+            event_end_time_raw = (request.POST.get('event_end_time') or '').strip()
             fields_data = _parse_event_schema()
             if fields_data is None:
                 return render(request, self.template_name, self._context(request))
             if not preset_name:
                 messages.error(request, 'Informe o nome da pré-configuração.')
                 return render(request, self.template_name, self._context(request))
-            event_date_value, event_time_value = _parse_date_and_time(
-                event_date_raw, event_time_raw, required=False
+            event_date_value, event_time_value, event_end_time_value = _parse_date_and_time(
+                event_date_raw, event_time_raw, event_end_time_raw, required=False
             )
-            if (event_date_raw or event_time_raw) and not (event_date_value or event_time_value):
+            if (event_date_raw or event_time_raw or event_end_time_raw) and (
+                event_date_value is None or event_time_value is None or event_end_time_value is None
+            ):
                 return render(request, self.template_name, self._context(request))
 
             EventoPreset.objects.create(
@@ -3212,6 +3235,7 @@ class EventosView(LoginRequiredMixin, View):
                 event_type=event_type,
                 event_date=event_date_value,
                 event_time=event_time_value,
+                event_end_time=event_end_time_value,
                 fields_data=fields_data,
                 created_by=request.user,
             )
