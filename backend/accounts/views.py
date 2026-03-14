@@ -3631,6 +3631,7 @@ class EventoPublicoView(View):
             'schema': schema,
             'inscricao': inscricao,
             'inscricao_dados': (inscricao.dados or {}) if inscricao else {},
+            'inscricao_codigo': (inscricao.codigo_inscricao if inscricao else ''),
             'produtos': produtos,
             'has_produtos': bool(produtos),
             'can_buy': bool(inscricao and produtos),
@@ -3679,15 +3680,34 @@ class EventoPublicoView(View):
         quer_comprar_itens = bool(request.POST.get('quer_comprar_itens'))
         if request.user.is_authenticated:
             responsavel = LojaView()._ensure_loja_responsavel(request.user, create=False)
-            EventoInscricao.objects.update_or_create(
-                evento=evento,
-                user=request.user,
-                defaults={
-                    'responsavel': responsavel,
-                    'dados': dados,
-                    'quer_comprar_itens': quer_comprar_itens,
-                },
+            existing = (
+                EventoInscricao.objects
+                .filter(evento=evento, user=request.user)
+                .first()
             )
+            if existing:
+                existing.responsavel = responsavel
+                existing.dados = dados
+                existing.quer_comprar_itens = quer_comprar_itens
+                existing.save(update_fields=['responsavel', 'dados', 'quer_comprar_itens', 'updated_at'])
+            else:
+                created = False
+                for _attempt in range(10):
+                    try:
+                        EventoInscricao.objects.create(
+                            evento=evento,
+                            user=request.user,
+                            responsavel=responsavel,
+                            dados=dados,
+                            quer_comprar_itens=quer_comprar_itens,
+                        )
+                        created = True
+                        break
+                    except IntegrityError:
+                        continue
+                if not created:
+                    messages.error(request, 'Não foi possível gerar código único da inscrição. Tente novamente.')
+                    return render(request, self.template_name, self._context(request, evento))
         else:
             session_key = _evento_public_inscricao_session_key(evento.id)
             inscricao_id = request.session.get(session_key)
@@ -3703,13 +3723,22 @@ class EventoPublicoView(View):
                 inscricao_obj.quer_comprar_itens = quer_comprar_itens
                 inscricao_obj.save(update_fields=['dados', 'quer_comprar_itens', 'updated_at'])
             else:
-                inscricao_obj = EventoInscricao.objects.create(
-                    evento=evento,
-                    user=None,
-                    responsavel=None,
-                    dados=dados,
-                    quer_comprar_itens=quer_comprar_itens,
-                )
+                inscricao_obj = None
+                for _attempt in range(10):
+                    try:
+                        inscricao_obj = EventoInscricao.objects.create(
+                            evento=evento,
+                            user=None,
+                            responsavel=None,
+                            dados=dados,
+                            quer_comprar_itens=quer_comprar_itens,
+                        )
+                        break
+                    except IntegrityError:
+                        continue
+                if not inscricao_obj:
+                    messages.error(request, 'Não foi possível gerar código único da inscrição. Tente novamente.')
+                    return render(request, self.template_name, self._context(request, evento))
                 request.session[session_key] = inscricao_obj.pk
         messages.success(request, 'Inscrição do evento salva com sucesso.')
         return render(request, self.template_name, self._context(request, evento))

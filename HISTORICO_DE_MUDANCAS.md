@@ -949,3 +949,11 @@ ame e label sem quebrar a tela.
 - Em evento publico, visitante sem login pode comprar apos concluir a inscricao publica.
 - Em evento privado, compra continua exigindo login/perfil permitido.
 - Adicionados campos de comprador na pagina publica para pedido sem login (nome, email opcional, celular opcional).
+
+## 14/03/2026 - Evento inscricao: codigo unico automatico de 3 digitos
+
+- Adicionado codigo de inscricao automatico (3 digitos) em cada inscricao de evento.
+- Codigo e gerado pelo sistema, nao pode ser preenchido/editado pelo usuario.
+- Garantida unicidade do codigo por evento com constraint no banco.
+- Incluido campo somente leitura na pagina de inscricao exibindo o codigo (ou aviso de geracao ao salvar).
+- Relatorio de inscricoes do evento passou a mostrar a coluna de codigo.

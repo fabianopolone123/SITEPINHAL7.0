@@ -508,6 +508,7 @@ class EventoInscricao(models.Model):
         related_name='eventos_inscricoes',
     )
     dados = models.JSONField('dados da inscrição', default=dict, blank=True)
+    codigo_inscricao = models.CharField('código da inscrição', max_length=3, blank=True, editable=False)
     quer_comprar_itens = models.BooleanField('quer comprar itens', default=False)
     created_at = models.DateTimeField('criado em', auto_now_add=True)
     updated_at = models.DateTimeField('atualizado em', auto_now=True)
@@ -517,10 +518,40 @@ class EventoInscricao(models.Model):
         verbose_name_plural = 'inscrições de eventos'
         ordering = ('-created_at',)
         unique_together = ('evento', 'user')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['evento', 'codigo_inscricao'],
+                name='uniq_evento_codigo_inscricao',
+            ),
+        ]
 
     def __str__(self):
         user_label = self.user.username if self.user_id else 'sem usuário'
         return f'Inscrição #{self.pk} - {self.evento.name} - {user_label}'
+
+    def _next_codigo_inscricao(self):
+        if not self.evento_id:
+            raise ValueError('Evento é obrigatório para gerar código de inscrição.')
+        used = set(
+            str(code or '').strip()
+            for code in (
+                EventoInscricao.objects
+                .filter(evento_id=self.evento_id)
+                .exclude(pk=self.pk)
+                .values_list('codigo_inscricao', flat=True)
+            )
+            if str(code or '').strip()
+        )
+        for number in range(1000):
+            code = f'{number:03d}'
+            if code not in used:
+                return code
+        raise ValueError('Limite de códigos de inscrição (000-999) atingido para este evento.')
+
+    def save(self, *args, **kwargs):
+        if not (self.codigo_inscricao or '').strip():
+            self.codigo_inscricao = self._next_codigo_inscricao()
+        super().save(*args, **kwargs)
 
 
 class EventoPresenca(models.Model):

@@ -359,6 +359,7 @@
                   <table class="users-table">
                     <thead>
                       <tr>
+                        <th>Código</th>
                         <th>Usuário</th>
                         <th>Dados</th>
                         <th>Data</th>
@@ -367,6 +368,7 @@
                     <tbody>
                       {% for item in row.inscricoes_preview %}
                         <tr>
+                          <td>{{ item.codigo_inscricao|default:"-" }}</td>
                           <td>{{ item.user.username|default:"-" }}</td>
                           <td>{{ item.dados }}</td>
                           <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
