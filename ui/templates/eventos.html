@@ -188,19 +188,150 @@
               {% else %}
                 <p class="panel-note">Sem campos adicionais.</p>
               {% endif %}
-              <form method="post" class="action-row">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="delete_event" />
-                <input type="hidden" name="event_id" value="{{ evento.id }}" />
-                <input type="hidden" name="delete_password" value="" class="js-delete-password" />
-                <button
-                  type="submit"
-                  class="secondary js-confirm-delete-event"
-                  data-requires-password="{% if row.requires_delete_password %}1{% else %}0{% endif %}"
-                >
-                  Excluir evento
-                </button>
-              </form>
+              <div class="action-row">
+                <span class="event-field-pill">Inscrições: {{ row.inscricoes_count }}</span>
+                <span class="event-field-pill">Pedidos: {{ row.pedidos_count }}</span>
+                <span class="event-field-pill">Total pago: {{ row.pedidos_total_pago_fmt }}</span>
+                <button type="button" class="secondary js-open-report" data-modal-id="event-report-{{ evento.id }}">Relatório</button>
+                {% if row.has_public_page %}
+                  <a href="{% url 'accounts:evento_publico' evento.id %}" class="secondary">Visualizar página do evento</a>
+                {% endif %}
+              </div>
+
+              <details style="margin-top:0.8rem;">
+                <summary>Editar evento e produtos</summary>
+
+                <form method="post" class="painel-card" style="margin-top:0.8rem;">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="update_event" />
+                  <input type="hidden" name="event_id" value="{{ evento.id }}" />
+                  <div class="field-section">
+                    <label>Nome do evento <input type="text" name="name" value="{{ evento.name }}" required /></label>
+                    <label>Tipo <input type="text" name="event_type" value="{{ evento.event_type|default:'' }}" /></label>
+                    <label>Data <input type="date" name="event_date" value="{{ evento.event_date|date:'Y-m-d' }}" required /></label>
+                    <label>Hora início <input type="time" name="event_time" value="{{ evento.event_time|time:'H:i' }}" required /></label>
+                    <label>Hora fim <input type="time" name="event_end_time" value="{{ evento.event_end_time|time:'H:i' }}" required /></label>
+                  </div>
+                  <div class="field-section">
+                    <h4>Campos da inscrição</h4>
+                    <div class="event-fields js-inline-fields">
+                      {% if evento.fields_data %}
+                        {% for campo in evento.fields_data %}
+                          <div class="event-field-row">
+                            <input type="text" name="field_name[]" value="{{ campo.name|default:campo.label|default:'' }}" placeholder="Nome do campo" />
+                            <select name="field_type[]">
+                              <option value="texto" {% if campo.type|default:'texto' == 'texto' %}selected{% endif %}>Texto</option>
+                              <option value="data" {% if campo.type == 'data' %}selected{% endif %}>Data</option>
+                              <option value="hora" {% if campo.type == 'hora' %}selected{% endif %}>Hora</option>
+                              <option value="numero" {% if campo.type == 'numero' %}selected{% endif %}>Número</option>
+                              <option value="booleano" {% if campo.type == 'booleano' %}selected{% endif %}>Sim/Não</option>
+                            </select>
+                            <select name="field_required[]">
+                              <option value="1" {% if campo.required %}selected{% endif %}>Obrigatório</option>
+                              <option value="0" {% if not campo.required %}selected{% endif %}>Opcional</option>
+                            </select>
+                            <button type="button" class="secondary js-remove-inline-field">Remover</button>
+                          </div>
+                        {% endfor %}
+                      {% else %}
+                        <div class="event-field-row">
+                          <input type="text" name="field_name[]" placeholder="Nome do campo" />
+                          <select name="field_type[]">
+                            <option value="texto">Texto</option>
+                            <option value="data">Data</option>
+                            <option value="hora">Hora</option>
+                            <option value="numero">Número</option>
+                            <option value="booleano">Sim/Não</option>
+                          </select>
+                          <select name="field_required[]">
+                            <option value="1">Obrigatório</option>
+                            <option value="0">Opcional</option>
+                          </select>
+                          <button type="button" class="secondary js-remove-inline-field">Remover</button>
+                        </div>
+                      {% endif %}
+                    </div>
+                    <div class="action-row">
+                      <button type="button" class="secondary js-add-inline-field">+ Campo</button>
+                      <button type="submit" class="primary">Salvar edição do evento</button>
+                    </div>
+                  </div>
+                </form>
+
+                <form method="post" enctype="multipart/form-data" class="painel-card" style="margin-top:0.8rem;">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="add_event_product" />
+                  <input type="hidden" name="event_id" value="{{ evento.id }}" />
+                  <h4>Adicionar produto para venda no evento</h4>
+                  <div class="field-section">
+                    <label>Título <input type="text" name="ep_titulo" required /></label>
+                    <label>Mínimo pedidos pagos (opcional) <input type="number" name="ep_minimo_pedidos_pagos" min="1" step="1" /></label>
+                    <label>Foto de capa (opcional) <input type="file" name="ep_foto" accept="image/*" /></label>
+                    <label class="full">Descrição <textarea name="ep_descricao" rows="3"></textarea></label>
+                  </div>
+                  <div class="field-section">
+                    <h4>Variações do produto</h4>
+                    <div class="js-event-var-list">
+                      <div class="event-field-row">
+                        <input type="text" name="ep_variacao_nome[]" placeholder="Variação" />
+                        <input type="text" name="ep_variacao_valor[]" placeholder="Valor" />
+                        <input type="number" name="ep_variacao_estoque[]" placeholder="Estoque" min="0" />
+                        <button type="button" class="secondary js-remove-event-var">Remover</button>
+                      </div>
+                    </div>
+                    <div class="action-row">
+                      <button type="button" class="secondary js-add-event-var">+ Variação</button>
+                      <button type="submit" class="primary">Adicionar produto</button>
+                    </div>
+                  </div>
+                </form>
+
+                <div class="painel-card" style="margin-top:0.8rem;">
+                  <h4>Produtos cadastrados no evento</h4>
+                  {% if row.produtos %}
+                    {% for p in row.produtos %}
+                      <div class="event-item" style="margin-bottom:0.6rem;">
+                        <strong>{{ p.produto.titulo }}</strong>
+                        <div class="panel-note">Status: {% if p.produto.ativo %}Ativo{% else %}Inativo{% endif %}</div>
+                        <div class="panel-note">Variações: {% for v in p.variacoes %}{{ v.nome }} (R$ {{ v.valor }}){% if not forloop.last %}, {% endif %}{% endfor %}</div>
+                        <div class="action-row">
+                          <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="toggle_event_product" />
+                            <input type="hidden" name="event_id" value="{{ evento.id }}" />
+                            <input type="hidden" name="produto_id" value="{{ p.produto.id }}" />
+                            <input type="hidden" name="ativo" value="{% if p.produto.ativo %}0{% else %}1{% endif %}" />
+                            <button type="submit" class="secondary">{% if p.produto.ativo %}Inativar{% else %}Ativar{% endif %}</button>
+                          </form>
+                          <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_event_product" />
+                            <input type="hidden" name="event_id" value="{{ evento.id }}" />
+                            <input type="hidden" name="produto_id" value="{{ p.produto.id }}" />
+                            <button type="submit" class="secondary">Excluir produto</button>
+                          </form>
+                        </div>
+                      </div>
+                    {% endfor %}
+                  {% else %}
+                    <p class="panel-note">Nenhum produto de evento cadastrado.</p>
+                  {% endif %}
+                </div>
+
+                <form method="post" class="action-row" style="margin-top:0.8rem;">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete_event" />
+                  <input type="hidden" name="event_id" value="{{ evento.id }}" />
+                  <input type="hidden" name="delete_password" value="" class="js-delete-password" />
+                  <button
+                    type="submit"
+                    class="secondary js-confirm-delete-event"
+                    data-requires-password="{% if row.requires_delete_password %}1{% else %}0{% endif %}"
+                  >
+                    Excluir evento
+                  </button>
+                </form>
+              </details>
             </article>
           {% endwith %}
         {% empty %}
@@ -208,6 +339,82 @@
         {% endfor %}
       </div>
     </section>
+
+    {% for row in eventos %}
+      {% with evento=row.evento %}
+        <div class="modal event-modal js-report-modal" id="event-report-{{ evento.id }}" aria-hidden="true">
+          <div class="modal-content">
+            <header>
+              <h3>Relatório - {{ evento.name }}</h3>
+              <button type="button" class="js-close-report" aria-label="Fechar">×</button>
+            </header>
+            <section class="field-section">
+              <p><strong>Inscrições:</strong> {{ row.inscricoes_count }}</p>
+              <p><strong>Pedidos:</strong> {{ row.pedidos_count }}</p>
+              <p><strong>Total pago:</strong> {{ row.pedidos_total_pago_fmt }}</p>
+            </section>
+            <section class="field-section">
+              <h4>Últimas inscrições</h4>
+              {% if row.inscricoes_preview %}
+                <div class="table-scroll">
+                  <table class="users-table">
+                    <thead>
+                      <tr>
+                        <th>Usuário</th>
+                        <th>Dados</th>
+                        <th>Data</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for item in row.inscricoes_preview %}
+                        <tr>
+                          <td>{{ item.user.username|default:"-" }}</td>
+                          <td>{{ item.dados }}</td>
+                          <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <p class="panel-note">Sem inscrições ainda.</p>
+              {% endif %}
+            </section>
+            <section class="field-section">
+              <h4>Últimos pedidos</h4>
+              {% if row.pedidos_preview %}
+                <div class="table-scroll">
+                  <table class="users-table">
+                    <thead>
+                      <tr>
+                        <th>Pedido</th>
+                        <th>Responsável</th>
+                        <th>Status</th>
+                        <th>Total</th>
+                        <th>Data</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for ped in row.pedidos_preview %}
+                        <tr>
+                          <td>#{{ ped.id }}</td>
+                          <td>{{ ped.responsavel.user.username }}</td>
+                          <td>{{ ped.get_status_display }}</td>
+                          <td>R$ {{ ped.valor_total }}</td>
+                          <td>{{ ped.created_at|date:"d/m/Y H:i" }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <p class="panel-note">Sem pedidos ainda.</p>
+              {% endif %}
+            </section>
+          </div>
+        </div>
+      {% endwith %}
+    {% endfor %}
   </main>
 
   <div class="modal event-modal" id="event-modal" aria-hidden="true">
@@ -289,7 +496,7 @@
 
         <div class="field-section">
           <h3>Produtos para venda no evento (opcional)</h3>
-          <p class="panel-note">Essa etapa será habilitada na próxima atualização.</p>
+          <p class="panel-note">Após criar o evento, use "Editar evento e produtos" para cadastrar os itens da venda.</p>
         </div>
 
         <div class="action-row">
@@ -498,6 +705,94 @@
             if (passwordInput) {
               passwordInput.value = senha;
             }
+          }
+        });
+      });
+
+      const createInlineFieldRow = () => {
+        const row = document.createElement('div');
+        row.className = 'event-field-row';
+        row.innerHTML = '' +
+          '<input type="text" name="field_name[]" placeholder="Nome do campo" />' +
+          '<select name="field_type[]">' +
+            '<option value="texto">Texto</option>' +
+            '<option value="data">Data</option>' +
+            '<option value="hora">Hora</option>' +
+            '<option value="numero">Número</option>' +
+            '<option value="booleano">Sim/Não</option>' +
+          '</select>' +
+          '<select name="field_required[]">' +
+            '<option value="1">Obrigatório</option>' +
+            '<option value="0">Opcional</option>' +
+          '</select>' +
+          '<button type="button" class="secondary js-remove-inline-field">Remover</button>';
+        return row;
+      };
+
+      const createVariationRow = () => {
+        const row = document.createElement('div');
+        row.className = 'event-field-row';
+        row.innerHTML = '' +
+          '<input type="text" name="ep_variacao_nome[]" placeholder="Variação" />' +
+          '<input type="text" name="ep_variacao_valor[]" placeholder="Valor" />' +
+          '<input type="number" name="ep_variacao_estoque[]" placeholder="Estoque" min="0" />' +
+          '<button type="button" class="secondary js-remove-event-var">Remover</button>';
+        return row;
+      };
+
+      document.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+
+        if (target.classList.contains('js-add-inline-field')) {
+          const wrap = target.closest('form')?.querySelector('.js-inline-fields');
+          if (wrap) wrap.appendChild(createInlineFieldRow());
+          return;
+        }
+        if (target.classList.contains('js-remove-inline-field')) {
+          const row = target.closest('.event-field-row');
+          const wrap = row?.parentElement;
+          if (row && wrap && wrap.querySelectorAll('.event-field-row').length > 1) {
+            row.remove();
+          }
+          return;
+        }
+        if (target.classList.contains('js-add-event-var')) {
+          const wrap = target.closest('form')?.querySelector('.js-event-var-list');
+          if (wrap) wrap.appendChild(createVariationRow());
+          return;
+        }
+        if (target.classList.contains('js-remove-event-var')) {
+          const row = target.closest('.event-field-row');
+          const wrap = row?.parentElement;
+          if (row && wrap && wrap.querySelectorAll('.event-field-row').length > 1) {
+            row.remove();
+          }
+          return;
+        }
+        if (target.classList.contains('js-open-report')) {
+          const modalId = target.getAttribute('data-modal-id');
+          const reportModal = modalId ? document.getElementById(modalId) : null;
+          if (reportModal) {
+            reportModal.classList.add('show');
+            reportModal.setAttribute('aria-hidden', 'false');
+          }
+          return;
+        }
+        if (target.classList.contains('js-close-report')) {
+          const reportModal = target.closest('.js-report-modal');
+          if (reportModal) {
+            reportModal.classList.remove('show');
+            reportModal.setAttribute('aria-hidden', 'true');
+          }
+        }
+      });
+
+      document.querySelectorAll('.js-report-modal').forEach((reportModal) => {
+        reportModal.addEventListener('click', (event) => {
+          if (event.target === reportModal) {
+            reportModal.classList.remove('show');
+            reportModal.setAttribute('aria-hidden', 'true');
           }
         });
       });

@@ -490,6 +490,38 @@ class EventoPreset(models.Model):
         return self.preset_name
 
 
+class EventoInscricao(models.Model):
+    evento = models.ForeignKey(Evento, on_delete=models.CASCADE, related_name='inscricoes')
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='eventos_inscricoes',
+    )
+    responsavel = models.ForeignKey(
+        'Responsavel',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='eventos_inscricoes',
+    )
+    dados = models.JSONField('dados da inscrição', default=dict, blank=True)
+    quer_comprar_itens = models.BooleanField('quer comprar itens', default=False)
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'inscrição de evento'
+        verbose_name_plural = 'inscrições de eventos'
+        ordering = ('-created_at',)
+        unique_together = ('evento', 'user')
+
+    def __str__(self):
+        user_label = self.user.username if self.user_id else 'sem usuário'
+        return f'Inscrição #{self.pk} - {self.evento.name} - {user_label}'
+
+
 class EventoPresenca(models.Model):
     evento = models.ForeignKey(Evento, on_delete=models.CASCADE, related_name='presencas')
     aventureiro = models.ForeignKey(Aventureiro, on_delete=models.CASCADE, related_name='presencas_evento')
@@ -627,6 +659,13 @@ class PagamentoMensalidade(models.Model):
 
 
 class LojaProduto(models.Model):
+    evento = models.ForeignKey(
+        Evento,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='produtos_loja',
+    )
     titulo = models.CharField('título', max_length=255)
     descricao = models.TextField('descrição', blank=True)
     foto = models.ImageField('foto', upload_to='loja/produtos', null=True, blank=True)
@@ -721,6 +760,13 @@ class LojaPedido(models.Model):
     ]
 
     responsavel = models.ForeignKey('Responsavel', on_delete=models.CASCADE, related_name='pedidos_loja')
+    evento = models.ForeignKey(
+        Evento,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pedidos_loja',
+    )
     forma_pagamento = models.CharField(
         'forma de pagamento',
         max_length=24,

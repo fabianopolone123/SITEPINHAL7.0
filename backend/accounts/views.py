@@ -47,6 +47,7 @@ from .models import (
     DocumentoInscricaoGerado,
     Evento,
     EventoPreset,
+    EventoInscricao,
     EventoPresenca,
     EventoFaltaInscricao,
     AuditLog,
@@ -3071,14 +3072,98 @@ class EventosView(LoginRequiredMixin, View):
             return f'Em {delta} dias'
         return f'Há {abs(delta)} dias'
 
+    def _parse_valor(self, raw_value):
+        raw = str(raw_value or '').strip()
+        if not raw:
+            return None
+        normalized = raw.replace('R$', '').replace(' ', '')
+        if ',' in normalized and '.' in normalized:
+            normalized = normalized.replace('.', '').replace(',', '.')
+        else:
+            normalized = normalized.replace(',', '.')
+        try:
+            value = Decimal(normalized)
+        except (InvalidOperation, ValueError):
+            return None
+        if value < 0:
+            return None
+        return value.quantize(Decimal('0.01'))
+
+    def _format_currency(self, value):
+        try:
+            decimal_value = Decimal(value).quantize(Decimal('0.01'))
+        except (InvalidOperation, ValueError, TypeError):
+            decimal_value = Decimal('0.00')
+        text = f'{decimal_value:,.2f}'
+        return 'R$ ' + text.replace(',', 'X').replace('.', ',').replace('X', '.')
+
     def _context(self, request):
         eventos = list(Evento.objects.select_related('created_by').all())
+        inscritos_totais_map = {
+            item['evento_id']: item['total']
+            for item in (
+                EventoInscricao.objects
+                .values('evento_id')
+                .annotate(total=Count('id'))
+            )
+        }
+        pedidos_totais_map = {
+            item['evento_id']: item['total']
+            for item in (
+                LojaPedido.objects
+                .filter(evento__isnull=False)
+                .values('evento_id')
+                .annotate(total=Count('id'))
+            )
+        }
+        pedidos_pagos_totais_map = {
+            item['evento_id']: item['valor_total']
+            for item in (
+                LojaPedido.objects
+                .filter(evento__isnull=False, status=LojaPedido.STATUS_PAGO)
+                .values('evento_id')
+                .annotate(valor_total=Sum('valor_total'))
+            )
+        }
         event_rows = []
         for evento in eventos:
+            produtos_qs = (
+                LojaProduto.objects
+                .filter(evento=evento)
+                .prefetch_related('variacoes')
+                .order_by('-created_at')
+            )
+            produtos_rows = []
+            for produto in produtos_qs:
+                produtos_rows.append({
+                    'produto': produto,
+                    'variacoes': list(produto.variacoes.order_by('id')),
+                })
+            inscricoes = list(
+                EventoInscricao.objects
+                .filter(evento=evento)
+                .select_related('user', 'responsavel', 'responsavel__user')
+                .order_by('-created_at')[:20]
+            )
+            pedidos = list(
+                LojaPedido.objects
+                .filter(evento=evento)
+                .select_related('responsavel', 'responsavel__user')
+                .prefetch_related('itens')
+                .order_by('-created_at')[:20]
+            )
             event_rows.append({
                 'evento': evento,
                 'relative_label': self._relative_event_time_label(evento.event_date),
                 'requires_delete_password': self._event_delete_requires_password(evento),
+                'produtos': produtos_rows,
+                'produtos_count': len(produtos_rows),
+                'inscricoes_count': int(inscritos_totais_map.get(evento.id) or 0),
+                'pedidos_count': int(pedidos_totais_map.get(evento.id) or 0),
+                'pedidos_total_pago_fmt': self._format_currency(pedidos_pagos_totais_map.get(evento.id) or Decimal('0.00')),
+                'has_public_page': bool((evento.fields_data or []) or produtos_rows),
+                'inscricoes_preview': inscricoes,
+                'pedidos_preview': pedidos,
             })
         presets = list(EventoPreset.objects.select_related('created_by').all())
         presets_json = [
@@ -3178,6 +3263,71 @@ class EventosView(LoginRequiredMixin, View):
                 return None, None, None
             return parsed_date, parsed_time, parsed_end_time
 
+        def _parse_event_product_payload():
+            titulo = (request.POST.get('ep_titulo') or '').strip()
+            descricao = (request.POST.get('ep_descricao') or '').strip()
+            minimo_raw = (request.POST.get('ep_minimo_pedidos_pagos') or '').strip()
+            foto = request.FILES.get('ep_foto')
+            var_names = request.POST.getlist('ep_variacao_nome[]')
+            var_values = request.POST.getlist('ep_variacao_valor[]')
+            var_stocks = request.POST.getlist('ep_variacao_estoque[]')
+
+            if not titulo:
+                messages.error(request, 'Informe o título do produto do evento.')
+                return None
+
+            minimo_pedidos_pagos = None
+            if minimo_raw:
+                if not re.fullmatch(r'\d+', minimo_raw):
+                    messages.error(request, 'Mínimo de pedidos pagos inválido no produto do evento.')
+                    return None
+                minimo_pedidos_pagos = int(minimo_raw)
+                if minimo_pedidos_pagos <= 0:
+                    messages.error(request, 'O mínimo de pedidos pagos deve ser maior que zero.')
+                    return None
+
+            variacoes = []
+            max_len = max(len(var_names), len(var_values), len(var_stocks), 1)
+            for idx in range(max_len):
+                nome = (var_names[idx] if idx < len(var_names) else '').strip()
+                valor_raw = (var_values[idx] if idx < len(var_values) else '').strip()
+                estoque_raw = (var_stocks[idx] if idx < len(var_stocks) else '').strip()
+                if not nome and not valor_raw and not estoque_raw:
+                    continue
+                if not nome:
+                    messages.error(request, f'Preencha o nome da variação na linha {idx + 1}.')
+                    return None
+                valor = self._parse_valor(valor_raw)
+                if valor is None:
+                    messages.error(request, f'Valor inválido para a variação "{nome}".')
+                    return None
+                estoque = None
+                if estoque_raw:
+                    if not re.fullmatch(r'-?\d+', estoque_raw):
+                        messages.error(request, f'Estoque inválido para a variação "{nome}".')
+                        return None
+                    estoque = int(estoque_raw)
+                    if estoque < 0:
+                        messages.error(request, f'Estoque não pode ser negativo para a variação "{nome}".')
+                        return None
+                variacoes.append({
+                    'nome': nome,
+                    'valor': valor,
+                    'estoque': estoque,
+                })
+
+            if not variacoes:
+                messages.error(request, 'Cadastre ao menos uma variação no produto do evento.')
+                return None
+
+            return {
+                'titulo': titulo,
+                'descricao': descricao,
+                'minimo_pedidos_pagos': minimo_pedidos_pagos,
+                'foto': foto,
+                'variacoes': variacoes,
+            }
+
         action = (request.POST.get('action') or '').strip()
         if action == 'create_event':
             name = (request.POST.get('name') or '').strip()
@@ -3255,8 +3405,88 @@ class EventosView(LoginRequiredMixin, View):
                             'Este evento já atingiu data/hora. Para excluir, digite a senha de exclusão.',
                         )
                         return render(request, self.template_name, self._context(request))
+                LojaProduto.objects.filter(evento=evento).delete()
                 evento.delete()
                 messages.success(request, 'Evento removido com sucesso.')
+        elif action == 'update_event':
+            event_id = request.POST.get('event_id')
+            evento = Evento.objects.filter(pk=event_id).first()
+            if not evento:
+                messages.error(request, 'Evento não encontrado para edição.')
+                return render(request, self.template_name, self._context(request))
+            name = (request.POST.get('name') or '').strip()
+            event_type = (request.POST.get('event_type') or '').strip()
+            event_date_raw = (request.POST.get('event_date') or '').strip()
+            event_time_raw = (request.POST.get('event_time') or '').strip()
+            event_end_time_raw = (request.POST.get('event_end_time') or '').strip()
+            fields_data = _parse_event_schema()
+            if fields_data is None:
+                return render(request, self.template_name, self._context(request))
+            if not name:
+                messages.error(request, 'Informe o nome do evento.')
+                return render(request, self.template_name, self._context(request))
+            event_date_value, event_time_value, event_end_time_value = _parse_date_and_time(
+                event_date_raw, event_time_raw, event_end_time_raw, required=True
+            )
+            if event_date_value is None or event_time_value is None or event_end_time_value is None:
+                return render(request, self.template_name, self._context(request))
+            evento.name = name
+            evento.event_type = event_type
+            evento.event_date = event_date_value
+            evento.event_time = event_time_value
+            evento.event_end_time = event_end_time_value
+            evento.fields_data = fields_data
+            evento.save(update_fields=['name', 'event_type', 'event_date', 'event_time', 'event_end_time', 'fields_data', 'updated_at'])
+            messages.success(request, 'Evento atualizado com sucesso.')
+        elif action == 'add_event_product':
+            event_id = request.POST.get('event_id')
+            evento = Evento.objects.filter(pk=event_id).first()
+            if not evento:
+                messages.error(request, 'Evento não encontrado para adicionar produto.')
+                return render(request, self.template_name, self._context(request))
+            parsed = _parse_event_product_payload()
+            if parsed is None:
+                return render(request, self.template_name, self._context(request))
+            with transaction.atomic():
+                produto = LojaProduto.objects.create(
+                    evento=evento,
+                    titulo=parsed['titulo'],
+                    descricao=parsed['descricao'],
+                    minimo_pedidos_pagos=parsed['minimo_pedidos_pagos'],
+                    foto=parsed['foto'],
+                    created_by=request.user,
+                )
+                LojaProdutoVariacao.objects.bulk_create([
+                    LojaProdutoVariacao(
+                        produto=produto,
+                        nome=item['nome'],
+                        valor=item['valor'],
+                        estoque=item['estoque'],
+                    )
+                    for item in parsed['variacoes']
+                ])
+            messages.success(request, f'Produto "{produto.titulo}" adicionado ao evento.')
+        elif action == 'delete_event_product':
+            event_id = request.POST.get('event_id')
+            produto_id = request.POST.get('produto_id')
+            evento = Evento.objects.filter(pk=event_id).first()
+            produto = LojaProduto.objects.filter(pk=produto_id, evento_id=event_id).first()
+            if not evento or not produto:
+                messages.error(request, 'Produto do evento não encontrado.')
+                return render(request, self.template_name, self._context(request))
+            produto.delete()
+            messages.success(request, 'Produto removido do evento.')
+        elif action == 'toggle_event_product':
+            event_id = request.POST.get('event_id')
+            produto_id = request.POST.get('produto_id')
+            ativo = str(request.POST.get('ativo') or '').strip() == '1'
+            produto = LojaProduto.objects.filter(pk=produto_id, evento_id=event_id).first()
+            if not produto:
+                messages.error(request, 'Produto do evento não encontrado.')
+                return render(request, self.template_name, self._context(request))
+            produto.ativo = ativo
+            produto.save(update_fields=['ativo', 'updated_at'])
+            messages.success(request, f'Produto do evento {"ativado" if ativo else "inativado"} com sucesso.')
         elif action == 'delete_preset':
             preset_id = request.POST.get('preset_id')
             preset = EventoPreset.objects.filter(pk=preset_id).first()
@@ -3267,6 +3497,279 @@ class EventosView(LoginRequiredMixin, View):
                 messages.success(request, 'Pré-configuração removida com sucesso.')
 
         return render(request, self.template_name, self._context(request))
+
+
+class EventoPublicoView(LoginRequiredMixin, View):
+    template_name = 'evento_publico.html'
+
+    def _guard_profile(self, request):
+        access = _ensure_user_access(request.user)
+        allowed = (
+            access.has_profile(UserAccess.ROLE_RESPONSAVEL)
+            or access.has_profile(UserAccess.ROLE_PROFESSOR)
+            or access.has_profile(UserAccess.ROLE_DIRETOR)
+            or access.has_profile(UserAccess.ROLE_DIRETORIA)
+        )
+        if not allowed:
+            messages.error(request, 'Seu perfil não possui acesso à página de inscrição do evento.')
+            return redirect('accounts:painel')
+        return None
+
+    def _format_currency(self, value):
+        return LojaView()._format_currency(value)
+
+    def _event_schema(self, evento):
+        schema = []
+        for index, field in enumerate(evento.fields_data or []):
+            label = str((field or {}).get('name') or (field or {}).get('label') or '').strip()
+            if not label:
+                continue
+            field_type = str((field or {}).get('type') or 'texto').strip().lower() or 'texto'
+            is_required = bool((field or {}).get('required'))
+            schema.append({
+                'index': index,
+                'name': label,
+                'type': field_type,
+                'required': is_required,
+                'input_name': f'campo_{index}',
+            })
+        return schema
+
+    def _produto_rows_evento(self, evento):
+        produtos = (
+            LojaProduto.objects
+            .filter(evento=evento, ativo=True)
+            .prefetch_related('variacoes', 'fotos__variacao', 'fotos__variacoes_vinculadas')
+            .order_by('-created_at')
+        )
+        rows = []
+        for produto in produtos:
+            variacoes = [v for v in produto.variacoes.all() if v.ativo]
+            if not variacoes:
+                continue
+            capa = produto.foto
+            if not capa:
+                first_foto = produto.fotos.order_by('ordem', 'id').first()
+                capa = first_foto.foto if first_foto else None
+            rows.append({
+                'produto': produto,
+                'variacoes': variacoes,
+                'capa_foto': capa,
+            })
+        return rows
+
+    def _context(self, request, evento):
+        schema = self._event_schema(evento)
+        inscricao = (
+            EventoInscricao.objects
+            .filter(evento=evento, user=request.user)
+            .first()
+        )
+        produtos = self._produto_rows_evento(evento)
+        pedido_modal = {}
+        if 'last_evento_pedido_id' in request.session:
+            pedido_id = request.session.pop('last_evento_pedido_id', None)
+            if pedido_id:
+                pedido = LojaPedido.objects.filter(pk=pedido_id, evento=evento).first()
+                if pedido:
+                    pedido_modal = LojaView()._pix_modal_context_loja(pedido)
+        context = {
+            'evento': evento,
+            'schema': schema,
+            'inscricao': inscricao,
+            'inscricao_dados': (inscricao.dados or {}) if inscricao else {},
+            'produtos': produtos,
+            'has_produtos': bool(produtos),
+            'can_buy': bool(inscricao and produtos),
+            'pedido_modal': pedido_modal,
+        }
+        context.update(_sidebar_context(request))
+        return context
+
+    def get(self, request, event_id):
+        guard = self._guard_profile(request)
+        if guard:
+            return guard
+        evento = get_object_or_404(Evento, pk=event_id)
+        return render(request, self.template_name, self._context(request, evento))
+
+    def post(self, request, event_id):
+        guard = self._guard_profile(request)
+        if guard:
+            return guard
+        evento = get_object_or_404(Evento, pk=event_id)
+        action = str(request.POST.get('action') or '').strip()
+        if action != 'register_event':
+            messages.error(request, 'Ação inválida na página do evento.')
+            return render(request, self.template_name, self._context(request, evento))
+
+        schema = self._event_schema(evento)
+        dados = {}
+        for field in schema:
+            value = str(request.POST.get(field['input_name']) or '').strip()
+            if field['required'] and not value:
+                messages.error(request, f'O campo "{field["name"]}" é obrigatório.')
+                return render(request, self.template_name, self._context(request, evento))
+            dados[field['name']] = value
+
+        responsavel = LojaView()._ensure_loja_responsavel(request.user, create=False)
+        quer_comprar_itens = bool(request.POST.get('quer_comprar_itens'))
+        EventoInscricao.objects.update_or_create(
+            evento=evento,
+            user=request.user,
+            defaults={
+                'responsavel': responsavel,
+                'dados': dados,
+                'quer_comprar_itens': quer_comprar_itens,
+            },
+        )
+        messages.success(request, 'Inscrição do evento salva com sucesso.')
+        return render(request, self.template_name, self._context(request, evento))
+
+
+class EventoPedidoCreatePixApiView(LoginRequiredMixin, View):
+    def post(self, request, event_id):
+        evento = get_object_or_404(Evento, pk=event_id)
+        access = _ensure_user_access(request.user)
+        if not (
+            access.has_profile(UserAccess.ROLE_RESPONSAVEL)
+            or access.has_profile(UserAccess.ROLE_PROFESSOR)
+            or access.has_profile(UserAccess.ROLE_DIRETOR)
+            or access.has_profile(UserAccess.ROLE_DIRETORIA)
+        ):
+            return JsonResponse({'ok': False, 'error': 'forbidden_profile'}, status=403)
+
+        inscricao = EventoInscricao.objects.filter(evento=evento, user=request.user).first()
+        if not inscricao:
+            return JsonResponse({'ok': False, 'error': 'missing_registration', 'message': 'Faça sua inscrição no evento antes de comprar.'}, status=400)
+
+        loja_view = LojaView()
+        responsavel = loja_view._ensure_loja_responsavel(request.user, create=True)
+        if not responsavel:
+            return JsonResponse({'ok': False, 'error': 'responsavel_not_found'}, status=400)
+
+        try:
+            payload = json.loads((request.body or b'').decode('utf-8') or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
+
+        payment_method = str(payload.get('payment_method') or '').strip().lower()
+        if payment_method != LojaPedido.FORMA_PAGAMENTO_PIX:
+            return JsonResponse({'ok': False, 'error': 'unsupported_payment_method', 'message': 'Somente Pix está disponível no momento.'}, status=400)
+
+        raw_items = payload.get('items')
+        if not isinstance(raw_items, list) or not raw_items:
+            return JsonResponse({'ok': False, 'error': 'empty_cart', 'message': 'Nenhum item foi selecionado.'}, status=400)
+
+        parsed_items = []
+        total = Decimal('0.00')
+        for idx, item in enumerate(raw_items, start=1):
+            if not isinstance(item, dict):
+                return JsonResponse({'ok': False, 'error': 'invalid_item', 'message': f'Item {idx} inválido.'}, status=400)
+            produto_id = str(item.get('product_id') or '').strip()
+            variacao_id = str(item.get('variation_id') or '').strip()
+            quantity_raw = item.get('quantity')
+            if not (produto_id.isdigit() and variacao_id.isdigit()):
+                return JsonResponse({'ok': False, 'error': 'invalid_item_ids', 'message': f'Produto/variação inválidos no item {idx}.'}, status=400)
+            try:
+                quantity = int(quantity_raw)
+            except (TypeError, ValueError):
+                return JsonResponse({'ok': False, 'error': 'invalid_quantity', 'message': f'Quantidade inválida no item {idx}.'}, status=400)
+            if quantity <= 0:
+                return JsonResponse({'ok': False, 'error': 'invalid_quantity', 'message': f'Quantidade deve ser maior que zero no item {idx}.'}, status=400)
+
+            variacao = (
+                LojaProdutoVariacao.objects
+                .select_related('produto')
+                .filter(
+                    pk=int(variacao_id),
+                    produto_id=int(produto_id),
+                    ativo=True,
+                    produto__ativo=True,
+                    produto__evento=evento,
+                )
+                .first()
+            )
+            if not variacao:
+                return JsonResponse({'ok': False, 'error': 'variation_not_found', 'message': f'Variação inválida ou inativa no item {idx}.'}, status=400)
+
+            unit_price = Decimal(variacao.valor).quantize(Decimal('0.01'))
+            line_total = (unit_price * quantity).quantize(Decimal('0.01'))
+            foto_url = ''
+            if getattr(variacao.produto, 'foto', None):
+                try:
+                    foto_url = variacao.produto.foto.url
+                except Exception:
+                    foto_url = ''
+
+            parsed_items.append({
+                'produto': variacao.produto,
+                'variacao': variacao,
+                'produto_titulo': variacao.produto.titulo,
+                'variacao_nome': variacao.nome,
+                'quantidade': quantity,
+                'valor_unitario': unit_price,
+                'valor_total': line_total,
+                'foto_url': foto_url,
+            })
+            total += line_total
+
+        if not parsed_items:
+            return JsonResponse({'ok': False, 'error': 'empty_cart', 'message': 'Nenhum item foi selecionado.'}, status=400)
+
+        try:
+            with transaction.atomic():
+                pedido = LojaPedido.objects.create(
+                    responsavel=responsavel,
+                    evento=evento,
+                    forma_pagamento=LojaPedido.FORMA_PAGAMENTO_PIX,
+                    valor_total=total.quantize(Decimal('0.01')),
+                    created_by=request.user,
+                    status=LojaPedido.STATUS_PENDENTE,
+                )
+                LojaPedidoItem.objects.bulk_create([
+                    LojaPedidoItem(
+                        pedido=pedido,
+                        produto=item['produto'],
+                        variacao=item['variacao'],
+                        produto_titulo=item['produto_titulo'],
+                        variacao_nome=item['variacao_nome'],
+                        quantidade=item['quantidade'],
+                        valor_unitario=item['valor_unitario'],
+                        valor_total=item['valor_total'],
+                        foto_url=item['foto_url'],
+                    )
+                    for item in parsed_items
+                ])
+                mp_payload = loja_view._create_mp_pix_payment_loja(request, pedido)
+                pedido.mp_payment_id = mp_payload['payment_id']
+                pedido.mp_external_reference = mp_payload['external_reference']
+                pedido.mp_status = mp_payload['status']
+                pedido.mp_status_detail = mp_payload['status_detail']
+                pedido.mp_qr_code = mp_payload['pix_code']
+                pedido.mp_qr_code_base64 = mp_payload['qr_base64']
+                if mp_payload['status'] == 'approved':
+                    pedido.status = LojaPedido.STATUS_PAGO
+                    pedido.paid_at = timezone.now()
+                elif mp_payload['status'] == 'in_process':
+                    pedido.status = LojaPedido.STATUS_PROCESSANDO
+                else:
+                    pedido.status = LojaPedido.STATUS_PENDENTE
+                pedido.save(update_fields=[
+                    'mp_payment_id', 'mp_external_reference', 'mp_status', 'mp_status_detail',
+                    'mp_qr_code', 'mp_qr_code_base64', 'status', 'paid_at', 'updated_at',
+                ])
+                if pedido.status == LojaPedido.STATUS_PAGO:
+                    loja_view._send_whatsapp_pedido_loja_aprovado(pedido)
+        except ValueError as exc:
+            return JsonResponse({'ok': False, 'error': 'mercadopago', 'message': str(exc)}, status=400)
+        except Exception:
+            return JsonResponse({'ok': False, 'error': 'pedido_create_failed', 'message': 'Não foi possível gerar o Pix agora.'}, status=500)
+
+        return JsonResponse({
+            'ok': True,
+            'pedido': loja_view._pix_modal_context_loja(pedido),
+        })
 
 
 class PresencaView(LoginRequiredMixin, View):
@@ -6349,8 +6852,8 @@ class LojaView(LoginRequiredMixin, View):
         produtos = (
             LojaProduto.objects
             .prefetch_related('variacoes', 'fotos__variacao', 'fotos__variacoes_vinculadas')
-            .filter(ativo=True) if only_active else
-            LojaProduto.objects.prefetch_related('variacoes', 'fotos__variacao', 'fotos__variacoes_vinculadas')
+            .filter(evento__isnull=True, ativo=True) if only_active else
+            LojaProduto.objects.prefetch_related('variacoes', 'fotos__variacao', 'fotos__variacoes_vinculadas').filter(evento__isnull=True)
         )
         produtos = (
             produtos
@@ -6504,7 +7007,10 @@ class LojaView(LoginRequiredMixin, View):
         action = str(request.POST.get('action') or '').strip()
         if action == 'editar_produto':
             produto_id_raw = str(request.POST.get('produto_id') or '').strip()
-            produto = LojaProduto.objects.filter(pk=produto_id_raw).first() if produto_id_raw.isdigit() else None
+            produto = (
+                LojaProduto.objects.filter(pk=produto_id_raw, evento__isnull=True).first()
+                if produto_id_raw.isdigit() else None
+            )
             if not produto:
                 messages.error(request, 'Produto não encontrado para edição.')
                 context = self._context()
@@ -6802,7 +7308,13 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
             variacao = (
                 LojaProdutoVariacao.objects
                 .select_related('produto')
-                .filter(pk=int(variacao_id), produto_id=int(produto_id), ativo=True, produto__ativo=True)
+                .filter(
+                    pk=int(variacao_id),
+                    produto_id=int(produto_id),
+                    ativo=True,
+                    produto__ativo=True,
+                    produto__evento__isnull=True,
+                )
                 .first()
             )
             if not variacao:

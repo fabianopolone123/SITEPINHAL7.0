@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Evento - {{ evento.name }}</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    .event-step {
+      margin-bottom: 1rem;
+    }
+    .event-products-grid {
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+    .event-product-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #fff;
+      padding: 0.8rem;
+    }
+    .event-product-card img {
+      width: 100%;
+      height: 190px;
+      object-fit: cover;
+      border-radius: 10px;
+      margin-bottom: 0.55rem;
+    }
+    .event-cart table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .event-cart th, .event-cart td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 0.45rem;
+      text-align: left;
+    }
+  </style>
+</head>
+<body class="painel-page">
+  {% include '_painel_sidebar.html' %}
+  <main class="painel-content">
+    <header class="painel-header">
+      <h2>{{ evento.name }}</h2>
+      <p>
+        {{ evento.event_date|date:"d/m/Y"|default:"sem data" }}
+        {{ evento.event_time|time:"H:i"|default:"" }} - {{ evento.event_end_time|time:"H:i"|default:"" }}
+      </p>
+    </header>
+
+    <section class="painel-card">
+      <div class="status" aria-live="polite">
+        {% for message in messages %}
+          <p data-state="{{ message.tags }}">{{ message }}</p>
+        {% empty %}
+          <p data-state="info">Preencha a inscrição do evento.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="painel-card event-step">
+      <h3>Passo 1: Inscrição</h3>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="register_event" />
+        <div class="field-section">
+          {% for field in schema %}
+            <label>
+              {{ field.name }} {% if field.required %}*{% endif %}
+              {% if field.type == 'data' %}
+                <input type="date" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
+              {% elif field.type == 'hora' %}
+                <input type="time" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
+              {% elif field.type == 'numero' %}
+                <input type="number" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
+              {% elif field.type == 'booleano' %}
+                <select name="{{ field.input_name }}" {% if field.required %}required{% endif %}>
+                  <option value="">-- selecione --</option>
+                  <option value="sim">Sim</option>
+                  <option value="nao">Não</option>
+                </select>
+              {% else %}
+                <input type="text" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
+              {% endif %}
+            </label>
+          {% empty %}
+            <p class="panel-note">Este evento não exige campos extras de inscrição.</p>
+          {% endfor %}
+          {% if has_produtos %}
+            <label>
+              <input type="checkbox" name="quer_comprar_itens" value="1" {% if inscricao and inscricao.quer_comprar_itens %}checked{% endif %} />
+              Quero comprar itens deste evento após a inscrição.
+            </label>
+          {% endif %}
+        </div>
+        <div class="action-row">
+          <button type="submit" class="primary">Salvar inscrição</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="painel-card event-step">
+      <h3>Passo 2: Compra de itens</h3>
+      {% if not inscricao %}
+        <p class="panel-note">Finalize o passo 1 para liberar a compra de itens.</p>
+      {% elif not has_produtos %}
+        <p class="panel-note">Este evento não possui itens para venda.</p>
+      {% else %}
+        <div class="event-products-grid" id="event-products-grid">
+          {% for row in produtos %}
+            <article class="event-product-card" data-product-id="{{ row.produto.id }}">
+              {% if row.capa_foto %}
+                <img src="{{ row.capa_foto.url }}" alt="Foto de {{ row.produto.titulo }}" />
+              {% endif %}
+              <h4>{{ row.produto.titulo }}</h4>
+              {% if row.produto.descricao %}<p>{{ row.produto.descricao }}</p>{% endif %}
+              <label>
+                Variação
+                <select data-variation-select>
+                  {% for v in row.variacoes %}
+                    <option value="{{ v.id }}" data-price="{{ v.valor }}">{{ v.nome }} - R$ {{ v.valor }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label>
+                Quantidade
+                <input type="number" min="1" step="1" value="1" data-qty-input />
+              </label>
+              <div class="action-row">
+                <button type="button" class="secondary" data-add-cart>Adicionar</button>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+
+        <div class="event-cart" style="margin-top:1rem;">
+          <h4>Carrinho</h4>
+          <div id="event-cart-empty" class="panel-note">Nenhum item no carrinho.</div>
+          <table id="event-cart-table" hidden>
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Variação</th>
+                <th>Qtd</th>
+                <th>Valor</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="event-cart-body"></tbody>
+          </table>
+          <p><strong>Total:</strong> <span id="event-cart-total">R$ 0,00</span></p>
+          <div class="action-row">
+            <button type="button" class="primary" id="event-generate-pix">Gerar Pix</button>
+          </div>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="painel-card" id="event-pix-box" {% if not pedido_modal %}hidden{% endif %}>
+      <h3>Pagamento Pix</h3>
+      <p><strong>Pedido:</strong> <span id="event-pix-pedido-id">{% if pedido_modal %}{{ pedido_modal.pedido_id }}{% endif %}</span></p>
+      <p><strong>Status:</strong> <span id="event-pix-status">{% if pedido_modal %}{{ pedido_modal.status_label }}{% endif %}</span></p>
+      <p><strong>Total:</strong> <span id="event-pix-total">{% if pedido_modal %}{{ pedido_modal.valor_total }}{% endif %}</span></p>
+      <div id="event-pix-qr-wrap" style="margin:0.6rem 0;">
+        {% if pedido_modal.qr_base64 %}
+          <img src="data:image/png;base64,{{ pedido_modal.qr_base64 }}" alt="QR Code Pix" style="max-width:260px;" />
+        {% endif %}
+      </div>
+      <label>
+        Código Pix
+        <textarea id="event-pix-code" rows="4" readonly>{% if pedido_modal %}{{ pedido_modal.pix_code }}{% endif %}</textarea>
+      </label>
+      <div class="action-row">
+        <button type="button" class="secondary" id="event-check-status">Atualizar status</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const cart = [];
+      const csrfToken = (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '';
+      const cartBody = document.getElementById('event-cart-body');
+      const cartTable = document.getElementById('event-cart-table');
+      const cartEmpty = document.getElementById('event-cart-empty');
+      const cartTotalNode = document.getElementById('event-cart-total');
+      const generatePixBtn = document.getElementById('event-generate-pix');
+      const pixBox = document.getElementById('event-pix-box');
+      const pixPedidoId = document.getElementById('event-pix-pedido-id');
+      const pixStatus = document.getElementById('event-pix-status');
+      const pixTotal = document.getElementById('event-pix-total');
+      const pixQrWrap = document.getElementById('event-pix-qr-wrap');
+      const pixCode = document.getElementById('event-pix-code');
+      const checkStatusBtn = document.getElementById('event-check-status');
+      const statusUrlTemplate = "{% url 'accounts:loja_pedido_status' 0 %}";
+      let lastPedidoId = Number(pixPedidoId ? pixPedidoId.textContent : 0) || 0;
+
+      const toMoney = (value) => {
+        const number = Number(value || 0);
+        return number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      };
+
+      const renderCart = () => {
+        if (!cartBody || !cartTable || !cartEmpty || !cartTotalNode) return;
+        cartBody.innerHTML = '';
+        let total = 0;
+        cart.forEach((item, index) => {
+          const line = item.price * item.quantity;
+          total += line;
+          const tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + item.productTitle + '</td>' +
+            '<td>' + item.variationLabel + '</td>' +
+            '<td>' + item.quantity + '</td>' +
+            '<td>' + toMoney(line) + '</td>' +
+            '<td><button type="button" data-remove-index="' + index + '">Remover</button></td>';
+          cartBody.appendChild(tr);
+        });
+        cartTotalNode.textContent = toMoney(total);
+        const hasItems = cart.length > 0;
+        cartTable.hidden = !hasItems;
+        cartEmpty.hidden = hasItems;
+      };
+
+      document.querySelectorAll('[data-add-cart]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const card = button.closest('[data-product-id]');
+          if (!card) return;
+          const productId = Number(card.getAttribute('data-product-id'));
+          const select = card.querySelector('[data-variation-select]');
+          const qtyInput = card.querySelector('[data-qty-input]');
+          if (!select || !qtyInput) return;
+          const variationId = Number(select.value || 0);
+          const quantity = Math.max(1, Number(qtyInput.value || 1));
+          const selectedOption = select.options[select.selectedIndex];
+          const price = Number((selectedOption?.dataset?.price || '0').replace(',', '.')) || 0;
+          const variationLabel = selectedOption ? selectedOption.textContent : '';
+          const productTitle = (card.querySelector('h4') || {}).textContent || 'Produto';
+          const existing = cart.find((item) => item.productId === productId && item.variationId === variationId);
+          if (existing) {
+            existing.quantity += quantity;
+          } else {
+            cart.push({ productId, variationId, quantity, price, variationLabel, productTitle });
+          }
+          renderCart();
+        });
+      });
+
+      if (cartBody) {
+        cartBody.addEventListener('click', (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLElement)) return;
+          const idx = target.getAttribute('data-remove-index');
+          if (idx === null) return;
+          const numeric = Number(idx);
+          if (Number.isNaN(numeric)) return;
+          cart.splice(numeric, 1);
+          renderCart();
+        });
+      }
+
+      if (generatePixBtn) {
+        generatePixBtn.addEventListener('click', async () => {
+          if (!cart.length) {
+            window.alert('Adicione pelo menos um item ao carrinho.');
+            return;
+          }
+          generatePixBtn.disabled = true;
+          try {
+            const response = await fetch("{% url 'accounts:evento_comprar_pix' evento.id %}", {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+              },
+              body: JSON.stringify({
+                payment_method: 'pix',
+                items: cart.map((item) => ({
+                  product_id: item.productId,
+                  variation_id: item.variationId,
+                  quantity: item.quantity,
+                })),
+              }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) {
+              window.alert((data && data.message) || 'Não foi possível gerar o Pix.');
+              return;
+            }
+            const pedido = data.pedido || {};
+            lastPedidoId = Number(pedido.pedido_id || 0) || 0;
+            if (pixPedidoId) pixPedidoId.textContent = String(pedido.pedido_id || '');
+            if (pixStatus) pixStatus.textContent = String(pedido.status_label || '');
+            if (pixTotal) pixTotal.textContent = String(pedido.valor_total || '');
+            if (pixCode) pixCode.value = String(pedido.pix_code || '');
+            if (pixQrWrap) {
+              pixQrWrap.innerHTML = pedido.qr_base64
+                ? '<img src="data:image/png;base64,' + pedido.qr_base64 + '" alt="QR Code Pix" style="max-width:260px;" />'
+                : '';
+            }
+            if (pixBox) pixBox.hidden = false;
+            cart.splice(0, cart.length);
+            renderCart();
+          } catch (error) {
+            window.alert('Erro de conexão ao gerar Pix.');
+          } finally {
+            generatePixBtn.disabled = false;
+          }
+        });
+      }
+
+      if (checkStatusBtn) {
+        checkStatusBtn.addEventListener('click', async () => {
+          if (!lastPedidoId) {
+            window.alert('Nenhum pedido para consultar.');
+            return;
+          }
+          const statusUrl = statusUrlTemplate.replace('/0/status/', '/' + lastPedidoId + '/status/');
+          try {
+            const response = await fetch(statusUrl, { method: 'GET' });
+            const data = await response.json();
+            if (!response.ok || !data.ok) {
+              window.alert('Não foi possível consultar o status.');
+              return;
+            }
+            if (pixStatus) pixStatus.textContent = String(data.status_label || '');
+          } catch (error) {
+            window.alert('Erro ao consultar status.');
+          }
+        });
+      }
+
+      renderCart();
+    })();
+  </script>
+</body>
+</html>

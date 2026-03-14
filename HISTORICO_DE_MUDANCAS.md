@@ -912,3 +912,12 @@ Arquivo oficial de registro das entregas concluidas.
 - Campos dinamicos do formulario agora permitem marcar cada campo como Obrigatorio ou Opcional.
 - Listagem de eventos passou a exibir inicio/fim e o status de obrigatoriedade de cada campo.
 - Estrutura de dados preparada para produtos do evento com secao visual "em breve" no modal.
+
+## 14/03/2026 - Eventos: inscricao publica, produtos no evento e relatorio em modal
+
+- Eventos agora permitem edicao completa (dados, campos dinamicos e obrigatorio/opcional) direto na listagem.
+- Foi adicionada gestao de produtos por evento com cadastro (titulo, descricao, foto, minimo de pedidos e variacoes), ativar/inativar e excluir.
+- Quando o evento possui campos ou produtos, aparece o botao "Visualizar pagina do evento".
+- Criada pagina publica do evento com 2 passos: inscricao e compra de itens do evento via Pix.
+- Compras do evento reutilizam o fluxo de pedido Pix da loja, mas ficam vinculadas ao evento para relatorio.
+- Adicionado relatorio em janela suspensa na tela de eventos, mostrando inscricoes e pedidos recentes do evento.
