@@ -410,7 +410,7 @@
                       {% for ped in row.pedidos_preview %}
                         <tr>
                           <td>#{{ ped.id }}</td>
-                          <td>{{ ped.responsavel.user.username }}</td>
+                          <td>{{ ped.responsavel.user.username|default:"-" }}</td>
                           <td>{{ ped.get_status_display }}</td>
                           <td>R$ {{ ped.valor_total }}</td>
                           <td>{{ ped.created_at|date:"d/m/Y H:i" }}</td>

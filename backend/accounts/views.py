@@ -82,7 +82,7 @@ from django.db.models import Count, Q, Sum
 from django.views.decorators.csrf import csrf_exempt
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, time as datetime_time
 
 logger = logging.getLogger(__name__)
 
@@ -3066,7 +3066,9 @@ class EventosView(LoginRequiredMixin, View):
         return None
 
     def _relative_event_time_label(self, event_date):
-        if not event_date:
+        if isinstance(event_date, datetime):
+            event_date = event_date.date()
+        if not isinstance(event_date, date):
             return 'Sem data'
         today = timezone.localdate()
         delta = (event_date - today).days
@@ -3107,72 +3109,100 @@ class EventosView(LoginRequiredMixin, View):
 
     def _context(self, request):
         eventos = list(Evento.objects.select_related('created_by').all())
-        inscritos_totais_map = {
-            item['evento_id']: item['total']
-            for item in (
-                EventoInscricao.objects
-                .values('evento_id')
-                .annotate(total=Count('id'))
-            )
-        }
-        pedidos_totais_map = {
-            item['evento_id']: item['total']
-            for item in (
-                LojaPedido.objects
-                .filter(evento__isnull=False)
-                .values('evento_id')
-                .annotate(total=Count('id'))
-            )
-        }
-        pedidos_pagos_totais_map = {
-            item['evento_id']: item['valor_total']
-            for item in (
-                LojaPedido.objects
-                .filter(evento__isnull=False, status=LojaPedido.STATUS_PAGO)
-                .values('evento_id')
-                .annotate(valor_total=Sum('valor_total'))
-            )
-        }
+        try:
+            inscritos_totais_map = {
+                item['evento_id']: item['total']
+                for item in (
+                    EventoInscricao.objects
+                    .values('evento_id')
+                    .annotate(total=Count('id'))
+                )
+            }
+        except Exception:
+            logger.exception('Falha ao calcular total de inscrições por evento.')
+            inscritos_totais_map = {}
+        try:
+            pedidos_totais_map = {
+                item['evento_id']: item['total']
+                for item in (
+                    LojaPedido.objects
+                    .filter(evento__isnull=False)
+                    .values('evento_id')
+                    .annotate(total=Count('id'))
+                )
+            }
+        except Exception:
+            logger.exception('Falha ao calcular total de pedidos por evento.')
+            pedidos_totais_map = {}
+        try:
+            pedidos_pagos_totais_map = {
+                item['evento_id']: item['valor_total']
+                for item in (
+                    LojaPedido.objects
+                    .filter(evento__isnull=False, status=LojaPedido.STATUS_PAGO)
+                    .values('evento_id')
+                    .annotate(valor_total=Sum('valor_total'))
+                )
+            }
+        except Exception:
+            logger.exception('Falha ao calcular total pago por evento.')
+            pedidos_pagos_totais_map = {}
         event_rows = []
         for evento in eventos:
-            produtos_qs = (
-                LojaProduto.objects
-                .filter(evento=evento)
-                .prefetch_related('variacoes')
-                .order_by('-created_at')
-            )
-            produtos_rows = []
-            for produto in produtos_qs:
-                produtos_rows.append({
-                    'produto': produto,
-                    'variacoes': list(produto.variacoes.order_by('id')),
+            try:
+                produtos_qs = (
+                    LojaProduto.objects
+                    .filter(evento=evento)
+                    .prefetch_related('variacoes')
+                    .order_by('-created_at')
+                )
+                produtos_rows = []
+                for produto in produtos_qs:
+                    produtos_rows.append({
+                        'produto': produto,
+                        'variacoes': list(produto.variacoes.order_by('id')),
+                    })
+                inscricoes = list(
+                    EventoInscricao.objects
+                    .filter(evento=evento)
+                    .select_related('user', 'responsavel', 'responsavel__user')
+                    .order_by('-created_at')[:20]
+                )
+                pedidos = list(
+                    LojaPedido.objects
+                    .filter(evento=evento)
+                    .select_related('responsavel', 'responsavel__user')
+                    .prefetch_related('itens')
+                    .order_by('-created_at')[:20]
+                )
+                event_rows.append({
+                    'evento': evento,
+                    'relative_label': self._relative_event_time_label(evento.event_date),
+                    'can_delete': self._event_can_delete(evento),
+                    'produtos': produtos_rows,
+                    'produtos_count': len(produtos_rows),
+                    'inscricoes_count': int(inscritos_totais_map.get(evento.id) or 0),
+                    'pedidos_count': int(pedidos_totais_map.get(evento.id) or 0),
+                    'pedidos_total_pago_fmt': self._format_currency(pedidos_pagos_totais_map.get(evento.id) or Decimal('0.00')),
+                    'has_public_page': bool((evento.fields_data or []) or produtos_rows),
+                    'inscricoes_preview': inscricoes,
+                    'pedidos_preview': pedidos,
                 })
-            inscricoes = list(
-                EventoInscricao.objects
-                .filter(evento=evento)
-                .select_related('user', 'responsavel', 'responsavel__user')
-                .order_by('-created_at')[:20]
-            )
-            pedidos = list(
-                LojaPedido.objects
-                .filter(evento=evento)
-                .select_related('responsavel', 'responsavel__user')
-                .prefetch_related('itens')
-                .order_by('-created_at')[:20]
-            )
-            event_rows.append({
-                'evento': evento,
-                'relative_label': self._relative_event_time_label(evento.event_date),
-                'can_delete': self._event_can_delete(evento),
-                'produtos': produtos_rows,
-                'produtos_count': len(produtos_rows),
-                'inscricoes_count': int(inscritos_totais_map.get(evento.id) or 0),
-                'pedidos_count': int(pedidos_totais_map.get(evento.id) or 0),
-                'pedidos_total_pago_fmt': self._format_currency(pedidos_pagos_totais_map.get(evento.id) or Decimal('0.00')),
-                'has_public_page': bool((evento.fields_data or []) or produtos_rows),
-                'inscricoes_preview': inscricoes,
-                'pedidos_preview': pedidos,
-            })
+            except Exception:
+                logger.exception('Falha ao montar card do evento id=%s.', getattr(evento, 'id', None))
+                event_rows.append({
+                    'evento': evento,
+                    'relative_label': 'Sem data',
+                    'can_delete': True,
+                    'produtos': [],
+                    'produtos_count': 0,
+                    'inscricoes_count': 0,
+                    'pedidos_count': 0,
+                    'pedidos_total_pago_fmt': self._format_currency(Decimal('0.00')),
+                    'has_public_page': False,
+                    'inscricoes_preview': [],
+                    'pedidos_preview': [],
+                })
         presets = list(EventoPreset.objects.select_related('created_by').all())
         presets_json = [
             {
@@ -3196,12 +3226,22 @@ class EventosView(LoginRequiredMixin, View):
         return context
 
     def _event_can_delete(self, evento):
-        if not (evento.event_date and evento.event_time):
+        event_date = getattr(evento, 'event_date', None)
+        event_time = getattr(evento, 'event_time', None)
+        if isinstance(event_date, datetime):
+            event_date = event_date.date()
+        if isinstance(event_time, datetime):
+            event_time = event_time.time()
+        if not isinstance(event_date, date) or not isinstance(event_time, datetime_time):
             return True
-        event_dt = datetime.combine(evento.event_date, evento.event_time)
-        if timezone.is_naive(event_dt):
-            event_dt = timezone.make_aware(event_dt, timezone.get_current_timezone())
-        return timezone.now() < event_dt
+        try:
+            event_dt = datetime.combine(event_date, event_time)
+            if timezone.is_naive(event_dt):
+                event_dt = timezone.make_aware(event_dt, timezone.get_current_timezone())
+            return timezone.now() < event_dt
+        except Exception:
+            logger.exception('Falha ao validar exclusão de evento id=%s.', getattr(evento, 'id', None))
+            return True
 
     def get(self, request):
         guard = self._guard(request)
