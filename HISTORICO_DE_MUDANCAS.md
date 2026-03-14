@@ -928,3 +928,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Ajustada exibicao para usar fallback seguro entre 
 ame e label sem quebrar a tela.
 - Confirmado cadastro de evento com campos funcionando apos aplicar as migracoes pendentes.
+
+## 14/03/2026 - Eventos: bloqueio de duplicidade e exclusao apenas antes do inicio
+
+- Bloqueado cadastro/edicao de evento com mesmo nome, data e horario de outro evento existente.
+- Adicionado bloqueio de duplo envio no botao de salvar do modal de criacao (evita clique repetido).
+- Excluir evento agora so e permitido antes do horario de inicio.
+- Removido fluxo antigo de senha para excluir evento apos horario.

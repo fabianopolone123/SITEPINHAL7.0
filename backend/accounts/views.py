@@ -3049,7 +3049,6 @@ class AventureiroGeralDetalheView(LoginRequiredMixin, View):
 
 class EventosView(LoginRequiredMixin, View):
     template_name = 'eventos.html'
-    DELETE_OVERRIDE_PASSWORD = 'pinhal'
 
     def _guard(self, request):
         if not _has_menu_permission(request, 'eventos'):
@@ -3155,7 +3154,7 @@ class EventosView(LoginRequiredMixin, View):
             event_rows.append({
                 'evento': evento,
                 'relative_label': self._relative_event_time_label(evento.event_date),
-                'requires_delete_password': self._event_delete_requires_password(evento),
+                'can_delete': self._event_can_delete(evento),
                 'produtos': produtos_rows,
                 'produtos_count': len(produtos_rows),
                 'inscricoes_count': int(inscritos_totais_map.get(evento.id) or 0),
@@ -3187,14 +3186,13 @@ class EventosView(LoginRequiredMixin, View):
         context.update(_sidebar_context(request))
         return context
 
-    def _event_delete_requires_password(self, evento):
-        check_time = evento.event_end_time or evento.event_time
-        if not (evento.event_date and check_time):
-            return False
-        event_dt = datetime.combine(evento.event_date, check_time)
+    def _event_can_delete(self, evento):
+        if not (evento.event_date and evento.event_time):
+            return True
+        event_dt = datetime.combine(evento.event_date, evento.event_time)
         if timezone.is_naive(event_dt):
             event_dt = timezone.make_aware(event_dt, timezone.get_current_timezone())
-        return timezone.now() >= event_dt
+        return timezone.now() < event_dt
 
     def get(self, request):
         guard = self._guard(request)
@@ -3347,6 +3345,22 @@ class EventosView(LoginRequiredMixin, View):
                 )
                 if event_date_value is None or event_time_value is None or event_end_time_value is None:
                     return render(request, self.template_name, self._context(request))
+                duplicate = (
+                    Evento.objects
+                    .filter(
+                        name__iexact=name,
+                        event_date=event_date_value,
+                        event_time=event_time_value,
+                        event_end_time=event_end_time_value,
+                    )
+                    .first()
+                )
+                if duplicate:
+                    messages.error(
+                        request,
+                        'Já existe um evento com o mesmo nome, data e horário. Verifique a lista antes de cadastrar novamente.',
+                    )
+                    return render(request, self.template_name, self._context(request))
                 Evento.objects.create(
                     name=name,
                     event_type=event_type,
@@ -3393,18 +3407,13 @@ class EventosView(LoginRequiredMixin, View):
 
         elif action == 'delete_event':
             event_id = request.POST.get('event_id')
-            delete_password = (request.POST.get('delete_password') or '').strip()
             evento = Evento.objects.filter(pk=event_id).first()
             if not evento:
                 messages.error(request, 'Evento não encontrado.')
             else:
-                if self._event_delete_requires_password(evento):
-                    if delete_password != self.DELETE_OVERRIDE_PASSWORD:
-                        messages.error(
-                            request,
-                            'Este evento já atingiu data/hora. Para excluir, digite a senha de exclusão.',
-                        )
-                        return render(request, self.template_name, self._context(request))
+                if not self._event_can_delete(evento):
+                    messages.error(request, 'Só é permitido excluir eventos antes do horário de início.')
+                    return render(request, self.template_name, self._context(request))
                 LojaProduto.objects.filter(evento=evento).delete()
                 evento.delete()
                 messages.success(request, 'Evento removido com sucesso.')
@@ -3429,6 +3438,23 @@ class EventosView(LoginRequiredMixin, View):
                 event_date_raw, event_time_raw, event_end_time_raw, required=True
             )
             if event_date_value is None or event_time_value is None or event_end_time_value is None:
+                return render(request, self.template_name, self._context(request))
+            duplicate = (
+                Evento.objects
+                .filter(
+                    name__iexact=name,
+                    event_date=event_date_value,
+                    event_time=event_time_value,
+                    event_end_time=event_end_time_value,
+                )
+                .exclude(pk=evento.pk)
+                .first()
+            )
+            if duplicate:
+                messages.error(
+                    request,
+                    'Já existe outro evento com o mesmo nome, data e horário.',
+                )
                 return render(request, self.template_name, self._context(request))
             evento.name = name
             evento.event_type = event_type
