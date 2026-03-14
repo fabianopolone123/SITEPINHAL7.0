@@ -508,7 +508,7 @@ class EventoInscricao(models.Model):
         related_name='eventos_inscricoes',
     )
     dados = models.JSONField('dados da inscrição', default=dict, blank=True)
-    codigo_inscricao = models.CharField('código da inscrição', max_length=3, blank=True, editable=False)
+    codigo_inscricao = models.CharField('codigo da inscricao', max_length=3, blank=True, editable=False)
     quer_comprar_itens = models.BooleanField('quer comprar itens', default=False)
     created_at = models.DateTimeField('criado em', auto_now_add=True)
     updated_at = models.DateTimeField('atualizado em', auto_now=True)

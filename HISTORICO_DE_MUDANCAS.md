@@ -963,3 +963,8 @@ ame e label sem quebrar a tela.
 - Adicionado selo visivel de status (Publico/Privado) em cada evento da listagem.
 - Adicionado botao direto no card para alternar Tornar publico / Tornar privado.
 - Mantida opcao dentro de editar evento para quem preferir ajustar por formulario.
+
+## 14/03/2026 - Hotfix deploy: removida migration pendente fantasma (0048)
+
+- Corrigido alinhamento do campo codigo_inscricao para evitar gerar migration pendente no makemigrations --check do deploy.
+- Com isso o processo de publicacao nao dispara rollback por "model sem migration" neste ponto.
