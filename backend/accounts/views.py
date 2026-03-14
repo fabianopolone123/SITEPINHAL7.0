@@ -6230,15 +6230,14 @@ class LojaView(LoginRequiredMixin, View):
         recipients = []
         seen_phones = set()
 
-        def add_recipient(user, force_send=False):
+        def add_recipient(user):
             pref, _ = WhatsAppPreference.objects.get_or_create(user=user)
             phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(user))
             if not phone_number or phone_number in seen_phones:
                 return
             seen_phones.add(phone_number)
-            recipients.append((user, phone_number, force_send))
+            recipients.append((user, phone_number))
 
-        add_recipient(responsavel_user, force_send=True)
         extras = (
             UserAccess.objects
             .select_related('user')
@@ -6246,7 +6245,9 @@ class LojaView(LoginRequiredMixin, View):
             .order_by('user__username')
         )
         for access in extras:
-            add_recipient(access.user, force_send=False)
+            if not (access.has_profile(UserAccess.ROLE_DIRETORIA) or access.has_profile(UserAccess.ROLE_DIRETOR)):
+                continue
+            add_recipient(access.user)
 
         if not recipients:
             pedido.whatsapp_notified_at = timezone.now()
@@ -6254,7 +6255,7 @@ class LojaView(LoginRequiredMixin, View):
             return
 
         sent_any = False
-        for user, phone_number, _force_send in recipients:
+        for user, phone_number in recipients:
             queue_item = WhatsAppQueue.objects.create(
                 user=user,
                 phone_number=phone_number,

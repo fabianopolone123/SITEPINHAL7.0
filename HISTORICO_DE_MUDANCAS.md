@@ -896,3 +896,10 @@ Arquivo oficial de registro das entregas concluidas.
 - Incluido template padrao especifico para pedido da loja pago na tela de configuracao do WhatsApp.
 - O envio de pedido da loja aprovado agora usa preferencia e fila proprias (notify_loja / TYPE_LOJA).
 - Mantido o fluxo financeiro separado: pagamento de mensalidades continua usando notify_financeiro / TYPE_FINANCEIRO.
+
+## 13/03/2026 - WhatsApp Loja: envio apenas para diretoria responsavel
+
+- O aviso de pedido da loja pago deixou de ser enviado automaticamente para quem realizou o pagamento.
+- Agora o envio considera apenas usuarios da diretoria/diretor marcados na coluna Pedido loja pago.
+- Confirmado que o fluxo de pedido da loja usa template e tipo Loja (nao usa a mensagem de Pagamento aprovado).
+- Atualizado o texto da tela de WhatsApp para refletir esse comportamento.
