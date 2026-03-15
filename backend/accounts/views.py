@@ -4555,13 +4555,8 @@ class UsuariosView(LoginRequiredMixin, View):
             for responsavel_user_id, nomes in aventureiros_por_responsavel.items():
                 aventureiros_por_responsavel[responsavel_user_id] = sorted(set(nomes), key=lambda item: item.lower())
 
-            total_aventureiros = sum(len(nomes) for nomes in aventureiros_por_responsavel.values())
-
             lines = [
                 'RELACAO DE RESPONSAVEIS E AVENTUREIROS',
-                '',
-                f'TOTAL RESPONSAVEIS: {len(responsavel_entries)}',
-                f'TOTAL AVENTUREIROS: {total_aventureiros}',
                 '',
                 'RESPONSAVEL > AVENTUREIROS',
                 '',
