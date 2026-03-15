@@ -4530,43 +4530,67 @@ class UsuariosView(LoginRequiredMixin, View):
         can_copy_relacao = _has_menu_permission(request, 'usuarios')
         copy_relacao_text = ''
         if can_copy_relacao:
-            responsavel_names = []
+            responsavel_entries = []
             for row in responsavel_rows:
+                user_obj = row.get('user')
                 nome = (
                     str(row.get('nome_completo') or '').strip()
-                    or str(row.get('user').get_full_name() or '').strip()
-                    or str(row.get('user').username or '').strip()
+                    or str(user_obj.get_full_name() or '').strip()
+                    or str(user_obj.username or '').strip()
                 )
                 if nome:
-                    responsavel_names.append(nome)
-            responsavel_names = sorted(set(responsavel_names), key=lambda item: item.lower())
+                    responsavel_entries.append({
+                        'user_id': user_obj.pk,
+                        'nome': nome,
+                    })
+            responsavel_entries.sort(key=lambda item: item['nome'].lower())
 
-            aventureiro_names = []
-            for row in aventureiro_rows:
-                nome = str(row.get('nome') or '').strip()
-                if nome:
-                    aventureiro_names.append(nome)
-            aventureiro_names = sorted(set(aventureiro_names), key=lambda item: item.lower())
+            aventureiros_por_responsavel = {}
+            for av in aventureiros:
+                nome_aventureiro = str(av.nome or '').strip()
+                if not nome_aventureiro:
+                    continue
+                responsavel_user_id = getattr(av.responsavel, 'user_id', None)
+                aventureiros_por_responsavel.setdefault(responsavel_user_id, []).append(nome_aventureiro)
+            for responsavel_user_id, nomes in aventureiros_por_responsavel.items():
+                aventureiros_por_responsavel[responsavel_user_id] = sorted(set(nomes), key=lambda item: item.lower())
+
+            total_aventureiros = sum(len(nomes) for nomes in aventureiros_por_responsavel.values())
 
             lines = [
                 'RELACAO DE RESPONSAVEIS E AVENTUREIROS',
                 '',
-                f'RESPONSAVEIS ({len(responsavel_names)}):',
+                f'TOTAL RESPONSAVEIS: {len(responsavel_entries)}',
+                f'TOTAL AVENTUREIROS: {total_aventureiros}',
+                '',
+                'RESPONSAVEL > AVENTUREIROS',
+                '',
             ]
-            if responsavel_names:
-                for index, nome in enumerate(responsavel_names, start=1):
-                    lines.append(f'{index}. {nome}')
+            if responsavel_entries:
+                for index, item in enumerate(responsavel_entries, start=1):
+                    lines.append(f'{index}. {item["nome"]}')
+                    nomes_aventureiros = aventureiros_por_responsavel.get(item['user_id'], [])
+                    if nomes_aventureiros:
+                        for child_index, nome_av in enumerate(nomes_aventureiros, start=1):
+                            lines.append(f'   - {child_index}. {nome_av}')
+                    else:
+                        lines.append('   - Sem aventureiros cadastrados.')
+                    lines.append('')
             else:
                 lines.append('- Nenhum responsavel cadastrado.')
-            lines.extend([
-                '',
-                f'AVENTUREIROS ({len(aventureiro_names)}):',
-            ])
-            if aventureiro_names:
-                for index, nome in enumerate(aventureiro_names, start=1):
+
+            responsavel_ids = {item['user_id'] for item in responsavel_entries}
+            nomes_sem_vinculo = []
+            for resp_user_id, nomes in aventureiros_por_responsavel.items():
+                if resp_user_id not in responsavel_ids:
+                    nomes_sem_vinculo.extend(nomes)
+            if nomes_sem_vinculo:
+                lines.extend([
+                    'AVENTUREIROS SEM RESPONSAVEL VINCULADO:',
+                ])
+                for index, nome in enumerate(sorted(set(nomes_sem_vinculo), key=lambda item: item.lower()), start=1):
                     lines.append(f'{index}. {nome}')
-            else:
-                lines.append('- Nenhum aventureiro cadastrado.')
+
             copy_relacao_text = '\n'.join(lines)
 
         context = {
