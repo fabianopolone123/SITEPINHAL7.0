@@ -4527,9 +4527,7 @@ class UsuariosView(LoginRequiredMixin, View):
                 'serie': av.serie or '-',
             })
 
-        access = _ensure_user_access(request.user)
-        active_profile = _get_active_profile(request, access=access)
-        can_copy_relacao = active_profile == UserAccess.ROLE_DIRETOR
+        can_copy_relacao = _has_menu_permission(request, 'usuarios')
         copy_relacao_text = ''
         if can_copy_relacao:
             responsavel_names = []
