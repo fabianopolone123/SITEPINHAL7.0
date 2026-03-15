@@ -2665,6 +2665,14 @@ class DiretoriaView(View):
         form = DiretoriaForm(request.POST)
         if form.is_valid():
             diretoria = form.save()
+            _ensure_default_access_groups()
+            diretoria_group = AccessGroup.objects.filter(code='diretoria').first()
+            professor_group = AccessGroup.objects.filter(code='professor').first()
+            if diretoria_group:
+                diretoria.user.access_groups.add(diretoria_group)
+            if professor_group:
+                diretoria.user.access_groups.add(professor_group)
+            _sync_access_profiles_from_groups(diretoria.user)
             _dispatch_cadastro_notifications('Diretoria', diretoria.user, diretoria.nome)
             _dispatch_signup_confirmation(diretoria.user, 'Cadastro de diretoria', diretoria.nome)
             messages.success(request, 'Cadastro da diretoria concluído com sucesso. Faça login para continuar.')
@@ -4519,12 +4527,58 @@ class UsuariosView(LoginRequiredMixin, View):
                 'serie': av.serie or '-',
             })
 
+        access = _ensure_user_access(request.user)
+        active_profile = _get_active_profile(request, access=access)
+        can_copy_relacao = active_profile == UserAccess.ROLE_DIRETOR
+        copy_relacao_text = ''
+        if can_copy_relacao:
+            responsavel_names = []
+            for row in responsavel_rows:
+                nome = (
+                    str(row.get('nome_completo') or '').strip()
+                    or str(row.get('user').get_full_name() or '').strip()
+                    or str(row.get('user').username or '').strip()
+                )
+                if nome:
+                    responsavel_names.append(nome)
+            responsavel_names = sorted(set(responsavel_names), key=lambda item: item.lower())
+
+            aventureiro_names = []
+            for row in aventureiro_rows:
+                nome = str(row.get('nome') or '').strip()
+                if nome:
+                    aventureiro_names.append(nome)
+            aventureiro_names = sorted(set(aventureiro_names), key=lambda item: item.lower())
+
+            lines = [
+                'RELACAO DE RESPONSAVEIS E AVENTUREIROS',
+                '',
+                f'RESPONSAVEIS ({len(responsavel_names)}):',
+            ]
+            if responsavel_names:
+                for index, nome in enumerate(responsavel_names, start=1):
+                    lines.append(f'{index}. {nome}')
+            else:
+                lines.append('- Nenhum responsavel cadastrado.')
+            lines.extend([
+                '',
+                f'AVENTUREIROS ({len(aventureiro_names)}):',
+            ])
+            if aventureiro_names:
+                for index, nome in enumerate(aventureiro_names, start=1):
+                    lines.append(f'{index}. {nome}')
+            else:
+                lines.append('- Nenhum aventureiro cadastrado.')
+            copy_relacao_text = '\n'.join(lines)
+
         context = {
             'users': user_rows,
             'selected_grupo': selected_grupo,
             'diretoria_rows': diretoria_rows,
             'responsavel_rows': responsavel_rows,
             'aventureiro_rows': aventureiro_rows,
+            'can_copy_relacao': can_copy_relacao,
+            'copy_relacao_text': copy_relacao_text,
         }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)

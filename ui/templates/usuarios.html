@@ -55,6 +55,20 @@
       border-color: #2563eb;
       color: #1d4ed8;
     }
+    .users-tools {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+    .users-feedback {
+      color: #1d4ed8;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .users-feedback.is-error {
+      color: #b91c1c;
+    }
   </style>
 </head>
 <body class="painel-page">
@@ -64,6 +78,16 @@
       <h2>Usuários</h2>
       <p>Clique em uma categoria para listar os cadastros e abrir os dados completos.</p>
     </header>
+
+    {% if can_copy_relacao %}
+      <section class="painel-card">
+        <div class="users-tools">
+          <button type="button" class="secondary" id="copy-relacao-btn">Copiar relaÃ§Ã£o (ResponsÃ¡veis + Aventureiros)</button>
+          <span class="users-feedback" id="copy-relacao-feedback" aria-live="polite"></span>
+        </div>
+        <textarea id="copy-relacao-text" style="position:fixed;left:-9999px;top:-9999px;" aria-hidden="true">{{ copy_relacao_text }}</textarea>
+      </section>
+    {% endif %}
 
     <section class="painel-card">
       <div class="users-groups">
@@ -224,5 +248,59 @@
       </section>
     {% endif %}
   </main>
+  {% if can_copy_relacao %}
+    <script>
+      (function () {
+        var button = document.getElementById('copy-relacao-btn');
+        var source = document.getElementById('copy-relacao-text');
+        var feedback = document.getElementById('copy-relacao-feedback');
+        if (!button || !source || !feedback) return;
+
+        function setFeedback(message, isError) {
+          feedback.textContent = message || '';
+          feedback.classList.toggle('is-error', !!isError);
+        }
+
+        function fallbackCopy(text) {
+          var temp = document.createElement('textarea');
+          temp.value = text;
+          temp.setAttribute('readonly', 'readonly');
+          temp.style.position = 'fixed';
+          temp.style.opacity = '0';
+          temp.style.left = '-9999px';
+          document.body.appendChild(temp);
+          temp.focus();
+          temp.select();
+          var copied = false;
+          try {
+            copied = document.execCommand('copy');
+          } catch (error) {
+            copied = false;
+          }
+          document.body.removeChild(temp);
+          return copied;
+        }
+
+        button.addEventListener('click', function () {
+          var text = source.value || '';
+          if (!text.trim()) {
+            setFeedback('Nao ha dados para copiar.', true);
+            return;
+          }
+          if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(function () {
+              setFeedback('Relacao copiada para a area de transferencia.', false);
+            }).catch(function () {
+              var copied = fallbackCopy(text);
+              setFeedback(copied ? 'Relacao copiada para a area de transferencia.' : 'Nao foi possivel copiar automaticamente.', !copied);
+            });
+            return;
+          }
+          var copied = fallbackCopy(text);
+          setFeedback(copied ? 'Relacao copiada para a area de transferencia.' : 'Nao foi possivel copiar automaticamente.', !copied);
+        });
+      })();
+    </script>
+  {% endif %}
 </body>
 </html>
