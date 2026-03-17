@@ -576,38 +576,49 @@
         });
       }
 
+      const openModal = (modal) => {
+        if (!modal) return;
+        modal.classList.add('show');
+        modal.setAttribute('aria-hidden', 'false');
+      };
+      const closeModal = (modal) => {
+        if (!modal) return;
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+      };
+
       if (openReportBtn && reportModal) {
         openReportBtn.addEventListener('click', () => {
-          reportModal.setAttribute('aria-hidden', 'false');
+          openModal(reportModal);
         });
       }
       if (closeReportBtn && reportModal) {
         closeReportBtn.addEventListener('click', () => {
-          reportModal.setAttribute('aria-hidden', 'true');
+          closeModal(reportModal);
         });
       }
       if (reportModal) {
         reportModal.addEventListener('click', (event) => {
           if (event.target === reportModal) {
-            reportModal.setAttribute('aria-hidden', 'true');
+            closeModal(reportModal);
           }
         });
       }
 
       if (openInscritosBtn && inscritosModal) {
         openInscritosBtn.addEventListener('click', () => {
-          inscritosModal.setAttribute('aria-hidden', 'false');
+          openModal(inscritosModal);
         });
       }
       if (closeInscritosBtn && inscritosModal) {
         closeInscritosBtn.addEventListener('click', () => {
-          inscritosModal.setAttribute('aria-hidden', 'true');
+          closeModal(inscritosModal);
         });
       }
       if (inscritosModal) {
         inscritosModal.addEventListener('click', (event) => {
           if (event.target === inscritosModal) {
-            inscritosModal.setAttribute('aria-hidden', 'true');
+            closeModal(inscritosModal);
           }
         });
       }
