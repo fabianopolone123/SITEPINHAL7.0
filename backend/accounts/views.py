@@ -1,4 +1,5 @@
 ﻿import copy
+import difflib
 import json
 import os
 import re
@@ -3680,6 +3681,50 @@ class EventoPublicoView(View):
                 cleaned.append(value)
         return cleaned
 
+    def _key_has_like(self, norm_key, targets):
+        key = str(norm_key or '').strip()
+        if not key:
+            return False
+        collapsed = key.replace(' ', '')
+        tokens = [item for item in re.split(r'[^a-z0-9]+', key) if item]
+        candidates = tokens + [collapsed]
+        for target in targets:
+            target_norm = self._normalize_lookup_text(target).replace(' ', '')
+            if not target_norm:
+                continue
+            if target_norm in collapsed:
+                return True
+            for candidate in candidates:
+                if not candidate:
+                    continue
+                if target_norm in candidate:
+                    return True
+                similarity = difflib.SequenceMatcher(None, candidate, target_norm).ratio()
+                if similarity >= 0.78:
+                    return True
+        return False
+
+    def _is_responsavel_key(self, norm_key):
+        return self._key_has_like(norm_key, ['responsavel'])
+
+    def _is_nome_key(self, norm_key):
+        return self._key_has_like(norm_key, ['nome'])
+
+    def _is_cpf_key(self, norm_key):
+        return self._key_has_like(norm_key, ['cpf'])
+
+    def _is_phone_key(self, norm_key):
+        return self._key_has_like(norm_key, ['telefone', 'celular', 'whatsapp'])
+
+    def _is_email_key(self, norm_key):
+        return self._key_has_like(norm_key, ['email'])
+
+    def _is_parentesco_key(self, norm_key):
+        return self._key_has_like(norm_key, ['parentesco'])
+
+    def _is_criancas_key(self, norm_key):
+        return self._key_has_like(norm_key, ['crianca', 'criancas', 'filho', 'filhos', 'filha', 'filhas'])
+
     def _responsavel_label_from_inscricao(self, inscricao):
         responsavel = getattr(inscricao, 'responsavel', None)
         if responsavel:
@@ -3700,21 +3745,48 @@ class EventoPublicoView(View):
             text = str(value or '').strip()
             if not text:
                 continue
-            if 'responsavel' in norm_key and 'nome' in norm_key:
+            if self._is_responsavel_key(norm_key) and self._is_nome_key(norm_key):
                 return text
         for key, value in dados.items():
             norm_key = self._normalize_lookup_text(key)
             text = str(value or '').strip()
             if not text:
                 continue
-            if 'responsavel' not in norm_key and 'respons' not in norm_key:
+            if not self._is_responsavel_key(norm_key):
                 continue
-            if any(token in norm_key for token in ('cpf', 'telefone', 'celular', 'email', 'parentesco')):
+            if self._is_cpf_key(norm_key) or self._is_phone_key(norm_key) or self._is_email_key(norm_key) or self._is_parentesco_key(norm_key):
                 continue
             if re.fullmatch(r'\d{8,}', text):
                 continue
             return text
         return '-'
+
+    def _cpf_responsavel_from_inscricao(self, inscricao):
+        responsavel = getattr(inscricao, 'responsavel', None)
+        if responsavel:
+            for raw in [responsavel.responsavel_cpf, responsavel.pai_cpf, responsavel.mae_cpf]:
+                digits = re.sub(r'\D', '', str(raw or ''))
+                if len(digits) >= 11:
+                    return digits
+
+        dados = (inscricao.dados or {}) if isinstance(inscricao.dados, dict) else {}
+        candidates = []
+        for key, value in dados.items():
+            norm_key = self._normalize_lookup_text(key)
+            if not self._is_cpf_key(norm_key):
+                continue
+            text = str(value or '').strip()
+            if not text:
+                continue
+            digits = re.sub(r'\D', '', text)
+            if len(digits) < 11:
+                continue
+            priority = 1 if self._is_responsavel_key(norm_key) else 2
+            candidates.append((priority, digits))
+        if not candidates:
+            return '-'
+        candidates.sort(key=lambda item: item[0])
+        return candidates[0][1]
 
     def _criancas_label_from_inscricao(self, inscricao):
         responsavel = getattr(inscricao, 'responsavel', None)
@@ -3729,7 +3801,7 @@ class EventoPublicoView(View):
         nomes = []
         for key, value in dados.items():
             norm_key = self._normalize_lookup_text(key)
-            if not any(token in norm_key for token in ('crianca', 'criancas', 'filho', 'filhos', 'filha', 'filhas')):
+            if not self._is_criancas_key(norm_key):
                 continue
             if isinstance(value, (list, tuple)):
                 for item in value:
@@ -3767,9 +3839,15 @@ class EventoPublicoView(View):
         parts = []
         for key, value in dados.items():
             norm_key = self._normalize_lookup_text(key)
-            if any(token in norm_key for token in ('crianca', 'criancas', 'filho', 'filhos', 'filha', 'filhas')):
+            if self._is_criancas_key(norm_key):
                 continue
-            if 'responsavel' in norm_key and any(token in norm_key for token in ('nome', 'cpf', 'telefone', 'celular', 'email')):
+            if self._is_responsavel_key(norm_key) and (
+                self._is_nome_key(norm_key)
+                or self._is_cpf_key(norm_key)
+                or self._is_phone_key(norm_key)
+                or self._is_email_key(norm_key)
+                or self._is_parentesco_key(norm_key)
+            ):
                 continue
             label = str(key or '').strip()
             text = str(value or '').strip()
@@ -3858,6 +3936,7 @@ class EventoPublicoView(View):
                     inscritos_detalhes.append({
                         'codigo': inscricao.codigo_inscricao or '-',
                         'responsavel': self._responsavel_label_from_inscricao(inscricao),
+                        'cpf_responsavel': self._cpf_responsavel_from_inscricao(inscricao),
                         'criancas': self._criancas_label_from_inscricao(inscricao),
                         'pedidos_loja': self._pedidos_summary_for_inscrito(linked),
                         'dados_resumo': self._dados_resumo(dados_obj),
