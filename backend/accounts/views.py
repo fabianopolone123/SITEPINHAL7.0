@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import unicodedata
 import hashlib
 import hmac
 import logging
@@ -3661,6 +3662,24 @@ class EventoPublicoView(View):
             })
         return rows
 
+    def _normalize_lookup_text(self, value):
+        text = str(value or '').strip().lower()
+        text = unicodedata.normalize('NFKD', text)
+        text = ''.join(ch for ch in text if not unicodedata.combining(ch))
+        return re.sub(r'\s+', ' ', text)
+
+    def _split_people_values(self, raw_text):
+        text = str(raw_text or '').strip()
+        if not text:
+            return []
+        parts = re.split(r'[\n;,/]| e ', text)
+        cleaned = []
+        for part in parts:
+            value = str(part or '').strip()
+            if value:
+                cleaned.append(value)
+        return cleaned
+
     def _responsavel_label_from_inscricao(self, inscricao):
         responsavel = getattr(inscricao, 'responsavel', None)
         if responsavel:
@@ -3677,10 +3696,24 @@ class EventoPublicoView(View):
             return user.get_full_name() or user.username or '-'
         dados = (inscricao.dados or {}) if isinstance(inscricao.dados, dict) else {}
         for key, value in dados.items():
-            if 'respons' in str(key or '').strip().lower():
-                text = str(value or '').strip()
-                if text:
-                    return text
+            norm_key = self._normalize_lookup_text(key)
+            text = str(value or '').strip()
+            if not text:
+                continue
+            if 'responsavel' in norm_key and 'nome' in norm_key:
+                return text
+        for key, value in dados.items():
+            norm_key = self._normalize_lookup_text(key)
+            text = str(value or '').strip()
+            if not text:
+                continue
+            if 'responsavel' not in norm_key and 'respons' not in norm_key:
+                continue
+            if any(token in norm_key for token in ('cpf', 'telefone', 'celular', 'email', 'parentesco')):
+                continue
+            if re.fullmatch(r'\d{8,}', text):
+                continue
+            return text
         return '-'
 
     def _criancas_label_from_inscricao(self, inscricao):
@@ -3695,21 +3728,17 @@ class EventoPublicoView(View):
         dados = (inscricao.dados or {}) if isinstance(inscricao.dados, dict) else {}
         nomes = []
         for key, value in dados.items():
-            key_text = str(key or '').strip().lower()
-            if not any(token in key_text for token in ('crianca', 'criancas', 'filho', 'filha')):
+            norm_key = self._normalize_lookup_text(key)
+            if not any(token in norm_key for token in ('crianca', 'criancas', 'filho', 'filhos', 'filha', 'filhas')):
                 continue
             if isinstance(value, (list, tuple)):
                 for item in value:
-                    text = str(item or '').strip()
-                    if text:
-                        nomes.append(text)
+                    nomes.extend(self._split_people_values(item))
+            elif isinstance(value, dict):
+                for _sub_key, sub_value in value.items():
+                    nomes.extend(self._split_people_values(sub_value))
             else:
-                raw_text = str(value or '').strip()
-                if raw_text:
-                    for part in re.split(r'[;,/]| e ', raw_text):
-                        text = str(part or '').strip()
-                        if text:
-                            nomes.append(text)
+                nomes.extend(self._split_people_values(value))
         nomes = sorted(set(nomes), key=lambda item: item.lower())
         return ', '.join(nomes) if nomes else '-'
 
@@ -3737,6 +3766,11 @@ class EventoPublicoView(View):
             return '-'
         parts = []
         for key, value in dados.items():
+            norm_key = self._normalize_lookup_text(key)
+            if any(token in norm_key for token in ('crianca', 'criancas', 'filho', 'filhos', 'filha', 'filhas')):
+                continue
+            if 'responsavel' in norm_key and any(token in norm_key for token in ('nome', 'cpf', 'telefone', 'celular', 'email')):
+                continue
             label = str(key or '').strip()
             text = str(value or '').strip()
             if not text:
