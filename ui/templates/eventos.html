@@ -210,7 +210,7 @@
                 {% endif %}
               </div>
 
-              <details style="margin-top:0.8rem;">
+              <details id="evento-edit-{{ evento.id }}" style="margin-top:0.8rem;">
                 <summary>Editar evento e produtos</summary>
 
                 <form method="post" class="painel-card" style="margin-top:0.8rem;">
@@ -826,6 +826,14 @@
         note.textContent = 'Gestao, relatorio e totais ficam dentro da pagina do evento.';
         actionRow.appendChild(note);
       });
+
+      if (window.location.hash && window.location.hash.startsWith('#evento-edit-')) {
+        const target = document.querySelector(window.location.hash);
+        if (target && target.tagName.toLowerCase() === 'details') {
+          target.open = true;
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
     })();
   </script>
 </body>

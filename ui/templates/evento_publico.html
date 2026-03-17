@@ -10,6 +10,11 @@
     .event-step {
       margin-bottom: 1rem;
     }
+    .event-main-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: 1fr;
+    }
     .event-products-grid {
       display: grid;
       gap: 0.75rem;
@@ -53,6 +58,15 @@
     .event-report-modal[aria-hidden="true"] {
       display: none;
     }
+    @media (min-width: 980px) {
+      .event-main-grid {
+        grid-template-columns: minmax(320px, 0.9fr) minmax(420px, 1.1fr);
+        align-items: start;
+      }
+      .event-main-grid > .painel-card {
+        margin: 0;
+      }
+    }
   </style>
 </head>
 <body class="painel-page">
@@ -88,13 +102,15 @@
           <span class="event-metric-pill">Pagina: {% if evento.inscricao_publica %}Publica{% else %}Privada{% endif %}</span>
         </div>
         <div class="action-row">
-          <form method="post">
+          <form method="post" id="toggle-public-form" data-is-public="{% if evento.inscricao_publica %}1{% else %}0{% endif %}">
             {% csrf_token %}
             <input type="hidden" name="action" value="toggle_event_public" />
             <input type="hidden" name="publico" value="{% if evento.inscricao_publica %}0{% else %}1{% endif %}" />
             <button type="submit" class="secondary">{% if evento.inscricao_publica %}Tornar privado{% else %}Tornar publico{% endif %}</button>
           </form>
           <button type="button" class="secondary" id="open-event-report">Relatorio</button>
+          <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Editar campos</a>
+          <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Cadastrar produtos</a>
           <a href="{% url 'accounts:eventos' %}" class="secondary">Abrir lista de eventos</a>
         </div>
       </section>
@@ -174,6 +190,7 @@
       </div>
     {% endif %}
 
+    <div class="event-main-grid">
     <section class="painel-card event-step">
       <h3>Passo 1: Inscrição</h3>
       <form method="post">
@@ -256,7 +273,10 @@
           {% endfor %}
         </div>
 
-        <div class="event-cart" style="margin-top:1rem;">
+        <div class="action-row" style="margin-top:1rem;">
+          <button type="button" class="secondary" id="event-open-cart" hidden>Abrir carrinho</button>
+        </div>
+        <div class="event-cart" id="event-cart-panel" style="margin-top:0.75rem;" hidden>
           <h4>Carrinho</h4>
           <div id="event-cart-empty" class="panel-note">Nenhum item no carrinho.</div>
           <table id="event-cart-table" hidden>
@@ -295,6 +315,7 @@
         </div>
       {% endif %}
     </section>
+    </div>
 
     <section class="painel-card" id="event-pix-box" {% if not pedido_modal %}hidden{% endif %}>
       <h3>Pagamento Pix</h3>
@@ -324,6 +345,8 @@
       const cartTable = document.getElementById('event-cart-table');
       const cartEmpty = document.getElementById('event-cart-empty');
       const cartTotalNode = document.getElementById('event-cart-total');
+      const cartPanel = document.getElementById('event-cart-panel');
+      const openCartBtn = document.getElementById('event-open-cart');
       const generatePixBtn = document.getElementById('event-generate-pix');
       const pixBox = document.getElementById('event-pix-box');
       const pixPedidoId = document.getElementById('event-pix-pedido-id');
@@ -335,6 +358,7 @@
       const reportModal = document.getElementById('event-report-modal');
       const openReportBtn = document.getElementById('open-event-report');
       const closeReportBtn = document.getElementById('close-event-report');
+      const togglePublicForm = document.getElementById('toggle-public-form');
       const guestNameInput = document.getElementById('event-guest-name');
       const guestEmailInput = document.getElementById('event-guest-email');
       const guestPhoneInput = document.getElementById('event-guest-phone');
@@ -366,6 +390,12 @@
         const hasItems = cart.length > 0;
         cartTable.hidden = !hasItems;
         cartEmpty.hidden = hasItems;
+        if (cartPanel) {
+          cartPanel.hidden = !hasItems;
+        }
+        if (openCartBtn) {
+          openCartBtn.hidden = !hasItems;
+        }
       };
 
       document.querySelectorAll('[data-add-cart]').forEach((button) => {
@@ -389,6 +419,10 @@
             cart.push({ productId, variationId, quantity, price, variationLabel, productTitle });
           }
           renderCart();
+          if (cartPanel) {
+            cartPanel.hidden = false;
+            cartPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
         });
       });
 
@@ -484,6 +518,13 @@
         });
       }
 
+      if (openCartBtn && cartPanel) {
+        openCartBtn.addEventListener('click', () => {
+          cartPanel.hidden = false;
+          cartPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
+
       if (openReportBtn && reportModal) {
         openReportBtn.addEventListener('click', () => {
           reportModal.setAttribute('aria-hidden', 'false');
@@ -498,6 +539,18 @@
         reportModal.addEventListener('click', (event) => {
           if (event.target === reportModal) {
             reportModal.setAttribute('aria-hidden', 'true');
+          }
+        });
+      }
+
+      if (togglePublicForm) {
+        togglePublicForm.addEventListener('submit', (event) => {
+          const isPublicNow = togglePublicForm.getAttribute('data-is-public') === '1';
+          const message = isPublicNow
+            ? 'Confirmar: tornar este evento privado?'
+            : 'Confirmar: tornar este evento publico?';
+          if (!window.confirm(message)) {
+            event.preventDefault();
           }
         });
       }
