@@ -3680,6 +3680,39 @@ class EventoPublicoView(View):
                     .first()
                 )
         produtos = self._produto_rows_evento(evento)
+        can_manage_evento = bool(request.user.is_authenticated and _has_menu_permission(request, 'eventos'))
+        inscricoes_count = 0
+        pedidos_count = 0
+        pedidos_total_pago_fmt = self._format_currency(Decimal('0.00'))
+        inscricoes_preview = []
+        pedidos_preview = []
+        if can_manage_evento:
+            try:
+                inscricoes_count = EventoInscricao.objects.filter(evento=evento).count()
+                pedidos_qs = LojaPedido.objects.filter(evento=evento)
+                pedidos_count = pedidos_qs.count()
+                pedidos_total_pago = (
+                    pedidos_qs
+                    .filter(status=LojaPedido.STATUS_PAGO)
+                    .aggregate(total=Sum('valor_total'))
+                    .get('total')
+                    or Decimal('0.00')
+                )
+                pedidos_total_pago_fmt = self._format_currency(pedidos_total_pago)
+                inscricoes_preview = list(
+                    EventoInscricao.objects
+                    .filter(evento=evento)
+                    .select_related('user', 'responsavel', 'responsavel__user')
+                    .order_by('-created_at')[:20]
+                )
+                pedidos_preview = list(
+                    pedidos_qs
+                    .select_related('responsavel', 'responsavel__user')
+                    .prefetch_related('itens')
+                    .order_by('-created_at')[:20]
+                )
+            except Exception:
+                logger.exception('Falha ao montar dados de gestao do evento id=%s.', evento.id)
         pedido_modal = {}
         if request.user.is_authenticated and 'last_evento_pedido_id' in request.session:
             pedido_id = request.session.pop('last_evento_pedido_id', None)
@@ -3699,6 +3732,12 @@ class EventoPublicoView(View):
             'pedido_modal': pedido_modal,
             'is_public_page': bool(evento.inscricao_publica),
             'is_authenticated': bool(request.user.is_authenticated),
+            'can_manage_evento': can_manage_evento,
+            'inscricoes_count': inscricoes_count,
+            'pedidos_count': pedidos_count,
+            'pedidos_total_pago_fmt': pedidos_total_pago_fmt,
+            'inscricoes_preview': inscricoes_preview,
+            'pedidos_preview': pedidos_preview,
         }
         if request.user.is_authenticated:
             context.update(_sidebar_context(request))
@@ -3725,6 +3764,20 @@ class EventoPublicoView(View):
             messages.error(request, 'Este evento não está com página pública habilitada.')
             return redirect('accounts:painel')
         action = str(request.POST.get('action') or '').strip()
+        can_manage_evento = bool(request.user.is_authenticated and _has_menu_permission(request, 'eventos'))
+        if action == 'toggle_event_public':
+            if not can_manage_evento:
+                messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
+                return render(request, self.template_name, self._context(request, evento))
+            make_public = str(request.POST.get('publico') or '').strip() == '1'
+            evento.inscricao_publica = make_public
+            evento.save(update_fields=['inscricao_publica', 'updated_at'])
+            messages.success(
+                request,
+                f'Evento marcado como {"publico" if make_public else "privado"} com sucesso.',
+            )
+            return render(request, self.template_name, self._context(request, evento))
+
         if action != 'register_event':
             messages.error(request, 'Ação inválida na página do evento.')
             return render(request, self.template_name, self._context(request, evento))

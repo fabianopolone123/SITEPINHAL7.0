@@ -37,6 +37,22 @@
       padding: 0.45rem;
       text-align: left;
     }
+    .event-manage-metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.7rem;
+    }
+    .event-metric-pill {
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      padding: 0.35rem 0.65rem;
+      background: #f8fafc;
+      font-size: 0.9rem;
+    }
+    .event-report-modal[aria-hidden="true"] {
+      display: none;
+    }
   </style>
 </head>
 <body class="painel-page">
@@ -61,6 +77,102 @@
         {% endfor %}
       </div>
     </section>
+
+    {% if can_manage_evento %}
+      <section class="painel-card event-step">
+        <h3>Gestao do evento</h3>
+        <div class="event-manage-metrics">
+          <span class="event-metric-pill">Inscricoes: {{ inscricoes_count }}</span>
+          <span class="event-metric-pill">Pedidos: {{ pedidos_count }}</span>
+          <span class="event-metric-pill">Total pago: {{ pedidos_total_pago_fmt }}</span>
+          <span class="event-metric-pill">Pagina: {% if evento.inscricao_publica %}Publica{% else %}Privada{% endif %}</span>
+        </div>
+        <div class="action-row">
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="toggle_event_public" />
+            <input type="hidden" name="publico" value="{% if evento.inscricao_publica %}0{% else %}1{% endif %}" />
+            <button type="submit" class="secondary">{% if evento.inscricao_publica %}Tornar privado{% else %}Tornar publico{% endif %}</button>
+          </form>
+          <button type="button" class="secondary" id="open-event-report">Relatorio</button>
+          <a href="{% url 'accounts:eventos' %}" class="secondary">Abrir lista de eventos</a>
+        </div>
+      </section>
+
+      <div class="modal event-report-modal" id="event-report-modal" aria-hidden="true">
+        <div class="modal-content">
+          <header>
+            <h3>Relatorio - {{ evento.name }}</h3>
+            <button type="button" id="close-event-report" aria-label="Fechar">X</button>
+          </header>
+          <section class="field-section">
+            <p><strong>Inscricoes:</strong> {{ inscricoes_count }}</p>
+            <p><strong>Pedidos:</strong> {{ pedidos_count }}</p>
+            <p><strong>Total pago:</strong> {{ pedidos_total_pago_fmt }}</p>
+          </section>
+          <section class="field-section">
+            <h4>Ultimas inscricoes</h4>
+            {% if inscricoes_preview %}
+              <div class="table-scroll">
+                <table class="users-table">
+                  <thead>
+                    <tr>
+                      <th>Codigo</th>
+                      <th>Usuario</th>
+                      <th>Dados</th>
+                      <th>Data</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for item in inscricoes_preview %}
+                      <tr>
+                        <td>{{ item.codigo_inscricao|default:"-" }}</td>
+                        <td>{{ item.user.username|default:"-" }}</td>
+                        <td>{{ item.dados }}</td>
+                        <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="panel-note">Sem inscricoes ainda.</p>
+            {% endif %}
+          </section>
+          <section class="field-section">
+            <h4>Ultimos pedidos</h4>
+            {% if pedidos_preview %}
+              <div class="table-scroll">
+                <table class="users-table">
+                  <thead>
+                    <tr>
+                      <th>Pedido</th>
+                      <th>Responsavel</th>
+                      <th>Status</th>
+                      <th>Total</th>
+                      <th>Data</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for ped in pedidos_preview %}
+                      <tr>
+                        <td>#{{ ped.id }}</td>
+                        <td>{{ ped.responsavel.user.username|default:"-" }}</td>
+                        <td>{{ ped.get_status_display }}</td>
+                        <td>R$ {{ ped.valor_total }}</td>
+                        <td>{{ ped.created_at|date:"d/m/Y H:i" }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="panel-note">Sem pedidos ainda.</p>
+            {% endif %}
+          </section>
+        </div>
+      </div>
+    {% endif %}
 
     <section class="painel-card event-step">
       <h3>Passo 1: Inscrição</h3>
@@ -220,6 +332,9 @@
       const pixQrWrap = document.getElementById('event-pix-qr-wrap');
       const pixCode = document.getElementById('event-pix-code');
       const checkStatusBtn = document.getElementById('event-check-status');
+      const reportModal = document.getElementById('event-report-modal');
+      const openReportBtn = document.getElementById('open-event-report');
+      const closeReportBtn = document.getElementById('close-event-report');
       const guestNameInput = document.getElementById('event-guest-name');
       const guestEmailInput = document.getElementById('event-guest-email');
       const guestPhoneInput = document.getElementById('event-guest-phone');
@@ -365,6 +480,24 @@
             if (pixStatus) pixStatus.textContent = String(data.status_label || '');
           } catch (error) {
             window.alert('Erro ao consultar status.');
+          }
+        });
+      }
+
+      if (openReportBtn && reportModal) {
+        openReportBtn.addEventListener('click', () => {
+          reportModal.setAttribute('aria-hidden', 'false');
+        });
+      }
+      if (closeReportBtn && reportModal) {
+        closeReportBtn.addEventListener('click', () => {
+          reportModal.setAttribute('aria-hidden', 'true');
+        });
+      }
+      if (reportModal) {
+        reportModal.addEventListener('click', (event) => {
+          if (event.target === reportModal) {
+            reportModal.setAttribute('aria-hidden', 'true');
           }
         });
       }

@@ -810,6 +810,22 @@
           }
         });
       });
+
+      document.querySelectorAll('.event-item .action-row').forEach((actionRow) => {
+        const publicPageLink = actionRow.querySelector('a[href*="/eventos/"][href*="/pagina/"]');
+        if (!publicPageLink) return;
+
+        Array.from(actionRow.children).forEach((child) => {
+          if (child !== publicPageLink) {
+            child.remove();
+          }
+        });
+
+        const note = document.createElement('span');
+        note.className = 'panel-note';
+        note.textContent = 'Gestao, relatorio e totais ficam dentro da pagina do evento.';
+        actionRow.appendChild(note);
+      });
     })();
   </script>
 </body>
