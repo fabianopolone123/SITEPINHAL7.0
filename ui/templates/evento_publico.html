@@ -108,12 +108,60 @@
             <input type="hidden" name="publico" value="{% if evento.inscricao_publica %}0{% else %}1{% endif %}" />
             <button type="submit" class="secondary">{% if evento.inscricao_publica %}Tornar privado{% else %}Tornar publico{% endif %}</button>
           </form>
+          <button type="button" class="secondary" id="open-event-inscritos">Inscritos</button>
           <button type="button" class="secondary" id="open-event-report">Relatorio</button>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Editar campos</a>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Cadastrar produtos</a>
           <a href="{% url 'accounts:eventos' %}" class="secondary">Abrir lista de eventos</a>
         </div>
       </section>
+
+      <div class="modal event-report-modal" id="event-inscritos-modal" aria-hidden="true">
+        <div class="modal-content">
+          <header>
+            <h3>Inscritos - {{ evento.name }}</h3>
+            <button type="button" id="close-event-inscritos" aria-label="Fechar">X</button>
+          </header>
+          {% if inscritos_detalhes %}
+            <div class="table-scroll">
+              <table class="users-table">
+                <thead>
+                  <tr>
+                    <th>Codigo</th>
+                    <th>Responsavel</th>
+                    <th>Criancas</th>
+                    <th>Pedidos loja</th>
+                    <th>Outros dados</th>
+                    <th>Data</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for item in inscritos_detalhes %}
+                    <tr>
+                      <td>{{ item.codigo }}</td>
+                      <td>{{ item.responsavel }}</td>
+                      <td>{{ item.criancas }}</td>
+                      <td>{{ item.pedidos_loja }}</td>
+                      <td>
+                        <div>{{ item.dados_resumo }}</div>
+                        {% if item.dados_json %}
+                          <details>
+                            <summary>Ver tudo</summary>
+                            <pre style="white-space:pre-wrap;">{{ item.dados_json }}</pre>
+                          </details>
+                        {% endif %}
+                      </td>
+                      <td>{{ item.data_inscricao|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="panel-note">Sem inscritos ainda.</p>
+          {% endif %}
+        </div>
+      </div>
 
       <div class="modal event-report-modal" id="event-report-modal" aria-hidden="true">
         <div class="modal-content">
@@ -355,6 +403,9 @@
       const pixQrWrap = document.getElementById('event-pix-qr-wrap');
       const pixCode = document.getElementById('event-pix-code');
       const checkStatusBtn = document.getElementById('event-check-status');
+      const inscritosModal = document.getElementById('event-inscritos-modal');
+      const openInscritosBtn = document.getElementById('open-event-inscritos');
+      const closeInscritosBtn = document.getElementById('close-event-inscritos');
       const reportModal = document.getElementById('event-report-modal');
       const openReportBtn = document.getElementById('open-event-report');
       const closeReportBtn = document.getElementById('close-event-report');
@@ -539,6 +590,24 @@
         reportModal.addEventListener('click', (event) => {
           if (event.target === reportModal) {
             reportModal.setAttribute('aria-hidden', 'true');
+          }
+        });
+      }
+
+      if (openInscritosBtn && inscritosModal) {
+        openInscritosBtn.addEventListener('click', () => {
+          inscritosModal.setAttribute('aria-hidden', 'false');
+        });
+      }
+      if (closeInscritosBtn && inscritosModal) {
+        closeInscritosBtn.addEventListener('click', () => {
+          inscritosModal.setAttribute('aria-hidden', 'true');
+        });
+      }
+      if (inscritosModal) {
+        inscritosModal.addEventListener('click', (event) => {
+          if (event.target === inscritosModal) {
+            inscritosModal.setAttribute('aria-hidden', 'true');
           }
         });
       }

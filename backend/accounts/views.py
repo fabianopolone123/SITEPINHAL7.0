@@ -3661,6 +3661,91 @@ class EventoPublicoView(View):
             })
         return rows
 
+    def _responsavel_label_from_inscricao(self, inscricao):
+        responsavel = getattr(inscricao, 'responsavel', None)
+        if responsavel:
+            return (
+                responsavel.responsavel_nome
+                or responsavel.mae_nome
+                or responsavel.pai_nome
+                or (responsavel.user.get_full_name() if responsavel.user_id else '')
+                or (responsavel.user.username if responsavel.user_id else '')
+                or '-'
+            )
+        user = getattr(inscricao, 'user', None)
+        if user:
+            return user.get_full_name() or user.username or '-'
+        dados = (inscricao.dados or {}) if isinstance(inscricao.dados, dict) else {}
+        for key, value in dados.items():
+            if 'respons' in str(key or '').strip().lower():
+                text = str(value or '').strip()
+                if text:
+                    return text
+        return '-'
+
+    def _criancas_label_from_inscricao(self, inscricao):
+        responsavel = getattr(inscricao, 'responsavel', None)
+        if responsavel:
+            nomes = list(
+                responsavel.aventures.order_by('nome').values_list('nome', flat=True)
+            )
+            nomes = [str(item or '').strip() for item in nomes if str(item or '').strip()]
+            if nomes:
+                return ', '.join(nomes)
+        dados = (inscricao.dados or {}) if isinstance(inscricao.dados, dict) else {}
+        nomes = []
+        for key, value in dados.items():
+            key_text = str(key or '').strip().lower()
+            if not any(token in key_text for token in ('crianca', 'criancas', 'filho', 'filha')):
+                continue
+            if isinstance(value, (list, tuple)):
+                for item in value:
+                    text = str(item or '').strip()
+                    if text:
+                        nomes.append(text)
+            else:
+                raw_text = str(value or '').strip()
+                if raw_text:
+                    for part in re.split(r'[;,/]| e ', raw_text):
+                        text = str(part or '').strip()
+                        if text:
+                            nomes.append(text)
+        nomes = sorted(set(nomes), key=lambda item: item.lower())
+        return ', '.join(nomes) if nomes else '-'
+
+    def _pedido_items_summary(self, pedido):
+        itens = list(pedido.itens.all())
+        if not itens:
+            return f'#{pedido.id} ({pedido.get_status_display()})'
+        parts = []
+        for item in itens[:4]:
+            parts.append(f'{item.produto_titulo} x{item.quantidade}')
+        if len(itens) > 4:
+            parts.append('...')
+        return f'#{pedido.id} ({pedido.get_status_display()}): ' + ', '.join(parts)
+
+    def _pedidos_summary_for_inscrito(self, pedidos):
+        if not pedidos:
+            return '-'
+        parts = [self._pedido_items_summary(item) for item in pedidos[:2]]
+        if len(pedidos) > 2:
+            parts.append('...')
+        return ' | '.join(parts)
+
+    def _dados_resumo(self, dados):
+        if not isinstance(dados, dict) or not dados:
+            return '-'
+        parts = []
+        for key, value in dados.items():
+            label = str(key or '').strip()
+            text = str(value or '').strip()
+            if not text:
+                continue
+            parts.append(f'{label}: {text}')
+            if len(parts) >= 4:
+                break
+        return ' | '.join(parts) if parts else '-'
+
     def _context(self, request, evento):
         schema = self._event_schema(evento)
         inscricao = None
@@ -3686,9 +3771,16 @@ class EventoPublicoView(View):
         pedidos_total_pago_fmt = self._format_currency(Decimal('0.00'))
         inscricoes_preview = []
         pedidos_preview = []
+        inscritos_detalhes = []
         if can_manage_evento:
             try:
-                inscricoes_count = EventoInscricao.objects.filter(evento=evento).count()
+                inscricoes_base_qs = (
+                    EventoInscricao.objects
+                    .filter(evento=evento)
+                    .select_related('user', 'responsavel', 'responsavel__user')
+                    .order_by('-created_at')
+                )
+                inscricoes_count = inscricoes_base_qs.count()
                 pedidos_qs = LojaPedido.objects.filter(evento=evento)
                 pedidos_count = pedidos_qs.count()
                 pedidos_total_pago = (
@@ -3699,18 +3791,45 @@ class EventoPublicoView(View):
                     or Decimal('0.00')
                 )
                 pedidos_total_pago_fmt = self._format_currency(pedidos_total_pago)
-                inscricoes_preview = list(
-                    EventoInscricao.objects
-                    .filter(evento=evento)
-                    .select_related('user', 'responsavel', 'responsavel__user')
-                    .order_by('-created_at')[:20]
-                )
+                inscricoes_preview = list(inscricoes_base_qs[:20])
                 pedidos_preview = list(
                     pedidos_qs
                     .select_related('responsavel', 'responsavel__user')
                     .prefetch_related('itens')
                     .order_by('-created_at')[:20]
                 )
+
+                pedidos_lookup_qs = list(
+                    pedidos_qs
+                    .select_related('responsavel', 'responsavel__user')
+                    .prefetch_related('itens')
+                    .order_by('-created_at')[:300]
+                )
+                pedidos_by_responsavel = {}
+                pedidos_by_user = {}
+                for ped in pedidos_lookup_qs:
+                    if ped.responsavel_id:
+                        pedidos_by_responsavel.setdefault(ped.responsavel_id, []).append(ped)
+                    user_id = ped.responsavel.user_id if ped.responsavel_id else None
+                    if user_id:
+                        pedidos_by_user.setdefault(user_id, []).append(ped)
+
+                for inscricao in list(inscricoes_base_qs[:300]):
+                    linked = []
+                    if inscricao.responsavel_id:
+                        linked = pedidos_by_responsavel.get(inscricao.responsavel_id, [])
+                    elif inscricao.user_id:
+                        linked = pedidos_by_user.get(inscricao.user_id, [])
+                    dados_obj = inscricao.dados if isinstance(inscricao.dados, dict) else {}
+                    inscritos_detalhes.append({
+                        'codigo': inscricao.codigo_inscricao or '-',
+                        'responsavel': self._responsavel_label_from_inscricao(inscricao),
+                        'criancas': self._criancas_label_from_inscricao(inscricao),
+                        'pedidos_loja': self._pedidos_summary_for_inscrito(linked),
+                        'dados_resumo': self._dados_resumo(dados_obj),
+                        'dados_json': json.dumps(dados_obj, ensure_ascii=False, indent=2) if dados_obj else '',
+                        'data_inscricao': inscricao.created_at,
+                    })
             except Exception:
                 logger.exception('Falha ao montar dados de gestao do evento id=%s.', evento.id)
         pedido_modal = {}
@@ -3738,6 +3857,7 @@ class EventoPublicoView(View):
             'pedidos_total_pago_fmt': pedidos_total_pago_fmt,
             'inscricoes_preview': inscricoes_preview,
             'pedidos_preview': pedidos_preview,
+            'inscritos_detalhes': inscritos_detalhes,
         }
         if request.user.is_authenticated:
             context.update(_sidebar_context(request))
