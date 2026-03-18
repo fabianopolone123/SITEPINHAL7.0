@@ -50,6 +50,12 @@
       padding: 0.55rem 0.7rem;
       min-height: 40px;
     }
+    .event-item .action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      align-items: center;
+    }
     .event-list {
       display: grid;
       gap: 0.8rem;
@@ -91,6 +97,9 @@
       background: #f8fafc;
       width: fit-content;
       font-size: 0.86rem;
+      max-width: 100%;
+      white-space: normal;
+      word-break: break-word;
     }
     .event-field-type {
       color: #1d4ed8;
@@ -119,15 +128,81 @@
       max-height: 88vh;
       overflow: auto;
     }
+    @media (max-width: 1280px) {
+      .event-field-row {
+        grid-template-columns: minmax(170px, 1fr) minmax(120px, 160px) minmax(120px, 150px) minmax(200px, 1fr) minmax(78px, 96px) minmax(78px, 96px) minmax(220px, 1fr) minmax(135px, 160px) auto;
+      }
+    }
+    @media (max-width: 1080px) {
+      .event-field-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .event-field-row > button {
+        grid-column: 1 / -1;
+        width: 100%;
+      }
+      .event-field-row.event-var-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .event-field-row.event-var-row > button {
+        grid-column: 1 / -1;
+      }
+      .event-modal .modal-content {
+        width: min(940px, 98vw);
+      }
+    }
+    @media (max-width: 980px) {
+      .preset-item {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .preset-item form {
+        width: 100%;
+      }
+      .preset-item button {
+        width: 100%;
+      }
+      .event-meta {
+        font-size: 0.84rem;
+        line-height: 1.5;
+      }
+    }
     #preset-name-label[hidden] {
       display: none !important;
     }
     @media (max-width: 900px) {
+      .event-modal .modal-content {
+        width: 98vw;
+        max-height: 94vh;
+      }
       .event-field-row {
         grid-template-columns: 1fr;
       }
       .event-field-row button {
         width: 100%;
+      }
+      .event-item {
+        padding: 0.72rem;
+      }
+      .event-item .action-row > * {
+        width: 100%;
+      }
+      .event-item .action-row form {
+        width: 100%;
+      }
+      .event-item .action-row a,
+      .event-item .action-row button {
+        width: 100%;
+        text-align: center;
+      }
+    }
+    @media (max-width: 560px) {
+      .event-status-chip,
+      .event-field-pill {
+        font-size: 0.78rem;
+      }
+      .event-meta {
+        font-size: 0.8rem;
       }
     }
   </style>

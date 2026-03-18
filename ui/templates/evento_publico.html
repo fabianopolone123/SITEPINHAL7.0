@@ -15,6 +15,9 @@
       gap: 1rem;
       grid-template-columns: 1fr;
     }
+    .event-main-grid > .painel-card {
+      min-width: 0;
+    }
     .event-repeat-group {
       display: grid;
       gap: 0.55rem;
@@ -112,6 +115,7 @@
       display: grid;
       gap: 0.7rem;
       align-content: start;
+      min-width: 0;
     }
     .event-product-title {
       margin: 0;
@@ -413,6 +417,12 @@
       gap: 0.5rem;
       margin-bottom: 0.7rem;
     }
+    .event-step .action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      align-items: center;
+    }
     .event-metric-pill {
       border: 1px solid #cbd5e1;
       border-radius: 999px;
@@ -538,13 +548,40 @@
       font-weight: 700;
       margin: 0;
     }
+    @media (max-width: 1180px) {
+      .event-report-modal .modal-content {
+        width: min(1040px, 98vw);
+      }
+      .event-products-grid {
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+    }
+    @media (max-width: 980px) {
+      .event-main-grid {
+        grid-template-columns: 1fr;
+      }
+      .event-step .action-row > * {
+        flex: 1 1 calc(50% - 0.55rem);
+        min-width: 180px;
+      }
+      .event-cost-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
     @media (max-width: 768px) {
+      .event-step .action-row > * {
+        flex: 1 1 100%;
+        min-width: 0;
+      }
       .event-product-media {
         min-height: 185px;
         max-height: 185px;
       }
       .event-product-card {
         max-width: none;
+      }
+      .event-products-grid {
+        grid-template-columns: 1fr;
       }
       .event-product-buy {
         grid-template-columns: 1fr;
@@ -564,6 +601,9 @@
         padding: 0.75rem;
         border-radius: 10px;
       }
+      .event-report-modal .modal-content > header {
+        position: static;
+      }
       .event-report-modal .table-scroll {
         max-height: 68vh;
       }
@@ -578,6 +618,31 @@
       }
       .event-report-modal .modal-content h3 {
         font-size: 1rem;
+      }
+      .event-register-code-wrap {
+        align-items: flex-start;
+      }
+    }
+    @media (max-width: 560px) {
+      .event-step {
+        margin-bottom: 0.72rem;
+      }
+      .event-metric-pill {
+        width: 100%;
+        text-align: center;
+      }
+      .event-cart-head,
+      .event-cart-body,
+      .event-cart-foot {
+        padding-left: 0.68rem;
+        padding-right: 0.68rem;
+      }
+      .event-register-code {
+        font-size: 1.36rem;
+        min-width: 4rem;
+      }
+      .event-register-note {
+        font-size: 0.86rem;
       }
     }
     @media (min-width: 980px) {
