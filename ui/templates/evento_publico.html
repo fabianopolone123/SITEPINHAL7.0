@@ -631,10 +631,6 @@
         {% csrf_token %}
         <input type="hidden" name="action" value="register_event" />
         <div class="field-section">
-          <label>
-            Código único da inscrição (3 dígitos)
-            <input type="text" value="{% if inscricao_codigo %}{{ inscricao_codigo }}{% else %}Será gerado ao salvar{% endif %}" readonly />
-          </label>
           {% for field in schema %}
             <label>
               {{ field.name }} {% if field.required %}*{% endif %}
