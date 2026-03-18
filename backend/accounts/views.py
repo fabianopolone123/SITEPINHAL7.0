@@ -3292,6 +3292,7 @@ class EventosView(LoginRequiredMixin, View):
             field_selector_start = request.POST.getlist('field_selector_start[]')
             field_selector_end = request.POST.getlist('field_selector_end[]')
             field_repeat_fields = request.POST.getlist('field_repeat_fields[]')
+            field_repeat_require_click = request.POST.getlist('field_repeat_require_click[]')
             values = request.POST.getlist('field_value[]')
             fields_data = []
             allowed_types = {'texto', 'data', 'hora', 'numero', 'booleano', 'seletor', 'repetidor'}
@@ -3314,6 +3315,9 @@ class EventosView(LoginRequiredMixin, View):
                 current_repeat_fields_raw = (
                     field_repeat_fields[index] if index < len(field_repeat_fields) else ''
                 )
+                current_repeat_require_click_raw = (
+                    field_repeat_require_click[index] if index < len(field_repeat_require_click) else '0'
+                ).strip().lower()
                 current_value = (values[index] if index < len(values) else '').strip()
                 if not (current_label or current_value):
                     continue
@@ -3410,8 +3414,10 @@ class EventosView(LoginRequiredMixin, View):
                             f'No campo repetidor "{current_label}", use no máximo 8 subcampos.',
                         )
                         return None
+                    repeat_require_click = current_repeat_require_click_raw in {'1', 'true', 'sim', 'yes'}
                     field_data['repeat_fields'] = repeat_fields
                     field_data['repeat_button_label'] = current_label
+                    field_data['repeat_require_click'] = bool(repeat_require_click)
                 fields_data.append(field_data)
             return fields_data
 
@@ -3838,6 +3844,7 @@ class EventoPublicoView(View):
             repeat_fields = self._repeat_fields_from_field(field) if field_type == 'repetidor' else []
             repeat_button_label = str((field or {}).get('repeat_button_label') or label).strip() or label
             is_required = bool((field or {}).get('required'))
+            repeat_require_click = bool((field or {}).get('repeat_require_click')) if field_type == 'repetidor' else False
             schema.append({
                 'index': index,
                 'name': label,
@@ -3847,6 +3854,7 @@ class EventoPublicoView(View):
                 'options': selector_options,
                 'repeat_fields': repeat_fields,
                 'repeat_button_label': repeat_button_label,
+                'repeat_require_click': repeat_require_click,
             })
         return schema
 
@@ -4357,7 +4365,8 @@ class EventoPublicoView(View):
                                 )
                                 return render(request, self.template_name, self._context(request, evento))
                             repeat_rows.append(row_obj)
-                if field['required'] and not repeat_rows:
+                repeat_mandatory = bool(field.get('required')) or bool(field.get('repeat_require_click'))
+                if repeat_mandatory and not repeat_rows:
                     messages.error(request, f'O campo "{field["name"]}" e obrigatorio.')
                     return render(request, self.template_name, self._context(request, evento))
                 dados[field['name']] = repeat_rows

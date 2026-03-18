@@ -890,11 +890,12 @@
               <div
                 class="event-repeat-group"
                 data-repeat-field="{{ field.input_name }}"
-                data-repeat-required="{% if field.required %}1{% else %}0{% endif %}"
+                data-repeat-required="{% if field.required or field.repeat_require_click %}1{% else %}0{% endif %}"
+                data-repeat-click-required="{% if field.repeat_require_click %}1{% else %}0{% endif %}"
                 data-repeat-fields="{% for item in field.repeat_fields %}{{ item|escapejs }}{% if not forloop.last %}||{% endif %}{% endfor %}"
               >
                 <div class="event-repeat-head">
-                  <p class="event-repeat-title">{{ field.name }} {% if field.required %}*{% endif %}</p>
+                  <p class="event-repeat-title">{{ field.name }} {% if field.required or field.repeat_require_click %}*{% endif %}</p>
                 </div>
                 <input type="hidden" name="{{ field.input_name }}" value="[]" data-repeat-hidden />
                 <p class="event-repeat-empty" data-repeat-empty>Nenhum item adicionado.</p>
@@ -1177,6 +1178,7 @@
           const addBtn = fieldWrap.querySelector('[data-repeat-add]');
           const list = fieldWrap.querySelector('[data-repeat-list]');
           const required = fieldWrap.getAttribute('data-repeat-required') === '1';
+          const clickRequired = fieldWrap.getAttribute('data-repeat-click-required') === '1';
           if (addBtn) {
             addBtn.addEventListener('click', () => {
               addRepeatItem(fieldWrap);
@@ -1195,7 +1197,7 @@
               serializeRepeatField(fieldWrap);
             });
           }
-          if (required) {
+          if (required && !clickRequired) {
             addRepeatItem(fieldWrap);
           } else {
             serializeRepeatField(fieldWrap);
@@ -1205,6 +1207,7 @@
         registerForm.addEventListener('submit', (event) => {
           for (const fieldWrap of repeatFields) {
             const required = fieldWrap.getAttribute('data-repeat-required') === '1';
+            const clickRequired = fieldWrap.getAttribute('data-repeat-click-required') === '1';
             const rows = Array.from(fieldWrap.querySelectorAll('.event-repeat-item'));
             for (const row of rows) {
               const values = Array.from(row.querySelectorAll('[data-repeat-key]')).map((input) => String(input.value || '').trim());
@@ -1221,7 +1224,11 @@
             const payload = serializeRepeatField(fieldWrap);
             if (required && !payload.length) {
               event.preventDefault();
-              window.alert('Preencha pelo menos um item nos campos obrigatórios.');
+              if (clickRequired) {
+                window.alert('Clique no botao do campo e preencha pelo menos um item antes de salvar.');
+              } else {
+                window.alert('Preencha pelo menos um item nos campos obrigatórios.');
+              }
               const addBtn = fieldWrap.querySelector('[data-repeat-add]');
               if (addBtn) addBtn.focus();
               return;

@@ -32,7 +32,7 @@
     }
     .event-field-row {
       display: grid;
-      grid-template-columns: minmax(180px, 1fr) minmax(120px, 170px) minmax(120px, 160px) minmax(220px, 1fr) minmax(85px, 110px) minmax(85px, 110px) minmax(220px, 1fr) auto;
+      grid-template-columns: minmax(180px, 1fr) minmax(120px, 170px) minmax(120px, 160px) minmax(220px, 1fr) minmax(85px, 110px) minmax(85px, 110px) minmax(260px, 1.2fr) minmax(150px, 180px) auto;
       gap: 0.55rem;
       align-items: center;
     }
@@ -264,7 +264,11 @@
                             <input type="text" name="field_selector_options[]" value="{% if campo.options %}{{ campo.options|join:'; ' }}{% endif %}" placeholder="Opções (ex.: Sim;Não ou 1;2;3)" class="js-selector-config" />
                             <input type="number" name="field_selector_start[]" value="{{ campo.range_start|default:'' }}" placeholder="De" class="js-selector-config js-selector-range" />
                             <input type="number" name="field_selector_end[]" value="{{ campo.range_end|default:'' }}" placeholder="Até" class="js-selector-config js-selector-range" />
-                            <input type="text" name="field_repeat_fields[]" value="{% if campo.repeat_fields %}{{ campo.repeat_fields|join:'; ' }}{% endif %}" placeholder="Subcampos do botão (ex.: Nome da Criança; Idade)" class="js-repeat-config" />
+                            <input type="text" name="field_repeat_fields[]" value="{% if campo.repeat_fields %}{{ campo.repeat_fields|join:'; ' }}{% endif %}" placeholder="Ex.: Nome da crianca; Idade" class="js-repeat-config" />
+                            <select name="field_repeat_require_click[]" class="js-repeat-config">
+                              <option value="0" {% if not campo.repeat_require_click %}selected{% endif %}>Clique opcional</option>
+                              <option value="1" {% if campo.repeat_require_click %}selected{% endif %}>Clique obrigatorio (1+)</option>
+                            </select>
                             <button type="button" class="secondary js-remove-inline-field">Remover</button>
                           </div>
                         {% endfor %}
@@ -287,7 +291,11 @@
                           <input type="text" name="field_selector_options[]" placeholder="Opções (ex.: Sim;Não ou 1;2;3)" class="js-selector-config" />
                           <input type="number" name="field_selector_start[]" placeholder="De" class="js-selector-config js-selector-range" />
                           <input type="number" name="field_selector_end[]" placeholder="Até" class="js-selector-config js-selector-range" />
-                          <input type="text" name="field_repeat_fields[]" placeholder="Subcampos do botão (ex.: Nome da Criança; Idade)" class="js-repeat-config" />
+                          <input type="text" name="field_repeat_fields[]" placeholder="Ex.: Nome da crianca; Idade" class="js-repeat-config" />
+                          <select name="field_repeat_require_click[]" class="js-repeat-config">
+                            <option value="0" selected>Clique opcional</option>
+                            <option value="1">Clique obrigatorio (1+)</option>
+                          </select>
                           <button type="button" class="secondary js-remove-inline-field">Remover</button>
                         </div>
                       {% endif %}
@@ -516,7 +524,7 @@
         <div class="field-section">
           <h3>Campos do evento</h3>
           <p class="panel-note">Use o botão + para adicionar os campos que esse evento precisa.</p>
-          <p class="panel-note">No tipo Botão repetidor, informe os subcampos separados por ; (ex.: Nome da Criança; Idade).</p>
+          <p class="panel-note">No tipo Botao repetidor, informe os subcampos separados por ; (ex.: Nome da crianca; Idade).</p>
 
           <div class="event-fields" id="event-fields">
             <div class="event-field-row">
@@ -537,7 +545,11 @@
               <input type="text" name="field_selector_options[]" placeholder="Opções (ex.: Sim;Não ou 1;2;3)" class="js-selector-config" />
               <input type="number" name="field_selector_start[]" placeholder="De" class="js-selector-config js-selector-range" />
               <input type="number" name="field_selector_end[]" placeholder="Até" class="js-selector-config js-selector-range" />
-              <input type="text" name="field_repeat_fields[]" placeholder="Subcampos do botão (ex.: Nome da Criança; Idade)" class="js-repeat-config" />
+              <input type="text" name="field_repeat_fields[]" placeholder="Ex.: Nome da crianca; Idade" class="js-repeat-config" />
+              <select name="field_repeat_require_click[]" class="js-repeat-config">
+                <option value="0" selected>Clique opcional</option>
+                <option value="1">Clique obrigatorio (1+)</option>
+              </select>
               <button type="button" class="secondary remove-field" disabled>Remover</button>
             </div>
           </div>
@@ -654,7 +666,16 @@
         applyVisibility();
       };
 
-      const createFieldRow = (nameValue, typeValue, requiredValue, optionsValue, rangeStartValue, rangeEndValue, repeatFieldsValue) => {
+      const createFieldRow = (
+        nameValue,
+        typeValue,
+        requiredValue,
+        optionsValue,
+        rangeStartValue,
+        rangeEndValue,
+        repeatFieldsValue,
+        repeatRequireClickValue
+      ) => {
         const row = document.createElement('div');
         row.className = 'event-field-row';
         row.innerHTML = '' +
@@ -675,7 +696,11 @@
           '<input type="text" name="field_selector_options[]" placeholder="Opções (ex.: Sim;Não ou 1;2;3)" class="js-selector-config" />' +
           '<input type="number" name="field_selector_start[]" placeholder="De" class="js-selector-config js-selector-range" />' +
           '<input type="number" name="field_selector_end[]" placeholder="Até" class="js-selector-config js-selector-range" />' +
-          '<input type="text" name="field_repeat_fields[]" placeholder="Subcampos do botão (ex.: Nome da Criança; Idade)" class="js-repeat-config" />' +
+          '<input type="text" name="field_repeat_fields[]" placeholder="Ex.: Nome da crianca; Idade" class="js-repeat-config" />' +
+          '<select name="field_repeat_require_click[]" class="js-repeat-config">' +
+            '<option value="0">Clique opcional</option>' +
+            '<option value="1">Clique obrigatorio (1+)</option>' +
+          '</select>' +
           '<button type="button" class="secondary remove-field">Remover</button>';
         const input = row.querySelector('input[name="field_name[]"]');
         const select = row.querySelector('select[name="field_type[]"]');
@@ -684,6 +709,7 @@
         const startInput = row.querySelector('input[name="field_selector_start[]"]');
         const endInput = row.querySelector('input[name="field_selector_end[]"]');
         const repeatInput = row.querySelector('input[name="field_repeat_fields[]"]');
+        const repeatRequireClickSelect = row.querySelector('select[name="field_repeat_require_click[]"]');
         if (input) input.value = nameValue || '';
         if (select && typeValue) select.value = typeValue;
         if (requiredSelect) requiredSelect.value = String(requiredValue || '1');
@@ -691,6 +717,7 @@
         if (startInput) startInput.value = String(rangeStartValue ?? '');
         if (endInput) endInput.value = String(rangeEndValue ?? '');
         if (repeatInput) repeatInput.value = selectorOptionsToText(repeatFieldsValue);
+        if (repeatRequireClickSelect) repeatRequireClickSelect.value = String(repeatRequireClickValue || '0');
         syncSelectorRow(row);
         return row;
       };
@@ -723,7 +750,8 @@
                 field.options || '',
                 field.range_start ?? '',
                 field.range_end ?? '',
-                field.repeat_fields || ''
+                field.repeat_fields || '',
+                field.repeat_require_click ? '1' : '0'
               )
             );
           });
@@ -838,7 +866,11 @@
           '<input type="text" name="field_selector_options[]" placeholder="Opções (ex.: Sim;Não ou 1;2;3)" class="js-selector-config" />' +
           '<input type="number" name="field_selector_start[]" placeholder="De" class="js-selector-config js-selector-range" />' +
           '<input type="number" name="field_selector_end[]" placeholder="Até" class="js-selector-config js-selector-range" />' +
-          '<input type="text" name="field_repeat_fields[]" placeholder="Subcampos do botão (ex.: Nome da Criança; Idade)" class="js-repeat-config" />' +
+          '<input type="text" name="field_repeat_fields[]" placeholder="Ex.: Nome da crianca; Idade" class="js-repeat-config" />' +
+          '<select name="field_repeat_require_click[]" class="js-repeat-config">' +
+            '<option value="0">Clique opcional</option>' +
+            '<option value="1">Clique obrigatorio (1+)</option>' +
+          '</select>' +
           '<button type="button" class="secondary js-remove-inline-field">Remover</button>';
         syncSelectorRow(row);
         return row;
