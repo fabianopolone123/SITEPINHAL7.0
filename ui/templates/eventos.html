@@ -138,11 +138,14 @@
     }
     .repeat-builder-row {
       display: grid;
-      grid-template-columns: minmax(180px, 1fr) minmax(140px, 180px) minmax(220px, 1fr) auto;
+      grid-template-columns: minmax(180px, 1fr) minmax(140px, 180px) minmax(220px, 1fr) minmax(88px, 110px) minmax(88px, 110px) auto;
       gap: 0.5rem;
       align-items: center;
     }
     .repeat-builder-row .repeat-options-hidden {
+      display: none !important;
+    }
+    .repeat-builder-row .repeat-range-hidden {
       display: none !important;
     }
     @media (max-width: 1280px) {
@@ -681,7 +684,7 @@
         <button type="button" id="close-repeat-builder-modal" aria-label="Fechar">×</button>
       </header>
       <section class="field-section">
-        <p class="panel-note">Preencha nome e tipo. Para seletor, informe as opcoes separadas por | (ex.: P|M|G).</p>
+        <p class="panel-note">Preencha nome e tipo. Para seletor, use opcoes (P|M|G) ou faixa numerica de/ate.</p>
         <div id="repeat-builder-rows" class="repeat-builder-rows"></div>
         <div class="action-row" style="margin-top:0.75rem;">
           <button type="button" class="secondary" id="add-repeat-builder-row">+ Subcampo</button>
@@ -773,6 +776,30 @@
       };
 
       const repeatTypeOptions = ['texto', 'numero', 'data', 'hora', 'booleano', 'seletor'];
+      const parseSelectorOptionsText = (rawValue) => {
+        return String(rawValue || '')
+          .split(/[\n,|/]+/)
+          .map((item) => String(item || '').trim())
+          .filter((item) => item);
+      };
+
+      const detectSelectorNumericRange = (options) => {
+        const values = Array.isArray(options) ? options : [];
+        if (values.length < 2) return null;
+        const numbers = [];
+        for (const value of values) {
+          const text = String(value || '').trim();
+          if (!/^-?\d+$/.test(text)) return null;
+          numbers.push(Number(text));
+        }
+        for (let idx = 1; idx < numbers.length; idx += 1) {
+          if (numbers[idx] !== numbers[idx - 1] + 1) return null;
+        }
+        return {
+          start: numbers[0],
+          end: numbers[numbers.length - 1],
+        };
+      };
 
       const parseRepeatFieldsText = (rawValue) => {
         const items = String(rawValue || '')
@@ -800,10 +827,7 @@
               }
               const rawOptions = String(parsed[2] || '').trim();
               if (fieldType === 'seletor' && rawOptions) {
-                options = rawOptions
-                  .split(/[\n,|/]+/)
-                  .map((item) => String(item || '').trim())
-                  .filter((item) => item);
+                options = parseSelectorOptionsText(rawOptions);
               }
             }
           }
@@ -838,15 +862,19 @@
         return output.join('; ');
       };
 
-      const toggleRepeatBuilderOptionsInput = (row) => {
+      const toggleRepeatBuilderSelectorInputs = (row) => {
         const typeSelect = row.querySelector('.js-repeat-builder-type');
         const optionsInput = row.querySelector('.js-repeat-builder-options');
-        if (!typeSelect || !optionsInput) return;
+        const rangeStartInput = row.querySelector('.js-repeat-builder-range-start');
+        const rangeEndInput = row.querySelector('.js-repeat-builder-range-end');
+        if (!typeSelect || !optionsInput || !rangeStartInput || !rangeEndInput) return;
         const isSelector = String(typeSelect.value || '').trim() === 'seletor';
         optionsInput.classList.toggle('repeat-options-hidden', !isSelector);
+        rangeStartInput.classList.toggle('repeat-range-hidden', !isSelector);
+        rangeEndInput.classList.toggle('repeat-range-hidden', !isSelector);
       };
 
-      const createRepeatBuilderRow = (nameValue, typeValue, optionsValue) => {
+      const createRepeatBuilderRow = (nameValue, typeValue, optionsValue, rangeStartValue, rangeEndValue) => {
         const row = document.createElement('div');
         row.className = 'repeat-builder-row';
         row.innerHTML = '' +
@@ -860,17 +888,23 @@
             '<option value="seletor">Seletor</option>' +
           '</select>' +
           '<input type="text" class="js-repeat-builder-options" placeholder="Opcoes do seletor (ex.: P|M|G)" />' +
+          '<input type="number" class="js-repeat-builder-range-start" placeholder="De" />' +
+          '<input type="number" class="js-repeat-builder-range-end" placeholder="Ate" />' +
           '<button type="button" class="secondary js-remove-repeat-builder-row">Remover</button>';
         const nameInput = row.querySelector('.js-repeat-builder-name');
         const typeSelect = row.querySelector('.js-repeat-builder-type');
         const optionsInput = row.querySelector('.js-repeat-builder-options');
+        const rangeStartInput = row.querySelector('.js-repeat-builder-range-start');
+        const rangeEndInput = row.querySelector('.js-repeat-builder-range-end');
         if (nameInput) nameInput.value = String(nameValue || '');
         if (typeSelect) typeSelect.value = repeatTypeOptions.includes(String(typeValue || '').toLowerCase()) ? String(typeValue || '').toLowerCase() : 'texto';
         if (optionsInput) optionsInput.value = String(optionsValue || '');
-        toggleRepeatBuilderOptionsInput(row);
+        if (rangeStartInput) rangeStartInput.value = String(rangeStartValue ?? '');
+        if (rangeEndInput) rangeEndInput.value = String(rangeEndValue ?? '');
+        toggleRepeatBuilderSelectorInputs(row);
         if (typeSelect) {
           typeSelect.addEventListener('change', () => {
-            toggleRepeatBuilderOptionsInput(row);
+            toggleRepeatBuilderSelectorInputs(row);
           });
         }
         return row;
@@ -882,14 +916,18 @@
         repeatBuilderRows.innerHTML = '';
         const parsedRows = parseRepeatFieldsText(repeatInput.value || '');
         if (!parsedRows.length) {
-          repeatBuilderRows.appendChild(createRepeatBuilderRow('', 'texto', ''));
+          repeatBuilderRows.appendChild(createRepeatBuilderRow('', 'texto', '', '', ''));
         } else {
           parsedRows.forEach((item) => {
+            const range = detectSelectorNumericRange(item.options || []);
+            const optionsText = range ? '' : selectorOptionsToText(item.options || []);
             repeatBuilderRows.appendChild(
               createRepeatBuilderRow(
                 item.name || '',
                 item.type || 'texto',
-                selectorOptionsToText(item.options || [])
+                optionsText,
+                range ? range.start : '',
+                range ? range.end : ''
               )
             );
           });
@@ -1046,7 +1084,7 @@
 
       if (addRepeatBuilderRowBtn && repeatBuilderRows) {
         addRepeatBuilderRowBtn.addEventListener('click', () => {
-          repeatBuilderRows.appendChild(createRepeatBuilderRow('', 'texto', ''));
+          repeatBuilderRows.appendChild(createRepeatBuilderRow('', 'texto', '', '', ''));
         });
       }
       if (closeRepeatBuilderBtn) {
@@ -1074,17 +1112,60 @@
             const nameInput = row.querySelector('.js-repeat-builder-name');
             const typeSelect = row.querySelector('.js-repeat-builder-type');
             const optionsInput = row.querySelector('.js-repeat-builder-options');
+            const rangeStartInput = row.querySelector('.js-repeat-builder-range-start');
+            const rangeEndInput = row.querySelector('.js-repeat-builder-range-end');
             const name = String(nameInput ? nameInput.value : '').trim();
             if (!name) continue;
             const fieldType = String(typeSelect ? typeSelect.value : 'texto').trim().toLowerCase() || 'texto';
-            const options = String(optionsInput ? optionsInput.value : '')
-              .split(/[\n,|/]+/)
-              .map((item) => String(item || '').trim())
-              .filter((item) => item);
-            if (fieldType === 'seletor' && !options.length) {
-              window.alert('No tipo seletor, informe as opcoes do subcampo.');
-              if (optionsInput) optionsInput.focus();
-              return;
+            let options = parseSelectorOptionsText(optionsInput ? optionsInput.value : '');
+            if (fieldType === 'seletor') {
+              const rangeStartRaw = String(rangeStartInput ? rangeStartInput.value : '').trim();
+              const rangeEndRaw = String(rangeEndInput ? rangeEndInput.value : '').trim();
+              let rangeOptions = [];
+              if (rangeStartRaw || rangeEndRaw) {
+                if (!(rangeStartRaw && rangeEndRaw)) {
+                  window.alert('No seletor, preencha De e Ate juntos.');
+                  if (rangeStartInput && !rangeStartRaw) rangeStartInput.focus();
+                  else if (rangeEndInput && !rangeEndRaw) rangeEndInput.focus();
+                  return;
+                }
+                if (!/^-?\d+$/.test(rangeStartRaw) || !/^-?\d+$/.test(rangeEndRaw)) {
+                  window.alert('Os valores De/Ate do seletor devem ser numericos.');
+                  if (rangeStartInput) rangeStartInput.focus();
+                  return;
+                }
+                const rangeStart = Number(rangeStartRaw);
+                const rangeEnd = Number(rangeEndRaw);
+                if (rangeEnd < rangeStart) {
+                  window.alert('No seletor, o valor Ate deve ser maior ou igual ao De.');
+                  if (rangeEndInput) rangeEndInput.focus();
+                  return;
+                }
+                if ((rangeEnd - rangeStart) > 500) {
+                  window.alert('No seletor, a faixa De/Ate aceita no maximo 501 opcoes.');
+                  if (rangeEndInput) rangeEndInput.focus();
+                  return;
+                }
+                for (let current = rangeStart; current <= rangeEnd; current += 1) {
+                  rangeOptions.push(String(current));
+                }
+              }
+              const mergedOptions = [];
+              const seen = new Set();
+              [...options, ...rangeOptions].forEach((item) => {
+                const text = String(item || '').trim();
+                if (!text) return;
+                const key = text.toLowerCase();
+                if (seen.has(key)) return;
+                seen.add(key);
+                mergedOptions.push(text);
+              });
+              options = mergedOptions;
+              if (!options.length) {
+                window.alert('No tipo seletor, informe opcoes ou faixa De/Ate.');
+                if (optionsInput) optionsInput.focus();
+                return;
+              }
             }
             payload.push({
               name: name,
