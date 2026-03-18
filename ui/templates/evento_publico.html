@@ -17,30 +17,333 @@
     }
     .event-products-grid {
       display: grid;
-      gap: 0.75rem;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     }
     .event-product-card {
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
+      border: 1px solid #dbeafe;
+      border-radius: 16px;
       background: #fff;
-      padding: 0.8rem;
+      overflow: hidden;
+      box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    .event-product-media {
+      aspect-ratio: 4 / 3;
+      background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+      display: grid;
+      place-items: center;
+      border-bottom: 1px solid #e2e8f0;
     }
     .event-product-card img {
       width: 100%;
-      height: 190px;
-      object-fit: cover;
-      border-radius: 10px;
-      margin-bottom: 0.55rem;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      background: #fff;
     }
-    .event-cart table {
+    .event-product-no-image {
+      color: #64748b;
+      font-size: 0.9rem;
+      text-align: center;
+      padding: 1rem;
+    }
+    .event-product-body {
+      padding: 0.85rem;
+      display: grid;
+      gap: 0.7rem;
+      align-content: start;
+    }
+    .event-product-title {
+      margin: 0;
+      color: #0f172a;
+      font-size: 1.02rem;
+      line-height: 1.25;
+    }
+    .event-product-desc {
+      margin: 0;
+      color: #475569;
+      font-size: 0.88rem;
+      line-height: 1.4;
+      min-height: 2.35rem;
+    }
+    .event-product-field {
+      display: grid;
+      gap: 0.25rem;
+    }
+    .event-product-field > span {
+      color: #334155;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .event-product-field select,
+    .event-product-field input {
       width: 100%;
-      border-collapse: collapse;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 0.62rem 0.7rem;
+      background: #fff;
+      color: #0f172a;
+      font: inherit;
     }
-    .event-cart th, .event-cart td {
+    .event-product-buy {
+      display: grid;
+      grid-template-columns: minmax(106px, 120px) 1fr;
+      gap: 0.55rem;
+      align-items: end;
+    }
+    .event-add-cart-btn {
+      width: 100%;
+      border: 0;
+      border-radius: 12px;
+      padding: 0.72rem 0.82rem;
+      color: #fff;
+      font-weight: 800;
+      background: linear-gradient(135deg, #1d4ed8, #2563eb);
+      box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2);
+      cursor: pointer;
+    }
+    .event-cart-toolbar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 0.7rem;
+    }
+    .event-cart-open-btn {
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 0.62rem 0.88rem;
+      background: linear-gradient(180deg, #ffffff, #f8fbff);
+      color: #1d4ed8;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 8px 16px rgba(37, 99, 235, 0.12);
+    }
+    .event-cart-open-count {
+      min-width: 1.48rem;
+      height: 1.48rem;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: #1d4ed8;
+      color: #fff;
+      font-size: 0.76rem;
+      font-weight: 800;
+      padding: 0 0.24rem;
+    }
+    .event-cart-overlay[hidden] {
+      display: none !important;
+    }
+    .event-cart-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1140;
+      background: rgba(15, 23, 42, 0.54);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    .event-cart-overlay.is-open {
+      opacity: 1;
+    }
+    .event-cart-drawer {
+      position: absolute;
+      right: 0;
+      top: 0;
+      height: 100%;
+      width: min(460px, 100vw);
+      border-left: 1px solid #dbeafe;
+      background: #fff;
+      box-shadow: -16px 0 40px rgba(15, 23, 42, 0.2);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      transform: translateX(104%);
+      transition: transform 0.24s ease;
+    }
+    .event-cart-overlay.is-open .event-cart-drawer {
+      transform: translateX(0);
+    }
+    .event-cart-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.7rem;
+      padding: 0.8rem 0.9rem;
       border-bottom: 1px solid #e2e8f0;
-      padding: 0.45rem;
-      text-align: left;
+      background: #f8fbff;
+    }
+    .event-cart-head h4 {
+      margin: 0;
+      color: #0f172a;
+      font-size: 1rem;
+    }
+    .event-cart-close {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #fff;
+      color: #0f172a;
+      padding: 0.45rem 0.62rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .event-cart-body {
+      overflow: auto;
+      padding: 0.85rem 0.9rem;
+      display: grid;
+      gap: 0.75rem;
+      align-content: start;
+    }
+    .event-cart-empty {
+      margin: 0;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      background: #f8fafc;
+      color: #64748b;
+      padding: 0.85rem;
+      text-align: center;
+    }
+    .event-cart-items {
+      display: grid;
+      gap: 0.62rem;
+    }
+    .event-cart-item {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 0.65rem;
+      display: grid;
+      gap: 0.48rem;
+      background: #fff;
+    }
+    .event-cart-item-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.6rem;
+      align-items: flex-start;
+    }
+    .event-cart-item-title {
+      margin: 0;
+      color: #0f172a;
+      font-size: 0.88rem;
+      line-height: 1.25;
+      font-weight: 800;
+    }
+    .event-cart-item-meta {
+      margin: 0.18rem 0 0;
+      color: #475569;
+      font-size: 0.78rem;
+    }
+    .event-cart-remove {
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      background: #fff1f2;
+      color: #9f1239;
+      padding: 0.28rem 0.48rem;
+      font-size: 0.74rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .event-cart-item-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.62rem;
+    }
+    .event-cart-qty {
+      display: inline-grid;
+      grid-template-columns: 28px 40px 28px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .event-cart-qty button {
+      border: 0;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-weight: 800;
+      cursor: pointer;
+      padding: 0;
+    }
+    .event-cart-qty input {
+      border: 0;
+      width: 40px;
+      text-align: center;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #0f172a;
+      background: #fff;
+    }
+    .event-cart-subtotal {
+      color: #1d4ed8;
+      font-size: 0.84rem;
+      font-weight: 800;
+    }
+    .event-cart-guest-box {
+      border: 1px solid #dbeafe;
+      border-radius: 12px;
+      background: #f8fbff;
+      padding: 0.68rem;
+      display: grid;
+      gap: 0.55rem;
+    }
+    .event-cart-guest-box h5 {
+      margin: 0;
+      color: #0f172a;
+      font-size: 0.9rem;
+    }
+    .event-cart-guest-box label {
+      display: grid;
+      gap: 0.28rem;
+      color: #334155;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .event-cart-guest-box input {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 0.62rem 0.68rem;
+      background: #fff;
+      color: #0f172a;
+      font: inherit;
+    }
+    .event-cart-foot {
+      border-top: 1px solid #e2e8f0;
+      padding: 0.82rem 0.9rem;
+      display: grid;
+      gap: 0.6rem;
+      background: #fff;
+    }
+    .event-cart-total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .event-cart-total-row strong {
+      color: #1d4ed8;
+      font-size: 1.06rem;
+    }
+    .event-cart-pix-btn {
+      width: 100%;
+      border: 0;
+      border-radius: 12px;
+      padding: 0.8rem 0.85rem;
+      color: #fff;
+      font-weight: 800;
+      background: linear-gradient(135deg, #0f766e, #0ea5a4);
+      box-shadow: 0 10px 20px rgba(13, 148, 136, 0.17);
+      cursor: pointer;
+    }
+    .event-cart-pix-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+      box-shadow: none;
     }
     .event-manage-metrics {
       display: flex;
@@ -84,6 +387,15 @@
       min-width: 860px;
     }
     @media (max-width: 768px) {
+      .event-product-buy {
+        grid-template-columns: 1fr;
+      }
+      .event-cart-overlay {
+        padding-top: 0;
+      }
+      .event-cart-drawer {
+        width: min(100vw, 460px);
+      }
       .event-report-modal {
         padding: 0.35rem;
       }
@@ -132,7 +444,7 @@
         {% for message in messages %}
           <p data-state="{{ message.tags }}">{{ message }}</p>
         {% empty %}
-          <p data-state="info">Preencha a inscrição do evento.</p>
+          <p data-state="info">Preencha a inscriÃƒÂ§ÃƒÂ£o do evento.</p>
         {% endfor %}
       </div>
     </section>
@@ -287,14 +599,14 @@
 
     <div class="event-main-grid">
     <section class="painel-card event-step">
-      <h3>Passo 1: Inscrição</h3>
+      <h3>Passo 1: InscriÃƒÂ§ÃƒÂ£o</h3>
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="register_event" />
         <div class="field-section">
           <label>
-            Código único da inscrição (3 dígitos)
-            <input type="text" value="{% if inscricao_codigo %}{{ inscricao_codigo }}{% else %}Será gerado ao salvar{% endif %}" readonly />
+            CÃƒÂ³digo ÃƒÂºnico da inscriÃƒÂ§ÃƒÂ£o (3 dÃƒÂ­gitos)
+            <input type="text" value="{% if inscricao_codigo %}{{ inscricao_codigo }}{% else %}SerÃƒÂ¡ gerado ao salvar{% endif %}" readonly />
           </label>
           {% for field in schema %}
             <label>
@@ -309,24 +621,24 @@
                 <select name="{{ field.input_name }}" {% if field.required %}required{% endif %}>
                   <option value="">-- selecione --</option>
                   <option value="sim">Sim</option>
-                  <option value="nao">Não</option>
+                  <option value="nao">NÃƒÂ£o</option>
                 </select>
               {% else %}
                 <input type="text" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
               {% endif %}
             </label>
           {% empty %}
-            <p class="panel-note">Este evento não exige campos extras de inscrição.</p>
+            <p class="panel-note">Este evento nÃƒÂ£o exige campos extras de inscriÃƒÂ§ÃƒÂ£o.</p>
           {% endfor %}
           {% if has_produtos %}
             <label>
               <input type="checkbox" name="quer_comprar_itens" value="1" {% if inscricao and inscricao.quer_comprar_itens %}checked{% endif %} />
-              Quero comprar itens deste evento após a inscrição.
+              Quero comprar itens deste evento apÃƒÂ³s a inscriÃƒÂ§ÃƒÂ£o.
             </label>
           {% endif %}
         </div>
         <div class="action-row">
-          <button type="submit" class="primary">Salvar inscrição</button>
+          <button type="submit" class="primary">Salvar inscriÃƒÂ§ÃƒÂ£o</button>
         </div>
       </form>
     </section>
@@ -336,77 +648,86 @@
       {% if not inscricao %}
         <p class="panel-note">Finalize o passo 1 para liberar a compra de itens.</p>
       {% elif not has_produtos %}
-        <p class="panel-note">Este evento não possui itens para venda.</p>
+        <p class="panel-note">Este evento nÃƒÂ£o possui itens para venda.</p>
       {% else %}
         {% if not is_authenticated %}
-          <p class="panel-note">Compra liberada sem login porque este evento está público.</p>
+          <p class="panel-note">Compra liberada sem login porque este evento estÃƒÂ¡ pÃƒÂºblico.</p>
         {% endif %}
+        <div class="event-cart-toolbar">
+          <button type="button" class="event-cart-open-btn" id="event-open-cart">
+            Abrir carrinho
+            <span class="event-cart-open-count" id="event-cart-count">0</span>
+          </button>
+        </div>
+
         <div class="event-products-grid" id="event-products-grid">
           {% for row in produtos %}
             <article class="event-product-card" data-product-id="{{ row.produto.id }}">
-              {% if row.capa_foto %}
-                <img src="{{ row.capa_foto.url }}" alt="Foto de {{ row.produto.titulo }}" />
-              {% endif %}
-              <h4>{{ row.produto.titulo }}</h4>
-              {% if row.produto.descricao %}<p>{{ row.produto.descricao }}</p>{% endif %}
-              <label>
-                Variação
-                <select data-variation-select>
-                  {% for v in row.variacoes %}
-                    <option value="{{ v.id }}" data-price="{{ v.valor }}">{{ v.nome }} - R$ {{ v.valor }}</option>
-                  {% endfor %}
-                </select>
-              </label>
-              <label>
-                Quantidade
-                <input type="number" min="1" step="1" value="1" data-qty-input />
-              </label>
-              <div class="action-row">
-                <button type="button" class="secondary" data-add-cart>Adicionar</button>
+              <div class="event-product-media">
+                {% if row.capa_foto %}
+                  <img src="{{ row.capa_foto.url }}" alt="Foto de {{ row.produto.titulo }}" />
+                {% else %}
+                  <div class="event-product-no-image">Sem foto</div>
+                {% endif %}
+              </div>
+              <div class="event-product-body">
+                <h4 class="event-product-title">{{ row.produto.titulo }}</h4>
+                <p class="event-product-desc">{{ row.produto.descricao|default:"Produto do evento." }}</p>
+                <label class="event-product-field">
+                  <span>VariaÃ§Ã£o</span>
+                  <select data-variation-select>
+                    {% for v in row.variacoes %}
+                      <option value="{{ v.id }}" data-price="{{ v.valor }}">{{ v.nome }} - R$ {{ v.valor }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <div class="event-product-buy">
+                  <label class="event-product-field">
+                    <span>Quantidade</span>
+                    <input type="number" min="1" step="1" value="1" data-qty-input />
+                  </label>
+                  <button type="button" class="event-add-cart-btn" data-add-cart>Adicionar ao carrinho</button>
+                </div>
               </div>
             </article>
           {% endfor %}
         </div>
 
-        <div class="action-row" style="margin-top:1rem;">
-          <button type="button" class="secondary" id="event-open-cart" hidden>Abrir carrinho</button>
-        </div>
-        <div class="event-cart" id="event-cart-panel" style="margin-top:0.75rem;" hidden>
-          <h4>Carrinho</h4>
-          <div id="event-cart-empty" class="panel-note">Nenhum item no carrinho.</div>
-          <table id="event-cart-table" hidden>
-            <thead>
-              <tr>
-                <th>Produto</th>
-                <th>Variação</th>
-                <th>Qtd</th>
-                <th>Valor</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="event-cart-body"></tbody>
-          </table>
-          {% if not is_authenticated %}
-            <div class="field-section" style="margin-top:0.75rem;">
-              <h4>Dados do comprador</h4>
-              <label>
-                Nome *
-                <input type="text" id="event-guest-name" placeholder="Seu nome completo" />
-              </label>
-              <label>
-                E-mail (opcional)
-                <input type="email" id="event-guest-email" placeholder="seu@email.com" />
-              </label>
-              <label>
-                Celular (opcional)
-                <input type="text" id="event-guest-phone" placeholder="5511999999999" />
-              </label>
+        <div class="event-cart-overlay" id="event-cart-drawer-overlay" hidden aria-hidden="true">
+          <aside class="event-cart-drawer" role="dialog" aria-modal="true" aria-labelledby="event-cart-title">
+            <div class="event-cart-head">
+              <h4 id="event-cart-title">Carrinho do evento</h4>
+              <button type="button" class="event-cart-close" id="event-cart-drawer-close">Fechar</button>
             </div>
-          {% endif %}
-          <p><strong>Total:</strong> <span id="event-cart-total">R$ 0,00</span></p>
-          <div class="action-row">
-            <button type="button" class="primary" id="event-generate-pix">Gerar Pix</button>
-          </div>
+            <div class="event-cart-body">
+              <p id="event-cart-empty" class="event-cart-empty">Nenhum item no carrinho.</p>
+              <div id="event-cart-items" class="event-cart-items"></div>
+              {% if not is_authenticated %}
+                <div class="event-cart-guest-box">
+                  <h5>Dados do comprador</h5>
+                  <label>
+                    Nome *
+                    <input type="text" id="event-guest-name" placeholder="Seu nome completo" />
+                  </label>
+                  <label>
+                    E-mail (opcional)
+                    <input type="email" id="event-guest-email" placeholder="seu@email.com" />
+                  </label>
+                  <label>
+                    Celular (opcional)
+                    <input type="text" id="event-guest-phone" placeholder="5511999999999" />
+                  </label>
+                </div>
+              {% endif %}
+            </div>
+            <div class="event-cart-foot">
+              <div class="event-cart-total-row">
+                <span>Total</span>
+                <strong id="event-cart-total">R$ 0,00</strong>
+              </div>
+              <button type="button" class="event-cart-pix-btn" id="event-generate-pix">Gerar Pix</button>
+            </div>
+          </aside>
         </div>
       {% endif %}
     </section>
@@ -423,7 +744,7 @@
         {% endif %}
       </div>
       <label>
-        Código Pix
+        CÃƒÂ³digo Pix
         <textarea id="event-pix-code" rows="4" readonly>{% if pedido_modal %}{{ pedido_modal.pix_code }}{% endif %}</textarea>
       </label>
       <div class="action-row">
@@ -436,12 +757,13 @@
     (function () {
       const cart = [];
       const csrfToken = (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '';
-      const cartBody = document.getElementById('event-cart-body');
-      const cartTable = document.getElementById('event-cart-table');
+      const cartItemsWrap = document.getElementById('event-cart-items');
       const cartEmpty = document.getElementById('event-cart-empty');
       const cartTotalNode = document.getElementById('event-cart-total');
-      const cartPanel = document.getElementById('event-cart-panel');
+      const cartOverlay = document.getElementById('event-cart-drawer-overlay');
+      const cartCloseBtn = document.getElementById('event-cart-drawer-close');
       const openCartBtn = document.getElementById('event-open-cart');
+      const cartCountNode = document.getElementById('event-cart-count');
       const generatePixBtn = document.getElementById('event-generate-pix');
       const pixBox = document.getElementById('event-pix-box');
       const pixPedidoId = document.getElementById('event-pix-pedido-id');
@@ -468,32 +790,69 @@
         return number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
       };
 
+      const escapeHtml = (value) => {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      };
+
+      const openCartDrawer = () => {
+        if (!cartOverlay) return;
+        cartOverlay.hidden = false;
+        cartOverlay.setAttribute('aria-hidden', 'false');
+        requestAnimationFrame(() => {
+          cartOverlay.classList.add('is-open');
+        });
+      };
+
+      const closeCartDrawer = () => {
+        if (!cartOverlay || cartOverlay.hidden) return;
+        cartOverlay.classList.remove('is-open');
+        window.setTimeout(() => {
+          if (!cartOverlay.classList.contains('is-open')) {
+            cartOverlay.hidden = true;
+            cartOverlay.setAttribute('aria-hidden', 'true');
+          }
+        }, 240);
+      };
+
       const renderCart = () => {
-        if (!cartBody || !cartTable || !cartEmpty || !cartTotalNode) return;
-        cartBody.innerHTML = '';
+        if (!cartItemsWrap || !cartEmpty || !cartTotalNode) return;
+        cartItemsWrap.innerHTML = '';
         let total = 0;
+        let itemsCount = 0;
         cart.forEach((item, index) => {
           const line = item.price * item.quantity;
           total += line;
-          const tr = document.createElement('tr');
-          tr.innerHTML =
-            '<td>' + item.productTitle + '</td>' +
-            '<td>' + item.variationLabel + '</td>' +
-            '<td>' + item.quantity + '</td>' +
-            '<td>' + toMoney(line) + '</td>' +
-            '<td><button type="button" data-remove-index="' + index + '">Remover</button></td>';
-          cartBody.appendChild(tr);
+          itemsCount += item.quantity;
+          const row = document.createElement('div');
+          row.className = 'event-cart-item';
+          row.innerHTML =
+            '<div class="event-cart-item-top">' +
+              '<div>' +
+                '<p class="event-cart-item-title">' + escapeHtml(item.productTitle) + '</p>' +
+                '<p class="event-cart-item-meta">' + escapeHtml(item.variationLabel) + '</p>' +
+              '</div>' +
+              '<button type="button" class="event-cart-remove" data-cart-action="remove" data-cart-index="' + index + '">Remover</button>' +
+            '</div>' +
+            '<div class="event-cart-item-bottom">' +
+              '<div class="event-cart-qty">' +
+                '<button type="button" data-cart-action="minus" data-cart-index="' + index + '">-</button>' +
+                '<input type="number" value="' + item.quantity + '" min="1" readonly />' +
+                '<button type="button" data-cart-action="plus" data-cart-index="' + index + '">+</button>' +
+              '</div>' +
+              '<span class="event-cart-subtotal">' + toMoney(line) + '</span>' +
+            '</div>';
+          cartItemsWrap.appendChild(row);
         });
         cartTotalNode.textContent = toMoney(total);
         const hasItems = cart.length > 0;
-        cartTable.hidden = !hasItems;
         cartEmpty.hidden = hasItems;
-        if (cartPanel) {
-          cartPanel.hidden = !hasItems;
-        }
-        if (openCartBtn) {
-          openCartBtn.hidden = !hasItems;
-        }
+        if (cartCountNode) cartCountNode.textContent = String(itemsCount);
+        if (generatePixBtn) generatePixBtn.disabled = !hasItems;
       };
 
       document.querySelectorAll('[data-add-cart]').forEach((button) => {
@@ -517,23 +876,47 @@
             cart.push({ productId, variationId, quantity, price, variationLabel, productTitle });
           }
           renderCart();
-          if (cartPanel) {
-            cartPanel.hidden = false;
-            cartPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
+          openCartDrawer();
         });
       });
 
-      if (cartBody) {
-        cartBody.addEventListener('click', (event) => {
+      if (cartItemsWrap) {
+        cartItemsWrap.addEventListener('click', (event) => {
           const target = event.target;
           if (!(target instanceof HTMLElement)) return;
-          const idx = target.getAttribute('data-remove-index');
-          if (idx === null) return;
+          const action = target.getAttribute('data-cart-action');
+          const idx = target.getAttribute('data-cart-index');
+          if (!action || idx === null) return;
           const numeric = Number(idx);
-          if (Number.isNaN(numeric)) return;
-          cart.splice(numeric, 1);
+          if (Number.isNaN(numeric) || !cart[numeric]) return;
+          if (action === 'plus') {
+            cart[numeric].quantity += 1;
+          } else if (action === 'minus') {
+            cart[numeric].quantity = Math.max(1, cart[numeric].quantity - 1);
+          } else if (action === 'remove') {
+            cart.splice(numeric, 1);
+          } else {
+            return;
+          }
           renderCart();
+        });
+      }
+
+      if (openCartBtn) {
+        openCartBtn.addEventListener('click', () => {
+          openCartDrawer();
+        });
+      }
+      if (cartCloseBtn) {
+        cartCloseBtn.addEventListener('click', () => {
+          closeCartDrawer();
+        });
+      }
+      if (cartOverlay) {
+        cartOverlay.addEventListener('click', (event) => {
+          if (event.target === cartOverlay) {
+            closeCartDrawer();
+          }
         });
       }
 
@@ -570,7 +953,7 @@
             });
             const data = await response.json();
             if (!response.ok || !data.ok) {
-              window.alert((data && data.message) || 'Não foi possível gerar o Pix.');
+              window.alert((data && data.message) || 'NÃƒÂ£o foi possÃƒÂ­vel gerar o Pix.');
               return;
             }
             const pedido = data.pedido || {};
@@ -584,13 +967,18 @@
                 ? '<img src="data:image/png;base64,' + pedido.qr_base64 + '" alt="QR Code Pix" style="max-width:260px;" />'
                 : '';
             }
-            if (pixBox) pixBox.hidden = false;
+            if (pixBox) {
+              pixBox.hidden = false;
+              pixBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
             cart.splice(0, cart.length);
             renderCart();
+            closeCartDrawer();
           } catch (error) {
-            window.alert('Erro de conexão ao gerar Pix.');
+            window.alert('Erro de conexÃƒÂ£o ao gerar Pix.');
           } finally {
             generatePixBtn.disabled = false;
+            renderCart();
           }
         });
       }
@@ -606,20 +994,13 @@
             const response = await fetch(statusUrl, { method: 'GET' });
             const data = await response.json();
             if (!response.ok || !data.ok) {
-              window.alert('Não foi possível consultar o status.');
+              window.alert('NÃƒÂ£o foi possÃƒÂ­vel consultar o status.');
               return;
             }
             if (pixStatus) pixStatus.textContent = String(data.status_label || '');
           } catch (error) {
             window.alert('Erro ao consultar status.');
           }
-        });
-      }
-
-      if (openCartBtn && cartPanel) {
-        openCartBtn.addEventListener('click', () => {
-          cartPanel.hidden = false;
-          cartPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
       }
 
@@ -669,6 +1050,21 @@
           }
         });
       }
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        if (cartOverlay && !cartOverlay.hidden) {
+          closeCartDrawer();
+          return;
+        }
+        if (reportModal && reportModal.getAttribute('aria-hidden') === 'false') {
+          closeModal(reportModal);
+          return;
+        }
+        if (inscritosModal && inscritosModal.getAttribute('aria-hidden') === 'false') {
+          closeModal(inscritosModal);
+        }
+      });
 
       if (togglePublicForm) {
         togglePublicForm.addEventListener('submit', (event) => {
