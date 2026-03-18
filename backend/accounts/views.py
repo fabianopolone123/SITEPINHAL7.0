@@ -3296,12 +3296,84 @@ class EventosView(LoginRequiredMixin, View):
             values = request.POST.getlist('field_value[]')
             fields_data = []
             allowed_types = {'texto', 'data', 'hora', 'numero', 'booleano', 'seletor', 'repetidor'}
+            allowed_repeat_types = {'texto', 'data', 'hora', 'numero', 'booleano', 'seletor'}
 
             def _split_selector_options(raw_value):
                 if not str(raw_value or '').strip():
                     return []
                 items = re.split(r'[\n;,|]+', str(raw_value or ''))
                 return [str(item or '').strip() for item in items if str(item or '').strip()]
+
+            def _split_repeat_items(raw_value):
+                if not str(raw_value or '').strip():
+                    return []
+                items = re.split(r'[\n;]+', str(raw_value or ''))
+                return [str(item or '').strip() for item in items if str(item or '').strip()]
+
+            def _split_repeat_selector_options(raw_value):
+                if not str(raw_value or '').strip():
+                    return []
+                items = re.split(r'[\n,|/]+', str(raw_value or ''))
+                return [str(item or '').strip() for item in items if str(item or '').strip()]
+
+            def _parse_repeat_descriptor(raw_item, parent_label):
+                raw_text = str(raw_item or '').strip()
+                if not raw_text:
+                    return None, ''
+                label_part = raw_text
+                type_part = ''
+                if ':' in raw_text:
+                    label_part, type_part = raw_text.split(':', 1)
+                field_name = str(label_part or '').strip()
+                if not field_name:
+                    return None, (
+                        f'No campo repetidor "{parent_label}", todos os subcampos precisam de nome.'
+                    )
+                field_type = 'texto'
+                options = []
+                if str(type_part or '').strip():
+                    parsed = re.fullmatch(r'([a-zA-Z_]+)\s*(?:\((.*)\))?', str(type_part or '').strip())
+                    if not parsed:
+                        return None, (
+                            f'No campo repetidor "{parent_label}", formato inválido em "{raw_text}". '
+                            'Use Nome:tipo ou Nome:seletor(op1|op2).'
+                        )
+                    field_type = str(parsed.group(1) or '').strip().lower() or 'texto'
+                    options_raw = str(parsed.group(2) or '').strip()
+                    if field_type not in allowed_repeat_types:
+                        return None, (
+                            f'No campo repetidor "{parent_label}", tipo "{field_type}" não é válido.'
+                        )
+                    if field_type == 'seletor':
+                        options = _split_repeat_selector_options(options_raw)
+                        if not options:
+                            return None, (
+                                f'No campo repetidor "{parent_label}", o subcampo "{field_name}" '
+                                'deve usar seletor(op1|op2).'
+                            )
+                    elif options_raw:
+                        return None, (
+                            f'No campo repetidor "{parent_label}", somente o tipo seletor aceita opções.'
+                        )
+                return {
+                    'name': field_name,
+                    'type': field_type,
+                    'options': options,
+                }, ''
+
+            def _repeat_descriptor_to_text(descriptor):
+                if not isinstance(descriptor, dict):
+                    return ''
+                name = str(descriptor.get('name') or '').strip()
+                if not name:
+                    return ''
+                field_type = str(descriptor.get('type') or 'texto').strip().lower() or 'texto'
+                options = [str(item or '').strip() for item in (descriptor.get('options') or []) if str(item or '').strip()]
+                if field_type == 'texto' and not options:
+                    return name
+                if field_type == 'seletor':
+                    return f'{name}:seletor({"|".join(options)})'
+                return f'{name}:{field_type}'
 
             for index, label in enumerate(labels):
                 current_label = (label or '').strip()
@@ -3394,18 +3466,26 @@ class EventosView(LoginRequiredMixin, View):
                         field_data['range_end'] = range_end_value
                 elif current_type == 'repetidor':
                     repeat_fields = []
+                    repeat_fields_raw = []
+                    repeat_fields_data = []
                     seen_repeat_fields = set()
-                    for item in _split_selector_options(current_repeat_fields_raw):
-                        key = item.lower()
+                    for item in _split_repeat_items(current_repeat_fields_raw):
+                        descriptor, descriptor_error = _parse_repeat_descriptor(item, current_label)
+                        if descriptor_error:
+                            messages.error(request, descriptor_error)
+                            return None
+                        key = str(descriptor.get('name') or '').strip().lower()
                         if key in seen_repeat_fields:
                             continue
                         seen_repeat_fields.add(key)
-                        repeat_fields.append(item)
+                        repeat_fields.append(descriptor['name'])
+                        repeat_fields_data.append(descriptor)
+                        repeat_fields_raw.append(_repeat_descriptor_to_text(descriptor))
 
                     if not repeat_fields:
                         messages.error(
                             request,
-                            f'No campo repetidor "{current_label}", informe os subcampos (ex.: Nome da Criança; Idade).',
+                            f'No campo repetidor "{current_label}", informe os subcampos (ex.: Nome:texto; Idade:numero).',
                         )
                         return None
                     if len(repeat_fields) > 8:
@@ -3416,6 +3496,8 @@ class EventosView(LoginRequiredMixin, View):
                         return None
                     repeat_require_click = current_repeat_require_click_raw in {'1', 'true', 'sim', 'yes'}
                     field_data['repeat_fields'] = repeat_fields
+                    field_data['repeat_fields_raw'] = repeat_fields_raw
+                    field_data['repeat_fields_data'] = repeat_fields_data
                     field_data['repeat_button_label'] = current_label
                     field_data['repeat_require_click'] = bool(repeat_require_click)
                 fields_data.append(field_data)
@@ -3825,29 +3907,95 @@ class EventoPublicoView(View):
                     _append_option(number)
         return options
 
-    def _repeat_fields_from_field(self, field):
+    def _split_repeat_items(self, raw_value):
+        if isinstance(raw_value, (list, tuple)):
+            return [str(item or '').strip() for item in raw_value if str(item or '').strip()]
+        if not str(raw_value or '').strip():
+            return []
+        items = re.split(r'[\n;]+', str(raw_value or ''))
+        return [str(item or '').strip() for item in items if str(item or '').strip()]
+
+    def _split_repeat_selector_options(self, raw_value):
+        if isinstance(raw_value, (list, tuple)):
+            values = [str(item or '').strip() for item in raw_value if str(item or '').strip()]
+            return values
+        if not str(raw_value or '').strip():
+            return []
+        items = re.split(r'[\n,|/]+', str(raw_value or ''))
+        return [str(item or '').strip() for item in items if str(item or '').strip()]
+
+    def _repeat_fields_schema_from_field(self, field):
         field_obj = field or {}
-        labels = []
+        allowed_repeat_types = {'texto', 'data', 'hora', 'numero', 'booleano', 'seletor'}
+        rows = []
         seen = set()
 
-        raw_repeat = field_obj.get('repeat_fields')
-        if isinstance(raw_repeat, (list, tuple)):
-            raw_items = raw_repeat
-        elif str(raw_repeat or '').strip():
-            raw_items = re.split(r'[\n;,|]+', str(raw_repeat or ''))
-        else:
-            raw_items = []
-
-        for raw_label in raw_items:
-            label = str(raw_label or '').strip()
+        def _append_descriptor(name, field_type='texto', options=None):
+            label = str(name or '').strip()
             if not label:
-                continue
+                return
             key = label.lower()
             if key in seen:
-                continue
+                return
             seen.add(key)
-            labels.append(label)
-        return labels[:8]
+            normalized_type = str(field_type or 'texto').strip().lower() or 'texto'
+            if normalized_type not in allowed_repeat_types:
+                normalized_type = 'texto'
+            normalized_options = [
+                str(item or '').strip()
+                for item in (options or [])
+                if str(item or '').strip()
+            ]
+            if normalized_type != 'seletor':
+                normalized_options = []
+            rows.append({
+                'name': label,
+                'type': normalized_type,
+                'options': normalized_options,
+            })
+
+        raw_schema = field_obj.get('repeat_fields_data')
+        if isinstance(raw_schema, list):
+            for item in raw_schema:
+                if not isinstance(item, dict):
+                    continue
+                _append_descriptor(
+                    item.get('name') or item.get('label'),
+                    item.get('type') or 'texto',
+                    item.get('options') or [],
+                )
+            if rows:
+                return rows[:8]
+
+        raw_repeat = field_obj.get('repeat_fields_raw')
+        if not raw_repeat:
+            raw_repeat = field_obj.get('repeat_fields')
+
+        for raw_item in self._split_repeat_items(raw_repeat):
+            raw_text = str(raw_item or '').strip()
+            if not raw_text:
+                continue
+            label_part = raw_text
+            type_part = ''
+            if ':' in raw_text:
+                label_part, type_part = raw_text.split(':', 1)
+            label = str(label_part or '').strip()
+            if not label:
+                continue
+            descriptor_type = 'texto'
+            descriptor_options = []
+            if str(type_part or '').strip():
+                parsed = re.fullmatch(r'([a-zA-Z_]+)\s*(?:\((.*)\))?', str(type_part or '').strip())
+                if parsed:
+                    descriptor_type = str(parsed.group(1) or 'texto').strip().lower() or 'texto'
+                    raw_options = str(parsed.group(2) or '').strip()
+                    if descriptor_type == 'seletor':
+                        descriptor_options = self._split_repeat_selector_options(raw_options)
+            _append_descriptor(label, descriptor_type, descriptor_options)
+        return rows[:8]
+
+    def _repeat_fields_from_field(self, field):
+        return [str(item.get('name') or '').strip() for item in self._repeat_fields_schema_from_field(field) if str(item.get('name') or '').strip()]
 
     def _event_schema(self, evento):
         schema = []
@@ -3860,7 +4008,8 @@ class EventoPublicoView(View):
             if field_type not in allowed_types:
                 field_type = 'texto'
             selector_options = self._selector_options_from_field(field) if field_type == 'seletor' else []
-            repeat_fields = self._repeat_fields_from_field(field) if field_type == 'repetidor' else []
+            repeat_fields_data = self._repeat_fields_schema_from_field(field) if field_type == 'repetidor' else []
+            repeat_fields = [str(item.get('name') or '').strip() for item in repeat_fields_data if str(item.get('name') or '').strip()]
             repeat_button_label = str((field or {}).get('repeat_button_label') or label).strip() or label
             is_required = bool((field or {}).get('required'))
             repeat_require_click = bool((field or {}).get('repeat_require_click')) if field_type == 'repetidor' else False
@@ -3872,6 +4021,8 @@ class EventoPublicoView(View):
                 'input_name': f'campo_{index}',
                 'options': selector_options,
                 'repeat_fields': repeat_fields,
+                'repeat_fields_data': repeat_fields_data,
+                'repeat_fields_data_json': json.dumps(repeat_fields_data, ensure_ascii=False),
                 'repeat_button_label': repeat_button_label,
                 'repeat_require_click': repeat_require_click,
             })
@@ -4394,7 +4545,29 @@ class EventoPublicoView(View):
         dados = {}
         for field in schema:
             if field['type'] == 'repetidor':
-                repeat_fields = [str(item or '').strip() for item in (field.get('repeat_fields') or []) if str(item or '').strip()]
+                repeat_schema_rows = field.get('repeat_fields_data') if isinstance(field.get('repeat_fields_data'), list) else []
+                if not repeat_schema_rows:
+                    repeat_schema_rows = [
+                        {'name': item, 'type': 'texto', 'options': []}
+                        for item in (field.get('repeat_fields') or [])
+                    ]
+                repeat_fields = []
+                repeat_type_map = {}
+                repeat_options_map = {}
+                for row in repeat_schema_rows:
+                    if not isinstance(row, dict):
+                        continue
+                    key = str(row.get('name') or '').strip()
+                    if not key:
+                        continue
+                    repeat_fields.append(key)
+                    repeat_type = str(row.get('type') or 'texto').strip().lower() or 'texto'
+                    repeat_type_map[key] = repeat_type
+                    repeat_options_map[key] = [
+                        str(item or '').strip()
+                        for item in (row.get('options') or [])
+                        if str(item or '').strip()
+                    ]
                 raw_value = str(request.POST.get(field['input_name']) or '').strip()
                 repeat_rows = []
                 if raw_value:
@@ -4416,6 +4589,21 @@ class EventoPublicoView(View):
                             row_obj[key] = value
                             if value:
                                 row_has_value = True
+                            repeat_type = repeat_type_map.get(key)
+                            if repeat_type == 'seletor' and value:
+                                valid_options = repeat_options_map.get(key) or []
+                                if valid_options and value not in valid_options:
+                                    messages.error(
+                                        request,
+                                        f'O valor selecionado no subcampo "{key}" do campo "{field["name"]}" é inválido.',
+                                    )
+                                    return render(request, self.template_name, self._context(request, evento))
+                            if repeat_type == 'booleano' and value and value not in {'sim', 'nao'}:
+                                messages.error(
+                                    request,
+                                    f'O subcampo "{key}" do campo "{field["name"]}" aceita apenas "sim" ou "nao".',
+                                )
+                                return render(request, self.template_name, self._context(request, evento))
                         if row_has_value:
                             missing_keys = [key for key, value in row_obj.items() if not str(value or '').strip()]
                             if missing_keys:

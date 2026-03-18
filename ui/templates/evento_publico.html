@@ -967,6 +967,7 @@
                 data-repeat-field="{{ field.input_name }}"
                 data-repeat-required="{% if field.required or field.repeat_require_click %}1{% else %}0{% endif %}"
                 data-repeat-click-required="{% if field.repeat_require_click %}1{% else %}0{% endif %}"
+                data-repeat-schema="{{ field.repeat_fields_data_json|default:'[]'|escapejs }}"
                 data-repeat-fields="{% for item in field.repeat_fields %}{{ item|escapejs }}{% if not forloop.last %}||{% endif %}{% endfor %}"
               >
                 <div class="event-repeat-head">
@@ -1177,28 +1178,105 @@
           .replace(/'/g, '&#39;');
       };
 
-      const parseRepeatFields = (rawValue) => {
-        return String(rawValue || '')
+      const parseRepeatSchema = (fieldWrap) => {
+        const normalize = (name, type, options) => {
+          const label = String(name || '').trim();
+          if (!label) return null;
+          const normalizedType = String(type || 'texto').trim().toLowerCase() || 'texto';
+          const normalizedOptions = Array.isArray(options)
+            ? options.map((item) => String(item || '').trim()).filter((item) => item)
+            : [];
+          return {
+            name: label,
+            type: normalizedType,
+            options: normalizedType === 'seletor' ? normalizedOptions : [],
+          };
+        };
+
+        const rawSchema = String(fieldWrap.getAttribute('data-repeat-schema') || '').trim();
+        if (rawSchema) {
+          try {
+            const parsed = JSON.parse(rawSchema);
+            if (Array.isArray(parsed)) {
+              const rows = parsed
+                .map((item) => {
+                  if (!item || typeof item !== 'object') return null;
+                  return normalize(item.name, item.type, item.options);
+                })
+                .filter((item) => item);
+              if (rows.length) return rows;
+            }
+          } catch (error) {
+            // fallback below
+          }
+        }
+
+        return String(fieldWrap.getAttribute('data-repeat-fields') || '')
           .split('||')
-          .map((item) => String(item || '').trim())
+          .map((item) => normalize(item, 'texto', []))
           .filter((item) => item);
       };
 
-      const buildRepeatItem = (fieldWrap, fields, index) => {
+      const buildRepeatItem = (fieldWrap, fieldsSchema, index) => {
         const item = document.createElement('div');
         item.className = 'event-repeat-item';
         item.dataset.repeatIndex = String(index);
 
         const grid = document.createElement('div');
         grid.className = 'event-repeat-item-grid';
-        fields.forEach((label) => {
+        fieldsSchema.forEach((fieldDef) => {
+          const label = String(fieldDef.name || '').trim();
+          const fieldType = String(fieldDef.type || 'texto').trim().toLowerCase() || 'texto';
+          const fieldOptions = Array.isArray(fieldDef.options) ? fieldDef.options : [];
           const labelNode = document.createElement('label');
           labelNode.textContent = label;
-          const input = document.createElement('input');
-          input.type = 'text';
-          input.placeholder = label;
-          input.setAttribute('data-repeat-key', label);
+          let input = null;
+
+          if (fieldType === 'seletor') {
+            const select = document.createElement('select');
+            const placeholderOption = document.createElement('option');
+            placeholderOption.value = '';
+            placeholderOption.textContent = '-- selecione --';
+            select.appendChild(placeholderOption);
+            fieldOptions.forEach((optionValue) => {
+              const option = document.createElement('option');
+              option.value = String(optionValue || '');
+              option.textContent = String(optionValue || '');
+              select.appendChild(option);
+            });
+            input = select;
+          } else if (fieldType === 'booleano') {
+            const select = document.createElement('select');
+            const placeholderOption = document.createElement('option');
+            placeholderOption.value = '';
+            placeholderOption.textContent = '-- selecione --';
+            select.appendChild(placeholderOption);
+            const yes = document.createElement('option');
+            yes.value = 'sim';
+            yes.textContent = 'Sim';
+            const no = document.createElement('option');
+            no.value = 'nao';
+            no.textContent = 'Nao';
+            select.appendChild(yes);
+            select.appendChild(no);
+            input = select;
+          } else {
+            input = document.createElement('input');
+            if (fieldType === 'numero') {
+              input.type = 'number';
+            } else if (fieldType === 'data') {
+              input.type = 'date';
+            } else if (fieldType === 'hora') {
+              input.type = 'time';
+            } else {
+              input.type = 'text';
+              input.placeholder = label;
+            }
+          }
+
           labelNode.appendChild(input);
+          input.setAttribute('data-repeat-key', label);
+          input.setAttribute('data-repeat-type', fieldType);
           grid.appendChild(labelNode);
         });
 
@@ -1238,10 +1316,10 @@
       const addRepeatItem = (fieldWrap) => {
         const list = fieldWrap.querySelector('[data-repeat-list]');
         if (!list) return;
-        const fields = parseRepeatFields(fieldWrap.getAttribute('data-repeat-fields'));
-        if (!fields.length) return;
+        const fieldsSchema = parseRepeatSchema(fieldWrap);
+        if (!fieldsSchema.length) return;
         const nextIndex = list.querySelectorAll('.event-repeat-item').length + 1;
-        list.appendChild(buildRepeatItem(fieldWrap, fields, nextIndex));
+        list.appendChild(buildRepeatItem(fieldWrap, fieldsSchema, nextIndex));
         serializeRepeatField(fieldWrap);
       };
 

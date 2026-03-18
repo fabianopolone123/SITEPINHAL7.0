@@ -339,7 +339,7 @@
                             <input type="text" name="field_selector_options[]" value="{% if campo.options %}{{ campo.options|join:'; ' }}{% endif %}" placeholder="Opções (ex.: Sim;Não ou 1;2;3)" class="js-selector-config" />
                             <input type="number" name="field_selector_start[]" value="{{ campo.range_start|default:'' }}" placeholder="De" class="js-selector-config js-selector-range" />
                             <input type="number" name="field_selector_end[]" value="{{ campo.range_end|default:'' }}" placeholder="Até" class="js-selector-config js-selector-range" />
-                            <input type="text" name="field_repeat_fields[]" value="{% if campo.repeat_fields %}{{ campo.repeat_fields|join:'; ' }}{% endif %}" placeholder="Ex.: Nome da crianca; Idade" class="js-repeat-config" />
+                            <input type="text" name="field_repeat_fields[]" value="{% if campo.repeat_fields_raw %}{{ campo.repeat_fields_raw|join:'; ' }}{% elif campo.repeat_fields %}{{ campo.repeat_fields|join:'; ' }}{% endif %}" placeholder="Ex.: Nome:texto; Idade:numero; Tamanho:seletor(P|M|G)" class="js-repeat-config" />
                             <select name="field_repeat_require_click[]" class="js-repeat-config">
                               <option value="0" {% if not campo.repeat_require_click %}selected{% endif %}>Clique opcional</option>
                               <option value="1" {% if campo.repeat_require_click %}selected{% endif %}>Clique obrigatorio (1+)</option>
@@ -366,7 +366,7 @@
                           <input type="text" name="field_selector_options[]" placeholder="Opções (ex.: Sim;Não ou 1;2;3)" class="js-selector-config" />
                           <input type="number" name="field_selector_start[]" placeholder="De" class="js-selector-config js-selector-range" />
                           <input type="number" name="field_selector_end[]" placeholder="Até" class="js-selector-config js-selector-range" />
-                          <input type="text" name="field_repeat_fields[]" placeholder="Ex.: Nome da crianca; Idade" class="js-repeat-config" />
+                          <input type="text" name="field_repeat_fields[]" placeholder="Ex.: Nome:texto; Idade:numero; Tamanho:seletor(P|M|G)" class="js-repeat-config" />
                           <select name="field_repeat_require_click[]" class="js-repeat-config">
                             <option value="0" selected>Clique opcional</option>
                             <option value="1">Clique obrigatorio (1+)</option>
@@ -599,7 +599,7 @@
         <div class="field-section">
           <h3>Campos do evento</h3>
           <p class="panel-note">Use o botão + para adicionar os campos que esse evento precisa.</p>
-          <p class="panel-note">No tipo Botao repetidor, informe os subcampos separados por ; (ex.: Nome da crianca; Idade).</p>
+          <p class="panel-note">No tipo Botao repetidor, use ; entre subcampos e opcionalmente tipo (ex.: Nome:texto; Idade:numero; Camiseta:seletor(P|M|G)).</p>
 
           <div class="event-fields" id="event-fields">
             <div class="event-field-row">
@@ -620,7 +620,7 @@
               <input type="text" name="field_selector_options[]" placeholder="Opções (ex.: Sim;Não ou 1;2;3)" class="js-selector-config" />
               <input type="number" name="field_selector_start[]" placeholder="De" class="js-selector-config js-selector-range" />
               <input type="number" name="field_selector_end[]" placeholder="Até" class="js-selector-config js-selector-range" />
-              <input type="text" name="field_repeat_fields[]" placeholder="Ex.: Nome da crianca; Idade" class="js-repeat-config" />
+              <input type="text" name="field_repeat_fields[]" placeholder="Ex.: Nome:texto; Idade:numero; Tamanho:seletor(P|M|G)" class="js-repeat-config" />
               <select name="field_repeat_require_click[]" class="js-repeat-config">
                 <option value="0" selected>Clique opcional</option>
                 <option value="1">Clique obrigatorio (1+)</option>
@@ -771,7 +771,7 @@
           '<input type="text" name="field_selector_options[]" placeholder="Opções (ex.: Sim;Não ou 1;2;3)" class="js-selector-config" />' +
           '<input type="number" name="field_selector_start[]" placeholder="De" class="js-selector-config js-selector-range" />' +
           '<input type="number" name="field_selector_end[]" placeholder="Até" class="js-selector-config js-selector-range" />' +
-          '<input type="text" name="field_repeat_fields[]" placeholder="Ex.: Nome da crianca; Idade" class="js-repeat-config" />' +
+          '<input type="text" name="field_repeat_fields[]" placeholder="Ex.: Nome:texto; Idade:numero; Tamanho:seletor(P|M|G)" class="js-repeat-config" />' +
           '<select name="field_repeat_require_click[]" class="js-repeat-config">' +
             '<option value="0">Clique opcional</option>' +
             '<option value="1">Clique obrigatorio (1+)</option>' +
@@ -825,7 +825,7 @@
                 field.options || '',
                 field.range_start ?? '',
                 field.range_end ?? '',
-                field.repeat_fields || '',
+                field.repeat_fields_raw || field.repeat_fields || '',
                 field.repeat_require_click ? '1' : '0'
               )
             );
@@ -941,7 +941,7 @@
           '<input type="text" name="field_selector_options[]" placeholder="Opções (ex.: Sim;Não ou 1;2;3)" class="js-selector-config" />' +
           '<input type="number" name="field_selector_start[]" placeholder="De" class="js-selector-config js-selector-range" />' +
           '<input type="number" name="field_selector_end[]" placeholder="Até" class="js-selector-config js-selector-range" />' +
-          '<input type="text" name="field_repeat_fields[]" placeholder="Ex.: Nome da crianca; Idade" class="js-repeat-config" />' +
+          '<input type="text" name="field_repeat_fields[]" placeholder="Ex.: Nome:texto; Idade:numero; Tamanho:seletor(P|M|G)" class="js-repeat-config" />' +
           '<select name="field_repeat_require_click[]" class="js-repeat-config">' +
             '<option value="0">Clique opcional</option>' +
             '<option value="1">Clique obrigatorio (1+)</option>' +
