@@ -49,6 +49,7 @@ from .models import (
     AccessGroup,
     DocumentoInscricaoGerado,
     Evento,
+    EventoCusto,
     EventoPreset,
     EventoInscricao,
     EventoPresenca,
@@ -3157,6 +3158,18 @@ class EventosView(LoginRequiredMixin, View):
         except Exception:
             logger.exception('Falha ao calcular total pago por evento.')
             pedidos_pagos_totais_map = {}
+        try:
+            custos_totais_map = {
+                item['evento_id']: item['valor_total']
+                for item in (
+                    EventoCusto.objects
+                    .values('evento_id')
+                    .annotate(valor_total=Sum('valor'))
+                )
+            }
+        except Exception:
+            logger.exception('Falha ao calcular total de custos por evento.')
+            custos_totais_map = {}
         event_rows = []
         for evento in eventos:
             try:
@@ -3185,6 +3198,9 @@ class EventosView(LoginRequiredMixin, View):
                     .prefetch_related('itens')
                     .order_by('-created_at')[:20]
                 )
+                pedidos_total_pago = Decimal(pedidos_pagos_totais_map.get(evento.id) or Decimal('0.00'))
+                custos_total = Decimal(custos_totais_map.get(evento.id) or Decimal('0.00'))
+                lucro_liquido = pedidos_total_pago - custos_total
                 event_rows.append({
                     'evento': evento,
                     'relative_label': self._relative_event_time_label(evento.event_date),
@@ -3193,7 +3209,9 @@ class EventosView(LoginRequiredMixin, View):
                     'produtos_count': len(produtos_rows),
                     'inscricoes_count': int(inscritos_totais_map.get(evento.id) or 0),
                     'pedidos_count': int(pedidos_totais_map.get(evento.id) or 0),
-                    'pedidos_total_pago_fmt': self._format_currency(pedidos_pagos_totais_map.get(evento.id) or Decimal('0.00')),
+                    'pedidos_total_pago_fmt': self._format_currency(pedidos_total_pago),
+                    'custos_total_fmt': self._format_currency(custos_total),
+                    'lucro_liquido_fmt': self._format_currency(lucro_liquido),
                     'has_public_page': bool((evento.fields_data or []) or produtos_rows),
                     'inscricoes_preview': inscricoes,
                     'pedidos_preview': pedidos,
@@ -3209,6 +3227,8 @@ class EventosView(LoginRequiredMixin, View):
                     'inscricoes_count': 0,
                     'pedidos_count': 0,
                     'pedidos_total_pago_fmt': self._format_currency(Decimal('0.00')),
+                    'custos_total_fmt': self._format_currency(Decimal('0.00')),
+                    'lucro_liquido_fmt': self._format_currency(Decimal('0.00')),
                     'has_public_page': False,
                     'inscricoes_preview': [],
                     'pedidos_preview': [],
@@ -3623,6 +3643,23 @@ class EventoPublicoView(View):
     def _format_currency(self, value):
         return LojaView()._format_currency(value)
 
+    def _parse_valor(self, raw_value):
+        raw = str(raw_value or '').strip()
+        if not raw:
+            return None
+        normalized = raw.replace('R$', '').replace(' ', '')
+        if ',' in normalized and '.' in normalized:
+            normalized = normalized.replace('.', '').replace(',', '.')
+        else:
+            normalized = normalized.replace(',', '.')
+        try:
+            value = Decimal(normalized)
+        except (InvalidOperation, ValueError):
+            return None
+        if value < 0:
+            return None
+        return value.quantize(Decimal('0.01'))
+
     def _event_schema(self, evento):
         schema = []
         for index, field in enumerate(evento.fields_data or []):
@@ -3884,6 +3921,9 @@ class EventoPublicoView(View):
         inscricoes_preview = []
         pedidos_preview = []
         inscritos_detalhes = []
+        custos_evento = []
+        custos_total = Decimal('0.00')
+        lucro_liquido = Decimal('0.00')
         if can_manage_evento:
             try:
                 inscricoes_base_qs = (
@@ -3902,7 +3942,21 @@ class EventoPublicoView(View):
                     .get('total')
                     or Decimal('0.00')
                 )
+                custos_qs = (
+                    EventoCusto.objects
+                    .filter(evento=evento)
+                    .select_related('created_by')
+                    .order_by('-created_at')
+                )
+                custos_total = (
+                    custos_qs
+                    .aggregate(total=Sum('valor'))
+                    .get('total')
+                    or Decimal('0.00')
+                )
+                lucro_liquido = pedidos_total_pago - custos_total
                 pedidos_total_pago_fmt = self._format_currency(pedidos_total_pago)
+                custos_evento = list(custos_qs[:300])
                 inscricoes_preview = list(inscricoes_base_qs[:20])
                 pedidos_preview = list(
                     pedidos_qs
@@ -3968,6 +4022,9 @@ class EventoPublicoView(View):
             'inscricoes_count': inscricoes_count,
             'pedidos_count': pedidos_count,
             'pedidos_total_pago_fmt': pedidos_total_pago_fmt,
+            'custos_total_fmt': self._format_currency(custos_total),
+            'lucro_liquido_fmt': self._format_currency(lucro_liquido),
+            'custos_evento': custos_evento,
             'inscricoes_preview': inscricoes_preview,
             'pedidos_preview': pedidos_preview,
             'inscritos_detalhes': inscritos_detalhes,
@@ -4009,6 +4066,50 @@ class EventoPublicoView(View):
                 request,
                 f'Evento marcado como {"publico" if make_public else "privado"} com sucesso.',
             )
+            return render(request, self.template_name, self._context(request, evento))
+
+        if action == 'add_event_cost':
+            if not can_manage_evento:
+                messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
+                return render(request, self.template_name, self._context(request, evento))
+            nome = str(request.POST.get('cost_name') or '').strip()
+            valor = self._parse_valor(request.POST.get('cost_value'))
+            comprovante = request.FILES.get('cost_receipt')
+            if not nome:
+                messages.error(request, 'Informe o nome do custo do evento.')
+                return render(request, self.template_name, self._context(request, evento))
+            if valor is None:
+                messages.error(request, 'Informe um valor válido para o custo do evento.')
+                return render(request, self.template_name, self._context(request, evento))
+            EventoCusto.objects.create(
+                evento=evento,
+                nome=nome,
+                valor=valor,
+                comprovante=comprovante,
+                created_by=request.user if request.user.is_authenticated else None,
+            )
+            messages.success(request, 'Custo do evento cadastrado com sucesso.')
+            return render(request, self.template_name, self._context(request, evento))
+
+        if action == 'delete_event_cost':
+            if not can_manage_evento:
+                messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
+                return render(request, self.template_name, self._context(request, evento))
+            cost_id_raw = str(request.POST.get('cost_id') or '').strip()
+            if not cost_id_raw.isdigit():
+                messages.error(request, 'Custo inválido para exclusão.')
+                return render(request, self.template_name, self._context(request, evento))
+            custo = EventoCusto.objects.filter(pk=int(cost_id_raw), evento=evento).first()
+            if not custo:
+                messages.error(request, 'Custo não encontrado neste evento.')
+                return render(request, self.template_name, self._context(request, evento))
+            if getattr(custo, 'comprovante', None):
+                try:
+                    custo.comprovante.delete(save=False)
+                except Exception:
+                    logger.exception('Falha ao remover comprovante do custo id=%s.', custo.id)
+            custo.delete()
+            messages.success(request, 'Custo do evento removido com sucesso.')
             return render(request, self.template_name, self._context(request, evento))
 
         if action != 'register_event':

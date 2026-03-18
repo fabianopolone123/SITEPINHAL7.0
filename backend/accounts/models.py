@@ -21,6 +21,13 @@ def presenca_falta_inscricao_upload_to(instance, filename):
     return f'photos/presenca_falta_inscricao/{event_part}/{timestamp}_{safe_name}'
 
 
+def evento_custo_comprovante_upload_to(instance, filename):
+    timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
+    safe_name = (filename or 'comprovante').replace(' ', '_')
+    event_part = f'evento_{instance.evento_id or "sem_evento"}'
+    return f'eventos/custos/{event_part}/{timestamp}_{safe_name}'
+
+
 class UserAccess(models.Model):
     ROLE_RESPONSAVEL = 'responsavel'
     ROLE_DIRETORIA = 'diretoria'
@@ -463,6 +470,35 @@ class Evento(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class EventoCusto(models.Model):
+    evento = models.ForeignKey(Evento, on_delete=models.CASCADE, related_name='custos')
+    nome = models.CharField('nome do custo', max_length=255)
+    valor = models.DecimalField('valor', max_digits=10, decimal_places=2)
+    comprovante = models.FileField(
+        'comprovante',
+        upload_to=evento_custo_comprovante_upload_to,
+        null=True,
+        blank=True,
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='eventos_custos_cadastrados',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        verbose_name = 'custo de evento'
+        verbose_name_plural = 'custos de eventos'
+
+    def __str__(self):
+        return f'{self.evento.name} - {self.nome}'
 
 
 class EventoPreset(models.Model):

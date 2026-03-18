@@ -51,6 +51,10 @@
       background: #fff;
       padding: 0.8rem;
     }
+    .event-item.event-item-robust {
+      border-color: #dbeafe;
+      background: linear-gradient(180deg, #fcfdff, #f8fbff);
+    }
     .event-item h4 {
       margin-bottom: 0.25rem;
     }
@@ -167,7 +171,7 @@
       <div class="event-list">
         {% for row in eventos %}
           {% with evento=row.evento %}
-            <article class="event-item">
+            <article class="event-item{% if row.has_public_page %} event-item-robust{% endif %}">
               <span class="event-status-chip">{{ row.relative_label }}</span>
               <h4>{{ evento.name }}</h4>
               <p class="event-meta">
@@ -197,6 +201,8 @@
                 <span class="event-field-pill">Inscrições: {{ row.inscricoes_count }}</span>
                 <span class="event-field-pill">Pedidos: {{ row.pedidos_count }}</span>
                 <span class="event-field-pill">Total pago: {{ row.pedidos_total_pago_fmt }}</span>
+                <span class="event-field-pill">Custos: {{ row.custos_total_fmt }}</span>
+                <span class="event-field-pill">Lucro liquido: {{ row.lucro_liquido_fmt }}</span>
                 <form method="post">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="toggle_event_public" />
@@ -362,6 +368,8 @@
               <p><strong>Inscrições:</strong> {{ row.inscricoes_count }}</p>
               <p><strong>Pedidos:</strong> {{ row.pedidos_count }}</p>
               <p><strong>Total pago:</strong> {{ row.pedidos_total_pago_fmt }}</p>
+              <p><strong>Custos:</strong> {{ row.custos_total_fmt }}</p>
+              <p><strong>Lucro liquido:</strong> {{ row.lucro_liquido_fmt }}</p>
             </section>
             <section class="field-section">
               <h4>Últimas inscrições</h4>

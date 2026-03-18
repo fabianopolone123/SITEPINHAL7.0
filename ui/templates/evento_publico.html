@@ -406,6 +406,43 @@
     .event-report-modal .users-table {
       min-width: 860px;
     }
+    .event-cost-form {
+      border: 1px solid #dbeafe;
+      border-radius: 12px;
+      background: #f8fbff;
+      padding: 0.85rem;
+      display: grid;
+      gap: 0.65rem;
+      margin-bottom: 0.8rem;
+    }
+    .event-cost-grid {
+      display: grid;
+      gap: 0.6rem;
+      grid-template-columns: minmax(180px, 1.2fr) minmax(120px, 0.8fr) minmax(220px, 1fr);
+      align-items: end;
+    }
+    .event-cost-grid label {
+      display: grid;
+      gap: 0.3rem;
+      font-size: 0.85rem;
+      color: #334155;
+      font-weight: 700;
+    }
+    .event-cost-grid input {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 0.58rem 0.68rem;
+      background: #fff;
+      color: #0f172a;
+      font: inherit;
+    }
+    .event-cost-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.8rem;
+    }
     @media (max-width: 768px) {
       .event-product-media {
         min-height: 185px;
@@ -437,6 +474,9 @@
       }
       .event-report-modal .users-table {
         min-width: 640px;
+      }
+      .event-cost-grid {
+        grid-template-columns: 1fr;
       }
       .event-report-modal .modal-content h3 {
         font-size: 1rem;
@@ -483,6 +523,8 @@
           <span class="event-metric-pill">Inscricoes: {{ inscricoes_count }}</span>
           <span class="event-metric-pill">Pedidos: {{ pedidos_count }}</span>
           <span class="event-metric-pill">Total pago: {{ pedidos_total_pago_fmt }}</span>
+          <span class="event-metric-pill">Custos: {{ custos_total_fmt }}</span>
+          <span class="event-metric-pill">Lucro liquido: {{ lucro_liquido_fmt }}</span>
           <span class="event-metric-pill">Pagina: {% if evento.inscricao_publica %}Publica{% else %}Privada{% endif %}</span>
         </div>
         <div class="action-row">
@@ -494,6 +536,7 @@
           </form>
           <button type="button" class="secondary" id="open-event-inscritos">Inscritos</button>
           <button type="button" class="secondary" id="open-event-report">Relatorio</button>
+          <button type="button" class="secondary" id="open-event-costs">Custos</button>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Editar campos</a>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Cadastrar produtos</a>
           <a href="{% url 'accounts:eventos' %}" class="secondary">Abrir lista de eventos</a>
@@ -559,6 +602,8 @@
             <p><strong>Inscricoes:</strong> {{ inscricoes_count }}</p>
             <p><strong>Pedidos:</strong> {{ pedidos_count }}</p>
             <p><strong>Total pago:</strong> {{ pedidos_total_pago_fmt }}</p>
+            <p><strong>Custos:</strong> {{ custos_total_fmt }}</p>
+            <p><strong>Lucro liquido:</strong> {{ lucro_liquido_fmt }}</p>
           </section>
           <section class="field-section">
             <h4>Ultimas inscricoes</h4>
@@ -620,6 +665,84 @@
               <p class="panel-note">Sem pedidos ainda.</p>
             {% endif %}
           </section>
+        </div>
+      </div>
+
+      <div class="modal event-report-modal" id="event-costs-modal" aria-hidden="true">
+        <div class="modal-content">
+          <header>
+            <h3>Custos - {{ evento.name }}</h3>
+            <button type="button" id="close-event-costs" aria-label="Fechar">X</button>
+          </header>
+          <div class="event-cost-summary">
+            <span class="event-metric-pill">Total pago: {{ pedidos_total_pago_fmt }}</span>
+            <span class="event-metric-pill">Custos: {{ custos_total_fmt }}</span>
+            <span class="event-metric-pill">Lucro liquido: {{ lucro_liquido_fmt }}</span>
+          </div>
+          <form method="post" enctype="multipart/form-data" class="event-cost-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_event_cost" />
+            <div class="event-cost-grid">
+              <label>
+                Nome do custo
+                <input type="text" name="cost_name" placeholder="Ex.: Aluguel de som" required />
+              </label>
+              <label>
+                Valor
+                <input type="text" name="cost_value" placeholder="0,00" required />
+              </label>
+              <label>
+                Comprovante
+                <input type="file" name="cost_receipt" />
+              </label>
+            </div>
+            <div class="action-row">
+              <button type="submit" class="primary">Salvar custo</button>
+            </div>
+          </form>
+          {% if custos_evento %}
+            <div class="table-scroll">
+              <table class="users-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Valor</th>
+                    <th>Comprovante</th>
+                    <th>Cadastrado por</th>
+                    <th>Data</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for custo in custos_evento %}
+                    <tr>
+                      <td>{{ custo.nome }}</td>
+                      <td>R$ {{ custo.valor }}</td>
+                      <td>
+                        {% if custo.comprovante %}
+                          <a href="{{ custo.comprovante.url }}" target="_blank" rel="noopener">Ver comprovante</a>
+                        {% else %}
+                          -
+                        {% endif %}
+                      </td>
+                      <td>{{ custo.created_by.username|default:"-" }}</td>
+                      <td>{{ custo.created_at|date:"d/m/Y H:i" }}</td>
+                      <td>
+                        <form method="post" style="margin:0;">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="delete_event_cost" />
+                          <input type="hidden" name="cost_id" value="{{ custo.id }}" />
+                          <button type="submit" class="secondary">Excluir</button>
+                        </form>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="panel-note">Nenhum custo cadastrado para este evento.</p>
+          {% endif %}
         </div>
       </div>
     {% endif %}
@@ -801,6 +924,9 @@
       const reportModal = document.getElementById('event-report-modal');
       const openReportBtn = document.getElementById('open-event-report');
       const closeReportBtn = document.getElementById('close-event-report');
+      const costsModal = document.getElementById('event-costs-modal');
+      const openCostsBtn = document.getElementById('open-event-costs');
+      const closeCostsBtn = document.getElementById('close-event-costs');
       const togglePublicForm = document.getElementById('toggle-public-form');
       const guestNameInput = document.getElementById('event-guest-name');
       const guestEmailInput = document.getElementById('event-guest-email');
@@ -1056,6 +1182,24 @@
         });
       }
 
+      if (openCostsBtn && costsModal) {
+        openCostsBtn.addEventListener('click', () => {
+          openModal(costsModal);
+        });
+      }
+      if (closeCostsBtn && costsModal) {
+        closeCostsBtn.addEventListener('click', () => {
+          closeModal(costsModal);
+        });
+      }
+      if (costsModal) {
+        costsModal.addEventListener('click', (event) => {
+          if (event.target === costsModal) {
+            closeModal(costsModal);
+          }
+        });
+      }
+
       if (openInscritosBtn && inscritosModal) {
         openInscritosBtn.addEventListener('click', () => {
           openModal(inscritosModal);
@@ -1082,6 +1226,10 @@
         }
         if (reportModal && reportModal.getAttribute('aria-hidden') === 'false') {
           closeModal(reportModal);
+          return;
+        }
+        if (costsModal && costsModal.getAttribute('aria-hidden') === 'false') {
+          closeModal(costsModal);
           return;
         }
         if (inscritosModal && inscritosModal.getAttribute('aria-hidden') === 'false') {
