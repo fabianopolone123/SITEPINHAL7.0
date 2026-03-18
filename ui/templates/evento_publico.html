@@ -465,6 +465,37 @@
       font-size: 0.84rem;
       word-break: break-word;
     }
+    .event-register-code-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      flex-wrap: wrap;
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      background: #eff6ff;
+      padding: 0.65rem 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+    .event-register-code {
+      display: inline-block;
+      min-width: 4.4rem;
+      text-align: center;
+      border: 1px solid #93c5fd;
+      border-radius: 12px;
+      background: #fff;
+      color: #1d4ed8;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      font-size: 1.8rem;
+      line-height: 1.1;
+      padding: 0.3rem 0.55rem;
+    }
+    .event-register-note {
+      color: #1e3a8a;
+      font-size: 0.92rem;
+      font-weight: 700;
+      margin: 0;
+    }
     @media (max-width: 768px) {
       .event-product-media {
         min-height: 185px;
@@ -499,6 +530,9 @@
       }
       .event-cost-grid {
         grid-template-columns: 1fr;
+      }
+      .event-register-code {
+        font-size: 1.52rem;
       }
       .event-report-modal .modal-content h3 {
         font-size: 1rem;
@@ -546,9 +580,11 @@
             <button type="button" id="close-event-register-summary" aria-label="Fechar">X</button>
           </header>
           <section class="field-section">
-            <p><strong>Código da inscrição:</strong> {{ register_summary_code|default:"-" }}</p>
-            <p><strong>Solicitou compra de itens/alimentos:</strong> {{ register_summary_buy_label }}</p>
-            <p class="panel-note">Anote seu código para facilitar o atendimento no evento.</p>
+            <div class="event-register-code-wrap">
+              <span class="event-register-code">{{ register_summary_code|default:"---" }}</span>
+              <p class="event-register-note">Anote esse número. Ele é o código da sua inscrição no evento.</p>
+            </div>
+            <p class="panel-note">A compra de itens da lojinha só é liberada após concluir este cadastro.</p>
           </section>
           <section class="field-section">
             <h4>Dados enviados no cadastro</h4>
@@ -829,12 +865,6 @@
           {% empty %}
             <p class="panel-note">Este evento não exige campos extras de inscrição.</p>
           {% endfor %}
-          {% if has_produtos %}
-            <label>
-              <input type="checkbox" name="quer_comprar_itens" value="1" {% if inscricao and inscricao.quer_comprar_itens %}checked{% endif %} />
-              Quero comprar itens deste evento após a inscrição.
-            </label>
-          {% endif %}
         </div>
         <div class="action-row">
           <button type="submit" class="primary">Salvar inscrição</button>

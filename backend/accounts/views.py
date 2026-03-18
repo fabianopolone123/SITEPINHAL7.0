@@ -3915,7 +3915,6 @@ class EventoPublicoView(View):
                 )
         register_summary_items = []
         register_summary_code = ''
-        register_summary_buy_label = 'Nao'
         if show_register_summary and inscricao:
             dados_obj = inscricao.dados if isinstance(inscricao.dados, dict) else {}
             used_keys = set()
@@ -3943,7 +3942,6 @@ class EventoPublicoView(View):
                     'value': value,
                 })
             register_summary_code = str(inscricao.codigo_inscricao or '').strip()
-            register_summary_buy_label = 'Sim' if bool(inscricao.quer_comprar_itens) else 'Nao'
         produtos = self._produto_rows_evento(evento)
         can_manage_evento = bool(request.user.is_authenticated and _has_menu_permission(request, 'eventos'))
         inscricoes_count = 0
@@ -4046,7 +4044,6 @@ class EventoPublicoView(View):
             'show_register_summary': bool(show_register_summary and inscricao),
             'register_summary_items': register_summary_items,
             'register_summary_code': register_summary_code,
-            'register_summary_buy_label': register_summary_buy_label,
             'produtos': produtos,
             'has_produtos': bool(produtos),
             'can_buy': bool(inscricao and produtos),
@@ -4160,7 +4157,6 @@ class EventoPublicoView(View):
                 return render(request, self.template_name, self._context(request, evento))
             dados[field['name']] = value
 
-        quer_comprar_itens = bool(request.POST.get('quer_comprar_itens'))
         inscricao_salva = None
         if request.user.is_authenticated:
             responsavel = LojaView()._ensure_loja_responsavel(request.user, create=False)
@@ -4172,8 +4168,7 @@ class EventoPublicoView(View):
             if existing:
                 existing.responsavel = responsavel
                 existing.dados = dados
-                existing.quer_comprar_itens = quer_comprar_itens
-                existing.save(update_fields=['responsavel', 'dados', 'quer_comprar_itens', 'updated_at'])
+                existing.save(update_fields=['responsavel', 'dados', 'updated_at'])
                 inscricao_salva = existing
             else:
                 created = False
@@ -4184,7 +4179,6 @@ class EventoPublicoView(View):
                             user=request.user,
                             responsavel=responsavel,
                             dados=dados,
-                            quer_comprar_itens=quer_comprar_itens,
                         )
                         created = True
                         break
@@ -4205,8 +4199,7 @@ class EventoPublicoView(View):
                 )
             if inscricao_obj:
                 inscricao_obj.dados = dados
-                inscricao_obj.quer_comprar_itens = quer_comprar_itens
-                inscricao_obj.save(update_fields=['dados', 'quer_comprar_itens', 'updated_at'])
+                inscricao_obj.save(update_fields=['dados', 'updated_at'])
                 inscricao_salva = inscricao_obj
             else:
                 inscricao_obj = None
@@ -4217,7 +4210,6 @@ class EventoPublicoView(View):
                             user=None,
                             responsavel=None,
                             dados=dados,
-                            quer_comprar_itens=quer_comprar_itens,
                         )
                         break
                     except IntegrityError:
