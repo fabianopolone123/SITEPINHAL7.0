@@ -4202,6 +4202,7 @@ class EventoPublicoView(View):
                         linked = pedidos_by_user.get(inscricao.user_id, [])
                     dados_obj = inscricao.dados if isinstance(inscricao.dados, dict) else {}
                     inscritos_detalhes.append({
+                        'id': inscricao.id,
                         'codigo': inscricao.codigo_inscricao or '-',
                         'responsavel': self._responsavel_label_from_inscricao(inscricao),
                         'cpf_responsavel': self._cpf_responsavel_from_inscricao(inscricao),
@@ -4327,6 +4328,32 @@ class EventoPublicoView(View):
                     logger.exception('Falha ao remover comprovante do custo id=%s.', custo.id)
             custo.delete()
             messages.success(request, 'Custo do evento removido com sucesso.')
+            return render(request, self.template_name, self._context(request, evento))
+
+        if action == 'delete_selected_registrations':
+            if not can_manage_evento:
+                messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
+                return render(request, self.template_name, self._context(request, evento))
+
+            raw_ids = request.POST.getlist('inscricao_ids[]')
+            selected_ids = []
+            for raw_id in raw_ids:
+                raw_text = str(raw_id or '').strip()
+                if raw_text.isdigit():
+                    selected_ids.append(int(raw_text))
+            selected_ids = sorted(set(selected_ids))
+            if not selected_ids:
+                messages.error(request, 'Selecione ao menos uma inscricao para excluir.')
+                return render(request, self.template_name, self._context(request, evento))
+
+            deleted_total, _ = EventoInscricao.objects.filter(
+                evento=evento,
+                pk__in=selected_ids,
+            ).delete()
+            if deleted_total <= 0:
+                messages.error(request, 'Nenhuma inscricao foi excluida.')
+            else:
+                messages.success(request, f'{deleted_total} inscricao(oes) excluida(s) com sucesso.')
             return render(request, self.template_name, self._context(request, evento))
 
         if action == 'delete_registration':

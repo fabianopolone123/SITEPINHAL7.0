@@ -746,42 +746,51 @@
             <button type="button" id="close-event-inscritos" aria-label="Fechar">X</button>
           </header>
           {% if inscritos_detalhes %}
-            <div class="table-scroll">
-              <table class="users-table">
-                <thead>
-                  <tr>
-                    <th>Codigo</th>
-                    <th>Responsavel</th>
-                    <th>CPF responsavel</th>
-                    <th>Criancas</th>
-                    <th>Pedidos loja</th>
-                    <th>Outros dados</th>
-                    <th>Data</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for item in inscritos_detalhes %}
+            <form method="post" id="event-delete-selected-inscricoes-form">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="delete_selected_registrations" />
+              <div class="table-scroll">
+                <table class="users-table">
+                  <thead>
                     <tr>
-                      <td>{{ item.codigo }}</td>
-                      <td>{{ item.responsavel }}</td>
-                      <td>{{ item.cpf_responsavel }}</td>
-                      <td>{{ item.criancas }}</td>
-                      <td>{{ item.pedidos_loja }}</td>
-                      <td>
-                        <div>{{ item.dados_resumo }}</div>
-                        {% if item.dados_json %}
-                          <details>
-                            <summary>Ver tudo</summary>
-                            <pre style="white-space:pre-wrap;">{{ item.dados_json }}</pre>
-                          </details>
-                        {% endif %}
-                      </td>
-                      <td>{{ item.data_inscricao|date:"d/m/Y H:i" }}</td>
+                      <th><input type="checkbox" id="event-inscritos-select-all" /></th>
+                      <th>Codigo</th>
+                      <th>Responsavel</th>
+                      <th>CPF responsavel</th>
+                      <th>Criancas</th>
+                      <th>Pedidos loja</th>
+                      <th>Outros dados</th>
+                      <th>Data</th>
                     </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {% for item in inscritos_detalhes %}
+                      <tr>
+                        <td><input type="checkbox" name="inscricao_ids[]" value="{{ item.id }}" class="js-inscricao-select" /></td>
+                        <td>{{ item.codigo }}</td>
+                        <td>{{ item.responsavel }}</td>
+                        <td>{{ item.cpf_responsavel }}</td>
+                        <td>{{ item.criancas }}</td>
+                        <td>{{ item.pedidos_loja }}</td>
+                        <td>
+                          <div>{{ item.dados_resumo }}</div>
+                          {% if item.dados_json %}
+                            <details>
+                              <summary>Ver tudo</summary>
+                              <pre style="white-space:pre-wrap;">{{ item.dados_json }}</pre>
+                            </details>
+                          {% endif %}
+                        </td>
+                        <td>{{ item.data_inscricao|date:"d/m/Y H:i" }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              <div class="action-row" style="margin-top:0.75rem;">
+                <button type="submit" class="secondary">Excluir selecionadas</button>
+              </div>
+            </form>
           {% else %}
             <p class="panel-note">Sem inscritos ainda.</p>
           {% endif %}
@@ -1000,14 +1009,6 @@
         </div>
         <div class="action-row">
           <button type="submit" class="primary">Salvar inscrição</button>
-          {% if is_public_page and inscricao %}
-            <form method="post" id="event-delete-registration-form" style="margin:0;">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="delete_registration" />
-              <input type="hidden" name="delete_password" id="event-delete-password" value="" />
-              <button type="submit" class="secondary" id="event-delete-registration-btn">Excluir inscricao</button>
-            </form>
-          {% endif %}
         </div>
       </form>
     </section>
@@ -1157,8 +1158,8 @@
       const guestEmailInput = document.getElementById('event-guest-email');
       const guestPhoneInput = document.getElementById('event-guest-phone');
       const registerForm = document.getElementById('event-register-form');
-      const deleteRegistrationForm = document.getElementById('event-delete-registration-form');
-      const deletePasswordInput = document.getElementById('event-delete-password');
+      const deleteSelectedInscricoesForm = document.getElementById('event-delete-selected-inscricoes-form');
+      const inscritosSelectAll = document.getElementById('event-inscritos-select-all');
       const statusUrlTemplate = "{% url 'accounts:loja_pedido_status' 0 %}";
       let lastPedidoId = Number(pixPedidoId ? pixPedidoId.textContent : 0) || 0;
 
@@ -1618,24 +1619,50 @@
         }
       });
 
-      if (deleteRegistrationForm && deletePasswordInput) {
-        deleteRegistrationForm.addEventListener('submit', (event) => {
-          const provided = window.prompt('Digite a senha para excluir a inscricao:');
-          if (provided === null) {
-            event.preventDefault();
+      if (deleteSelectedInscricoesForm) {
+        const getInscricaoCheckboxes = () => Array.from(
+          deleteSelectedInscricoesForm.querySelectorAll('input[name="inscricao_ids[]"]')
+        );
+        const syncSelectAllState = () => {
+          if (!inscritosSelectAll) return;
+          const checkboxes = getInscricaoCheckboxes();
+          if (!checkboxes.length) {
+            inscritosSelectAll.checked = false;
+            inscritosSelectAll.indeterminate = false;
             return;
           }
-          const normalized = String(provided || '').trim();
-          if (normalized !== '1580') {
+          const checkedCount = checkboxes.filter((box) => box.checked).length;
+          inscritosSelectAll.checked = checkedCount > 0 && checkedCount === checkboxes.length;
+          inscritosSelectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+        };
+
+        if (inscritosSelectAll) {
+          inscritosSelectAll.addEventListener('change', () => {
+            const checkboxes = getInscricaoCheckboxes();
+            checkboxes.forEach((box) => {
+              box.checked = inscritosSelectAll.checked;
+            });
+            syncSelectAllState();
+          });
+        }
+
+        deleteSelectedInscricoesForm.addEventListener('change', (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLInputElement)) return;
+          if (target.name !== 'inscricao_ids[]') return;
+          syncSelectAllState();
+        });
+
+        deleteSelectedInscricoesForm.addEventListener('submit', (event) => {
+          const selected = getInscricaoCheckboxes().filter((box) => box.checked);
+          if (!selected.length) {
             event.preventDefault();
-            window.alert('Senha incorreta.');
+            window.alert('Selecione ao menos uma inscricao para excluir.');
             return;
           }
-          if (!window.confirm('Confirma excluir a inscricao deste evento?')) {
+          if (!window.confirm('Confirma excluir ' + selected.length + ' inscricao(oes) selecionada(s)?')) {
             event.preventDefault();
-            return;
           }
-          deletePasswordInput.value = normalized;
         });
       }
 
