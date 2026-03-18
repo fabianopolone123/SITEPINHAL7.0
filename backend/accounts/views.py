@@ -3895,7 +3895,7 @@ class EventoPublicoView(View):
                 break
         return ' | '.join(parts) if parts else '-'
 
-    def _context(self, request, evento):
+    def _context(self, request, evento, show_register_summary=False):
         schema = self._event_schema(evento)
         inscricao = None
         if request.user.is_authenticated:
@@ -3913,6 +3913,37 @@ class EventoPublicoView(View):
                     .filter(pk=inscricao_id, evento=evento, user__isnull=True)
                     .first()
                 )
+        register_summary_items = []
+        register_summary_code = ''
+        register_summary_buy_label = 'Nao'
+        if show_register_summary and inscricao:
+            dados_obj = inscricao.dados if isinstance(inscricao.dados, dict) else {}
+            used_keys = set()
+            for field in schema:
+                label = str(field.get('name') or '').strip()
+                if not label:
+                    continue
+                value = str(dados_obj.get(label) or '').strip()
+                used_keys.add(label)
+                if not value:
+                    continue
+                register_summary_items.append({
+                    'label': label,
+                    'value': value,
+                })
+            for key, raw_value in dados_obj.items():
+                label = str(key or '').strip()
+                if not label or label in used_keys:
+                    continue
+                value = str(raw_value or '').strip()
+                if not value:
+                    continue
+                register_summary_items.append({
+                    'label': label,
+                    'value': value,
+                })
+            register_summary_code = str(inscricao.codigo_inscricao or '').strip()
+            register_summary_buy_label = 'Sim' if bool(inscricao.quer_comprar_itens) else 'Nao'
         produtos = self._produto_rows_evento(evento)
         can_manage_evento = bool(request.user.is_authenticated and _has_menu_permission(request, 'eventos'))
         inscricoes_count = 0
@@ -4012,6 +4043,10 @@ class EventoPublicoView(View):
             'inscricao': inscricao,
             'inscricao_dados': (inscricao.dados or {}) if inscricao else {},
             'inscricao_codigo': (inscricao.codigo_inscricao if inscricao else ''),
+            'show_register_summary': bool(show_register_summary and inscricao),
+            'register_summary_items': register_summary_items,
+            'register_summary_code': register_summary_code,
+            'register_summary_buy_label': register_summary_buy_label,
             'produtos': produtos,
             'has_produtos': bool(produtos),
             'can_buy': bool(inscricao and produtos),
@@ -4126,6 +4161,7 @@ class EventoPublicoView(View):
             dados[field['name']] = value
 
         quer_comprar_itens = bool(request.POST.get('quer_comprar_itens'))
+        inscricao_salva = None
         if request.user.is_authenticated:
             responsavel = LojaView()._ensure_loja_responsavel(request.user, create=False)
             existing = (
@@ -4138,11 +4174,12 @@ class EventoPublicoView(View):
                 existing.dados = dados
                 existing.quer_comprar_itens = quer_comprar_itens
                 existing.save(update_fields=['responsavel', 'dados', 'quer_comprar_itens', 'updated_at'])
+                inscricao_salva = existing
             else:
                 created = False
                 for _attempt in range(10):
                     try:
-                        EventoInscricao.objects.create(
+                        inscricao_salva = EventoInscricao.objects.create(
                             evento=evento,
                             user=request.user,
                             responsavel=responsavel,
@@ -4170,6 +4207,7 @@ class EventoPublicoView(View):
                 inscricao_obj.dados = dados
                 inscricao_obj.quer_comprar_itens = quer_comprar_itens
                 inscricao_obj.save(update_fields=['dados', 'quer_comprar_itens', 'updated_at'])
+                inscricao_salva = inscricao_obj
             else:
                 inscricao_obj = None
                 for _attempt in range(10):
@@ -4188,8 +4226,13 @@ class EventoPublicoView(View):
                     messages.error(request, 'Não foi possível gerar código único da inscrição. Tente novamente.')
                     return render(request, self.template_name, self._context(request, evento))
                 request.session[session_key] = inscricao_obj.pk
+                inscricao_salva = inscricao_obj
         messages.success(request, 'Inscrição do evento salva com sucesso.')
-        return render(request, self.template_name, self._context(request, evento))
+        return render(
+            request,
+            self.template_name,
+            self._context(request, evento, show_register_summary=bool(inscricao_salva)),
+        )
 
 
 class EventoPedidoCreatePixApiView(View):

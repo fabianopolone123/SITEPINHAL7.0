@@ -443,6 +443,28 @@
       gap: 0.5rem;
       margin-bottom: 0.8rem;
     }
+    .event-register-summary-list {
+      display: grid;
+      gap: 0.45rem;
+      margin-top: 0.8rem;
+    }
+    .event-register-summary-item {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fff;
+      padding: 0.55rem 0.65rem;
+      display: grid;
+      gap: 0.18rem;
+    }
+    .event-register-summary-item strong {
+      color: #0f172a;
+      font-size: 0.86rem;
+    }
+    .event-register-summary-item span {
+      color: #475569;
+      font-size: 0.84rem;
+      word-break: break-word;
+    }
     @media (max-width: 768px) {
       .event-product-media {
         min-height: 185px;
@@ -515,6 +537,37 @@
         {% endfor %}
       </div>
     </section>
+
+    {% if show_register_summary %}
+      <div class="modal event-report-modal" id="event-register-summary-modal" aria-hidden="true" data-autoshow="1">
+        <div class="modal-content">
+          <header>
+            <h3>Cadastro enviado - {{ evento.name }}</h3>
+            <button type="button" id="close-event-register-summary" aria-label="Fechar">X</button>
+          </header>
+          <section class="field-section">
+            <p><strong>Código da inscrição:</strong> {{ register_summary_code|default:"-" }}</p>
+            <p><strong>Solicitou compra de itens/alimentos:</strong> {{ register_summary_buy_label }}</p>
+            <p class="panel-note">Anote seu código para facilitar o atendimento no evento.</p>
+          </section>
+          <section class="field-section">
+            <h4>Dados enviados no cadastro</h4>
+            {% if register_summary_items %}
+              <div class="event-register-summary-list">
+                {% for item in register_summary_items %}
+                  <div class="event-register-summary-item">
+                    <strong>{{ item.label }}</strong>
+                    <span>{{ item.value }}</span>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="panel-note">Nenhum dado adicional foi informado.</p>
+            {% endif %}
+          </section>
+        </div>
+      </div>
+    {% endif %}
 
     {% if can_manage_evento %}
       <section class="painel-card event-step">
@@ -927,6 +980,8 @@
       const costsModal = document.getElementById('event-costs-modal');
       const openCostsBtn = document.getElementById('open-event-costs');
       const closeCostsBtn = document.getElementById('close-event-costs');
+      const registerSummaryModal = document.getElementById('event-register-summary-modal');
+      const closeRegisterSummaryBtn = document.getElementById('close-event-register-summary');
       const togglePublicForm = document.getElementById('toggle-public-form');
       const guestNameInput = document.getElementById('event-guest-name');
       const guestEmailInput = document.getElementById('event-guest-email');
@@ -1200,6 +1255,19 @@
         });
       }
 
+      if (closeRegisterSummaryBtn && registerSummaryModal) {
+        closeRegisterSummaryBtn.addEventListener('click', () => {
+          closeModal(registerSummaryModal);
+        });
+      }
+      if (registerSummaryModal) {
+        registerSummaryModal.addEventListener('click', (event) => {
+          if (event.target === registerSummaryModal) {
+            closeModal(registerSummaryModal);
+          }
+        });
+      }
+
       if (openInscritosBtn && inscritosModal) {
         openInscritosBtn.addEventListener('click', () => {
           openModal(inscritosModal);
@@ -1232,6 +1300,10 @@
           closeModal(costsModal);
           return;
         }
+        if (registerSummaryModal && registerSummaryModal.getAttribute('aria-hidden') === 'false') {
+          closeModal(registerSummaryModal);
+          return;
+        }
         if (inscritosModal && inscritosModal.getAttribute('aria-hidden') === 'false') {
           closeModal(inscritosModal);
         }
@@ -1247,6 +1319,10 @@
             event.preventDefault();
           }
         });
+      }
+
+      if (registerSummaryModal && registerSummaryModal.getAttribute('data-autoshow') === '1') {
+        openModal(registerSummaryModal);
       }
 
       renderCart();
