@@ -3325,6 +3325,13 @@ class EventosView(LoginRequiredMixin, View):
                 if ':' in raw_text:
                     label_part, type_part = raw_text.split(':', 1)
                 field_name = str(label_part or '').strip()
+                field_required = True
+                if field_name.endswith('?'):
+                    field_required = False
+                    field_name = str(field_name[:-1] or '').strip()
+                elif field_name.endswith('*'):
+                    field_required = True
+                    field_name = str(field_name[:-1] or '').strip()
                 if not field_name:
                     return None, (
                         f'No campo repetidor "{parent_label}", todos os subcampos precisam de nome.'
@@ -3359,6 +3366,7 @@ class EventosView(LoginRequiredMixin, View):
                     'name': field_name,
                     'type': field_type,
                     'options': options,
+                    'required': bool(field_required),
                 }, ''
 
             def _repeat_descriptor_to_text(descriptor):
@@ -3367,13 +3375,15 @@ class EventosView(LoginRequiredMixin, View):
                 name = str(descriptor.get('name') or '').strip()
                 if not name:
                     return ''
+                is_required = bool(descriptor.get('required', True))
+                name_token = name if is_required else f'{name}?'
                 field_type = str(descriptor.get('type') or 'texto').strip().lower() or 'texto'
                 options = [str(item or '').strip() for item in (descriptor.get('options') or []) if str(item or '').strip()]
                 if field_type == 'texto' and not options:
-                    return name
+                    return name_token
                 if field_type == 'seletor':
-                    return f'{name}:seletor({"|".join(options)})'
-                return f'{name}:{field_type}'
+                    return f'{name_token}:seletor({"|".join(options)})'
+                return f'{name_token}:{field_type}'
 
             for index, label in enumerate(labels):
                 current_label = (label or '').strip()
@@ -3930,7 +3940,7 @@ class EventoPublicoView(View):
         rows = []
         seen = set()
 
-        def _append_descriptor(name, field_type='texto', options=None):
+        def _append_descriptor(name, field_type='texto', options=None, required=True):
             label = str(name or '').strip()
             if not label:
                 return
@@ -3952,6 +3962,7 @@ class EventoPublicoView(View):
                 'name': label,
                 'type': normalized_type,
                 'options': normalized_options,
+                'required': bool(required),
             })
 
         raw_schema = field_obj.get('repeat_fields_data')
@@ -3963,6 +3974,7 @@ class EventoPublicoView(View):
                     item.get('name') or item.get('label'),
                     item.get('type') or 'texto',
                     item.get('options') or [],
+                    item.get('required', True),
                 )
             if rows:
                 return rows[:8]
@@ -3980,6 +3992,13 @@ class EventoPublicoView(View):
             if ':' in raw_text:
                 label_part, type_part = raw_text.split(':', 1)
             label = str(label_part or '').strip()
+            descriptor_required = True
+            if label.endswith('?'):
+                descriptor_required = False
+                label = str(label[:-1] or '').strip()
+            elif label.endswith('*'):
+                descriptor_required = True
+                label = str(label[:-1] or '').strip()
             if not label:
                 continue
             descriptor_type = 'texto'
@@ -3991,7 +4010,7 @@ class EventoPublicoView(View):
                     raw_options = str(parsed.group(2) or '').strip()
                     if descriptor_type == 'seletor':
                         descriptor_options = self._split_repeat_selector_options(raw_options)
-            _append_descriptor(label, descriptor_type, descriptor_options)
+            _append_descriptor(label, descriptor_type, descriptor_options, descriptor_required)
         return rows[:8]
 
     def _repeat_fields_from_field(self, field):
@@ -4554,6 +4573,7 @@ class EventoPublicoView(View):
                 repeat_fields = []
                 repeat_type_map = {}
                 repeat_options_map = {}
+                repeat_required_map = {}
                 for row in repeat_schema_rows:
                     if not isinstance(row, dict):
                         continue
@@ -4568,6 +4588,7 @@ class EventoPublicoView(View):
                         for item in (row.get('options') or [])
                         if str(item or '').strip()
                     ]
+                    repeat_required_map[key] = bool(row.get('required', True))
                 raw_value = str(request.POST.get(field['input_name']) or '').strip()
                 repeat_rows = []
                 if raw_value:
@@ -4605,11 +4626,14 @@ class EventoPublicoView(View):
                                 )
                                 return render(request, self.template_name, self._context(request, evento))
                         if row_has_value:
-                            missing_keys = [key for key, value in row_obj.items() if not str(value or '').strip()]
-                            if missing_keys:
+                            missing_required_keys = [
+                                key for key, value in row_obj.items()
+                                if bool(repeat_required_map.get(key, True)) and not str(value or '').strip()
+                            ]
+                            if missing_required_keys:
                                 messages.error(
                                     request,
-                                    f'Preencha todos os subcampos do campo "{field["name"]}" antes de salvar.',
+                                    f'Preencha os subcampos obrigatorios do campo "{field["name"]}" antes de salvar.',
                                 )
                                 return render(request, self.template_name, self._context(request, evento))
                             repeat_rows.append(row_obj)

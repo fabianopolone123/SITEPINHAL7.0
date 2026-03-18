@@ -138,7 +138,7 @@
     }
     .repeat-builder-row {
       display: grid;
-      grid-template-columns: minmax(180px, 1fr) minmax(140px, 180px) minmax(220px, 1fr) minmax(88px, 110px) minmax(88px, 110px) auto;
+      grid-template-columns: minmax(180px, 1fr) minmax(130px, 170px) minmax(130px, 170px) minmax(220px, 1fr) minmax(88px, 110px) minmax(88px, 110px) auto;
       gap: 0.5rem;
       align-items: center;
     }
@@ -684,7 +684,7 @@
         <button type="button" id="close-repeat-builder-modal" aria-label="Fechar">×</button>
       </header>
       <section class="field-section">
-        <p class="panel-note">Preencha nome e tipo. Para seletor, use opcoes (P|M|G) ou faixa numerica de/ate.</p>
+        <p class="panel-note">Preencha nome, se e obrigatorio e o tipo. Para seletor, use opcoes (P|M|G) ou faixa numerica de/ate.</p>
         <div id="repeat-builder-rows" class="repeat-builder-rows"></div>
         <div class="action-row" style="margin-top:0.75rem;">
           <button type="button" class="secondary" id="add-repeat-builder-row">+ Subcampo</button>
@@ -816,6 +816,15 @@
             typeToken = String(parts[1] || '').trim();
           }
           if (!label) return;
+          let fieldRequired = true;
+          if (label.endsWith('?')) {
+            fieldRequired = false;
+            label = String(label.slice(0, -1) || '').trim();
+          } else if (label.endsWith('*')) {
+            fieldRequired = true;
+            label = String(label.slice(0, -1) || '').trim();
+          }
+          if (!label) return;
           let fieldType = 'texto';
           let options = [];
           if (typeToken) {
@@ -835,6 +844,7 @@
             name: label,
             type: fieldType,
             options: options,
+            required: fieldRequired,
           });
         });
         return rows;
@@ -845,19 +855,21 @@
         rows.forEach((row) => {
           const name = String((row && row.name) || '').trim();
           if (!name) return;
+          const isRequired = row && row.required !== false;
+          const nameToken = isRequired ? name : (name + '?');
           const fieldType = String((row && row.type) || 'texto').trim().toLowerCase() || 'texto';
           const options = Array.isArray(row && row.options)
             ? row.options.map((item) => String(item || '').trim()).filter((item) => item)
             : [];
           if (fieldType === 'texto') {
-            output.push(name);
+            output.push(nameToken);
             return;
           }
           if (fieldType === 'seletor') {
-            output.push(name + ':seletor(' + options.join('|') + ')');
+            output.push(nameToken + ':seletor(' + options.join('|') + ')');
             return;
           }
-          output.push(name + ':' + fieldType);
+          output.push(nameToken + ':' + fieldType);
         });
         return output.join('; ');
       };
@@ -874,11 +886,15 @@
         rangeEndInput.classList.toggle('repeat-range-hidden', !isSelector);
       };
 
-      const createRepeatBuilderRow = (nameValue, typeValue, optionsValue, rangeStartValue, rangeEndValue) => {
+      const createRepeatBuilderRow = (nameValue, requiredValue, typeValue, optionsValue, rangeStartValue, rangeEndValue) => {
         const row = document.createElement('div');
         row.className = 'repeat-builder-row';
         row.innerHTML = '' +
           '<input type="text" class="js-repeat-builder-name" placeholder="Nome do subcampo (ex.: Nome da crianca)" />' +
+          '<select class="js-repeat-builder-required">' +
+            '<option value="1">Obrigatorio</option>' +
+            '<option value="0">Opcional</option>' +
+          '</select>' +
           '<select class="js-repeat-builder-type">' +
             '<option value="texto">Texto</option>' +
             '<option value="numero">Numero</option>' +
@@ -892,11 +908,13 @@
           '<input type="number" class="js-repeat-builder-range-end" placeholder="Ate" />' +
           '<button type="button" class="secondary js-remove-repeat-builder-row">Remover</button>';
         const nameInput = row.querySelector('.js-repeat-builder-name');
+        const requiredSelect = row.querySelector('.js-repeat-builder-required');
         const typeSelect = row.querySelector('.js-repeat-builder-type');
         const optionsInput = row.querySelector('.js-repeat-builder-options');
         const rangeStartInput = row.querySelector('.js-repeat-builder-range-start');
         const rangeEndInput = row.querySelector('.js-repeat-builder-range-end');
         if (nameInput) nameInput.value = String(nameValue || '');
+        if (requiredSelect) requiredSelect.value = String(requiredValue === false ? '0' : '1');
         if (typeSelect) typeSelect.value = repeatTypeOptions.includes(String(typeValue || '').toLowerCase()) ? String(typeValue || '').toLowerCase() : 'texto';
         if (optionsInput) optionsInput.value = String(optionsValue || '');
         if (rangeStartInput) rangeStartInput.value = String(rangeStartValue ?? '');
@@ -916,7 +934,7 @@
         repeatBuilderRows.innerHTML = '';
         const parsedRows = parseRepeatFieldsText(repeatInput.value || '');
         if (!parsedRows.length) {
-          repeatBuilderRows.appendChild(createRepeatBuilderRow('', 'texto', '', '', ''));
+          repeatBuilderRows.appendChild(createRepeatBuilderRow('', true, 'texto', '', '', ''));
         } else {
           parsedRows.forEach((item) => {
             const range = detectSelectorNumericRange(item.options || []);
@@ -924,6 +942,7 @@
             repeatBuilderRows.appendChild(
               createRepeatBuilderRow(
                 item.name || '',
+                item.required !== false,
                 item.type || 'texto',
                 optionsText,
                 range ? range.start : '',
@@ -1084,7 +1103,7 @@
 
       if (addRepeatBuilderRowBtn && repeatBuilderRows) {
         addRepeatBuilderRowBtn.addEventListener('click', () => {
-          repeatBuilderRows.appendChild(createRepeatBuilderRow('', 'texto', '', '', ''));
+          repeatBuilderRows.appendChild(createRepeatBuilderRow('', true, 'texto', '', '', ''));
         });
       }
       if (closeRepeatBuilderBtn) {
@@ -1110,12 +1129,14 @@
           const payload = [];
           for (const row of rows) {
             const nameInput = row.querySelector('.js-repeat-builder-name');
+            const requiredSelect = row.querySelector('.js-repeat-builder-required');
             const typeSelect = row.querySelector('.js-repeat-builder-type');
             const optionsInput = row.querySelector('.js-repeat-builder-options');
             const rangeStartInput = row.querySelector('.js-repeat-builder-range-start');
             const rangeEndInput = row.querySelector('.js-repeat-builder-range-end');
             const name = String(nameInput ? nameInput.value : '').trim();
             if (!name) continue;
+            const isRequired = String(requiredSelect ? requiredSelect.value : '1').trim() !== '0';
             const fieldType = String(typeSelect ? typeSelect.value : 'texto').trim().toLowerCase() || 'texto';
             let options = parseSelectorOptionsText(optionsInput ? optionsInput.value : '');
             if (fieldType === 'seletor') {
@@ -1169,6 +1190,7 @@
             }
             payload.push({
               name: name,
+              required: isRequired,
               type: fieldType,
               options: options,
             });

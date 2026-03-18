@@ -1179,17 +1179,19 @@
       };
 
       const parseRepeatSchema = (fieldWrap) => {
-        const normalize = (name, type, options) => {
+        const normalize = (name, type, options, required) => {
           const label = String(name || '').trim();
           if (!label) return null;
           const normalizedType = String(type || 'texto').trim().toLowerCase() || 'texto';
           const normalizedOptions = Array.isArray(options)
             ? options.map((item) => String(item || '').trim()).filter((item) => item)
             : [];
+          const normalizedRequired = required === false ? false : true;
           return {
             name: label,
             type: normalizedType,
             options: normalizedType === 'seletor' ? normalizedOptions : [],
+            required: normalizedRequired,
           };
         };
 
@@ -1201,7 +1203,7 @@
               const rows = parsed
                 .map((item) => {
                   if (!item || typeof item !== 'object') return null;
-                  return normalize(item.name, item.type, item.options);
+                  return normalize(item.name, item.type, item.options, item.required);
                 })
                 .filter((item) => item);
               if (rows.length) return rows;
@@ -1216,7 +1218,7 @@
                 const rows = parsedAgain
                   .map((item) => {
                     if (!item || typeof item !== 'object') return null;
-                    return normalize(item.name, item.type, item.options);
+                    return normalize(item.name, item.type, item.options, item.required);
                   })
                   .filter((item) => item);
                 if (rows.length) return rows;
@@ -1229,7 +1231,7 @@
 
         return String(fieldWrap.getAttribute('data-repeat-fields') || '')
           .split('||')
-          .map((item) => normalize(item, 'texto', []))
+          .map((item) => normalize(item, 'texto', [], true))
           .filter((item) => item);
       };
 
@@ -1244,8 +1246,9 @@
           const label = String(fieldDef.name || '').trim();
           const fieldType = String(fieldDef.type || 'texto').trim().toLowerCase() || 'texto';
           const fieldOptions = Array.isArray(fieldDef.options) ? fieldDef.options : [];
+          const fieldRequired = fieldDef.required !== false;
           const labelNode = document.createElement('label');
-          labelNode.textContent = label;
+          labelNode.textContent = fieldRequired ? (label + ' *') : label;
           let input = null;
 
           if (fieldType === 'seletor') {
@@ -1293,6 +1296,7 @@
           labelNode.appendChild(input);
           input.setAttribute('data-repeat-key', label);
           input.setAttribute('data-repeat-type', fieldType);
+          input.setAttribute('data-repeat-required-key', fieldRequired ? '1' : '0');
           grid.appendChild(labelNode);
         });
 
@@ -1380,14 +1384,16 @@
             const clickRequired = fieldWrap.getAttribute('data-repeat-click-required') === '1';
             const rows = Array.from(fieldWrap.querySelectorAll('.event-repeat-item'));
             for (const row of rows) {
-              const values = Array.from(row.querySelectorAll('[data-repeat-key]')).map((input) => String(input.value || '').trim());
-              const hasAny = values.some((value) => value);
-              const hasEmpty = values.some((value) => !value);
-              if (hasAny && hasEmpty) {
+              const rowInputs = Array.from(row.querySelectorAll('[data-repeat-key]'));
+              const hasAny = rowInputs.some((input) => String(input.value || '').trim());
+              const missingRequired = rowInputs.filter((input) => {
+                const isRequired = input.getAttribute('data-repeat-required-key') === '1';
+                return isRequired && !String(input.value || '').trim();
+              });
+              if (hasAny && missingRequired.length) {
                 event.preventDefault();
-                window.alert('Preencha todos os subcampos de cada item antes de salvar.');
-                const firstEmpty = row.querySelector('[data-repeat-key]');
-                if (firstEmpty) firstEmpty.focus();
+                window.alert('Preencha os subcampos obrigatorios de cada item antes de salvar.');
+                missingRequired[0].focus();
                 return;
               }
             }
