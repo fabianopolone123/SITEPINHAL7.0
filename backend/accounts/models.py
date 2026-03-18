@@ -1,7 +1,8 @@
-﻿from django.db import models
+from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from decimal import Decimal
+import random
 
 User = get_user_model()
 
@@ -542,10 +543,9 @@ class EventoInscricao(models.Model):
             )
             if str(code or '').strip()
         )
-        for number in range(1000):
-            code = f'{number:03d}'
-            if code not in used:
-                return code
+        available = [f'{number:03d}' for number in range(1000) if f'{number:03d}' not in used]
+        if available:
+            return random.SystemRandom().choice(available)
         raise ValueError('Limite de códigos de inscrição (000-999) atingido para este evento.')
 
     def save(self, *args, **kwargs):
