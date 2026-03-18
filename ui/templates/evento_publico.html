@@ -30,11 +30,12 @@
       grid-template-rows: auto 1fr;
     }
     .event-product-media {
-      aspect-ratio: 4 / 3;
+      height: 220px;
       background: linear-gradient(180deg, #f8fafc, #f1f5f9);
       display: grid;
       place-items: center;
       border-bottom: 1px solid #e2e8f0;
+      overflow: hidden;
     }
     .event-product-card img {
       width: 100%;
@@ -42,6 +43,8 @@
       object-fit: contain;
       display: block;
       background: #fff;
+      max-width: 100%;
+      max-height: 100%;
     }
     .event-product-no-image {
       color: #64748b;
@@ -387,6 +390,9 @@
       min-width: 860px;
     }
     @media (max-width: 768px) {
+      .event-product-media {
+        height: 185px;
+      }
       .event-product-buy {
         grid-template-columns: 1fr;
       }
@@ -444,7 +450,7 @@
         {% for message in messages %}
           <p data-state="{{ message.tags }}">{{ message }}</p>
         {% empty %}
-          <p data-state="info">Preencha a inscriÃƒÂ§ÃƒÂ£o do evento.</p>
+          <p data-state="info">Preencha a inscrição do evento.</p>
         {% endfor %}
       </div>
     </section>
@@ -599,14 +605,14 @@
 
     <div class="event-main-grid">
     <section class="painel-card event-step">
-      <h3>Passo 1: InscriÃƒÂ§ÃƒÂ£o</h3>
+      <h3>Passo 1: Inscrição</h3>
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="register_event" />
         <div class="field-section">
           <label>
-            CÃƒÂ³digo ÃƒÂºnico da inscriÃƒÂ§ÃƒÂ£o (3 dÃƒÂ­gitos)
-            <input type="text" value="{% if inscricao_codigo %}{{ inscricao_codigo }}{% else %}SerÃƒÂ¡ gerado ao salvar{% endif %}" readonly />
+            Código único da inscrição (3 dígitos)
+            <input type="text" value="{% if inscricao_codigo %}{{ inscricao_codigo }}{% else %}Será gerado ao salvar{% endif %}" readonly />
           </label>
           {% for field in schema %}
             <label>
@@ -621,24 +627,24 @@
                 <select name="{{ field.input_name }}" {% if field.required %}required{% endif %}>
                   <option value="">-- selecione --</option>
                   <option value="sim">Sim</option>
-                  <option value="nao">NÃƒÂ£o</option>
+                  <option value="nao">Não</option>
                 </select>
               {% else %}
                 <input type="text" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
               {% endif %}
             </label>
           {% empty %}
-            <p class="panel-note">Este evento nÃƒÂ£o exige campos extras de inscriÃƒÂ§ÃƒÂ£o.</p>
+            <p class="panel-note">Este evento não exige campos extras de inscrição.</p>
           {% endfor %}
           {% if has_produtos %}
             <label>
               <input type="checkbox" name="quer_comprar_itens" value="1" {% if inscricao and inscricao.quer_comprar_itens %}checked{% endif %} />
-              Quero comprar itens deste evento apÃƒÂ³s a inscriÃƒÂ§ÃƒÂ£o.
+              Quero comprar itens deste evento após a inscrição.
             </label>
           {% endif %}
         </div>
         <div class="action-row">
-          <button type="submit" class="primary">Salvar inscriÃƒÂ§ÃƒÂ£o</button>
+          <button type="submit" class="primary">Salvar inscrição</button>
         </div>
       </form>
     </section>
@@ -648,10 +654,10 @@
       {% if not inscricao %}
         <p class="panel-note">Finalize o passo 1 para liberar a compra de itens.</p>
       {% elif not has_produtos %}
-        <p class="panel-note">Este evento nÃƒÂ£o possui itens para venda.</p>
+        <p class="panel-note">Este evento não possui itens para venda.</p>
       {% else %}
         {% if not is_authenticated %}
-          <p class="panel-note">Compra liberada sem login porque este evento estÃƒÂ¡ pÃƒÂºblico.</p>
+          <p class="panel-note">Compra liberada sem login porque este evento está público.</p>
         {% endif %}
         <div class="event-cart-toolbar">
           <button type="button" class="event-cart-open-btn" id="event-open-cart">
@@ -674,7 +680,7 @@
                 <h4 class="event-product-title">{{ row.produto.titulo }}</h4>
                 <p class="event-product-desc">{{ row.produto.descricao|default:"Produto do evento." }}</p>
                 <label class="event-product-field">
-                  <span>VariaÃ§Ã£o</span>
+                  <span>Variação</span>
                   <select data-variation-select>
                     {% for v in row.variacoes %}
                       <option value="{{ v.id }}" data-price="{{ v.valor }}">{{ v.nome }} - R$ {{ v.valor }}</option>
@@ -744,7 +750,7 @@
         {% endif %}
       </div>
       <label>
-        CÃƒÂ³digo Pix
+        Código Pix
         <textarea id="event-pix-code" rows="4" readonly>{% if pedido_modal %}{{ pedido_modal.pix_code }}{% endif %}</textarea>
       </label>
       <div class="action-row">
@@ -953,7 +959,7 @@
             });
             const data = await response.json();
             if (!response.ok || !data.ok) {
-              window.alert((data && data.message) || 'NÃƒÂ£o foi possÃƒÂ­vel gerar o Pix.');
+              window.alert((data && data.message) || 'Não foi possível gerar o Pix.');
               return;
             }
             const pedido = data.pedido || {};
@@ -975,7 +981,7 @@
             renderCart();
             closeCartDrawer();
           } catch (error) {
-            window.alert('Erro de conexÃƒÂ£o ao gerar Pix.');
+            window.alert('Erro de conexão ao gerar Pix.');
           } finally {
             generatePixBtn.disabled = false;
             renderCart();
@@ -994,7 +1000,7 @@
             const response = await fetch(statusUrl, { method: 'GET' });
             const data = await response.json();
             if (!response.ok || !data.ok) {
-              window.alert('NÃƒÂ£o foi possÃƒÂ­vel consultar o status.');
+              window.alert('Não foi possível consultar o status.');
               return;
             }
             if (pixStatus) pixStatus.textContent = String(data.status_label || '');
