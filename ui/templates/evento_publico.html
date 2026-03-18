@@ -1000,6 +1000,14 @@
         </div>
         <div class="action-row">
           <button type="submit" class="primary">Salvar inscrição</button>
+          {% if is_public_page and inscricao %}
+            <form method="post" id="event-delete-registration-form" style="margin:0;">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="delete_registration" />
+              <input type="hidden" name="delete_password" id="event-delete-password" value="" />
+              <button type="submit" class="secondary" id="event-delete-registration-btn">Excluir inscricao</button>
+            </form>
+          {% endif %}
         </div>
       </form>
     </section>
@@ -1149,6 +1157,8 @@
       const guestEmailInput = document.getElementById('event-guest-email');
       const guestPhoneInput = document.getElementById('event-guest-phone');
       const registerForm = document.getElementById('event-register-form');
+      const deleteRegistrationForm = document.getElementById('event-delete-registration-form');
+      const deletePasswordInput = document.getElementById('event-delete-password');
       const statusUrlTemplate = "{% url 'accounts:loja_pedido_status' 0 %}";
       let lastPedidoId = Number(pixPedidoId ? pixPedidoId.textContent : 0) || 0;
 
@@ -1607,6 +1617,27 @@
           closeModal(inscritosModal);
         }
       });
+
+      if (deleteRegistrationForm && deletePasswordInput) {
+        deleteRegistrationForm.addEventListener('submit', (event) => {
+          const provided = window.prompt('Digite a senha para excluir a inscricao:');
+          if (provided === null) {
+            event.preventDefault();
+            return;
+          }
+          const normalized = String(provided || '').trim();
+          if (normalized !== '1580') {
+            event.preventDefault();
+            window.alert('Senha incorreta.');
+            return;
+          }
+          if (!window.confirm('Confirma excluir a inscricao deste evento?')) {
+            event.preventDefault();
+            return;
+          }
+          deletePasswordInput.value = normalized;
+        });
+      }
 
       if (togglePublicForm) {
         togglePublicForm.addEventListener('submit', (event) => {

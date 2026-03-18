@@ -3732,6 +3732,7 @@ class EventosView(LoginRequiredMixin, View):
 
 class EventoPublicoView(View):
     template_name = 'evento_publico.html'
+    delete_inscricao_password = '1580'
 
     def _authenticated_profile_allowed(self, request):
         if not request.user.is_authenticated:
@@ -3748,6 +3749,24 @@ class EventoPublicoView(View):
         if bool(evento.inscricao_publica):
             return True
         return self._authenticated_profile_allowed(request)
+
+    def _current_inscricao(self, request, evento):
+        if request.user.is_authenticated:
+            return (
+                EventoInscricao.objects
+                .filter(evento=evento, user=request.user)
+                .order_by('-created_at')
+                .first()
+            )
+        session_key = _evento_public_inscricao_session_key(evento.id)
+        inscricao_id = request.session.get(session_key)
+        if not inscricao_id:
+            return None
+        return (
+            EventoInscricao.objects
+            .filter(pk=inscricao_id, evento=evento, user__isnull=True)
+            .first()
+        )
 
     def _format_currency(self, value):
         return LojaView()._format_currency(value)
@@ -4078,23 +4097,7 @@ class EventoPublicoView(View):
 
     def _context(self, request, evento, show_register_summary=False):
         schema = self._event_schema(evento)
-        inscricao = None
-        if request.user.is_authenticated:
-            inscricao = (
-                EventoInscricao.objects
-                .filter(evento=evento, user=request.user)
-                .order_by('-created_at')
-                .first()
-            )
-        else:
-            session_key = _evento_public_inscricao_session_key(evento.id)
-            inscricao_id = request.session.get(session_key)
-            if inscricao_id:
-                inscricao = (
-                    EventoInscricao.objects
-                    .filter(pk=inscricao_id, evento=evento, user__isnull=True)
-                    .first()
-                )
+        inscricao = self._current_inscricao(request, evento)
         register_summary_items = []
         register_summary_code = ''
         if show_register_summary and inscricao:
@@ -4324,6 +4327,31 @@ class EventoPublicoView(View):
                     logger.exception('Falha ao remover comprovante do custo id=%s.', custo.id)
             custo.delete()
             messages.success(request, 'Custo do evento removido com sucesso.')
+            return render(request, self.template_name, self._context(request, evento))
+
+        if action == 'delete_registration':
+            provided_password = str(request.POST.get('delete_password') or '').strip()
+            if provided_password != str(self.delete_inscricao_password):
+                messages.error(request, 'Senha incorreta para excluir a inscricao.')
+                return render(request, self.template_name, self._context(request, evento))
+
+            deleted_total = 0
+            if request.user.is_authenticated:
+                deleted_total, _ = EventoInscricao.objects.filter(evento=evento, user=request.user).delete()
+            else:
+                inscricao = self._current_inscricao(request, evento)
+                if inscricao:
+                    deleted_total, _ = EventoInscricao.objects.filter(
+                        pk=inscricao.pk,
+                        evento=evento,
+                        user__isnull=True,
+                    ).delete()
+                request.session.pop(_evento_public_inscricao_session_key(evento.id), None)
+
+            if deleted_total <= 0:
+                messages.error(request, 'Nenhuma inscricao encontrada para excluir.')
+            else:
+                messages.success(request, 'Inscricao excluida com sucesso.')
             return render(request, self.template_name, self._context(request, evento))
 
         if action != 'register_event':
