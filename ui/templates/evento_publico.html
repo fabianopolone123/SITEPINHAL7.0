@@ -967,7 +967,7 @@
                 data-repeat-field="{{ field.input_name }}"
                 data-repeat-required="{% if field.required or field.repeat_require_click %}1{% else %}0{% endif %}"
                 data-repeat-click-required="{% if field.repeat_require_click %}1{% else %}0{% endif %}"
-                data-repeat-schema="{{ field.repeat_fields_data_json|default:'[]'|escapejs }}"
+                data-repeat-schema='{{ field.repeat_fields_data_json|default:"[]"|escape }}'
                 data-repeat-fields="{% for item in field.repeat_fields %}{{ item|escapejs }}{% if not forloop.last %}||{% endif %}{% endfor %}"
               >
                 <div class="event-repeat-head">
@@ -1207,7 +1207,23 @@
               if (rows.length) return rows;
             }
           } catch (error) {
-            // fallback below
+            try {
+              const normalizedRaw = rawSchema
+                .replace(/\\"/g, '"')
+                .replace(/\\\\/g, '\\');
+              const parsedAgain = JSON.parse(normalizedRaw);
+              if (Array.isArray(parsedAgain)) {
+                const rows = parsedAgain
+                  .map((item) => {
+                    if (!item || typeof item !== 'object') return null;
+                    return normalize(item.name, item.type, item.options);
+                  })
+                  .filter((item) => item);
+                if (rows.length) return rows;
+              }
+            } catch (error2) {
+              // fallback below
+            }
           }
         }
 
