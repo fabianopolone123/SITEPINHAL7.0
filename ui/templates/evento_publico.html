@@ -517,6 +517,32 @@
       font-size: 0.84rem;
       word-break: break-word;
     }
+    .inscritos-kids-count {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      padding: 0.12rem 0.5rem;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: #334155;
+      background: #f8fafc;
+      margin-bottom: 0.35rem;
+    }
+    .inscritos-kids-list {
+      display: grid;
+      gap: 0.2rem;
+    }
+    .inscritos-kids-line {
+      font-size: 0.85rem;
+      line-height: 1.25;
+      color: #0f172a;
+      word-break: break-word;
+    }
+    .inscritos-kids-empty {
+      color: #64748b;
+      font-size: 0.84rem;
+    }
     .event-register-code-wrap {
       display: flex;
       align-items: center;
@@ -778,7 +804,18 @@
                         <td>{{ item.codigo }}</td>
                         <td>{{ item.responsavel }}</td>
                         <td>{{ item.cpf_responsavel }}</td>
-                        <td>{{ item.criancas }}</td>
+                        <td>
+                          {% if item.criancas_total > 0 %}
+                            <div class="inscritos-kids-count">{{ item.criancas_total }} criança(s)</div>
+                            <div class="inscritos-kids-list">
+                              {% for linha in item.criancas_linhas %}
+                                <div class="inscritos-kids-line">{{ linha.display }}</div>
+                              {% endfor %}
+                            </div>
+                          {% else %}
+                            <span class="inscritos-kids-empty">-</span>
+                          {% endif %}
+                        </td>
                         <td>{{ item.pedidos_loja }}</td>
                         <td>{{ item.valor_inscricao_fmt }}{% if item.valor_inscricao_unidades %} ({{ item.valor_inscricao_unidades }}x){% endif %}</td>
                         <td>

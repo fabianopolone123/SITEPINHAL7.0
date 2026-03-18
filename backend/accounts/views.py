@@ -4525,6 +4525,9 @@ class EventoPublicoView(View):
     def _is_criancas_key(self, norm_key):
         return self._key_has_like(norm_key, ['crianca', 'criancas', 'filho', 'filhos', 'filha', 'filhas'])
 
+    def _is_idade_key(self, norm_key):
+        return self._key_has_like(norm_key, ['idade', 'idades', 'ano', 'anos'])
+
     def _responsavel_label_from_inscricao(self, inscricao):
         responsavel = getattr(inscricao, 'responsavel', None)
         if responsavel:
@@ -4588,7 +4591,61 @@ class EventoPublicoView(View):
         candidates.sort(key=lambda item: item[0])
         return candidates[0][1]
 
-    def _criancas_label_from_inscricao(self, inscricao):
+    def _criancas_info_from_inscricao(self, inscricao, evento=None):
+        def _age_digits(raw_value):
+            text = str(raw_value or '').strip()
+            if not text:
+                return ''
+            match = re.search(r'\d{1,3}', text)
+            return match.group(0) if match else ''
+
+        def _append_row(rows, name, age):
+            nome = str(name or '').strip()
+            idade = str(age or '').strip()
+            if not nome and not idade:
+                return
+            if nome and idade:
+                display = f'{nome} ({idade} anos)'
+            elif nome:
+                display = nome
+            else:
+                display = f'Idade {idade}'
+            rows.append({
+                'nome': nome,
+                'idade': idade,
+                'display': display,
+            })
+
+        def _rows_from_dict(row_obj):
+            if not isinstance(row_obj, dict):
+                return []
+            found_name = ''
+            found_age = ''
+            fallback_text_values = []
+            for sub_key, sub_value in row_obj.items():
+                norm_sub_key = self._normalize_lookup_text(sub_key)
+                sub_text = str(sub_value or '').strip()
+                if not sub_text:
+                    continue
+                if not found_name and self._is_nome_key(norm_sub_key) and not self._is_responsavel_key(norm_sub_key):
+                    found_name = sub_text
+                    continue
+                if not found_age and self._is_idade_key(norm_sub_key):
+                    found_age = _age_digits(sub_text)
+                    continue
+                fallback_text_values.append(sub_text)
+            if not found_name and fallback_text_values:
+                for item in fallback_text_values:
+                    if re.fullmatch(r'\d{1,3}', item):
+                        if not found_age:
+                            found_age = item
+                        continue
+                    found_name = item
+                    break
+            rows = []
+            _append_row(rows, found_name, found_age)
+            return rows
+
         responsavel = getattr(inscricao, 'responsavel', None)
         if responsavel:
             nomes = list(
@@ -4596,23 +4653,71 @@ class EventoPublicoView(View):
             )
             nomes = [str(item or '').strip() for item in nomes if str(item or '').strip()]
             if nomes:
-                return ', '.join(nomes)
+                lines = [{'nome': item, 'idade': '', 'display': item} for item in nomes]
+                resumo = ', '.join(item['display'] for item in lines[:3])
+                if len(lines) > 3:
+                    resumo += '...'
+                return {
+                    'linhas': lines,
+                    'resumo': resumo,
+                    'total': len(lines),
+                }
         dados = (inscricao.dados or {}) if isinstance(inscricao.dados, dict) else {}
-        nomes = []
+        repeat_field_preferido = ''
+        if evento is not None:
+            config = getattr(evento, 'inscricao_valor_config', {}) or {}
+            if isinstance(config, dict):
+                repeat_field_preferido = str(config.get('repeat_field') or '').strip()
+        rows = []
+        candidate_keys = []
         for key, value in dados.items():
             norm_key = self._normalize_lookup_text(key)
-            if not self._is_criancas_key(norm_key):
+            is_preferred = (
+                bool(repeat_field_preferido)
+                and self._normalize_lookup_text(key) == self._normalize_lookup_text(repeat_field_preferido)
+            )
+            if not is_preferred and not self._is_criancas_key(norm_key):
                 continue
+            candidate_keys.append((0 if is_preferred else 1, key, value))
+        candidate_keys.sort(key=lambda item: item[0])
+        for _priority, _key, value in candidate_keys:
             if isinstance(value, (list, tuple)):
                 for item in value:
-                    nomes.extend(self._split_people_values(item))
+                    if isinstance(item, dict):
+                        rows.extend(_rows_from_dict(item))
+                    else:
+                        for text in self._split_people_values(item):
+                            _append_row(rows, text, '')
             elif isinstance(value, dict):
-                for _sub_key, sub_value in value.items():
-                    nomes.extend(self._split_people_values(sub_value))
+                rows.extend(_rows_from_dict(value))
             else:
-                nomes.extend(self._split_people_values(value))
-        nomes = sorted(set(nomes), key=lambda item: item.lower())
-        return ', '.join(nomes) if nomes else '-'
+                for text in self._split_people_values(value):
+                    _append_row(rows, text, '')
+        deduped = []
+        seen = set()
+        for row in rows:
+            key = (
+                self._normalize_lookup_text(row.get('nome', '')),
+                str(row.get('idade') or '').strip(),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(row)
+        if not deduped:
+            return {
+                'linhas': [],
+                'resumo': '-',
+                'total': 0,
+            }
+        resumo = ', '.join(item['display'] for item in deduped[:3])
+        if len(deduped) > 3:
+            resumo += '...'
+        return {
+            'linhas': deduped,
+            'resumo': resumo,
+            'total': len(deduped),
+        }
 
     def _pedido_items_summary(self, pedido):
         itens = list(pedido.itens.all())
@@ -4649,8 +4754,13 @@ class EventoPublicoView(View):
                 or self._is_parentesco_key(norm_key)
             ):
                 continue
+            if isinstance(value, (list, tuple, dict)):
+                continue
             label = str(key or '').strip()
-            text = str(value or '').strip()
+            if isinstance(value, bool):
+                text = 'Sim' if value else 'Nao'
+            else:
+                text = str(value or '').strip()
             if not text:
                 continue
             parts.append(f'{label}: {text}')
@@ -4786,12 +4896,15 @@ class EventoPublicoView(View):
                     elif inscricao.user_id:
                         linked = pedidos_by_user.get(inscricao.user_id, [])
                     dados_obj = inscricao.dados if isinstance(inscricao.dados, dict) else {}
+                    criancas_info = self._criancas_info_from_inscricao(inscricao, evento=evento)
                     inscritos_detalhes.append({
                         'id': inscricao.id,
                         'codigo': inscricao.codigo_inscricao or '-',
                         'responsavel': self._responsavel_label_from_inscricao(inscricao),
                         'cpf_responsavel': self._cpf_responsavel_from_inscricao(inscricao),
-                        'criancas': self._criancas_label_from_inscricao(inscricao),
+                        'criancas': criancas_info.get('resumo', '-'),
+                        'criancas_linhas': criancas_info.get('linhas', []),
+                        'criancas_total': int(criancas_info.get('total', 0) or 0),
                         'pedidos_loja': self._pedidos_summary_for_inscrito(linked),
                         'dados_resumo': self._dados_resumo(dados_obj),
                         'dados_json': json.dumps(dados_obj, ensure_ascii=False, indent=2) if dados_obj else '',
