@@ -4232,7 +4232,7 @@ class EventoPublicoView(View):
             'register_summary_code': register_summary_code,
             'produtos': produtos,
             'has_produtos': bool(produtos),
-            'can_buy': bool(inscricao and produtos),
+            'can_buy': bool(produtos),
             'pedido_modal': pedido_modal,
             'is_public_page': bool(evento.inscricao_publica),
             'is_authenticated': bool(request.user.is_authenticated),
@@ -4563,9 +4563,6 @@ class EventoPedidoCreatePixApiView(View):
                     .filter(pk=inscricao_id, evento=evento, user__isnull=True)
                     .first()
                 )
-        if not inscricao:
-            return JsonResponse({'ok': False, 'error': 'missing_registration', 'message': 'Faça sua inscrição no evento antes de comprar.'}, status=400)
-
         loja_view = LojaView()
         if request.user.is_authenticated:
             responsavel = loja_view._ensure_loja_responsavel(request.user, create=True)
@@ -4577,7 +4574,7 @@ class EventoPedidoCreatePixApiView(View):
                 return JsonResponse({'ok': False, 'error': 'guest_invalid', 'message': guest_error}, status=400)
         if not responsavel:
             return JsonResponse({'ok': False, 'error': 'responsavel_not_found'}, status=400)
-        if not inscricao.responsavel_id:
+        if inscricao and not inscricao.responsavel_id:
             inscricao.responsavel = responsavel
             inscricao.save(update_fields=['responsavel', 'updated_at'])
 

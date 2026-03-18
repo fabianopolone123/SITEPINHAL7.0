@@ -1016,9 +1016,7 @@
 
     <section class="painel-card event-step">
       <h3>Passo 2: Compra de itens</h3>
-      {% if not inscricao %}
-        <p class="panel-note">Finalize o passo 1 para liberar a compra de itens.</p>
-      {% elif not has_produtos %}
+      {% if not has_produtos %}
         <p class="panel-note">Este evento não possui itens para venda.</p>
       {% else %}
         {% if not is_authenticated %}
