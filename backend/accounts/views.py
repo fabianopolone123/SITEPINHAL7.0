@@ -3902,6 +3902,7 @@ class EventoPublicoView(View):
             inscricao = (
                 EventoInscricao.objects
                 .filter(evento=evento, user=request.user)
+                .order_by('-created_at')
                 .first()
             )
         else:
@@ -4160,65 +4161,41 @@ class EventoPublicoView(View):
         inscricao_salva = None
         if request.user.is_authenticated:
             responsavel = LojaView()._ensure_loja_responsavel(request.user, create=False)
-            existing = (
-                EventoInscricao.objects
-                .filter(evento=evento, user=request.user)
-                .first()
-            )
-            if existing:
-                existing.responsavel = responsavel
-                existing.dados = dados
-                existing.save(update_fields=['responsavel', 'dados', 'updated_at'])
-                inscricao_salva = existing
-            else:
-                created = False
-                for _attempt in range(10):
-                    try:
-                        inscricao_salva = EventoInscricao.objects.create(
-                            evento=evento,
-                            user=request.user,
-                            responsavel=responsavel,
-                            dados=dados,
-                        )
-                        created = True
-                        break
-                    except IntegrityError:
-                        continue
-                if not created:
-                    messages.error(request, 'Não foi possível gerar código único da inscrição. Tente novamente.')
-                    return render(request, self.template_name, self._context(request, evento))
+            created = False
+            for _attempt in range(10):
+                try:
+                    inscricao_salva = EventoInscricao.objects.create(
+                        evento=evento,
+                        user=request.user,
+                        responsavel=responsavel,
+                        dados=dados,
+                    )
+                    created = True
+                    break
+                except IntegrityError:
+                    continue
+            if not created:
+                messages.error(request, 'Não foi possível gerar código único da inscrição. Tente novamente.')
+                return render(request, self.template_name, self._context(request, evento))
         else:
             session_key = _evento_public_inscricao_session_key(evento.id)
-            inscricao_id = request.session.get(session_key)
             inscricao_obj = None
-            if inscricao_id:
-                inscricao_obj = (
-                    EventoInscricao.objects
-                    .filter(pk=inscricao_id, evento=evento, user__isnull=True)
-                    .first()
-                )
-            if inscricao_obj:
-                inscricao_obj.dados = dados
-                inscricao_obj.save(update_fields=['dados', 'updated_at'])
-                inscricao_salva = inscricao_obj
-            else:
-                inscricao_obj = None
-                for _attempt in range(10):
-                    try:
-                        inscricao_obj = EventoInscricao.objects.create(
-                            evento=evento,
-                            user=None,
-                            responsavel=None,
-                            dados=dados,
-                        )
-                        break
-                    except IntegrityError:
-                        continue
-                if not inscricao_obj:
-                    messages.error(request, 'Não foi possível gerar código único da inscrição. Tente novamente.')
-                    return render(request, self.template_name, self._context(request, evento))
-                request.session[session_key] = inscricao_obj.pk
-                inscricao_salva = inscricao_obj
+            for _attempt in range(10):
+                try:
+                    inscricao_obj = EventoInscricao.objects.create(
+                        evento=evento,
+                        user=None,
+                        responsavel=None,
+                        dados=dados,
+                    )
+                    break
+                except IntegrityError:
+                    continue
+            if not inscricao_obj:
+                messages.error(request, 'Não foi possível gerar código único da inscrição. Tente novamente.')
+                return render(request, self.template_name, self._context(request, evento))
+            request.session[session_key] = inscricao_obj.pk
+            inscricao_salva = inscricao_obj
         messages.success(request, 'Inscrição do evento salva com sucesso.')
         return render(
             request,
@@ -4286,7 +4263,12 @@ class EventoPedidoCreatePixApiView(View):
 
         inscricao = None
         if request.user.is_authenticated:
-            inscricao = EventoInscricao.objects.filter(evento=evento, user=request.user).first()
+            inscricao = (
+                EventoInscricao.objects
+                .filter(evento=evento, user=request.user)
+                .order_by('-created_at')
+                .first()
+            )
         else:
             session_key = _evento_public_inscricao_session_key(evento.id)
             inscricao_id = request.session.get(session_key)

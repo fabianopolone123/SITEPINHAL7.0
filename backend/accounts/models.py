@@ -554,7 +554,6 @@ class EventoInscricao(models.Model):
         verbose_name = 'inscrição de evento'
         verbose_name_plural = 'inscrições de eventos'
         ordering = ('-created_at',)
-        unique_together = ('evento', 'user')
         constraints = [
             models.UniqueConstraint(
                 fields=['evento', 'codigo_inscricao'],
