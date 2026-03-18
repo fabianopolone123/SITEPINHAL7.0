@@ -33,26 +33,29 @@
       justify-self: center;
     }
     .event-product-media {
-      height: 220px;
+      min-height: 220px;
+      max-height: 220px;
       width: 100%;
       padding: 0.6rem;
       background: linear-gradient(180deg, #f8fafc, #f1f5f9);
-      display: grid;
-      place-items: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       border-bottom: 1px solid #e2e8f0;
       overflow: hidden;
       box-sizing: border-box;
     }
     .event-product-image {
-      width: 100% !important;
-      height: 100% !important;
-      max-width: 100%;
-      max-height: 100%;
+      width: auto !important;
+      height: auto !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
       object-fit: contain !important;
-      object-position: center center;
+      object-position: center center !important;
       display: block;
       background: #fff;
       border-radius: 10px;
+      margin: 0 auto;
     }
     .event-product-no-image {
       color: #64748b;
@@ -399,7 +402,8 @@
     }
     @media (max-width: 768px) {
       .event-product-media {
-        height: 185px;
+        min-height: 185px;
+        max-height: 185px;
       }
       .event-product-card {
         max-width: none;
@@ -682,7 +686,7 @@
             <article class="event-product-card" data-product-id="{{ row.produto.id }}">
               <div class="event-product-media">
                 {% if row.capa_foto %}
-                  <img class="event-product-image" src="{{ row.capa_foto.url }}" alt="Foto de {{ row.produto.titulo }}" />
+                  <img class="event-product-image" src="{{ row.capa_foto.url }}" alt="Foto de {{ row.produto.titulo }}" style="width:auto !important;height:auto !important;max-width:100% !important;max-height:100% !important;object-fit:contain !important;object-position:center center !important;" />
                 {% else %}
                   <div class="event-product-no-image">Sem foto</div>
                 {% endif %}
