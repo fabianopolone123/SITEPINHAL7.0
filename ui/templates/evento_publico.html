@@ -852,6 +852,13 @@
                 <input type="time" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
               {% elif field.type == 'numero' %}
                 <input type="number" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
+              {% elif field.type == 'seletor' %}
+                <select name="{{ field.input_name }}" {% if field.required %}required{% endif %}>
+                  <option value="">-- selecione --</option>
+                  {% for option in field.options %}
+                    <option value="{{ option }}">{{ option }}</option>
+                  {% endfor %}
+                </select>
               {% elif field.type == 'booleano' %}
                 <select name="{{ field.input_name }}" {% if field.required %}required{% endif %}>
                   <option value="">-- selecione --</option>

@@ -3288,13 +3288,28 @@ class EventosView(LoginRequiredMixin, View):
             labels = request.POST.getlist('field_name[]') or request.POST.getlist('field_label[]')
             field_types = request.POST.getlist('field_type[]')
             field_required = request.POST.getlist('field_required[]')
+            field_selector_options = request.POST.getlist('field_selector_options[]')
+            field_selector_start = request.POST.getlist('field_selector_start[]')
+            field_selector_end = request.POST.getlist('field_selector_end[]')
             values = request.POST.getlist('field_value[]')
             fields_data = []
-            allowed_types = {'texto', 'data', 'hora', 'numero', 'booleano'}
+            allowed_types = {'texto', 'data', 'hora', 'numero', 'booleano', 'seletor'}
+
+            def _split_selector_options(raw_value):
+                if not str(raw_value or '').strip():
+                    return []
+                items = re.split(r'[\n;,|]+', str(raw_value or ''))
+                return [str(item or '').strip() for item in items if str(item or '').strip()]
+
             for index, label in enumerate(labels):
                 current_label = (label or '').strip()
                 current_type = (field_types[index] if index < len(field_types) else 'texto').strip().lower() or 'texto'
                 current_required_raw = (field_required[index] if index < len(field_required) else '1').strip().lower()
+                current_selector_options_raw = (
+                    field_selector_options[index] if index < len(field_selector_options) else ''
+                )
+                current_selector_start_raw = (field_selector_start[index] if index < len(field_selector_start) else '').strip()
+                current_selector_end_raw = (field_selector_end[index] if index < len(field_selector_end) else '').strip()
                 current_value = (values[index] if index < len(values) else '').strip()
                 if not (current_label or current_value):
                     continue
@@ -3305,11 +3320,71 @@ class EventosView(LoginRequiredMixin, View):
                     messages.error(request, f'Tipo de campo inválido: {current_type}.')
                     return None
                 is_required = current_required_raw in {'1', 'true', 'sim', 'obrigatorio', 'obrigatório'}
-                fields_data.append({
+                field_data = {
                     'name': current_label,
                     'type': current_type,
                     'required': bool(is_required),
-                })
+                }
+                if current_type == 'seletor':
+                    selector_options = []
+                    seen_options = set()
+
+                    for item in _split_selector_options(current_selector_options_raw):
+                        option_key = item.lower()
+                        if option_key in seen_options:
+                            continue
+                        seen_options.add(option_key)
+                        selector_options.append(item)
+
+                    range_start_value = None
+                    range_end_value = None
+                    if current_selector_start_raw or current_selector_end_raw:
+                        if not (current_selector_start_raw and current_selector_end_raw):
+                            messages.error(
+                                request,
+                                f'No campo seletor "{current_label}", preencha "de" e "até" juntos.',
+                            )
+                            return None
+                        if not (re.fullmatch(r'-?\d+', current_selector_start_raw) and re.fullmatch(r'-?\d+', current_selector_end_raw)):
+                            messages.error(
+                                request,
+                                f'No campo seletor "{current_label}", os valores de faixa devem ser numéricos.',
+                            )
+                            return None
+                        range_start_value = int(current_selector_start_raw)
+                        range_end_value = int(current_selector_end_raw)
+                        if range_end_value < range_start_value:
+                            messages.error(
+                                request,
+                                f'No campo seletor "{current_label}", o valor "até" deve ser maior ou igual ao "de".',
+                            )
+                            return None
+                        if (range_end_value - range_start_value) > 500:
+                            messages.error(
+                                request,
+                                f'No campo seletor "{current_label}", o intervalo é muito grande (máx. 501 opções).',
+                            )
+                            return None
+                        for number in range(range_start_value, range_end_value + 1):
+                            item = str(number)
+                            option_key = item.lower()
+                            if option_key in seen_options:
+                                continue
+                            seen_options.add(option_key)
+                            selector_options.append(item)
+
+                    if not selector_options:
+                        messages.error(
+                            request,
+                            f'No campo seletor "{current_label}", informe opções (ex.: Sim;Não) ou faixa numérica (ex.: 1 até 10).',
+                        )
+                        return None
+
+                    field_data['options'] = selector_options
+                    if range_start_value is not None and range_end_value is not None:
+                        field_data['range_start'] = range_start_value
+                        field_data['range_end'] = range_end_value
+                fields_data.append(field_data)
             return fields_data
 
         def _parse_date_and_time(event_date_raw, event_time_raw, event_end_time_raw, required):
@@ -3660,13 +3735,54 @@ class EventoPublicoView(View):
             return None
         return value.quantize(Decimal('0.01'))
 
+    def _selector_options_from_field(self, field):
+        field_obj = field or {}
+        options = []
+        seen = set()
+
+        def _append_option(raw_value):
+            text = str(raw_value or '').strip()
+            if not text:
+                return
+            option_key = text.lower()
+            if option_key in seen:
+                return
+            seen.add(option_key)
+            options.append(text)
+
+        raw_options = field_obj.get('options')
+        if isinstance(raw_options, (list, tuple)):
+            for item in raw_options:
+                _append_option(item)
+        elif str(raw_options or '').strip():
+            for item in re.split(r'[\n;,|]+', str(raw_options or '')):
+                _append_option(item)
+
+        range_start_raw = field_obj.get('range_start')
+        range_end_raw = field_obj.get('range_end')
+        if range_start_raw is not None and range_end_raw is not None:
+            try:
+                range_start = int(range_start_raw)
+                range_end = int(range_end_raw)
+            except (TypeError, ValueError):
+                range_start = None
+                range_end = None
+            if range_start is not None and range_end is not None and range_end >= range_start and (range_end - range_start) <= 500:
+                for number in range(range_start, range_end + 1):
+                    _append_option(number)
+        return options
+
     def _event_schema(self, evento):
         schema = []
+        allowed_types = {'texto', 'data', 'hora', 'numero', 'booleano', 'seletor'}
         for index, field in enumerate(evento.fields_data or []):
             label = str((field or {}).get('name') or (field or {}).get('label') or '').strip()
             if not label:
                 continue
             field_type = str((field or {}).get('type') or 'texto').strip().lower() or 'texto'
+            if field_type not in allowed_types:
+                field_type = 'texto'
+            selector_options = self._selector_options_from_field(field) if field_type == 'seletor' else []
             is_required = bool((field or {}).get('required'))
             schema.append({
                 'index': index,
@@ -3674,6 +3790,7 @@ class EventoPublicoView(View):
                 'type': field_type,
                 'required': is_required,
                 'input_name': f'campo_{index}',
+                'options': selector_options,
             })
         return schema
 
@@ -4156,6 +4273,11 @@ class EventoPublicoView(View):
             if field['required'] and not value:
                 messages.error(request, f'O campo "{field["name"]}" é obrigatório.')
                 return render(request, self.template_name, self._context(request, evento))
+            if field['type'] == 'seletor' and value:
+                selector_options = [str(item or '').strip() for item in (field.get('options') or []) if str(item or '').strip()]
+                if selector_options and value not in selector_options:
+                    messages.error(request, f'O valor selecionado para "{field["name"]}" é inválido.')
+                    return render(request, self.template_name, self._context(request, evento))
             dados[field['name']] = value
 
         inscricao_salva = None
