@@ -446,12 +446,35 @@ class DocumentoInscricaoGerado(models.Model):
 
 
 class Evento(models.Model):
+    INSCRICAO_VALOR_MODO_NENHUM = 'nenhum'
+    INSCRICAO_VALOR_MODO_FIXO = 'fixo_inscricao'
+    INSCRICAO_VALOR_MODO_POR_CAMPO = 'por_campo_preenchido'
+    INSCRICAO_VALOR_MODO_POR_ITEM_REPETIDOR = 'por_item_repetidor'
+    INSCRICAO_VALOR_MODO_CHOICES = [
+        (INSCRICAO_VALOR_MODO_NENHUM, 'Sem cobrança de inscrição'),
+        (INSCRICAO_VALOR_MODO_FIXO, 'Valor fixo por inscrição'),
+        (INSCRICAO_VALOR_MODO_POR_CAMPO, 'Valor por campo preenchido'),
+        (INSCRICAO_VALOR_MODO_POR_ITEM_REPETIDOR, 'Valor por item de botão repetidor'),
+    ]
+
     name = models.CharField('nome do evento', max_length=255)
     event_type = models.CharField('tipo do evento', max_length=128, blank=True)
     inscricao_publica = models.BooleanField('página pública de inscrição', default=False)
     event_date = models.DateField('data do evento', null=True, blank=True)
     event_time = models.TimeField('hora de início do evento', null=True, blank=True)
     event_end_time = models.TimeField('hora de fim do evento', null=True, blank=True)
+    inscricao_valor_modo = models.CharField(
+        'modo de cobrança da inscrição',
+        max_length=32,
+        choices=INSCRICAO_VALOR_MODO_CHOICES,
+        default=INSCRICAO_VALOR_MODO_NENHUM,
+    )
+    inscricao_valor_unitario = models.DecimalField(
+        'valor unitário da inscrição',
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+    )
     fields_data = models.JSONField('campos do evento', default=list, blank=True)
     created_by = models.ForeignKey(
         User,
@@ -546,6 +569,8 @@ class EventoInscricao(models.Model):
     )
     dados = models.JSONField('dados da inscrição', default=dict, blank=True)
     codigo_inscricao = models.CharField('codigo da inscricao', max_length=3, blank=True, editable=False)
+    valor_inscricao = models.DecimalField('valor da inscrição', max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    valor_inscricao_unidades = models.PositiveIntegerField('unidades da cobrança de inscrição', default=0)
     quer_comprar_itens = models.BooleanField('quer comprar itens', default=False)
     created_at = models.DateTimeField('criado em', auto_now_add=True)
     updated_at = models.DateTimeField('atualizado em', auto_now=True)

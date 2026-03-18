@@ -692,6 +692,9 @@
               <p class="event-register-note">Anote esse número. Ele é o código da sua inscrição no evento.</p>
             </div>
             <p class="panel-note">Você pode comprar itens agora mesmo, junto com este cadastro, se quiser.</p>
+            {% if register_summary_fee_value_fmt %}
+              <p class="panel-note"><strong>Valor da inscricao:</strong> {{ register_summary_fee_value_fmt }}{% if register_summary_fee_units %} ({{ register_summary_fee_units }} unidade(s) - {{ register_summary_fee_mode_label }}){% endif %}</p>
+            {% endif %}
           </section>
           <section class="field-section">
             <h4>Dados enviados no cadastro</h4>
@@ -719,8 +722,11 @@
           <span class="event-metric-pill">Inscricoes: {{ inscricoes_count }}</span>
           <span class="event-metric-pill">Pedidos: {{ pedidos_count }}</span>
           <span class="event-metric-pill">Total pago: {{ pedidos_total_pago_fmt }}</span>
+          <span class="event-metric-pill">Total inscricoes: {{ inscricoes_valor_total_fmt }}</span>
+          <span class="event-metric-pill">Receita total: {{ receita_total_fmt }}</span>
           <span class="event-metric-pill">Custos: {{ custos_total_fmt }}</span>
           <span class="event-metric-pill">Lucro liquido: {{ lucro_liquido_fmt }}</span>
+          <span class="event-metric-pill">Cobranca: {{ inscricao_valor_config_text }} ({{ inscricao_valor_unitario_fmt }})</span>
           <span class="event-metric-pill">Pagina: {% if evento.inscricao_publica %}Publica{% else %}Privada{% endif %}</span>
         </div>
         <div class="action-row">
@@ -760,6 +766,7 @@
                       <th>CPF responsavel</th>
                       <th>Criancas</th>
                       <th>Pedidos loja</th>
+                      <th>Valor inscricao</th>
                       <th>Outros dados</th>
                       <th>Data</th>
                     </tr>
@@ -773,6 +780,7 @@
                         <td>{{ item.cpf_responsavel }}</td>
                         <td>{{ item.criancas }}</td>
                         <td>{{ item.pedidos_loja }}</td>
+                        <td>{{ item.valor_inscricao_fmt }}{% if item.valor_inscricao_unidades %} ({{ item.valor_inscricao_unidades }}x){% endif %}</td>
                         <td>
                           <div>{{ item.dados_resumo }}</div>
                           {% if item.dados_json %}
@@ -808,6 +816,8 @@
             <p><strong>Inscricoes:</strong> {{ inscricoes_count }}</p>
             <p><strong>Pedidos:</strong> {{ pedidos_count }}</p>
             <p><strong>Total pago:</strong> {{ pedidos_total_pago_fmt }}</p>
+            <p><strong>Total inscricoes:</strong> {{ inscricoes_valor_total_fmt }}</p>
+            <p><strong>Receita total:</strong> {{ receita_total_fmt }}</p>
             <p><strong>Custos:</strong> {{ custos_total_fmt }}</p>
             <p><strong>Lucro liquido:</strong> {{ lucro_liquido_fmt }}</p>
           </section>
@@ -820,6 +830,7 @@
                     <tr>
                       <th>Codigo</th>
                       <th>Usuario</th>
+                      <th>Valor inscricao</th>
                       <th>Dados</th>
                       <th>Data</th>
                     </tr>
@@ -829,6 +840,7 @@
                       <tr>
                         <td>{{ item.codigo_inscricao|default:"-" }}</td>
                         <td>{{ item.user.username|default:"-" }}</td>
+                        <td>{{ item.valor_inscricao }}</td>
                         <td>{{ item.dados }}</td>
                         <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
                       </tr>
@@ -956,6 +968,7 @@
     <div class="event-main-grid">
     <section class="painel-card event-step">
       <h3>Passo 1: Inscrição</h3>
+      <p class="panel-note">Cobranca configurada: {{ inscricao_valor_config_text }} ({{ inscricao_valor_unitario_fmt }}).</p>
       <form method="post" id="event-register-form">
         {% csrf_token %}
         <input type="hidden" name="action" value="register_event" />

@@ -309,9 +309,12 @@
               {% endif %}
               <div class="action-row">
                 <span class="event-status-chip">{% if evento.inscricao_publica %}Público{% else %}Privado{% endif %}</span>
+                <span class="event-field-pill">Cobranca inscricao: {{ row.inscricao_valor_config_text }}</span>
                 <span class="event-field-pill">Inscrições: {{ row.inscricoes_count }}</span>
                 <span class="event-field-pill">Pedidos: {{ row.pedidos_count }}</span>
                 <span class="event-field-pill">Total pago: {{ row.pedidos_total_pago_fmt }}</span>
+                <span class="event-field-pill">Inscricoes R$: {{ row.inscricoes_valor_total_fmt }}</span>
+                <span class="event-field-pill">Receita total: {{ row.receita_total_fmt }}</span>
                 <span class="event-field-pill">Custos: {{ row.custos_total_fmt }}</span>
                 <span class="event-field-pill">Lucro liquido: {{ row.lucro_liquido_fmt }}</span>
                 <form method="post">
@@ -341,6 +344,19 @@
                     <label>Data <input type="date" name="event_date" value="{{ evento.event_date|date:'Y-m-d' }}" required /></label>
                     <label>Hora início <input type="time" name="event_time" value="{{ evento.event_time|time:'H:i' }}" required /></label>
                     <label>Hora fim <input type="time" name="event_end_time" value="{{ evento.event_end_time|time:'H:i' }}" required /></label>
+                    <label>
+                      Cobranca da inscricao
+                      <select name="inscricao_valor_modo">
+                        <option value="nenhum" {% if evento.inscricao_valor_modo == 'nenhum' %}selected{% endif %}>Sem cobranca</option>
+                        <option value="fixo_inscricao" {% if evento.inscricao_valor_modo == 'fixo_inscricao' %}selected{% endif %}>Valor fixo por inscricao</option>
+                        <option value="por_campo_preenchido" {% if evento.inscricao_valor_modo == 'por_campo_preenchido' %}selected{% endif %}>Valor por campo preenchido</option>
+                        <option value="por_item_repetidor" {% if evento.inscricao_valor_modo == 'por_item_repetidor' %}selected{% endif %}>Valor por item de botao repetidor</option>
+                      </select>
+                    </label>
+                    <label>
+                      Valor unitario da inscricao
+                      <input type="text" name="inscricao_valor_unitario" value="{{ evento.inscricao_valor_unitario|default:'0.00' }}" placeholder="Ex.: 15,00" />
+                    </label>
                   </div>
                   <div class="field-section">
                     <h4>Campos da inscrição</h4>
@@ -501,6 +517,8 @@
               <p><strong>Inscrições:</strong> {{ row.inscricoes_count }}</p>
               <p><strong>Pedidos:</strong> {{ row.pedidos_count }}</p>
               <p><strong>Total pago:</strong> {{ row.pedidos_total_pago_fmt }}</p>
+              <p><strong>Total inscricoes:</strong> {{ row.inscricoes_valor_total_fmt }}</p>
+              <p><strong>Receita total:</strong> {{ row.receita_total_fmt }}</p>
               <p><strong>Custos:</strong> {{ row.custos_total_fmt }}</p>
               <p><strong>Lucro liquido:</strong> {{ row.lucro_liquido_fmt }}</p>
             </section>
@@ -513,6 +531,7 @@
                       <tr>
                         <th>Código</th>
                         <th>Usuário</th>
+                        <th>Valor inscricao</th>
                         <th>Dados</th>
                         <th>Data</th>
                       </tr>
@@ -522,6 +541,7 @@
                         <tr>
                           <td>{{ item.codigo_inscricao|default:"-" }}</td>
                           <td>{{ item.user.username|default:"-" }}</td>
+                          <td>{{ item.valor_inscricao }}</td>
                           <td>{{ item.dados }}</td>
                           <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
                         </tr>
@@ -621,6 +641,19 @@
           <label>
             Hora de fim *
             <input type="time" name="event_end_time" id="event-end-time" required />
+          </label>
+          <label>
+            Cobranca da inscricao
+            <select name="inscricao_valor_modo" id="event-inscricao-valor-modo">
+              <option value="nenhum" selected>Sem cobranca</option>
+              <option value="fixo_inscricao">Valor fixo por inscricao</option>
+              <option value="por_campo_preenchido">Valor por campo preenchido</option>
+              <option value="por_item_repetidor">Valor por item de botao repetidor</option>
+            </select>
+          </label>
+          <label>
+            Valor unitario da inscricao
+            <input type="text" name="inscricao_valor_unitario" id="event-inscricao-valor-unitario" placeholder="Ex.: 15,00" />
           </label>
         </div>
 
@@ -1055,6 +1088,10 @@
         document.getElementById('event-date').value = preset.event_date || '';
         document.getElementById('event-time').value = preset.event_time || '';
         document.getElementById('event-end-time').value = preset.event_end_time || '';
+        const feeModeInput = document.getElementById('event-inscricao-valor-modo');
+        const feeUnitInput = document.getElementById('event-inscricao-valor-unitario');
+        if (feeModeInput) feeModeInput.value = 'nenhum';
+        if (feeUnitInput) feeUnitInput.value = '';
         fieldsContainer.innerHTML = '';
         const rows = Array.isArray(preset.fields_data) ? preset.fields_data : [];
         if (!rows.length) {

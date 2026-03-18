@@ -1,4 +1,4 @@
-﻿import copy
+import copy
 import difflib
 import json
 import os
@@ -3118,6 +3118,45 @@ class EventosView(LoginRequiredMixin, View):
         text = f'{decimal_value:,.2f}'
         return 'R$ ' + text.replace(',', 'X').replace('.', ',').replace('X', '.')
 
+    def _normalize_inscricao_valor_modo(self, raw_mode):
+        mode = str(raw_mode or '').strip().lower()
+        allowed = {
+            Evento.INSCRICAO_VALOR_MODO_NENHUM,
+            Evento.INSCRICAO_VALOR_MODO_FIXO,
+            Evento.INSCRICAO_VALOR_MODO_POR_CAMPO,
+            Evento.INSCRICAO_VALOR_MODO_POR_ITEM_REPETIDOR,
+        }
+        return mode if mode in allowed else Evento.INSCRICAO_VALOR_MODO_NENHUM
+
+    def _inscricao_valor_mode_label(self, mode):
+        mapping = {
+            Evento.INSCRICAO_VALOR_MODO_NENHUM: 'Sem cobranca',
+            Evento.INSCRICAO_VALOR_MODO_FIXO: 'Valor fixo por inscricao',
+            Evento.INSCRICAO_VALOR_MODO_POR_CAMPO: 'Valor por campo preenchido',
+            Evento.INSCRICAO_VALOR_MODO_POR_ITEM_REPETIDOR: 'Valor por item de botao repetidor',
+        }
+        return mapping.get(self._normalize_inscricao_valor_modo(mode), 'Sem cobranca')
+
+    def _inscricao_valor_config_text(self, evento):
+        mode = self._normalize_inscricao_valor_modo(getattr(evento, 'inscricao_valor_modo', ''))
+        try:
+            unit = Decimal(getattr(evento, 'inscricao_valor_unitario', Decimal('0.00')) or Decimal('0.00'))
+        except (InvalidOperation, TypeError, ValueError):
+            unit = Decimal('0.00')
+        if mode == Evento.INSCRICAO_VALOR_MODO_NENHUM or unit <= 0:
+            return 'Sem cobranca'
+        return f'{self._inscricao_valor_mode_label(mode)} ({self._format_currency(unit)})'
+
+    def _parse_inscricao_valor_config_request(self, request):
+        mode = self._normalize_inscricao_valor_modo(request.POST.get('inscricao_valor_modo'))
+        if mode == Evento.INSCRICAO_VALOR_MODO_NENHUM:
+            return mode, Decimal('0.00')
+        valor = self._parse_valor(request.POST.get('inscricao_valor_unitario'))
+        if valor is None or valor <= 0:
+            messages.error(request, 'Informe um valor unitario valido para a cobranca da inscricao.')
+            return None, None
+        return mode, valor
+
     def _context(self, request):
         eventos = list(Evento.objects.select_related('created_by').all())
         try:
@@ -3159,6 +3198,18 @@ class EventosView(LoginRequiredMixin, View):
             logger.exception('Falha ao calcular total pago por evento.')
             pedidos_pagos_totais_map = {}
         try:
+            inscricoes_valor_totais_map = {
+                item['evento_id']: item['valor_total']
+                for item in (
+                    EventoInscricao.objects
+                    .values('evento_id')
+                    .annotate(valor_total=Sum('valor_inscricao'))
+                )
+            }
+        except Exception:
+            logger.exception('Falha ao calcular total de valores das inscricoes por evento.')
+            inscricoes_valor_totais_map = {}
+        try:
             custos_totais_map = {
                 item['evento_id']: item['valor_total']
                 for item in (
@@ -3199,8 +3250,10 @@ class EventosView(LoginRequiredMixin, View):
                     .order_by('-created_at')[:20]
                 )
                 pedidos_total_pago = Decimal(pedidos_pagos_totais_map.get(evento.id) or Decimal('0.00'))
+                inscricoes_valor_total = Decimal(inscricoes_valor_totais_map.get(evento.id) or Decimal('0.00'))
                 custos_total = Decimal(custos_totais_map.get(evento.id) or Decimal('0.00'))
-                lucro_liquido = pedidos_total_pago - custos_total
+                receita_total = pedidos_total_pago + inscricoes_valor_total
+                lucro_liquido = receita_total - custos_total
                 event_rows.append({
                     'evento': evento,
                     'relative_label': self._relative_event_time_label(evento.event_date),
@@ -3210,8 +3263,11 @@ class EventosView(LoginRequiredMixin, View):
                     'inscricoes_count': int(inscritos_totais_map.get(evento.id) or 0),
                     'pedidos_count': int(pedidos_totais_map.get(evento.id) or 0),
                     'pedidos_total_pago_fmt': self._format_currency(pedidos_total_pago),
+                    'inscricoes_valor_total_fmt': self._format_currency(inscricoes_valor_total),
+                    'receita_total_fmt': self._format_currency(receita_total),
                     'custos_total_fmt': self._format_currency(custos_total),
                     'lucro_liquido_fmt': self._format_currency(lucro_liquido),
+                    'inscricao_valor_config_text': self._inscricao_valor_config_text(evento),
                     'has_public_page': bool((evento.fields_data or []) or produtos_rows),
                     'inscricoes_preview': inscricoes,
                     'pedidos_preview': pedidos,
@@ -3227,8 +3283,11 @@ class EventosView(LoginRequiredMixin, View):
                     'inscricoes_count': 0,
                     'pedidos_count': 0,
                     'pedidos_total_pago_fmt': self._format_currency(Decimal('0.00')),
+                    'inscricoes_valor_total_fmt': self._format_currency(Decimal('0.00')),
+                    'receita_total_fmt': self._format_currency(Decimal('0.00')),
                     'custos_total_fmt': self._format_currency(Decimal('0.00')),
                     'lucro_liquido_fmt': self._format_currency(Decimal('0.00')),
+                    'inscricao_valor_config_text': 'Sem cobranca',
                     'has_public_page': False,
                     'inscricoes_preview': [],
                     'pedidos_preview': [],
@@ -3611,6 +3670,9 @@ class EventosView(LoginRequiredMixin, View):
             name = (request.POST.get('name') or '').strip()
             event_type = (request.POST.get('event_type') or '').strip()
             inscricao_publica = bool(request.POST.get('inscricao_publica'))
+            inscricao_valor_modo, inscricao_valor_unitario = self._parse_inscricao_valor_config_request(request)
+            if inscricao_valor_modo is None:
+                return render(request, self.template_name, self._context(request))
             event_date_raw = (request.POST.get('event_date') or '').strip()
             event_time_raw = (request.POST.get('event_time') or '').strip()
             event_end_time_raw = (request.POST.get('event_end_time') or '').strip()
@@ -3649,6 +3711,8 @@ class EventosView(LoginRequiredMixin, View):
                     event_date=event_date_value,
                     event_time=event_time_value,
                     event_end_time=event_end_time_value,
+                    inscricao_valor_modo=inscricao_valor_modo,
+                    inscricao_valor_unitario=inscricao_valor_unitario,
                     fields_data=fields_data,
                     created_by=request.user,
                 )
@@ -3721,6 +3785,9 @@ class EventosView(LoginRequiredMixin, View):
             name = (request.POST.get('name') or '').strip()
             event_type = (request.POST.get('event_type') or '').strip()
             inscricao_publica = bool(request.POST.get('inscricao_publica'))
+            inscricao_valor_modo, inscricao_valor_unitario = self._parse_inscricao_valor_config_request(request)
+            if inscricao_valor_modo is None:
+                return render(request, self.template_name, self._context(request))
             event_date_raw = (request.POST.get('event_date') or '').strip()
             event_time_raw = (request.POST.get('event_time') or '').strip()
             event_end_time_raw = (request.POST.get('event_end_time') or '').strip()
@@ -3758,8 +3825,21 @@ class EventosView(LoginRequiredMixin, View):
             evento.event_date = event_date_value
             evento.event_time = event_time_value
             evento.event_end_time = event_end_time_value
+            evento.inscricao_valor_modo = inscricao_valor_modo
+            evento.inscricao_valor_unitario = inscricao_valor_unitario
             evento.fields_data = fields_data
-            evento.save(update_fields=['name', 'event_type', 'inscricao_publica', 'event_date', 'event_time', 'event_end_time', 'fields_data', 'updated_at'])
+            evento.save(update_fields=[
+                'name',
+                'event_type',
+                'inscricao_publica',
+                'event_date',
+                'event_time',
+                'event_end_time',
+                'inscricao_valor_modo',
+                'inscricao_valor_unitario',
+                'fields_data',
+                'updated_at',
+            ])
             messages.success(request, 'Evento atualizado com sucesso.')
         elif action == 'add_event_product':
             event_id = request.POST.get('event_id')
@@ -3879,6 +3959,78 @@ class EventoPublicoView(View):
         if value < 0:
             return None
         return value.quantize(Decimal('0.01'))
+
+    def _normalize_inscricao_valor_modo(self, raw_mode):
+        mode = str(raw_mode or '').strip().lower()
+        allowed = {
+            Evento.INSCRICAO_VALOR_MODO_NENHUM,
+            Evento.INSCRICAO_VALOR_MODO_FIXO,
+            Evento.INSCRICAO_VALOR_MODO_POR_CAMPO,
+            Evento.INSCRICAO_VALOR_MODO_POR_ITEM_REPETIDOR,
+        }
+        return mode if mode in allowed else Evento.INSCRICAO_VALOR_MODO_NENHUM
+
+    def _inscricao_valor_mode_label(self, mode):
+        mapping = {
+            Evento.INSCRICAO_VALOR_MODO_NENHUM: 'Sem cobranca',
+            Evento.INSCRICAO_VALOR_MODO_FIXO: 'Valor fixo por inscricao',
+            Evento.INSCRICAO_VALOR_MODO_POR_CAMPO: 'Valor por campo preenchido',
+            Evento.INSCRICAO_VALOR_MODO_POR_ITEM_REPETIDOR: 'Valor por item de botao repetidor',
+        }
+        return mapping.get(self._normalize_inscricao_valor_modo(mode), 'Sem cobranca')
+
+    def _row_has_any_value(self, row_obj):
+        if not isinstance(row_obj, dict):
+            return False
+        for value in row_obj.values():
+            if str(value or '').strip():
+                return True
+        return False
+
+    def _calcular_inscricao_valor(self, evento, schema, dados):
+        mode = self._normalize_inscricao_valor_modo(getattr(evento, 'inscricao_valor_modo', ''))
+        try:
+            unit = Decimal(getattr(evento, 'inscricao_valor_unitario', Decimal('0.00')) or Decimal('0.00'))
+        except (InvalidOperation, TypeError, ValueError):
+            unit = Decimal('0.00')
+        unit = unit.quantize(Decimal('0.01'))
+        if mode == Evento.INSCRICAO_VALOR_MODO_NENHUM or unit <= 0:
+            return Evento.INSCRICAO_VALOR_MODO_NENHUM, 0, Decimal('0.00')
+
+        units = 0
+        schema_rows = schema if isinstance(schema, list) else []
+        dados_obj = dados if isinstance(dados, dict) else {}
+        if mode == Evento.INSCRICAO_VALOR_MODO_FIXO:
+            units = 1
+        elif mode == Evento.INSCRICAO_VALOR_MODO_POR_CAMPO:
+            for field in schema_rows:
+                field_name = str((field or {}).get('name') or '').strip()
+                if not field_name:
+                    continue
+                field_type = str((field or {}).get('type') or 'texto').strip().lower() or 'texto'
+                value = dados_obj.get(field_name)
+                if field_type == 'repetidor':
+                    if isinstance(value, list):
+                        units += len([row for row in value if self._row_has_any_value(row)])
+                else:
+                    if str(value or '').strip():
+                        units += 1
+        elif mode == Evento.INSCRICAO_VALOR_MODO_POR_ITEM_REPETIDOR:
+            for field in schema_rows:
+                field_name = str((field or {}).get('name') or '').strip()
+                if not field_name:
+                    continue
+                field_type = str((field or {}).get('type') or 'texto').strip().lower() or 'texto'
+                if field_type != 'repetidor':
+                    continue
+                value = dados_obj.get(field_name)
+                if isinstance(value, list):
+                    units += len([row for row in value if self._row_has_any_value(row)])
+
+        if units <= 0:
+            return mode, 0, Decimal('0.00')
+        total = (unit * Decimal(units)).quantize(Decimal('0.01'))
+        return mode, int(units), total
 
     def _selector_options_from_field(self, field):
         field_obj = field or {}
@@ -4270,6 +4422,9 @@ class EventoPublicoView(View):
         inscricao = self._current_inscricao(request, evento)
         register_summary_items = []
         register_summary_code = ''
+        register_summary_fee_mode_label = ''
+        register_summary_fee_units = 0
+        register_summary_fee_value_fmt = ''
         if show_register_summary and inscricao:
             dados_obj = inscricao.dados if isinstance(inscricao.dados, dict) else {}
             used_keys = set()
@@ -4297,11 +4452,21 @@ class EventoPublicoView(View):
                     'value': value,
                 })
             register_summary_code = str(inscricao.codigo_inscricao or '').strip()
+            register_summary_fee_mode_label = self._inscricao_valor_mode_label(
+                getattr(evento, 'inscricao_valor_modo', '')
+            )
+            fee_value = Decimal(getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00'))
+            register_summary_fee_units = int(getattr(inscricao, 'valor_inscricao_unidades', 0) or 0)
+            if fee_value > 0:
+                register_summary_fee_value_fmt = self._format_currency(fee_value)
         produtos = self._produto_rows_evento(evento)
         can_manage_evento = bool(request.user.is_authenticated and _has_menu_permission(request, 'eventos'))
         inscricoes_count = 0
         pedidos_count = 0
+        inscricoes_valor_total = Decimal('0.00')
         pedidos_total_pago_fmt = self._format_currency(Decimal('0.00'))
+        inscricoes_valor_total_fmt = self._format_currency(Decimal('0.00'))
+        receita_total_fmt = self._format_currency(Decimal('0.00'))
         inscricoes_preview = []
         pedidos_preview = []
         inscritos_detalhes = []
@@ -4317,6 +4482,12 @@ class EventoPublicoView(View):
                     .order_by('-created_at')
                 )
                 inscricoes_count = inscricoes_base_qs.count()
+                inscricoes_valor_total = (
+                    inscricoes_base_qs
+                    .aggregate(total=Sum('valor_inscricao'))
+                    .get('total')
+                    or Decimal('0.00')
+                )
                 pedidos_qs = LojaPedido.objects.filter(evento=evento)
                 pedidos_count = pedidos_qs.count()
                 pedidos_total_pago = (
@@ -4338,8 +4509,11 @@ class EventoPublicoView(View):
                     .get('total')
                     or Decimal('0.00')
                 )
-                lucro_liquido = pedidos_total_pago - custos_total
+                receita_total = pedidos_total_pago + inscricoes_valor_total
+                lucro_liquido = receita_total - custos_total
                 pedidos_total_pago_fmt = self._format_currency(pedidos_total_pago)
+                inscricoes_valor_total_fmt = self._format_currency(inscricoes_valor_total)
+                receita_total_fmt = self._format_currency(receita_total)
                 custos_evento = list(custos_qs[:300])
                 inscricoes_preview = list(inscricoes_base_qs[:20])
                 pedidos_preview = list(
@@ -4380,6 +4554,10 @@ class EventoPublicoView(View):
                         'pedidos_loja': self._pedidos_summary_for_inscrito(linked),
                         'dados_resumo': self._dados_resumo(dados_obj),
                         'dados_json': json.dumps(dados_obj, ensure_ascii=False, indent=2) if dados_obj else '',
+                        'valor_inscricao_fmt': self._format_currency(
+                            getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
+                        ),
+                        'valor_inscricao_unidades': int(getattr(inscricao, 'valor_inscricao_unidades', 0) or 0),
                         'data_inscricao': inscricao.created_at,
                     })
             except Exception:
@@ -4400,16 +4578,25 @@ class EventoPublicoView(View):
             'show_register_summary': bool(show_register_summary and inscricao),
             'register_summary_items': register_summary_items,
             'register_summary_code': register_summary_code,
+            'register_summary_fee_mode_label': register_summary_fee_mode_label,
+            'register_summary_fee_units': register_summary_fee_units,
+            'register_summary_fee_value_fmt': register_summary_fee_value_fmt,
             'produtos': produtos,
             'has_produtos': bool(produtos),
             'can_buy': bool(produtos),
             'pedido_modal': pedido_modal,
             'is_public_page': bool(evento.inscricao_publica),
             'is_authenticated': bool(request.user.is_authenticated),
+            'inscricao_valor_config_text': self._inscricao_valor_mode_label(getattr(evento, 'inscricao_valor_modo', '')),
+            'inscricao_valor_unitario_fmt': self._format_currency(
+                getattr(evento, 'inscricao_valor_unitario', Decimal('0.00')) or Decimal('0.00')
+            ),
             'can_manage_evento': can_manage_evento,
             'inscricoes_count': inscricoes_count,
             'pedidos_count': pedidos_count,
             'pedidos_total_pago_fmt': pedidos_total_pago_fmt,
+            'inscricoes_valor_total_fmt': inscricoes_valor_total_fmt,
+            'receita_total_fmt': receita_total_fmt,
             'custos_total_fmt': self._format_currency(custos_total),
             'lucro_liquido_fmt': self._format_currency(lucro_liquido),
             'custos_evento': custos_evento,
@@ -4655,6 +4842,7 @@ class EventoPublicoView(View):
                     return render(request, self.template_name, self._context(request, evento))
             dados[field['name']] = value
 
+        _fee_mode, fee_units, fee_total = self._calcular_inscricao_valor(evento, schema, dados)
         inscricao_salva = None
         if request.user.is_authenticated:
             responsavel = LojaView()._ensure_loja_responsavel(request.user, create=False)
@@ -4666,6 +4854,8 @@ class EventoPublicoView(View):
                         user=request.user,
                         responsavel=responsavel,
                         dados=dados,
+                        valor_inscricao=fee_total,
+                        valor_inscricao_unidades=fee_units,
                     )
                     created = True
                     break
@@ -4684,6 +4874,8 @@ class EventoPublicoView(View):
                         user=None,
                         responsavel=None,
                         dados=dados,
+                        valor_inscricao=fee_total,
+                        valor_inscricao_unidades=fee_units,
                     )
                     break
                 except IntegrityError:
