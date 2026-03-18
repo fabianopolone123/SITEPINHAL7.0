@@ -3291,9 +3291,10 @@ class EventosView(LoginRequiredMixin, View):
             field_selector_options = request.POST.getlist('field_selector_options[]')
             field_selector_start = request.POST.getlist('field_selector_start[]')
             field_selector_end = request.POST.getlist('field_selector_end[]')
+            field_repeat_fields = request.POST.getlist('field_repeat_fields[]')
             values = request.POST.getlist('field_value[]')
             fields_data = []
-            allowed_types = {'texto', 'data', 'hora', 'numero', 'booleano', 'seletor'}
+            allowed_types = {'texto', 'data', 'hora', 'numero', 'booleano', 'seletor', 'repetidor'}
 
             def _split_selector_options(raw_value):
                 if not str(raw_value or '').strip():
@@ -3310,6 +3311,9 @@ class EventosView(LoginRequiredMixin, View):
                 )
                 current_selector_start_raw = (field_selector_start[index] if index < len(field_selector_start) else '').strip()
                 current_selector_end_raw = (field_selector_end[index] if index < len(field_selector_end) else '').strip()
+                current_repeat_fields_raw = (
+                    field_repeat_fields[index] if index < len(field_repeat_fields) else ''
+                )
                 current_value = (values[index] if index < len(values) else '').strip()
                 if not (current_label or current_value):
                     continue
@@ -3384,6 +3388,30 @@ class EventosView(LoginRequiredMixin, View):
                     if range_start_value is not None and range_end_value is not None:
                         field_data['range_start'] = range_start_value
                         field_data['range_end'] = range_end_value
+                elif current_type == 'repetidor':
+                    repeat_fields = []
+                    seen_repeat_fields = set()
+                    for item in _split_selector_options(current_repeat_fields_raw):
+                        key = item.lower()
+                        if key in seen_repeat_fields:
+                            continue
+                        seen_repeat_fields.add(key)
+                        repeat_fields.append(item)
+
+                    if not repeat_fields:
+                        messages.error(
+                            request,
+                            f'No campo repetidor "{current_label}", informe os subcampos (ex.: Nome da Criança; Idade).',
+                        )
+                        return None
+                    if len(repeat_fields) > 8:
+                        messages.error(
+                            request,
+                            f'No campo repetidor "{current_label}", use no máximo 8 subcampos.',
+                        )
+                        return None
+                    field_data['repeat_fields'] = repeat_fields
+                    field_data['repeat_button_label'] = current_label
                 fields_data.append(field_data)
             return fields_data
 
@@ -3772,9 +3800,33 @@ class EventoPublicoView(View):
                     _append_option(number)
         return options
 
+    def _repeat_fields_from_field(self, field):
+        field_obj = field or {}
+        labels = []
+        seen = set()
+
+        raw_repeat = field_obj.get('repeat_fields')
+        if isinstance(raw_repeat, (list, tuple)):
+            raw_items = raw_repeat
+        elif str(raw_repeat or '').strip():
+            raw_items = re.split(r'[\n;,|]+', str(raw_repeat or ''))
+        else:
+            raw_items = []
+
+        for raw_label in raw_items:
+            label = str(raw_label or '').strip()
+            if not label:
+                continue
+            key = label.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            labels.append(label)
+        return labels[:8]
+
     def _event_schema(self, evento):
         schema = []
-        allowed_types = {'texto', 'data', 'hora', 'numero', 'booleano', 'seletor'}
+        allowed_types = {'texto', 'data', 'hora', 'numero', 'booleano', 'seletor', 'repetidor'}
         for index, field in enumerate(evento.fields_data or []):
             label = str((field or {}).get('name') or (field or {}).get('label') or '').strip()
             if not label:
@@ -3783,6 +3835,8 @@ class EventoPublicoView(View):
             if field_type not in allowed_types:
                 field_type = 'texto'
             selector_options = self._selector_options_from_field(field) if field_type == 'seletor' else []
+            repeat_fields = self._repeat_fields_from_field(field) if field_type == 'repetidor' else []
+            repeat_button_label = str((field or {}).get('repeat_button_label') or label).strip() or label
             is_required = bool((field or {}).get('required'))
             schema.append({
                 'index': index,
@@ -3791,6 +3845,8 @@ class EventoPublicoView(View):
                 'required': is_required,
                 'input_name': f'campo_{index}',
                 'options': selector_options,
+                'repeat_fields': repeat_fields,
+                'repeat_button_label': repeat_button_label,
             })
         return schema
 
@@ -4269,6 +4325,44 @@ class EventoPublicoView(View):
         schema = self._event_schema(evento)
         dados = {}
         for field in schema:
+            if field['type'] == 'repetidor':
+                repeat_fields = [str(item or '').strip() for item in (field.get('repeat_fields') or []) if str(item or '').strip()]
+                raw_value = str(request.POST.get(field['input_name']) or '').strip()
+                repeat_rows = []
+                if raw_value:
+                    try:
+                        parsed_rows = json.loads(raw_value)
+                    except (TypeError, ValueError, json.JSONDecodeError):
+                        messages.error(request, f'Os dados do campo "{field["name"]}" estao invalidos.')
+                        return render(request, self.template_name, self._context(request, evento))
+                    if not isinstance(parsed_rows, list):
+                        messages.error(request, f'Os dados do campo "{field["name"]}" estao invalidos.')
+                        return render(request, self.template_name, self._context(request, evento))
+                    for row in parsed_rows:
+                        if not isinstance(row, dict):
+                            continue
+                        row_obj = {}
+                        row_has_value = False
+                        for key in repeat_fields:
+                            value = str(row.get(key) or '').strip()
+                            row_obj[key] = value
+                            if value:
+                                row_has_value = True
+                        if row_has_value:
+                            missing_keys = [key for key, value in row_obj.items() if not str(value or '').strip()]
+                            if missing_keys:
+                                messages.error(
+                                    request,
+                                    f'Preencha todos os subcampos do campo "{field["name"]}" antes de salvar.',
+                                )
+                                return render(request, self.template_name, self._context(request, evento))
+                            repeat_rows.append(row_obj)
+                if field['required'] and not repeat_rows:
+                    messages.error(request, f'O campo "{field["name"]}" e obrigatorio.')
+                    return render(request, self.template_name, self._context(request, evento))
+                dados[field['name']] = repeat_rows
+                continue
+
             value = str(request.POST.get(field['input_name']) or '').strip()
             if field['required'] and not value:
                 messages.error(request, f'O campo "{field["name"]}" é obrigatório.')

@@ -15,6 +15,48 @@
       gap: 1rem;
       grid-template-columns: 1fr;
     }
+    .event-repeat-group {
+      display: grid;
+      gap: 0.55rem;
+      margin-top: 0.35rem;
+    }
+    .event-repeat-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+    }
+    .event-repeat-title {
+      margin: 0;
+      color: #0f172a;
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+    .event-repeat-list {
+      display: grid;
+      gap: 0.65rem;
+    }
+    .event-repeat-item {
+      border: 1px solid #dbeafe;
+      border-radius: 12px;
+      background: #f8fbff;
+      padding: 0.65rem;
+      display: grid;
+      gap: 0.55rem;
+    }
+    .event-repeat-item-grid {
+      display: grid;
+      gap: 0.55rem;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    }
+    .event-repeat-item-remove {
+      justify-self: end;
+    }
+    .event-repeat-empty {
+      margin: 0;
+      color: #64748b;
+      font-size: 0.86rem;
+    }
     .event-products-grid {
       display: grid;
       gap: 1rem;
@@ -839,36 +881,53 @@
     <div class="event-main-grid">
     <section class="painel-card event-step">
       <h3>Passo 1: Inscrição</h3>
-      <form method="post">
+      <form method="post" id="event-register-form">
         {% csrf_token %}
         <input type="hidden" name="action" value="register_event" />
         <div class="field-section">
           {% for field in schema %}
-            <label>
-              {{ field.name }} {% if field.required %}*{% endif %}
-              {% if field.type == 'data' %}
-                <input type="date" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
-              {% elif field.type == 'hora' %}
-                <input type="time" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
-              {% elif field.type == 'numero' %}
-                <input type="number" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
-              {% elif field.type == 'seletor' %}
-                <select name="{{ field.input_name }}" {% if field.required %}required{% endif %}>
-                  <option value="">-- selecione --</option>
-                  {% for option in field.options %}
-                    <option value="{{ option }}">{{ option }}</option>
-                  {% endfor %}
-                </select>
-              {% elif field.type == 'booleano' %}
-                <select name="{{ field.input_name }}" {% if field.required %}required{% endif %}>
-                  <option value="">-- selecione --</option>
-                  <option value="sim">Sim</option>
-                  <option value="nao">Não</option>
-                </select>
-              {% else %}
-                <input type="text" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
-              {% endif %}
-            </label>
+            {% if field.type == 'repetidor' %}
+              <div
+                class="event-repeat-group"
+                data-repeat-field="{{ field.input_name }}"
+                data-repeat-required="{% if field.required %}1{% else %}0{% endif %}"
+                data-repeat-fields="{% for item in field.repeat_fields %}{{ item|escapejs }}{% if not forloop.last %}||{% endif %}{% endfor %}"
+              >
+                <div class="event-repeat-head">
+                  <p class="event-repeat-title">{{ field.name }} {% if field.required %}*{% endif %}</p>
+                </div>
+                <input type="hidden" name="{{ field.input_name }}" value="[]" data-repeat-hidden />
+                <p class="event-repeat-empty" data-repeat-empty>Nenhum item adicionado.</p>
+                <div class="event-repeat-list" data-repeat-list></div>
+                <button type="button" class="secondary" data-repeat-add>{{ field.repeat_button_label|default:"Adicionar item" }}</button>
+              </div>
+            {% else %}
+              <label>
+                {{ field.name }} {% if field.required %}*{% endif %}
+                {% if field.type == 'data' %}
+                  <input type="date" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
+                {% elif field.type == 'hora' %}
+                  <input type="time" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
+                {% elif field.type == 'numero' %}
+                  <input type="number" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
+                {% elif field.type == 'seletor' %}
+                  <select name="{{ field.input_name }}" {% if field.required %}required{% endif %}>
+                    <option value="">-- selecione --</option>
+                    {% for option in field.options %}
+                      <option value="{{ option }}">{{ option }}</option>
+                    {% endfor %}
+                  </select>
+                {% elif field.type == 'booleano' %}
+                  <select name="{{ field.input_name }}" {% if field.required %}required{% endif %}>
+                    <option value="">-- selecione --</option>
+                    <option value="sim">Sim</option>
+                    <option value="nao">Não</option>
+                  </select>
+                {% else %}
+                  <input type="text" name="{{ field.input_name }}" {% if field.required %}required{% endif %} />
+                {% endif %}
+              </label>
+            {% endif %}
           {% empty %}
             <p class="panel-note">Este evento não exige campos extras de inscrição.</p>
           {% endfor %}
@@ -1023,6 +1082,7 @@
       const guestNameInput = document.getElementById('event-guest-name');
       const guestEmailInput = document.getElementById('event-guest-email');
       const guestPhoneInput = document.getElementById('event-guest-phone');
+      const registerForm = document.getElementById('event-register-form');
       const statusUrlTemplate = "{% url 'accounts:loja_pedido_status' 0 %}";
       let lastPedidoId = Number(pixPedidoId ? pixPedidoId.textContent : 0) || 0;
 
@@ -1038,6 +1098,136 @@
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#39;');
+      };
+
+      const parseRepeatFields = (rawValue) => {
+        return String(rawValue || '')
+          .split('||')
+          .map((item) => String(item || '').trim())
+          .filter((item) => item);
+      };
+
+      const buildRepeatItem = (fieldWrap, fields, index) => {
+        const item = document.createElement('div');
+        item.className = 'event-repeat-item';
+        item.dataset.repeatIndex = String(index);
+
+        const grid = document.createElement('div');
+        grid.className = 'event-repeat-item-grid';
+        fields.forEach((label) => {
+          const labelNode = document.createElement('label');
+          labelNode.textContent = label;
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.placeholder = label;
+          input.setAttribute('data-repeat-key', label);
+          labelNode.appendChild(input);
+          grid.appendChild(labelNode);
+        });
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'secondary event-repeat-item-remove';
+        removeBtn.textContent = 'Remover';
+        removeBtn.setAttribute('data-repeat-remove', '1');
+
+        item.appendChild(grid);
+        item.appendChild(removeBtn);
+        return item;
+      };
+
+      const serializeRepeatField = (fieldWrap) => {
+        const hidden = fieldWrap.querySelector('[data-repeat-hidden]');
+        const emptyNote = fieldWrap.querySelector('[data-repeat-empty]');
+        const rows = Array.from(fieldWrap.querySelectorAll('.event-repeat-item'));
+        const payload = [];
+        rows.forEach((row) => {
+          const rowObj = {};
+          let hasValue = false;
+          row.querySelectorAll('[data-repeat-key]').forEach((input) => {
+            const key = String(input.getAttribute('data-repeat-key') || '').trim();
+            const value = String(input.value || '').trim();
+            if (!key) return;
+            rowObj[key] = value;
+            if (value) hasValue = true;
+          });
+          if (hasValue) payload.push(rowObj);
+        });
+        if (hidden) hidden.value = JSON.stringify(payload);
+        if (emptyNote) emptyNote.hidden = rows.length > 0;
+        return payload;
+      };
+
+      const addRepeatItem = (fieldWrap) => {
+        const list = fieldWrap.querySelector('[data-repeat-list]');
+        if (!list) return;
+        const fields = parseRepeatFields(fieldWrap.getAttribute('data-repeat-fields'));
+        if (!fields.length) return;
+        const nextIndex = list.querySelectorAll('.event-repeat-item').length + 1;
+        list.appendChild(buildRepeatItem(fieldWrap, fields, nextIndex));
+        serializeRepeatField(fieldWrap);
+      };
+
+      const initRepeatFields = () => {
+        if (!registerForm) return;
+        const repeatFields = Array.from(registerForm.querySelectorAll('[data-repeat-field]'));
+        if (!repeatFields.length) return;
+
+        repeatFields.forEach((fieldWrap) => {
+          const addBtn = fieldWrap.querySelector('[data-repeat-add]');
+          const list = fieldWrap.querySelector('[data-repeat-list]');
+          const required = fieldWrap.getAttribute('data-repeat-required') === '1';
+          if (addBtn) {
+            addBtn.addEventListener('click', () => {
+              addRepeatItem(fieldWrap);
+            });
+          }
+          if (list) {
+            list.addEventListener('click', (event) => {
+              const target = event.target;
+              if (!(target instanceof HTMLElement)) return;
+              if (target.getAttribute('data-repeat-remove') !== '1') return;
+              const item = target.closest('.event-repeat-item');
+              if (item) item.remove();
+              serializeRepeatField(fieldWrap);
+            });
+            list.addEventListener('input', () => {
+              serializeRepeatField(fieldWrap);
+            });
+          }
+          if (required) {
+            addRepeatItem(fieldWrap);
+          } else {
+            serializeRepeatField(fieldWrap);
+          }
+        });
+
+        registerForm.addEventListener('submit', (event) => {
+          for (const fieldWrap of repeatFields) {
+            const required = fieldWrap.getAttribute('data-repeat-required') === '1';
+            const rows = Array.from(fieldWrap.querySelectorAll('.event-repeat-item'));
+            for (const row of rows) {
+              const values = Array.from(row.querySelectorAll('[data-repeat-key]')).map((input) => String(input.value || '').trim());
+              const hasAny = values.some((value) => value);
+              const hasEmpty = values.some((value) => !value);
+              if (hasAny && hasEmpty) {
+                event.preventDefault();
+                window.alert('Preencha todos os subcampos de cada item antes de salvar.');
+                const firstEmpty = row.querySelector('[data-repeat-key]');
+                if (firstEmpty) firstEmpty.focus();
+                return;
+              }
+            }
+            const payload = serializeRepeatField(fieldWrap);
+            if (required && !payload.length) {
+              event.preventDefault();
+              window.alert('Preencha pelo menos um item nos campos obrigatórios.');
+              const addBtn = fieldWrap.querySelector('[data-repeat-add]');
+              if (addBtn) addBtn.focus();
+              return;
+            }
+          }
+        });
       };
 
       const openCartDrawer = () => {
@@ -1362,6 +1552,7 @@
         openModal(registerSummaryModal);
       }
 
+      initRepeatFields();
       renderCart();
     })();
   </script>
