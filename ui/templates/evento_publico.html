@@ -726,7 +726,7 @@
           <span class="event-metric-pill">Receita total: {{ receita_total_fmt }}</span>
           <span class="event-metric-pill">Custos: {{ custos_total_fmt }}</span>
           <span class="event-metric-pill">Lucro liquido: {{ lucro_liquido_fmt }}</span>
-          <span class="event-metric-pill">Cobranca: {{ inscricao_valor_config_text }} ({{ inscricao_valor_unitario_fmt }})</span>
+          <span class="event-metric-pill">Cobranca: {{ inscricao_valor_config_text }}</span>
           <span class="event-metric-pill">Pagina: {% if evento.inscricao_publica %}Publica{% else %}Privada{% endif %}</span>
         </div>
         <div class="action-row">
@@ -968,7 +968,7 @@
     <div class="event-main-grid">
     <section class="painel-card event-step">
       <h3>Passo 1: Inscrição</h3>
-      <p class="panel-note">Cobranca configurada: {{ inscricao_valor_config_text }} ({{ inscricao_valor_unitario_fmt }}).</p>
+      <p class="panel-note">Cobranca configurada: {{ inscricao_valor_config_text }}.</p>
       <form method="post" id="event-register-form">
         {% csrf_token %}
         <input type="hidden" name="action" value="register_event" />

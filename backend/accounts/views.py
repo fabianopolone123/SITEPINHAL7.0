@@ -3125,6 +3125,7 @@ class EventosView(LoginRequiredMixin, View):
             Evento.INSCRICAO_VALOR_MODO_FIXO,
             Evento.INSCRICAO_VALOR_MODO_POR_CAMPO,
             Evento.INSCRICAO_VALOR_MODO_POR_ITEM_REPETIDOR,
+            Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR,
         }
         return mode if mode in allowed else Evento.INSCRICAO_VALOR_MODO_NENHUM
 
@@ -3134,11 +3135,28 @@ class EventosView(LoginRequiredMixin, View):
             Evento.INSCRICAO_VALOR_MODO_FIXO: 'Valor fixo por inscricao',
             Evento.INSCRICAO_VALOR_MODO_POR_CAMPO: 'Valor por campo preenchido',
             Evento.INSCRICAO_VALOR_MODO_POR_ITEM_REPETIDOR: 'Valor por item de botao repetidor',
+            Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR: 'Valor por faixa de idade',
         }
         return mapping.get(self._normalize_inscricao_valor_modo(mode), 'Sem cobranca')
 
     def _inscricao_valor_config_text(self, evento):
         mode = self._normalize_inscricao_valor_modo(getattr(evento, 'inscricao_valor_modo', ''))
+        config = getattr(evento, 'inscricao_valor_config', {}) or {}
+        if not isinstance(config, dict):
+            config = {}
+        if mode == Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR:
+            repeat_field = str(config.get('repeat_field') or '').strip()
+            age_field = str(config.get('age_field') or '').strip()
+            ranges = config.get('ranges') if isinstance(config.get('ranges'), list) else []
+            parts = []
+            if repeat_field:
+                parts.append(repeat_field)
+            if age_field:
+                parts.append(f'idade={age_field}')
+            if ranges:
+                parts.append(f'{len(ranges)} faixa(s)')
+            suffix = f" ({' | '.join(parts)})" if parts else ''
+            return self._inscricao_valor_mode_label(mode) + suffix
         try:
             unit = Decimal(getattr(evento, 'inscricao_valor_unitario', Decimal('0.00')) or Decimal('0.00'))
         except (InvalidOperation, TypeError, ValueError):
@@ -3147,15 +3165,152 @@ class EventosView(LoginRequiredMixin, View):
             return 'Sem cobranca'
         return f'{self._inscricao_valor_mode_label(mode)} ({self._format_currency(unit)})'
 
+    def _inscricao_valor_faixas_texto(self, evento):
+        config = getattr(evento, 'inscricao_valor_config', {}) or {}
+        if not isinstance(config, dict):
+            return ''
+        ranges = config.get('ranges') if isinstance(config.get('ranges'), list) else []
+        chunks = []
+        for item in ranges:
+            if not isinstance(item, dict):
+                continue
+            try:
+                min_age = int(item.get('min'))
+                max_age = int(item.get('max'))
+                value = Decimal(str(item.get('value') or '0')).quantize(Decimal('0.01'))
+            except (TypeError, ValueError, InvalidOperation):
+                continue
+            value_text = f'{value:.2f}'.replace('.', ',')
+            chunks.append(f'{min_age}-{max_age}={value_text}')
+        return '; '.join(chunks)
+
+    def _parse_inscricao_faixas_texto(self, raw_value):
+        rows = []
+        text = str(raw_value or '').strip()
+        if not text:
+            return rows, 'Informe as faixas de idade (ex.: 1-4=20; 5-12=40).'
+        chunks = [part.strip() for part in re.split(r'[\n;]+', text) if str(part or '').strip()]
+        for token in chunks:
+            match = re.fullmatch(r'(\d+)\s*[-aA]\s*(\d+)\s*[:=]\s*([0-9]+(?:[.,][0-9]{1,2})?)', token)
+            if not match:
+                return [], f'Faixa invalida: "{token}". Use formato 1-4=20.'
+            min_age = int(match.group(1))
+            max_age = int(match.group(2))
+            if max_age < min_age:
+                return [], f'Faixa invalida: "{token}". O maximo precisa ser maior ou igual ao minimo.'
+            valor = self._parse_valor(match.group(3))
+            if valor is None or valor <= 0:
+                return [], f'Valor invalido na faixa "{token}".'
+            rows.append({
+                'min': min_age,
+                'max': max_age,
+                'value': str(valor),
+            })
+        if not rows:
+            return [], 'Informe ao menos uma faixa de idade.'
+        rows.sort(key=lambda item: (int(item.get('min', 0)), int(item.get('max', 0))))
+        for idx in range(1, len(rows)):
+            previous = rows[idx - 1]
+            current = rows[idx]
+            try:
+                previous_max = int(previous.get('max'))
+                current_min = int(current.get('min'))
+            except (TypeError, ValueError):
+                continue
+            if current_min <= previous_max:
+                return [], (
+                    'As faixas de idade estao sobrepostas. Ajuste para nao repetir idades '
+                    f'({previous.get("min")}-{previous.get("max")} e {current.get("min")}-{current.get("max")}).'
+                )
+        return rows, ''
+
     def _parse_inscricao_valor_config_request(self, request):
         mode = self._normalize_inscricao_valor_modo(request.POST.get('inscricao_valor_modo'))
         if mode == Evento.INSCRICAO_VALOR_MODO_NENHUM:
-            return mode, Decimal('0.00')
+            return mode, Decimal('0.00'), {}
+        if mode == Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR:
+            repeat_field = str(request.POST.get('inscricao_faixa_repeat_field') or '').strip()
+            age_field = str(request.POST.get('inscricao_faixa_age_field') or '').strip()
+            ranges, ranges_error = self._parse_inscricao_faixas_texto(request.POST.get('inscricao_faixas_texto'))
+            if not repeat_field:
+                messages.error(request, 'Informe o nome do campo repetidor para regra por faixa de idade.')
+                return None, None, None
+            if not age_field:
+                messages.error(request, 'Informe o nome do subcampo de idade para regra por faixa de idade.')
+                return None, None, None
+            if ranges_error:
+                messages.error(request, ranges_error)
+                return None, None, None
+            labels = request.POST.getlist('field_name[]') or request.POST.getlist('field_label[]')
+            field_types = request.POST.getlist('field_type[]')
+            repeat_fields_raw = request.POST.getlist('field_repeat_fields[]')
+
+            def _repeat_subfields_from_text(raw_text):
+                items = re.split(r'[\n;]+', str(raw_text or ''))
+                result = []
+                seen = set()
+                for token in items:
+                    token_text = str(token or '').strip()
+                    if not token_text:
+                        continue
+                    label_text = token_text.split(':', 1)[0].strip()
+                    if label_text.endswith('?') or label_text.endswith('*'):
+                        label_text = str(label_text[:-1] or '').strip()
+                    if not label_text:
+                        continue
+                    label_key = label_text.lower()
+                    if label_key in seen:
+                        continue
+                    seen.add(label_key)
+                    result.append(label_text)
+                return result
+
+            repeat_map = {}
+            repeat_labels_display = []
+            for idx, label in enumerate(labels):
+                current_label = str(label or '').strip()
+                current_type = str(field_types[idx] if idx < len(field_types) else '').strip().lower()
+                if not current_label or current_type != 'repetidor':
+                    continue
+                subfields = _repeat_subfields_from_text(repeat_fields_raw[idx] if idx < len(repeat_fields_raw) else '')
+                if not subfields:
+                    continue
+                repeat_map[current_label.lower()] = {
+                    'name': current_label,
+                    'subfields': subfields,
+                    'subfields_map': {item.lower(): item for item in subfields},
+                }
+                repeat_labels_display.append(current_label)
+
+            if repeat_map:
+                repeat_info = repeat_map.get(repeat_field.lower())
+                if not repeat_info:
+                    options = ', '.join(repeat_labels_display) if repeat_labels_display else '-'
+                    messages.error(
+                        request,
+                        f'Campo repetidor "{repeat_field}" nao encontrado. Opcoes: {options}.',
+                    )
+                    return None, None, None
+                age_normalized = repeat_info['subfields_map'].get(age_field.lower())
+                if not age_normalized:
+                    options = ', '.join(repeat_info['subfields']) if repeat_info['subfields'] else '-'
+                    messages.error(
+                        request,
+                        f'Subcampo "{age_field}" nao encontrado no repetidor "{repeat_info["name"]}". Opcoes: {options}.',
+                    )
+                    return None, None, None
+                repeat_field = repeat_info['name']
+                age_field = age_normalized
+            return mode, Decimal('0.00'), {
+                'repeat_field': repeat_field,
+                'age_field': age_field,
+                'ranges': ranges,
+            }
         valor = self._parse_valor(request.POST.get('inscricao_valor_unitario'))
         if valor is None or valor <= 0:
             messages.error(request, 'Informe um valor unitario valido para a cobranca da inscricao.')
-            return None, None
-        return mode, valor
+            return None, None, None
+        return mode, valor, {}
 
     def _context(self, request):
         eventos = list(Evento.objects.select_related('created_by').all())
@@ -3268,6 +3423,7 @@ class EventosView(LoginRequiredMixin, View):
                     'custos_total_fmt': self._format_currency(custos_total),
                     'lucro_liquido_fmt': self._format_currency(lucro_liquido),
                     'inscricao_valor_config_text': self._inscricao_valor_config_text(evento),
+                    'inscricao_valor_faixas_texto': self._inscricao_valor_faixas_texto(evento),
                     'has_public_page': bool((evento.fields_data or []) or produtos_rows),
                     'inscricoes_preview': inscricoes,
                     'pedidos_preview': pedidos,
@@ -3288,6 +3444,7 @@ class EventosView(LoginRequiredMixin, View):
                     'custos_total_fmt': self._format_currency(Decimal('0.00')),
                     'lucro_liquido_fmt': self._format_currency(Decimal('0.00')),
                     'inscricao_valor_config_text': 'Sem cobranca',
+                    'inscricao_valor_faixas_texto': '',
                     'has_public_page': False,
                     'inscricoes_preview': [],
                     'pedidos_preview': [],
@@ -3670,7 +3827,7 @@ class EventosView(LoginRequiredMixin, View):
             name = (request.POST.get('name') or '').strip()
             event_type = (request.POST.get('event_type') or '').strip()
             inscricao_publica = bool(request.POST.get('inscricao_publica'))
-            inscricao_valor_modo, inscricao_valor_unitario = self._parse_inscricao_valor_config_request(request)
+            inscricao_valor_modo, inscricao_valor_unitario, inscricao_valor_config = self._parse_inscricao_valor_config_request(request)
             if inscricao_valor_modo is None:
                 return render(request, self.template_name, self._context(request))
             event_date_raw = (request.POST.get('event_date') or '').strip()
@@ -3713,6 +3870,7 @@ class EventosView(LoginRequiredMixin, View):
                     event_end_time=event_end_time_value,
                     inscricao_valor_modo=inscricao_valor_modo,
                     inscricao_valor_unitario=inscricao_valor_unitario,
+                    inscricao_valor_config=inscricao_valor_config,
                     fields_data=fields_data,
                     created_by=request.user,
                 )
@@ -3785,7 +3943,7 @@ class EventosView(LoginRequiredMixin, View):
             name = (request.POST.get('name') or '').strip()
             event_type = (request.POST.get('event_type') or '').strip()
             inscricao_publica = bool(request.POST.get('inscricao_publica'))
-            inscricao_valor_modo, inscricao_valor_unitario = self._parse_inscricao_valor_config_request(request)
+            inscricao_valor_modo, inscricao_valor_unitario, inscricao_valor_config = self._parse_inscricao_valor_config_request(request)
             if inscricao_valor_modo is None:
                 return render(request, self.template_name, self._context(request))
             event_date_raw = (request.POST.get('event_date') or '').strip()
@@ -3827,6 +3985,7 @@ class EventosView(LoginRequiredMixin, View):
             evento.event_end_time = event_end_time_value
             evento.inscricao_valor_modo = inscricao_valor_modo
             evento.inscricao_valor_unitario = inscricao_valor_unitario
+            evento.inscricao_valor_config = inscricao_valor_config
             evento.fields_data = fields_data
             evento.save(update_fields=[
                 'name',
@@ -3837,6 +3996,7 @@ class EventosView(LoginRequiredMixin, View):
                 'event_end_time',
                 'inscricao_valor_modo',
                 'inscricao_valor_unitario',
+                'inscricao_valor_config',
                 'fields_data',
                 'updated_at',
             ])
@@ -3967,6 +4127,7 @@ class EventoPublicoView(View):
             Evento.INSCRICAO_VALOR_MODO_FIXO,
             Evento.INSCRICAO_VALOR_MODO_POR_CAMPO,
             Evento.INSCRICAO_VALOR_MODO_POR_ITEM_REPETIDOR,
+            Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR,
         }
         return mode if mode in allowed else Evento.INSCRICAO_VALOR_MODO_NENHUM
 
@@ -3976,8 +4137,35 @@ class EventoPublicoView(View):
             Evento.INSCRICAO_VALOR_MODO_FIXO: 'Valor fixo por inscricao',
             Evento.INSCRICAO_VALOR_MODO_POR_CAMPO: 'Valor por campo preenchido',
             Evento.INSCRICAO_VALOR_MODO_POR_ITEM_REPETIDOR: 'Valor por item de botao repetidor',
+            Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR: 'Valor por faixa de idade',
         }
         return mapping.get(self._normalize_inscricao_valor_modo(mode), 'Sem cobranca')
+
+    def _inscricao_valor_config_text(self, evento):
+        mode = self._normalize_inscricao_valor_modo(getattr(evento, 'inscricao_valor_modo', ''))
+        config = getattr(evento, 'inscricao_valor_config', {}) or {}
+        if not isinstance(config, dict):
+            config = {}
+        if mode == Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR:
+            repeat_field = str(config.get('repeat_field') or '').strip()
+            age_field = str(config.get('age_field') or '').strip()
+            ranges = config.get('ranges') if isinstance(config.get('ranges'), list) else []
+            parts = []
+            if repeat_field:
+                parts.append(repeat_field)
+            if age_field:
+                parts.append(f'idade={age_field}')
+            if ranges:
+                parts.append(f'{len(ranges)} faixa(s)')
+            suffix = f" ({' | '.join(parts)})" if parts else ''
+            return self._inscricao_valor_mode_label(mode) + suffix
+        try:
+            unit = Decimal(getattr(evento, 'inscricao_valor_unitario', Decimal('0.00')) or Decimal('0.00'))
+        except (InvalidOperation, TypeError, ValueError):
+            unit = Decimal('0.00')
+        if mode == Evento.INSCRICAO_VALOR_MODO_NENHUM or unit <= 0:
+            return 'Sem cobranca'
+        return f'{self._inscricao_valor_mode_label(mode)} ({self._format_currency(unit)})'
 
     def _row_has_any_value(self, row_obj):
         if not isinstance(row_obj, dict):
@@ -3994,15 +4182,19 @@ class EventoPublicoView(View):
         except (InvalidOperation, TypeError, ValueError):
             unit = Decimal('0.00')
         unit = unit.quantize(Decimal('0.01'))
-        if mode == Evento.INSCRICAO_VALOR_MODO_NENHUM or unit <= 0:
-            return Evento.INSCRICAO_VALOR_MODO_NENHUM, 0, Decimal('0.00')
+        if mode == Evento.INSCRICAO_VALOR_MODO_NENHUM:
+            return Evento.INSCRICAO_VALOR_MODO_NENHUM, 0, Decimal('0.00'), ''
 
         units = 0
         schema_rows = schema if isinstance(schema, list) else []
         dados_obj = dados if isinstance(dados, dict) else {}
         if mode == Evento.INSCRICAO_VALOR_MODO_FIXO:
+            if unit <= 0:
+                return mode, 0, Decimal('0.00'), 'Valor unitario da inscricao nao configurado.'
             units = 1
         elif mode == Evento.INSCRICAO_VALOR_MODO_POR_CAMPO:
+            if unit <= 0:
+                return mode, 0, Decimal('0.00'), 'Valor unitario da inscricao nao configurado.'
             for field in schema_rows:
                 field_name = str((field or {}).get('name') or '').strip()
                 if not field_name:
@@ -4016,6 +4208,8 @@ class EventoPublicoView(View):
                     if str(value or '').strip():
                         units += 1
         elif mode == Evento.INSCRICAO_VALOR_MODO_POR_ITEM_REPETIDOR:
+            if unit <= 0:
+                return mode, 0, Decimal('0.00'), 'Valor unitario da inscricao nao configurado.'
             for field in schema_rows:
                 field_name = str((field or {}).get('name') or '').strip()
                 if not field_name:
@@ -4026,11 +4220,58 @@ class EventoPublicoView(View):
                 value = dados_obj.get(field_name)
                 if isinstance(value, list):
                     units += len([row for row in value if self._row_has_any_value(row)])
+        elif mode == Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR:
+            config = getattr(evento, 'inscricao_valor_config', {}) or {}
+            if not isinstance(config, dict):
+                return mode, 0, Decimal('0.00'), 'Configuracao de faixa de idade invalida no evento.'
+            repeat_field = str(config.get('repeat_field') or '').strip()
+            age_field = str(config.get('age_field') or '').strip()
+            ranges = config.get('ranges') if isinstance(config.get('ranges'), list) else []
+            if not repeat_field or not age_field or not ranges:
+                return mode, 0, Decimal('0.00'), 'Configuracao de faixa de idade incompleta no evento.'
+            repeat_rows = dados_obj.get(repeat_field)
+            if not isinstance(repeat_rows, list):
+                return mode, 0, Decimal('0.00'), ''
+            total = Decimal('0.00')
+            for row in repeat_rows:
+                if not self._row_has_any_value(row):
+                    continue
+                if not isinstance(row, dict):
+                    continue
+                age_text = str(row.get(age_field) or '').strip()
+                if not re.fullmatch(r'\d+', age_text):
+                    return mode, 0, Decimal('0.00'), (
+                        f'Preencha o subcampo "{age_field}" com idade numerica em todos os itens de "{repeat_field}".'
+                    )
+                age = int(age_text)
+                matched_range = None
+                for item in ranges:
+                    if not isinstance(item, dict):
+                        continue
+                    try:
+                        min_age = int(item.get('min'))
+                        max_age = int(item.get('max'))
+                        item_value = Decimal(str(item.get('value') or '0'))
+                    except (TypeError, ValueError, InvalidOperation):
+                        continue
+                    if age < min_age or age > max_age:
+                        continue
+                    matched_range = item_value.quantize(Decimal('0.01'))
+                    break
+                if matched_range is None:
+                    return mode, 0, Decimal('0.00'), (
+                        f'Idade {age} sem faixa de cobranca configurada no evento.'
+                    )
+                total += matched_range
+                units += 1
+            if units <= 0:
+                return mode, 0, Decimal('0.00'), ''
+            return mode, int(units), total.quantize(Decimal('0.01')), ''
 
         if units <= 0:
-            return mode, 0, Decimal('0.00')
+            return mode, 0, Decimal('0.00'), ''
         total = (unit * Decimal(units)).quantize(Decimal('0.01'))
-        return mode, int(units), total
+        return mode, int(units), total, ''
 
     def _selector_options_from_field(self, field):
         field_obj = field or {}
@@ -4587,7 +4828,7 @@ class EventoPublicoView(View):
             'pedido_modal': pedido_modal,
             'is_public_page': bool(evento.inscricao_publica),
             'is_authenticated': bool(request.user.is_authenticated),
-            'inscricao_valor_config_text': self._inscricao_valor_mode_label(getattr(evento, 'inscricao_valor_modo', '')),
+            'inscricao_valor_config_text': self._inscricao_valor_config_text(evento),
             'inscricao_valor_unitario_fmt': self._format_currency(
                 getattr(evento, 'inscricao_valor_unitario', Decimal('0.00')) or Decimal('0.00')
             ),
@@ -4842,7 +5083,10 @@ class EventoPublicoView(View):
                     return render(request, self.template_name, self._context(request, evento))
             dados[field['name']] = value
 
-        _fee_mode, fee_units, fee_total = self._calcular_inscricao_valor(evento, schema, dados)
+        _fee_mode, fee_units, fee_total, fee_error = self._calcular_inscricao_valor(evento, schema, dados)
+        if fee_error:
+            messages.error(request, fee_error)
+            return render(request, self.template_name, self._context(request, evento))
         inscricao_salva = None
         if request.user.is_authenticated:
             responsavel = LojaView()._ensure_loja_responsavel(request.user, create=False)

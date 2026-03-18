@@ -450,11 +450,13 @@ class Evento(models.Model):
     INSCRICAO_VALOR_MODO_FIXO = 'fixo_inscricao'
     INSCRICAO_VALOR_MODO_POR_CAMPO = 'por_campo_preenchido'
     INSCRICAO_VALOR_MODO_POR_ITEM_REPETIDOR = 'por_item_repetidor'
+    INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR = 'faixa_idade_repetidor'
     INSCRICAO_VALOR_MODO_CHOICES = [
         (INSCRICAO_VALOR_MODO_NENHUM, 'Sem cobrança de inscrição'),
         (INSCRICAO_VALOR_MODO_FIXO, 'Valor fixo por inscrição'),
         (INSCRICAO_VALOR_MODO_POR_CAMPO, 'Valor por campo preenchido'),
         (INSCRICAO_VALOR_MODO_POR_ITEM_REPETIDOR, 'Valor por item de botão repetidor'),
+        (INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR, 'Valor por faixa de idade (botão repetidor)'),
     ]
 
     name = models.CharField('nome do evento', max_length=255)
@@ -475,6 +477,7 @@ class Evento(models.Model):
         decimal_places=2,
         default=Decimal('0.00'),
     )
+    inscricao_valor_config = models.JSONField('configuracao da cobranca da inscricao', default=dict, blank=True)
     fields_data = models.JSONField('campos do evento', default=list, blank=True)
     created_by = models.ForeignKey(
         User,

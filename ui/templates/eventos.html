@@ -45,6 +45,9 @@
     .event-repeat-hidden {
       display: none !important;
     }
+    .fee-config-hidden {
+      display: none !important;
+    }
     .event-field-row button {
       margin-top: 0;
       padding: 0.55rem 0.7rem;
@@ -333,7 +336,7 @@
               <details id="evento-edit-{{ evento.id }}" style="margin-top:0.8rem;">
                 <summary>Editar evento e produtos</summary>
 
-                <form method="post" class="painel-card" style="margin-top:0.8rem;">
+                <form method="post" class="painel-card js-fee-config-form" style="margin-top:0.8rem;">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="update_event" />
                   <input type="hidden" name="event_id" value="{{ evento.id }}" />
@@ -346,16 +349,29 @@
                     <label>Hora fim <input type="time" name="event_end_time" value="{{ evento.event_end_time|time:'H:i' }}" required /></label>
                     <label>
                       Cobranca da inscricao
-                      <select name="inscricao_valor_modo">
+                      <select name="inscricao_valor_modo" class="js-fee-mode">
                         <option value="nenhum" {% if evento.inscricao_valor_modo == 'nenhum' %}selected{% endif %}>Sem cobranca</option>
                         <option value="fixo_inscricao" {% if evento.inscricao_valor_modo == 'fixo_inscricao' %}selected{% endif %}>Valor fixo por inscricao</option>
                         <option value="por_campo_preenchido" {% if evento.inscricao_valor_modo == 'por_campo_preenchido' %}selected{% endif %}>Valor por campo preenchido</option>
                         <option value="por_item_repetidor" {% if evento.inscricao_valor_modo == 'por_item_repetidor' %}selected{% endif %}>Valor por item de botao repetidor</option>
+                        <option value="faixa_idade_repetidor" {% if evento.inscricao_valor_modo == 'faixa_idade_repetidor' %}selected{% endif %}>Valor por faixa de idade (botao repetidor)</option>
                       </select>
                     </label>
-                    <label>
+                    <label class="js-fee-unit-wrap">
                       Valor unitario da inscricao
                       <input type="text" name="inscricao_valor_unitario" value="{{ evento.inscricao_valor_unitario|default:'0.00' }}" placeholder="Ex.: 15,00" />
+                    </label>
+                    <label class="js-fee-age-wrap">
+                      Campo repetidor para contar criancas
+                      <input type="text" name="inscricao_faixa_repeat_field" value="{{ evento.inscricao_valor_config.repeat_field|default:'' }}" placeholder="Ex.: Adicionar Crianca" />
+                    </label>
+                    <label class="js-fee-age-wrap">
+                      Subcampo de idade dentro do botao repetidor
+                      <input type="text" name="inscricao_faixa_age_field" value="{{ evento.inscricao_valor_config.age_field|default:'' }}" placeholder="Ex.: Idade" />
+                    </label>
+                    <label class="full js-fee-age-wrap">
+                      Faixas de idade e valor
+                      <textarea name="inscricao_faixas_texto" rows="2" placeholder="Ex.: 1-4=20; 5-12=40">{{ row.inscricao_valor_faixas_texto }}</textarea>
                     </label>
                   </div>
                   <div class="field-section">
@@ -597,7 +613,7 @@
         <button type="button" id="close-event-modal" aria-label="Fechar">×</button>
       </header>
 
-      <form method="post" id="event-form">
+      <form method="post" id="event-form" class="js-fee-config-form">
         {% csrf_token %}
         <input type="hidden" name="action" id="event-action" value="create_event" />
 
@@ -644,16 +660,29 @@
           </label>
           <label>
             Cobranca da inscricao
-            <select name="inscricao_valor_modo" id="event-inscricao-valor-modo">
+            <select name="inscricao_valor_modo" id="event-inscricao-valor-modo" class="js-fee-mode">
               <option value="nenhum" selected>Sem cobranca</option>
               <option value="fixo_inscricao">Valor fixo por inscricao</option>
               <option value="por_campo_preenchido">Valor por campo preenchido</option>
               <option value="por_item_repetidor">Valor por item de botao repetidor</option>
+              <option value="faixa_idade_repetidor">Valor por faixa de idade (botao repetidor)</option>
             </select>
           </label>
-          <label>
+          <label id="event-fee-unit-wrap" class="js-fee-unit-wrap">
             Valor unitario da inscricao
             <input type="text" name="inscricao_valor_unitario" id="event-inscricao-valor-unitario" placeholder="Ex.: 15,00" />
+          </label>
+          <label class="js-fee-age-wrap">
+            Campo repetidor para contar criancas
+            <input type="text" name="inscricao_faixa_repeat_field" id="event-inscricao-faixa-repeat-field" placeholder="Ex.: Adicionar Crianca" />
+          </label>
+          <label class="js-fee-age-wrap">
+            Subcampo de idade dentro do botao repetidor
+            <input type="text" name="inscricao_faixa_age_field" id="event-inscricao-faixa-age-field" placeholder="Ex.: Idade" />
+          </label>
+          <label class="full js-fee-age-wrap">
+            Faixas de idade e valor
+            <textarea name="inscricao_faixas_texto" id="event-inscricao-faixas-texto" rows="2" placeholder="Ex.: 1-4=20; 5-12=40"></textarea>
           </label>
         </div>
 
@@ -769,9 +798,38 @@
       };
       const presets = parsePresetsData();
 
+      const syncFeeModeInForm = (formNode) => {
+        if (!(formNode instanceof HTMLElement)) return;
+        const modeSelect = formNode.querySelector('.js-fee-mode');
+        if (!modeSelect) return;
+        const applyVisibility = () => {
+          const mode = String(modeSelect.value || '').trim();
+          const showAgeConfig = mode === 'faixa_idade_repetidor';
+          const showUnitValue = !showAgeConfig && mode !== 'nenhum';
+          formNode.querySelectorAll('.js-fee-age-wrap').forEach((node) => {
+            node.classList.toggle('fee-config-hidden', !showAgeConfig);
+          });
+          formNode.querySelectorAll('.js-fee-unit-wrap').forEach((node) => {
+            node.classList.toggle('fee-config-hidden', !showUnitValue);
+          });
+        };
+        if (!modeSelect.dataset.feeModeBindDone) {
+          modeSelect.addEventListener('change', applyVisibility);
+          modeSelect.dataset.feeModeBindDone = '1';
+        }
+        applyVisibility();
+      };
+
+      const bindFeeConfigForms = () => {
+        document.querySelectorAll('.js-fee-config-form').forEach((node) => {
+          syncFeeModeInForm(node);
+        });
+      };
+
       const openModal = () => {
         hidePresetNameField();
         actionInput.value = 'create_event';
+        syncFeeModeInForm(form);
         modal.classList.add('show');
         modal.setAttribute('aria-hidden', 'false');
       };
@@ -1090,8 +1148,15 @@
         document.getElementById('event-end-time').value = preset.event_end_time || '';
         const feeModeInput = document.getElementById('event-inscricao-valor-modo');
         const feeUnitInput = document.getElementById('event-inscricao-valor-unitario');
+        const feeRepeatFieldInput = document.getElementById('event-inscricao-faixa-repeat-field');
+        const feeAgeFieldInput = document.getElementById('event-inscricao-faixa-age-field');
+        const feeRangesInput = document.getElementById('event-inscricao-faixas-texto');
         if (feeModeInput) feeModeInput.value = 'nenhum';
         if (feeUnitInput) feeUnitInput.value = '';
+        if (feeRepeatFieldInput) feeRepeatFieldInput.value = '';
+        if (feeAgeFieldInput) feeAgeFieldInput.value = '';
+        if (feeRangesInput) feeRangesInput.value = '';
+        syncFeeModeInForm(form);
         fieldsContainer.innerHTML = '';
         const rows = Array.isArray(preset.fields_data) ? preset.fields_data : [];
         if (!rows.length) {
@@ -1289,6 +1354,7 @@
 
       clearFieldsToDefault();
       hidePresetNameField();
+      bindFeeConfigForms();
       document.querySelectorAll('.event-field-row').forEach((row) => {
         if (row.querySelector('.js-field-type')) {
           syncSelectorRow(row);
