@@ -749,6 +749,7 @@
             <form method="post" id="event-delete-selected-inscricoes-form">
               {% csrf_token %}
               <input type="hidden" name="action" value="delete_selected_registrations" />
+              <input type="hidden" name="delete_password" id="event-delete-selected-password" value="" />
               <div class="table-scroll">
                 <table class="users-table">
                   <thead>
@@ -1159,6 +1160,7 @@
       const guestPhoneInput = document.getElementById('event-guest-phone');
       const registerForm = document.getElementById('event-register-form');
       const deleteSelectedInscricoesForm = document.getElementById('event-delete-selected-inscricoes-form');
+      const deleteSelectedPasswordInput = document.getElementById('event-delete-selected-password');
       const inscritosSelectAll = document.getElementById('event-inscritos-select-all');
       const statusUrlTemplate = "{% url 'accounts:loja_pedido_status' 0 %}";
       let lastPedidoId = Number(pixPedidoId ? pixPedidoId.textContent : 0) || 0;
@@ -1660,8 +1662,23 @@
             window.alert('Selecione ao menos uma inscricao para excluir.');
             return;
           }
+          const provided = window.prompt('Digite a senha para excluir inscricoes:');
+          if (provided === null) {
+            event.preventDefault();
+            return;
+          }
+          const normalized = String(provided || '').trim();
+          if (normalized !== '1580') {
+            event.preventDefault();
+            window.alert('Senha incorreta.');
+            return;
+          }
           if (!window.confirm('Confirma excluir ' + selected.length + ' inscricao(oes) selecionada(s)?')) {
             event.preventDefault();
+            return;
+          }
+          if (deleteSelectedPasswordInput) {
+            deleteSelectedPasswordInput.value = normalized;
           }
         });
       }

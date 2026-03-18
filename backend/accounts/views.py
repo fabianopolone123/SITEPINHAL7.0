@@ -4335,6 +4335,11 @@ class EventoPublicoView(View):
                 messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
                 return render(request, self.template_name, self._context(request, evento))
 
+            provided_password = str(request.POST.get('delete_password') or '').strip()
+            if provided_password != str(self.delete_inscricao_password):
+                messages.error(request, 'Senha incorreta para excluir inscricoes.')
+                return render(request, self.template_name, self._context(request, evento))
+
             raw_ids = request.POST.getlist('inscricao_ids[]')
             selected_ids = []
             for raw_id in raw_ids:
