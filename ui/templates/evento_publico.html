@@ -977,6 +977,12 @@
       max-width: none;
       padding: 0.5rem;
     }
+    .event-public-standalone .painel-content {
+      margin-left: 0;
+      margin-right: auto;
+      max-width: 1400px;
+      width: 100%;
+    }
     .inscritos-kids-count {
       display: inline-flex;
       align-items: center;
@@ -1125,6 +1131,9 @@
         height: 94vh;
         border-radius: 10px;
       }
+      .event-public-standalone .painel-content {
+        max-width: none;
+      }
     }
     @media (max-width: 560px) {
       .event-step {
@@ -1180,7 +1189,7 @@
     }
   </style>
 </head>
-<body class="painel-page{% if is_embedded_modal %} event-embedded-page{% endif %}">
+<body class="painel-page{% if is_embedded_modal %} event-embedded-page{% endif %}{% if not is_authenticated and not is_embedded_modal %} event-public-standalone{% endif %}">
   {{ evento.inscricao_valor_config|default:"{}"|json_script:"event-fee-config-data" }}
   {{ form_initial_by_input|default:"{}"|json_script:"event-form-initial-data" }}
   {% if is_authenticated and not is_embedded_modal %}
