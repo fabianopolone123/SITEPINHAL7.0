@@ -4351,6 +4351,15 @@ class EventoPublicoView(View):
         items = re.split(r'[\n,|/]+', str(raw_value or ''))
         return [str(item or '').strip() for item in items if str(item or '').strip()]
 
+    def _fix_event_field_label_pt(self, raw_label):
+        text = str(raw_label or '').strip()
+        if not text:
+            return ''
+        text = re.sub(r'(?i)resnpos', 'respons', text)
+        text = re.sub(r'(?i)watsapp', 'whatsapp', text)
+        text = re.sub(r'\s+', ' ', text).strip()
+        return text
+
     def _repeat_fields_schema_from_field(self, field):
         field_obj = field or {}
         allowed_repeat_types = {'texto', 'data', 'hora', 'numero', 'booleano', 'seletor'}
@@ -4358,7 +4367,7 @@ class EventoPublicoView(View):
         seen = set()
 
         def _append_descriptor(name, field_type='texto', options=None, required=True):
-            label = str(name or '').strip()
+            label = self._fix_event_field_label_pt(name)
             if not label:
                 return
             key = label.lower()
@@ -4437,7 +4446,7 @@ class EventoPublicoView(View):
         schema = []
         allowed_types = {'texto', 'data', 'hora', 'numero', 'booleano', 'seletor', 'repetidor'}
         for index, field in enumerate(evento.fields_data or []):
-            label = str((field or {}).get('name') or (field or {}).get('label') or '').strip()
+            label = self._fix_event_field_label_pt((field or {}).get('name') or (field or {}).get('label') or '')
             if not label:
                 continue
             field_type = str((field or {}).get('type') or 'texto').strip().lower() or 'texto'
@@ -4446,7 +4455,7 @@ class EventoPublicoView(View):
             selector_options = self._selector_options_from_field(field) if field_type == 'seletor' else []
             repeat_fields_data = self._repeat_fields_schema_from_field(field) if field_type == 'repetidor' else []
             repeat_fields = [str(item.get('name') or '').strip() for item in repeat_fields_data if str(item.get('name') or '').strip()]
-            repeat_button_label = str((field or {}).get('repeat_button_label') or label).strip() or label
+            repeat_button_label = self._fix_event_field_label_pt((field or {}).get('repeat_button_label') or label) or label
             is_required = bool((field or {}).get('required'))
             repeat_require_click = bool((field or {}).get('repeat_require_click')) if field_type == 'repetidor' else False
             schema.append({
