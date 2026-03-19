@@ -4615,6 +4615,69 @@ class EventoPublicoView(View):
         candidates.sort(key=lambda item: item[0])
         return candidates[0][1]
 
+    def _whatsapp_responsavel_from_inscricao(self, inscricao):
+        responsavel = getattr(inscricao, 'responsavel', None)
+        if responsavel:
+            for raw in [
+                responsavel.responsavel_celular,
+                responsavel.pai_celular,
+                responsavel.mae_celular,
+                responsavel.responsavel_telefone,
+                responsavel.pai_telefone,
+                responsavel.mae_telefone,
+            ]:
+                text = str(raw or '').strip()
+                if text:
+                    return text
+
+        dados = (inscricao.dados or {}) if isinstance(inscricao.dados, dict) else {}
+        candidates = []
+        for key, value in dados.items():
+            norm_key = self._normalize_lookup_text(key)
+            if not self._is_phone_key(norm_key):
+                continue
+            if isinstance(value, (list, tuple, dict)):
+                continue
+            text = str(value or '').strip()
+            if not text:
+                continue
+            priority = 1 if self._is_responsavel_key(norm_key) else 2
+            candidates.append((priority, text))
+        if not candidates:
+            return '-'
+        candidates.sort(key=lambda item: item[0])
+        return candidates[0][1]
+
+    def _consulta_outros_dados_rows(self, dados):
+        if not isinstance(dados, dict) or not dados:
+            return []
+        rows = []
+        for key, value in dados.items():
+            norm_key = self._normalize_lookup_text(key)
+            if self._is_criancas_key(norm_key):
+                continue
+            if self._is_responsavel_key(norm_key) and (
+                self._is_nome_key(norm_key)
+                or self._is_cpf_key(norm_key)
+                or self._is_phone_key(norm_key)
+            ):
+                continue
+            if isinstance(value, (list, tuple, dict)):
+                continue
+            if isinstance(value, bool):
+                text = 'Sim' if value else 'Nao'
+            else:
+                text = str(value or '').strip()
+            if not text:
+                continue
+            rows.append({
+                'label': str(key or '').strip() or '-',
+                'value': text,
+            })
+            if len(rows) >= 12:
+                break
+        return rows
+
     def _criancas_info_from_inscricao(self, inscricao, evento=None):
         def _age_digits(raw_value):
             text = str(raw_value or '').strip()
@@ -4938,6 +5001,8 @@ class EventoPublicoView(View):
                     'status': pedido.status,
                     'status_label': loja_view._pedido_loja_status_label(pedido),
                     'is_paid': pedido.status == LojaPedido.STATUS_PAGO,
+                    'pago_label': 'Pago' if pedido.status == LojaPedido.STATUS_PAGO else 'Nao pago',
+                    'status_css': 'is-paid' if pedido.status == LojaPedido.STATUS_PAGO else 'is-unpaid',
                     'valor_total_fmt': self._format_currency(pedido.valor_total),
                     'created_at': pedido.created_at,
                     'itens': itens_rows,
@@ -4948,14 +5013,39 @@ class EventoPublicoView(View):
 
             dados_obj = inscricao.dados if isinstance(inscricao.dados, dict) else {}
             criancas_info = self._criancas_info_from_inscricao(inscricao, evento=evento)
+            valor_inscricao = getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
+            pedidos_total = len(pedidos_rows)
+            pedidos_pagos = sum(1 for item in pedidos_rows if item.get('is_paid'))
+            if pedidos_total > 0:
+                if pedidos_pagos >= pedidos_total:
+                    pagamento_label = 'Pago'
+                    pagamento_css = 'is-paid'
+                    pagamento_hint = 'Todos os pedidos desta inscricao estao pagos.'
+                elif pedidos_pagos <= 0:
+                    pagamento_label = 'Nao pago'
+                    pagamento_css = 'is-unpaid'
+                    pagamento_hint = 'Existe pagamento pendente nesta inscricao.'
+                else:
+                    pagamento_label = 'Parcial'
+                    pagamento_css = 'is-partial'
+                    pagamento_hint = f'{pedidos_pagos} de {pedidos_total} pedido(s) pagos.'
+            elif valor_inscricao > Decimal('0.00'):
+                pagamento_label = 'Nao pago'
+                pagamento_css = 'is-unpaid'
+                pagamento_hint = 'Inscricao com cobranca pendente de pagamento.'
+            else:
+                pagamento_label = 'Sem cobranca'
+                pagamento_css = 'is-na'
+                pagamento_hint = 'Esta inscricao nao possui cobranca.'
             results.append({
                 'id': inscricao.id,
                 'codigo': inscricao.codigo_inscricao or '-',
                 'responsavel': self._responsavel_label_from_inscricao(inscricao),
                 'cpf_responsavel': self._cpf_responsavel_from_inscricao(inscricao),
-                'valor_inscricao': getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00'),
+                'whatsapp_responsavel': self._whatsapp_responsavel_from_inscricao(inscricao),
+                'valor_inscricao': valor_inscricao,
                 'valor_inscricao_fmt': self._format_currency(
-                    getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
+                    valor_inscricao
                 ),
                 'valor_inscricao_unidades': int(getattr(inscricao, 'valor_inscricao_unidades', 0) or 0),
                 'data_inscricao': inscricao.created_at,
@@ -4964,9 +5054,15 @@ class EventoPublicoView(View):
                 'dados_resumo': self._dados_resumo(dados_obj),
                 'dados_json': json.dumps(dados_obj, ensure_ascii=False, indent=2) if dados_obj else '',
                 'dados': dados_obj,
+                'outros_dados_rows': self._consulta_outros_dados_rows(dados_obj),
                 'pedidos': pedidos_rows,
                 'tem_pedido': bool(pedidos_rows),
-                'tem_valor_inscricao': (getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')) > Decimal('0.00'),
+                'pedidos_total': pedidos_total,
+                'pedidos_pagos': pedidos_pagos,
+                'status_pagamento_label': pagamento_label,
+                'status_pagamento_css': pagamento_css,
+                'status_pagamento_hint': pagamento_hint,
+                'tem_valor_inscricao': valor_inscricao > Decimal('0.00'),
                 'pode_editar': self._can_edit_inscricao(request, evento, inscricao) if request.user.is_authenticated else True,
             })
             inscricao_ids.append(int(inscricao.id))
