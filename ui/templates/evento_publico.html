@@ -517,6 +517,42 @@
       font-size: 0.84rem;
       word-break: break-word;
     }
+    .event-checkout-summary {
+      margin-top: 1rem;
+      border: 1px solid #dbeafe;
+      background: linear-gradient(180deg, #f8fbff, #f1f7ff);
+    }
+    .event-checkout-grid {
+      display: grid;
+      gap: 0.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .event-checkout-item {
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      background: #fff;
+      padding: 0.6rem 0.7rem;
+      display: grid;
+      gap: 0.2rem;
+    }
+    .event-checkout-item span {
+      color: #334155;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .event-checkout-item strong {
+      color: #0f172a;
+      font-size: 1rem;
+      font-weight: 900;
+    }
+    .event-checkout-item small {
+      color: #64748b;
+      font-size: 0.78rem;
+    }
+    .event-checkout-item-total {
+      border-color: #93c5fd;
+      background: #eff6ff;
+    }
     .inscritos-kids-count {
       display: inline-flex;
       align-items: center;
@@ -683,6 +719,7 @@
   </style>
 </head>
 <body class="painel-page">
+  {{ evento.inscricao_valor_config|default:"{}"|json_script:"event-fee-config-data" }}
   {% if is_authenticated %}
     {% include '_painel_sidebar.html' %}
   {% endif %}
@@ -1141,11 +1178,7 @@
               {% endif %}
             </div>
             <div class="event-cart-foot">
-              <div class="event-cart-total-row">
-                <span>Total</span>
-                <strong id="event-cart-total">R$ 0,00</strong>
-              </div>
-              <button type="button" class="event-cart-pix-btn" id="event-generate-pix">Gerar Pix</button>
+              <span class="panel-note">Total e pagamento no resumo final da pagina.</span>
             </div>
           </aside>
         </div>
@@ -1153,22 +1186,27 @@
     </section>
     </div>
 
-    <section class="painel-card" id="event-pix-box" {% if not pedido_modal %}hidden{% endif %}>
-      <h3>Pagamento Pix</h3>
-      <p><strong>Pedido:</strong> <span id="event-pix-pedido-id">{% if pedido_modal %}{{ pedido_modal.pedido_id }}{% endif %}</span></p>
-      <p><strong>Status:</strong> <span id="event-pix-status">{% if pedido_modal %}{{ pedido_modal.status_label }}{% endif %}</span></p>
-      <p><strong>Total:</strong> <span id="event-pix-total">{% if pedido_modal %}{{ pedido_modal.valor_total }}{% endif %}</span></p>
-      <div id="event-pix-qr-wrap" style="margin:0.6rem 0;">
-        {% if pedido_modal.qr_base64 %}
-          <img src="data:image/png;base64,{{ pedido_modal.qr_base64 }}" alt="QR Code Pix" style="max-width:260px;" />
-        {% endif %}
+    <section class="painel-card event-checkout-summary" id="event-checkout-summary">
+      <h3>Resumo final do evento</h3>
+      <div class="event-checkout-grid">
+        <div class="event-checkout-item">
+          <span>Total da inscricao</span>
+          <strong id="event-fee-total">R$ 0,00</strong>
+          <small id="event-fee-meta">0 unidade(s)</small>
+        </div>
+        <div class="event-checkout-item">
+          <span>Total dos itens no carrinho</span>
+          <strong id="event-items-total">R$ 0,00</strong>
+          <small id="event-items-meta">0 item(ns)</small>
+        </div>
+        <div class="event-checkout-item event-checkout-item-total">
+          <span>Total geral</span>
+          <strong id="event-grand-total">R$ 0,00</strong>
+          <small>Inscricao + carrinho</small>
+        </div>
       </div>
-      <label>
-        Código Pix
-        <textarea id="event-pix-code" rows="4" readonly>{% if pedido_modal %}{{ pedido_modal.pix_code }}{% endif %}</textarea>
-      </label>
       <div class="action-row">
-        <button type="button" class="secondary" id="event-check-status">Atualizar status</button>
+        <button type="button" class="primary" id="event-finalizar-pagar">Finalizar e pagar</button>
       </div>
     </section>
   </main>
@@ -1176,22 +1214,18 @@
   <script>
     (function () {
       const cart = [];
-      const csrfToken = (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value || '';
       const cartItemsWrap = document.getElementById('event-cart-items');
       const cartEmpty = document.getElementById('event-cart-empty');
-      const cartTotalNode = document.getElementById('event-cart-total');
       const cartOverlay = document.getElementById('event-cart-drawer-overlay');
       const cartCloseBtn = document.getElementById('event-cart-drawer-close');
       const openCartBtn = document.getElementById('event-open-cart');
       const cartCountNode = document.getElementById('event-cart-count');
-      const generatePixBtn = document.getElementById('event-generate-pix');
-      const pixBox = document.getElementById('event-pix-box');
-      const pixPedidoId = document.getElementById('event-pix-pedido-id');
-      const pixStatus = document.getElementById('event-pix-status');
-      const pixTotal = document.getElementById('event-pix-total');
-      const pixQrWrap = document.getElementById('event-pix-qr-wrap');
-      const pixCode = document.getElementById('event-pix-code');
-      const checkStatusBtn = document.getElementById('event-check-status');
+      const feeTotalNode = document.getElementById('event-fee-total');
+      const feeMetaNode = document.getElementById('event-fee-meta');
+      const itemsTotalNode = document.getElementById('event-items-total');
+      const itemsMetaNode = document.getElementById('event-items-meta');
+      const grandTotalNode = document.getElementById('event-grand-total');
+      const finalizarPagarBtn = document.getElementById('event-finalizar-pagar');
       const inscritosModal = document.getElementById('event-inscritos-modal');
       const openInscritosBtn = document.getElementById('open-event-inscritos');
       const closeInscritosBtn = document.getElementById('close-event-inscritos');
@@ -1204,15 +1238,29 @@
       const registerSummaryModal = document.getElementById('event-register-summary-modal');
       const closeRegisterSummaryBtn = document.getElementById('close-event-register-summary');
       const togglePublicForm = document.getElementById('toggle-public-form');
-      const guestNameInput = document.getElementById('event-guest-name');
-      const guestEmailInput = document.getElementById('event-guest-email');
-      const guestPhoneInput = document.getElementById('event-guest-phone');
       const registerForm = document.getElementById('event-register-form');
       const deleteSelectedInscricoesForm = document.getElementById('event-delete-selected-inscricoes-form');
       const deleteSelectedPasswordInput = document.getElementById('event-delete-selected-password');
       const inscritosSelectAll = document.getElementById('event-inscritos-select-all');
-      const statusUrlTemplate = "{% url 'accounts:loja_pedido_status' 0 %}";
-      let lastPedidoId = Number(pixPedidoId ? pixPedidoId.textContent : 0) || 0;
+      const feeConfigNode = document.getElementById('event-fee-config-data');
+      const feeMode = String('{{ evento.inscricao_valor_modo|default:"nenhum"|escapejs }}' || '').trim().toLowerCase() || 'nenhum';
+      const feeUnitRaw = String('{{ evento.inscricao_valor_unitario|default:"0"|escapejs }}' || '').trim();
+      const feeUnit = Number(feeUnitRaw.replace(/\./g, '').replace(',', '.')) || Number(feeUnitRaw.replace(',', '.')) || 0;
+      let feeConfig = {};
+      let currentFeeUnits = 0;
+      let currentFeeTotal = 0;
+      let currentCartItems = 0;
+      let currentCartTotal = 0;
+      if (feeConfigNode) {
+        try {
+          const parsedFeeConfig = JSON.parse(feeConfigNode.textContent || '{}');
+          if (parsedFeeConfig && typeof parsedFeeConfig === 'object') {
+            feeConfig = parsedFeeConfig;
+          }
+        } catch (error) {
+          feeConfig = {};
+        }
+      }
 
       const toMoney = (value) => {
         const number = Number(value || 0);
@@ -1226,6 +1274,187 @@
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#39;');
+      };
+
+      const normalizeLookupText = (value) => {
+        const text = String(value || '').trim().toLowerCase();
+        if (!text) return '';
+        return text
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/\s+/g, ' ');
+      };
+
+      const rowHasAnyValue = (rowObj) => {
+        if (!rowObj || typeof rowObj !== 'object') return false;
+        return Object.values(rowObj).some((item) => String(item || '').trim());
+      };
+
+      const safeMoneyNumber = (value) => {
+        const raw = String(value == null ? '' : value).trim();
+        if (!raw) return 0;
+        const direct = Number(raw.replace(',', '.'));
+        if (Number.isFinite(direct)) return direct;
+        const normalized = raw.replace(/\./g, '').replace(',', '.');
+        const fallback = Number(normalized);
+        return Number.isFinite(fallback) ? fallback : 0;
+      };
+
+      const collectRepeatRows = (fieldWrap) => {
+        const hidden = fieldWrap ? fieldWrap.querySelector('[data-repeat-hidden]') : null;
+        if (hidden) {
+          try {
+            const parsed = JSON.parse(String(hidden.value || '[]'));
+            if (Array.isArray(parsed)) return parsed.filter((item) => item && typeof item === 'object');
+          } catch (error) {
+            // fallback below
+          }
+        }
+        const rows = [];
+        if (!fieldWrap) return rows;
+        fieldWrap.querySelectorAll('.event-repeat-item').forEach((rowEl) => {
+          const rowObj = {};
+          rowEl.querySelectorAll('[data-repeat-key]').forEach((input) => {
+            const key = String(input.getAttribute('data-repeat-key') || '').trim();
+            if (!key) return;
+            rowObj[key] = String(input.value || '').trim();
+          });
+          if (Object.keys(rowObj).length) rows.push(rowObj);
+        });
+        return rows;
+      };
+
+      const getRepeatGroupsByLabel = () => {
+        const rows = [];
+        if (!registerForm) return rows;
+        registerForm.querySelectorAll('[data-repeat-field]').forEach((fieldWrap) => {
+          const titleNode = fieldWrap.querySelector('.event-repeat-title');
+          let label = String(titleNode ? titleNode.textContent : '').replace('*', '').trim();
+          if (!label) {
+            label = String(fieldWrap.getAttribute('data-repeat-field') || '').trim();
+          }
+          rows.push({
+            label: label,
+            key: normalizeLookupText(label),
+            wrap: fieldWrap,
+          });
+        });
+        return rows;
+      };
+
+      const findRepeatGroupByName = (name) => {
+        const target = normalizeLookupText(name);
+        if (!target) return null;
+        const groups = getRepeatGroupsByLabel();
+        return groups.find((item) => item.key === target) || null;
+      };
+
+      const findValueByKey = (rowObj, targetKey) => {
+        if (!rowObj || typeof rowObj !== 'object') return '';
+        const target = normalizeLookupText(targetKey);
+        if (!target) return '';
+        for (const [key, value] of Object.entries(rowObj)) {
+          if (normalizeLookupText(key) === target) {
+            return String(value || '').trim();
+          }
+        }
+        return '';
+      };
+
+      const calculateFeePreview = () => {
+        const result = { units: 0, total: 0 };
+        if (!registerForm) return result;
+        const mode = feeMode;
+        if (mode === 'nenhum') return result;
+        if (mode === 'fixo_inscricao') {
+          result.units = 1;
+          result.total = Math.max(0, feeUnit);
+          return result;
+        }
+
+        const repeatGroups = Array.from(registerForm.querySelectorAll('[data-repeat-field]'));
+        if (mode === 'por_item_repetidor') {
+          let units = 0;
+          repeatGroups.forEach((group) => {
+            const rows = collectRepeatRows(group);
+            units += rows.filter((row) => rowHasAnyValue(row)).length;
+          });
+          result.units = units;
+          result.total = Math.max(0, feeUnit) * units;
+          return result;
+        }
+
+        if (mode === 'por_campo_preenchido') {
+          let units = 0;
+          registerForm.querySelectorAll('input, select, textarea').forEach((node) => {
+            const name = String(node.getAttribute('name') || '').trim();
+            if (!name || name === 'csrfmiddlewaretoken' || name === 'action') return;
+            if (node.hasAttribute('data-repeat-hidden')) {
+              try {
+                const parsed = JSON.parse(String(node.value || '[]'));
+                if (Array.isArray(parsed)) {
+                  units += parsed.filter((row) => rowHasAnyValue(row)).length;
+                }
+              } catch (error) {
+                // ignore
+              }
+              return;
+            }
+            if (node.closest('[data-repeat-list]')) return;
+            const nodeType = String(node.getAttribute('type') || '').toLowerCase();
+            if (nodeType === 'hidden' || nodeType === 'button' || nodeType === 'submit') return;
+            if (String(node.value || '').trim()) units += 1;
+          });
+          result.units = units;
+          result.total = Math.max(0, feeUnit) * units;
+          return result;
+        }
+
+        if (mode === 'faixa_idade_repetidor') {
+          const repeatName = String((feeConfig && feeConfig.repeat_field) || '').trim();
+          const ageFieldName = String((feeConfig && feeConfig.age_field) || '').trim();
+          const ranges = Array.isArray(feeConfig && feeConfig.ranges) ? feeConfig.ranges : [];
+          if (!repeatName || !ageFieldName || !ranges.length) return result;
+          const targetGroup = findRepeatGroupByName(repeatName);
+          if (!targetGroup || !targetGroup.wrap) return result;
+          const rows = collectRepeatRows(targetGroup.wrap);
+          let total = 0;
+          let units = 0;
+          rows.forEach((row) => {
+            if (!rowHasAnyValue(row)) return;
+            const ageRaw = findValueByKey(row, ageFieldName);
+            const ageMatch = String(ageRaw || '').match(/\d{1,3}/);
+            if (!ageMatch) return;
+            const age = Number(ageMatch[0]);
+            if (!Number.isFinite(age)) return;
+            for (const rangeItem of ranges) {
+              const minAge = Number(rangeItem && rangeItem.min);
+              const maxAge = Number(rangeItem && rangeItem.max);
+              const rangeValue = safeMoneyNumber(rangeItem && rangeItem.value);
+              if (!Number.isFinite(minAge) || !Number.isFinite(maxAge)) continue;
+              if (age < minAge || age > maxAge) continue;
+              total += rangeValue;
+              units += 1;
+              break;
+            }
+          });
+          result.units = units;
+          result.total = total;
+          return result;
+        }
+
+        return result;
+      };
+
+      const updateCheckoutSummary = () => {
+        const feePreview = calculateFeePreview();
+        currentFeeUnits = Number(feePreview.units || 0);
+        currentFeeTotal = Number(feePreview.total || 0);
+        if (feeTotalNode) feeTotalNode.textContent = toMoney(currentFeeTotal);
+        if (feeMetaNode) feeMetaNode.textContent = currentFeeUnits + ' unidade(s)';
+        if (itemsTotalNode) itemsTotalNode.textContent = toMoney(currentCartTotal);
+        if (itemsMetaNode) itemsMetaNode.textContent = currentCartItems + ' item(ns)';
+        if (grandTotalNode) grandTotalNode.textContent = toMoney(currentFeeTotal + currentCartTotal);
       };
 
       const parseRepeatSchema = (fieldWrap) => {
@@ -1380,6 +1609,7 @@
         });
         if (hidden) hidden.value = JSON.stringify(payload);
         if (emptyNote) emptyNote.hidden = rows.length > 0;
+        updateCheckoutSummary();
         return payload;
       };
 
@@ -1461,6 +1691,12 @@
             }
           }
         });
+        registerForm.addEventListener('input', () => {
+          updateCheckoutSummary();
+        });
+        registerForm.addEventListener('change', () => {
+          updateCheckoutSummary();
+        });
       };
 
       const openCartDrawer = () => {
@@ -1484,7 +1720,7 @@
       };
 
       const renderCart = () => {
-        if (!cartItemsWrap || !cartEmpty || !cartTotalNode) return;
+        if (!cartItemsWrap || !cartEmpty) return;
         cartItemsWrap.innerHTML = '';
         let total = 0;
         let itemsCount = 0;
@@ -1512,11 +1748,12 @@
             '</div>';
           cartItemsWrap.appendChild(row);
         });
-        cartTotalNode.textContent = toMoney(total);
         const hasItems = cart.length > 0;
         cartEmpty.hidden = hasItems;
         if (cartCountNode) cartCountNode.textContent = String(itemsCount);
-        if (generatePixBtn) generatePixBtn.disabled = !hasItems;
+        currentCartItems = itemsCount;
+        currentCartTotal = total;
+        updateCheckoutSummary();
       };
 
       document.querySelectorAll('[data-add-cart]').forEach((button) => {
@@ -1584,87 +1821,9 @@
         });
       }
 
-      if (generatePixBtn) {
-        generatePixBtn.addEventListener('click', async () => {
-          if (!cart.length) {
-            window.alert('Adicione pelo menos um item ao carrinho.');
-            return;
-          }
-          if (guestNameInput && !String(guestNameInput.value || '').trim()) {
-            window.alert('Informe o nome do comprador.');
-            guestNameInput.focus();
-            return;
-          }
-          generatePixBtn.disabled = true;
-          try {
-            const response = await fetch("{% url 'accounts:evento_comprar_pix' evento.id %}", {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken,
-              },
-              body: JSON.stringify({
-                payment_method: 'pix',
-                buyer_name: guestNameInput ? String(guestNameInput.value || '').trim() : '',
-                buyer_email: guestEmailInput ? String(guestEmailInput.value || '').trim() : '',
-                buyer_phone: guestPhoneInput ? String(guestPhoneInput.value || '').trim() : '',
-                items: cart.map((item) => ({
-                  product_id: item.productId,
-                  variation_id: item.variationId,
-                  quantity: item.quantity,
-                })),
-              }),
-            });
-            const data = await response.json();
-            if (!response.ok || !data.ok) {
-              window.alert((data && data.message) || 'Não foi possível gerar o Pix.');
-              return;
-            }
-            const pedido = data.pedido || {};
-            lastPedidoId = Number(pedido.pedido_id || 0) || 0;
-            if (pixPedidoId) pixPedidoId.textContent = String(pedido.pedido_id || '');
-            if (pixStatus) pixStatus.textContent = String(pedido.status_label || '');
-            if (pixTotal) pixTotal.textContent = String(pedido.valor_total || '');
-            if (pixCode) pixCode.value = String(pedido.pix_code || '');
-            if (pixQrWrap) {
-              pixQrWrap.innerHTML = pedido.qr_base64
-                ? '<img src="data:image/png;base64,' + pedido.qr_base64 + '" alt="QR Code Pix" style="max-width:260px;" />'
-                : '';
-            }
-            if (pixBox) {
-              pixBox.hidden = false;
-              pixBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-            cart.splice(0, cart.length);
-            renderCart();
-            closeCartDrawer();
-          } catch (error) {
-            window.alert('Erro de conexão ao gerar Pix.');
-          } finally {
-            generatePixBtn.disabled = false;
-            renderCart();
-          }
-        });
-      }
-
-      if (checkStatusBtn) {
-        checkStatusBtn.addEventListener('click', async () => {
-          if (!lastPedidoId) {
-            window.alert('Nenhum pedido para consultar.');
-            return;
-          }
-          const statusUrl = statusUrlTemplate.replace('/0/status/', '/' + lastPedidoId + '/status/');
-          try {
-            const response = await fetch(statusUrl, { method: 'GET' });
-            const data = await response.json();
-            if (!response.ok || !data.ok) {
-              window.alert('Não foi possível consultar o status.');
-              return;
-            }
-            if (pixStatus) pixStatus.textContent = String(data.status_label || '');
-          } catch (error) {
-            window.alert('Erro ao consultar status.');
-          }
+      if (finalizarPagarBtn) {
+        finalizarPagarBtn.addEventListener('click', () => {
+          // Fluxo de pagamento sera implementado depois.
         });
       }
 
@@ -1849,6 +2008,7 @@
 
       initRepeatFields();
       renderCart();
+      updateCheckoutSummary();
     })();
   </script>
 </body>
