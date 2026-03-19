@@ -1088,6 +1088,7 @@
                   {% for v in row.variacoes %}
                     {% if forloop.first %}
                       <select class="catalog-variation-select" data-catalog-variation-select>
+                        <option value="">Selecione uma variação</option>
                     {% endif %}
                         <option
                           value="{{ v.id }}"
@@ -2305,7 +2306,7 @@
           const selected = variationSelect && variationSelect.options.length
             ? variationSelect.options[variationSelect.selectedIndex]
             : null;
-          if (!selected) {
+          if (!selected || !String(selected.value || '').trim()) {
             if (priceEl) priceEl.textContent = 'Selecione uma variação';
             if (stockEl) stockEl.textContent = '';
             const defaultSrc = (mainImage && mainImage.dataset.defaultSrc) || '';
@@ -2368,8 +2369,9 @@
             const selected = variationSelect && variationSelect.options.length
               ? variationSelect.options[variationSelect.selectedIndex]
               : null;
-            if (!selected) {
+            if (!selected || !String(selected.value || '').trim()) {
               if (feedback) feedback.textContent = 'Selecione uma variação para continuar.';
+              if (variationSelect) variationSelect.focus();
               return;
             }
             const varLabel = selected.textContent ? selected.textContent.trim() : 'Variação';

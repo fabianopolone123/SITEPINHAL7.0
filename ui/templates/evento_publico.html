@@ -1832,6 +1832,7 @@
                 <label class="event-product-field">
                   <span>Variação</span>
                   <select data-variation-select>
+                    <option value="">Selecione uma variação</option>
                     {% for v in row.variacoes %}
                       <option value="{{ v.id }}" data-price="{{ v.valor }}">{{ v.nome }} - R$ {{ v.valor }}</option>
                     {% endfor %}
@@ -2820,7 +2821,18 @@
           const select = card.querySelector('[data-variation-select]');
           const qtyInput = card.querySelector('[data-qty-input]');
           if (!select || !qtyInput) return;
-          const variationId = Number(select.value || 0);
+          const rawVariationId = String(select.value || '').trim();
+          if (!rawVariationId) {
+            window.alert('Selecione uma variação antes de adicionar ao carrinho.');
+            select.focus();
+            return;
+          }
+          const variationId = Number(rawVariationId);
+          if (!Number.isFinite(variationId) || variationId <= 0) {
+            window.alert('Selecione uma variação válida antes de adicionar ao carrinho.');
+            select.focus();
+            return;
+          }
           const quantity = Math.max(1, Number(qtyInput.value || 1));
           const selectedOption = select.options[select.selectedIndex];
           const price = Number((selectedOption?.dataset?.price || '0').replace(',', '.')) || 0;
