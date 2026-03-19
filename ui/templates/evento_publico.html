@@ -1160,11 +1160,11 @@
         </div>
         <h3>O que voce deseja fazer?</h3>
         <div class="action-row">
-          <a href="?modo=inscricao" class="{% if active_mode == 'inscricao' %}primary{% else %}secondary{% endif %}">Fazer inscricao no evento</a>
-          <a href="?modo=consulta" class="{% if active_mode == 'consulta' %}primary{% else %}secondary{% endif %}">Consultar inscricao feita</a>
+          <a href="?modo=inscricao" data-open-event-mode="inscricao" class="{% if active_mode == 'inscricao' %}primary{% else %}secondary{% endif %}">Nova inscricao</a>
+          <a href="?modo=consulta" data-open-event-mode="consulta" class="{% if active_mode == 'consulta' %}primary{% else %}secondary{% endif %}">Consultar inscricao</a>
         </div>
         {% if active_mode == 'menu' %}
-          <p class="panel-note">Escolha uma opcao para continuar.</p>
+          <p class="panel-note">Escolha uma opcao para continuar. O sistema tenta abrir em janela; se bloquear, abre nesta pagina.</p>
         {% endif %}
       </section>
     {% endif %}
@@ -1923,6 +1923,7 @@
       const paidSummaryEl = document.getElementById('eventPaidSummary');
       const PIX_CREATE_URL = pixApiConfig ? String(pixApiConfig.dataset.createUrl || '') : '';
       const PIX_STATUS_URL_TEMPLATE = pixApiConfig ? String(pixApiConfig.dataset.statusUrlTemplate || '') : '';
+      const modeLauncherLinks = Array.from(document.querySelectorAll('[data-open-event-mode]'));
       let pixPedidoAtual = null;
       let pixPollingTimer = null;
       let paidModalShownForPedido = '';
@@ -1945,6 +1946,55 @@
         } catch (error) {
           formInitialByInput = {};
         }
+      }
+      if (modeLauncherLinks.length) {
+        const openModePopup = (targetUrl, modeName) => {
+          const popupWidth = Math.min(1200, Math.max(980, Math.floor(window.innerWidth * 0.92)));
+          const popupHeight = Math.min(860, Math.max(700, Math.floor(window.innerHeight * 0.92)));
+          const left = Math.max(0, Math.floor((window.screen.width - popupWidth) / 2));
+          const top = Math.max(0, Math.floor((window.screen.height - popupHeight) / 2));
+          const popupName = 'evento_mode_' + String(modeName || 'page') + '_{{ evento.id }}';
+          const features = [
+            'popup=yes',
+            'scrollbars=yes',
+            'resizable=yes',
+            'noopener=yes',
+            'noreferrer=yes',
+            'width=' + String(popupWidth),
+            'height=' + String(popupHeight),
+            'left=' + String(left),
+            'top=' + String(top),
+          ].join(',');
+          const popup = window.open(targetUrl, popupName, features);
+          if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+            window.location.href = targetUrl;
+            return;
+          }
+          try {
+            popup.focus();
+          } catch (error) {
+            window.location.href = targetUrl;
+          }
+        };
+
+        modeLauncherLinks.forEach((link) => {
+          link.addEventListener('click', (event) => {
+            if (event.defaultPrevented) return;
+            if (event.button !== 0) return;
+            if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+            const rawHref = String(link.getAttribute('href') || '').trim();
+            if (!rawHref) return;
+            event.preventDefault();
+            let targetUrl = rawHref;
+            try {
+              targetUrl = new URL(rawHref, window.location.href).toString();
+            } catch (error) {
+              targetUrl = rawHref;
+            }
+            const modeName = String(link.dataset.openEventMode || '').trim().toLowerCase() || 'page';
+            openModePopup(targetUrl, modeName);
+          });
+        });
       }
 
       const toMoney = (value) => {
