@@ -461,6 +461,7 @@ class Evento(models.Model):
 
     name = models.CharField('nome do evento', max_length=255)
     event_type = models.CharField('tipo do evento', max_length=128, blank=True)
+    event_location = models.CharField('local do evento', max_length=255, blank=True)
     inscricao_publica = models.BooleanField('página pública de inscrição', default=False)
     event_date = models.DateField('data do evento', null=True, blank=True)
     event_time = models.TimeField('hora de início do evento', null=True, blank=True)

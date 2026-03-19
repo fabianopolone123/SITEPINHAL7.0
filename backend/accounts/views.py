@@ -3850,6 +3850,7 @@ class EventosView(LoginRequiredMixin, View):
         if action == 'create_event':
             name = (request.POST.get('name') or '').strip()
             event_type = (request.POST.get('event_type') or '').strip()
+            event_location = (request.POST.get('event_location') or '').strip()
             inscricao_publica = bool(request.POST.get('inscricao_publica'))
             inscricao_valor_modo, inscricao_valor_unitario, inscricao_valor_config = self._parse_inscricao_valor_config_request(request)
             if inscricao_valor_modo is None:
@@ -3888,6 +3889,7 @@ class EventosView(LoginRequiredMixin, View):
                 Evento.objects.create(
                     name=name,
                     event_type=event_type,
+                    event_location=event_location,
                     inscricao_publica=inscricao_publica,
                     event_date=event_date_value,
                     event_time=event_time_value,
@@ -3966,6 +3968,7 @@ class EventosView(LoginRequiredMixin, View):
                 return render(request, self.template_name, self._context(request))
             name = (request.POST.get('name') or '').strip()
             event_type = (request.POST.get('event_type') or '').strip()
+            event_location = (request.POST.get('event_location') or '').strip()
             inscricao_publica = bool(request.POST.get('inscricao_publica'))
             inscricao_valor_modo, inscricao_valor_unitario, inscricao_valor_config = self._parse_inscricao_valor_config_request(request)
             if inscricao_valor_modo is None:
@@ -4003,6 +4006,7 @@ class EventosView(LoginRequiredMixin, View):
                 return render(request, self.template_name, self._context(request))
             evento.name = name
             evento.event_type = event_type
+            evento.event_location = event_location
             evento.inscricao_publica = inscricao_publica
             evento.event_date = event_date_value
             evento.event_time = event_time_value
@@ -4014,6 +4018,7 @@ class EventosView(LoginRequiredMixin, View):
             evento.save(update_fields=[
                 'name',
                 'event_type',
+                'event_location',
                 'inscricao_publica',
                 'event_date',
                 'event_time',
@@ -5277,7 +5282,8 @@ class EventoPublicoView(View):
                 if pedido:
                     pedido_modal = LojaView()._pix_modal_context_loja(pedido)
         evento_local_label = (
-            str(getattr(evento, 'location', '') or '').strip()
+            str(getattr(evento, 'event_location', '') or '').strip()
+            or str(getattr(evento, 'location', '') or '').strip()
             or str(getattr(evento, 'local', '') or '').strip()
             or str(getattr(evento, 'address', '') or '').strip()
             or 'Nao informado'

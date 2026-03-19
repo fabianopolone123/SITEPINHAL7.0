@@ -290,6 +290,7 @@
               <h4>{{ evento.name }}</h4>
               <p class="event-meta">
                 Tipo: {{ evento.event_type|default:"-" }} |
+                Local: {{ evento.event_location|default:"-" }} |
                 Página: {% if evento.inscricao_publica %}Pública{% else %}Privada{% endif %} |
                 Data do evento: {{ evento.event_date|date:"d/m/Y"|default:"-" }} |
                 Início: {{ evento.event_time|time:"H:i"|default:"-" }} |
@@ -343,6 +344,7 @@
                   <div class="field-section">
                     <label>Nome do evento <input type="text" name="name" value="{{ evento.name }}" required /></label>
                     <label>Tipo <input type="text" name="event_type" value="{{ evento.event_type|default:'' }}" /></label>
+                    <label>Local <input type="text" name="event_location" value="{{ evento.event_location|default:'' }}" placeholder="Ex.: Sede do clube - Rua X, 123" /></label>
                     <label><input type="checkbox" name="inscricao_publica" value="1" {% if evento.inscricao_publica %}checked{% endif %} /> Página pública de inscrição (sem login)</label>
                     <label>Data <input type="date" name="event_date" value="{{ evento.event_date|date:'Y-m-d' }}" required /></label>
                     <label>Hora início <input type="time" name="event_time" value="{{ evento.event_time|time:'H:i' }}" required /></label>
@@ -641,6 +643,10 @@
           <label>
             Tipo do evento (opcional)
             <input type="text" name="event_type" id="event-type" placeholder="Ex.: reunião, vendas, acampamento" />
+          </label>
+          <label>
+            Local do evento
+            <input type="text" name="event_location" id="event-location" placeholder="Ex.: Sede do clube - Rua X, 123" />
           </label>
           <label>
             <input type="checkbox" name="inscricao_publica" id="event-public" value="1" />
@@ -1143,6 +1149,8 @@
         if (!preset) return;
         document.getElementById('event-name').value = preset.event_name || '';
         document.getElementById('event-type').value = preset.event_type || '';
+        const eventLocationInput = document.getElementById('event-location');
+        if (eventLocationInput) eventLocationInput.value = '';
         document.getElementById('event-date').value = preset.event_date || '';
         document.getElementById('event-time').value = preset.event_time || '';
         document.getElementById('event-end-time').value = preset.event_end_time || '';
@@ -1515,3 +1523,4 @@
   </script>
 </body>
 </html>
+
