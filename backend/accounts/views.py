@@ -119,6 +119,14 @@ def _evento_public_inscricao_session_key(evento_id):
     return f'evento_public_inscricao_{event_part}'
 
 
+def _evento_public_pedidos_session_key(evento_id):
+    try:
+        event_part = int(evento_id)
+    except (TypeError, ValueError):
+        event_part = str(evento_id or '').strip() or '0'
+    return f'evento_public_pedidos_{event_part}'
+
+
 def _get_pending_aventures(session):
     return session.get('aventures_pending', [])
 
@@ -5262,17 +5270,94 @@ class EventoPedidoCreatePixApiView(View):
             or access.has_profile(UserAccess.ROLE_DIRETORIA)
         )
 
-    def _guest_responsavel_from_payload(self, payload, evento):
-        buyer_name = str(payload.get('buyer_name') or '').strip()
-        buyer_email = str(payload.get('buyer_email') or '').strip()
-        buyer_phone = str(payload.get('buyer_phone') or '').strip()
+    def _normalize_lookup_text(self, value):
+        text = str(value or '').strip().lower()
+        if not text:
+            return ''
+        normalized = unicodedata.normalize('NFD', text)
+        return ''.join(ch for ch in normalized if unicodedata.category(ch) != 'Mn')
+
+    def _guest_responsavel_from_inscricao(self, inscricao, evento):
+        if not inscricao:
+            return None, 'Finalize a inscricao antes de pagar o evento.'
+        if inscricao.responsavel_id:
+            return inscricao.responsavel, ''
+
+        dados = inscricao.dados if isinstance(inscricao.dados, dict) else {}
+        buyer_name = ''
+        buyer_email = ''
+        buyer_phone = ''
+        buyer_cpf = ''
+
+        for key, value in dados.items():
+            norm_key = self._normalize_lookup_text(key)
+            text = str(value or '').strip()
+            if not text:
+                continue
+            if 'responsavel' in norm_key and 'nome' in norm_key:
+                buyer_name = text
+                break
+
         if not buyer_name:
-            return None, 'Informe o nome para compra no evento.'
+            for key, value in dados.items():
+                norm_key = self._normalize_lookup_text(key)
+                text = str(value or '').strip()
+                if not text or 'responsavel' not in norm_key:
+                    continue
+                if any(word in norm_key for word in ('cpf', 'telefone', 'celular', 'whatsapp', 'email', 'parentesco')):
+                    continue
+                if re.fullmatch(r'\d{8,}', text):
+                    continue
+                buyer_name = text
+                break
+
+        for key, value in dados.items():
+            norm_key = self._normalize_lookup_text(key)
+            text = str(value or '').strip()
+            if not text:
+                continue
+            if 'email' in norm_key and ('responsavel' in norm_key or not buyer_email):
+                buyer_email = text
+                if 'responsavel' in norm_key:
+                    break
+
+        for key, value in dados.items():
+            norm_key = self._normalize_lookup_text(key)
+            text = str(value or '').strip()
+            if not text:
+                continue
+            if not any(word in norm_key for word in ('telefone', 'celular', 'whatsapp')):
+                continue
+            phone = normalize_phone_number(text)
+            if not phone:
+                continue
+            buyer_phone = phone
+            if 'responsavel' in norm_key:
+                break
+
+        for key, value in dados.items():
+            norm_key = self._normalize_lookup_text(key)
+            text = str(value or '').strip()
+            if not text or 'cpf' not in norm_key:
+                continue
+            digits = re.sub(r'\D', '', text)
+            if len(digits) < 11:
+                continue
+            buyer_cpf = digits
+            if 'responsavel' in norm_key:
+                break
+
+        if not buyer_name and inscricao.user_id:
+            buyer_name = inscricao.user.get_full_name() or inscricao.user.username or ''
+        if not buyer_name:
+            buyer_name = f'Convidado evento {evento.id}'
+
         if buyer_email:
             try:
                 validate_email(buyer_email)
             except ValidationError:
-                return None, 'E-mail inválido para compra no evento.'
+                buyer_email = ''
+
         username = ''
         for _ in range(8):
             candidate = f'evento_guest_{evento.id}_{timezone.now().strftime("%Y%m%d%H%M%S")}_{randint(100,999)}'
@@ -5280,7 +5365,8 @@ class EventoPedidoCreatePixApiView(View):
                 username = candidate
                 break
         if not username:
-            return None, 'Não foi possível gerar usuário temporário para compra.'
+            return None, 'Nao foi possivel gerar usuario temporario para compra.'
+
         user = User.objects.create(
             username=username,
             email=buyer_email,
@@ -5292,6 +5378,7 @@ class EventoPedidoCreatePixApiView(View):
             user=user,
             responsavel_nome=buyer_name,
             responsavel_parentesco='Convidado evento',
+            responsavel_cpf=buyer_cpf,
             responsavel_email=buyer_email,
             responsavel_celular=buyer_phone,
         )
@@ -5324,43 +5411,60 @@ class EventoPedidoCreatePixApiView(View):
                     .filter(pk=inscricao_id, evento=evento, user__isnull=True)
                     .first()
                 )
+
+        if not inscricao:
+            return JsonResponse({
+                'ok': False,
+                'error': 'registration_required',
+                'message': 'Finalize a inscricao do evento antes de gerar o Pix.',
+            }, status=400)
+
+        try:
+            fee_total = Decimal(getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+        except (InvalidOperation, TypeError, ValueError):
+            fee_total = Decimal('0.00')
+
         loja_view = LojaView()
         if request.user.is_authenticated:
             responsavel = loja_view._ensure_loja_responsavel(request.user, create=True)
         else:
             if not bool(evento.inscricao_publica):
                 return JsonResponse({'ok': False, 'error': 'forbidden_profile'}, status=403)
-            responsavel, guest_error = self._guest_responsavel_from_payload(payload, evento)
+            responsavel, guest_error = self._guest_responsavel_from_inscricao(inscricao, evento)
             if guest_error:
                 return JsonResponse({'ok': False, 'error': 'guest_invalid', 'message': guest_error}, status=400)
+
         if not responsavel:
             return JsonResponse({'ok': False, 'error': 'responsavel_not_found'}, status=400)
+
         if inscricao and not inscricao.responsavel_id:
             inscricao.responsavel = responsavel
             inscricao.save(update_fields=['responsavel', 'updated_at'])
 
         payment_method = str(payload.get('payment_method') or '').strip().lower()
         if payment_method != LojaPedido.FORMA_PAGAMENTO_PIX:
-            return JsonResponse({'ok': False, 'error': 'unsupported_payment_method', 'message': 'Somente Pix está disponível no momento.'}, status=400)
+            return JsonResponse({'ok': False, 'error': 'unsupported_payment_method', 'message': 'Somente Pix esta disponivel no momento.'}, status=400)
 
         raw_items = payload.get('items')
-        if not isinstance(raw_items, list) or not raw_items:
-            return JsonResponse({'ok': False, 'error': 'empty_cart', 'message': 'Nenhum item foi selecionado.'}, status=400)
+        if raw_items is None:
+            raw_items = []
+        if not isinstance(raw_items, list):
+            return JsonResponse({'ok': False, 'error': 'invalid_items', 'message': 'Lista de itens invalida.'}, status=400)
 
         parsed_items = []
-        total = Decimal('0.00')
+        itens_total = Decimal('0.00')
         for idx, item in enumerate(raw_items, start=1):
             if not isinstance(item, dict):
-                return JsonResponse({'ok': False, 'error': 'invalid_item', 'message': f'Item {idx} inválido.'}, status=400)
+                return JsonResponse({'ok': False, 'error': 'invalid_item', 'message': f'Item {idx} invalido.'}, status=400)
             produto_id = str(item.get('product_id') or '').strip()
             variacao_id = str(item.get('variation_id') or '').strip()
             quantity_raw = item.get('quantity')
             if not (produto_id.isdigit() and variacao_id.isdigit()):
-                return JsonResponse({'ok': False, 'error': 'invalid_item_ids', 'message': f'Produto/variação inválidos no item {idx}.'}, status=400)
+                return JsonResponse({'ok': False, 'error': 'invalid_item_ids', 'message': f'Produto/variacao invalidos no item {idx}.'}, status=400)
             try:
                 quantity = int(quantity_raw)
             except (TypeError, ValueError):
-                return JsonResponse({'ok': False, 'error': 'invalid_quantity', 'message': f'Quantidade inválida no item {idx}.'}, status=400)
+                return JsonResponse({'ok': False, 'error': 'invalid_quantity', 'message': f'Quantidade invalida no item {idx}.'}, status=400)
             if quantity <= 0:
                 return JsonResponse({'ok': False, 'error': 'invalid_quantity', 'message': f'Quantidade deve ser maior que zero no item {idx}.'}, status=400)
 
@@ -5377,7 +5481,7 @@ class EventoPedidoCreatePixApiView(View):
                 .first()
             )
             if not variacao:
-                return JsonResponse({'ok': False, 'error': 'variation_not_found', 'message': f'Variação inválida ou inativa no item {idx}.'}, status=400)
+                return JsonResponse({'ok': False, 'error': 'variation_not_found', 'message': f'Variacao invalida ou inativa no item {idx}.'}, status=400)
 
             unit_price = Decimal(variacao.valor).quantize(Decimal('0.01'))
             line_total = (unit_price * quantity).quantize(Decimal('0.01'))
@@ -5398,10 +5502,15 @@ class EventoPedidoCreatePixApiView(View):
                 'valor_total': line_total,
                 'foto_url': foto_url,
             })
-            total += line_total
+            itens_total += line_total
 
-        if not parsed_items:
-            return JsonResponse({'ok': False, 'error': 'empty_cart', 'message': 'Nenhum item foi selecionado.'}, status=400)
+        total = (itens_total + fee_total).quantize(Decimal('0.01'))
+        if total <= 0:
+            return JsonResponse({
+                'ok': False,
+                'error': 'empty_total',
+                'message': 'Nao ha valor para pagamento. Adicione itens ou configure cobranca de inscricao.',
+            }, status=400)
 
         try:
             with transaction.atomic():
@@ -5409,11 +5518,12 @@ class EventoPedidoCreatePixApiView(View):
                     responsavel=responsavel,
                     evento=evento,
                     forma_pagamento=LojaPedido.FORMA_PAGAMENTO_PIX,
-                    valor_total=total.quantize(Decimal('0.01')),
+                    valor_total=total,
                     created_by=request.user if request.user.is_authenticated else None,
                     status=LojaPedido.STATUS_PENDENTE,
                 )
-                LojaPedidoItem.objects.bulk_create([
+
+                pedido_items = [
                     LojaPedidoItem(
                         pedido=pedido,
                         produto=item['produto'],
@@ -5426,7 +5536,23 @@ class EventoPedidoCreatePixApiView(View):
                         foto_url=item['foto_url'],
                     )
                     for item in parsed_items
-                ])
+                ]
+                if fee_total > 0:
+                    pedido_items.append(
+                        LojaPedidoItem(
+                            pedido=pedido,
+                            produto=None,
+                            variacao=None,
+                            produto_titulo=f'Inscricao do evento: {evento.name}',
+                            variacao_nome=f'Codigo {str(inscricao.codigo_inscricao or "-").strip()}',
+                            quantidade=1,
+                            valor_unitario=fee_total,
+                            valor_total=fee_total,
+                            foto_url='',
+                        )
+                    )
+                LojaPedidoItem.objects.bulk_create(pedido_items)
+
                 mp_payload = loja_view._create_mp_pix_payment_loja(request, pedido)
                 pedido.mp_payment_id = mp_payload['payment_id']
                 pedido.mp_external_reference = mp_payload['external_reference']
@@ -5450,11 +5576,105 @@ class EventoPedidoCreatePixApiView(View):
         except ValueError as exc:
             return JsonResponse({'ok': False, 'error': 'mercadopago', 'message': str(exc)}, status=400)
         except Exception:
-            return JsonResponse({'ok': False, 'error': 'pedido_create_failed', 'message': 'Não foi possível gerar o Pix agora.'}, status=500)
+            return JsonResponse({'ok': False, 'error': 'pedido_create_failed', 'message': 'Nao foi possivel gerar o Pix agora.'}, status=500)
+
+        request.session['last_evento_pedido_id'] = int(pedido.pk)
+        if not request.user.is_authenticated:
+            session_key = _evento_public_pedidos_session_key(evento.id)
+            existing = request.session.get(session_key)
+            allowed_ids = []
+            if isinstance(existing, list):
+                for item in existing:
+                    text = str(item or '').strip()
+                    if text.isdigit():
+                        allowed_ids.append(int(text))
+            if pedido.pk not in allowed_ids:
+                allowed_ids.append(int(pedido.pk))
+            request.session[session_key] = allowed_ids[-80:]
+
+        summary_lines = []
+        if fee_total > 0:
+            summary_lines.append(
+                f'Inscricao do evento ({str(inscricao.codigo_inscricao or "-").strip()}): {loja_view._format_currency(fee_total)}'
+            )
+        for item in parsed_items:
+            summary_lines.append(
+                f'{item["produto_titulo"]} - {item["variacao_nome"]} x{item["quantidade"]} ({loja_view._format_currency(item["valor_total"])})'
+            )
+        pedido_payload = loja_view._pix_modal_context_loja(pedido)
+        pedido_payload.update({
+            'inscricao_codigo': str(inscricao.codigo_inscricao or '').strip(),
+            'inscricao_valor': loja_view._format_currency(fee_total),
+            'itens_valor': loja_view._format_currency(itens_total),
+            'resumo_linhas': summary_lines,
+        })
 
         return JsonResponse({
             'ok': True,
-            'pedido': loja_view._pix_modal_context_loja(pedido),
+            'pedido': pedido_payload,
+        })
+
+
+class EventoPedidoStatusApiView(View):
+    def _authenticated_profile_allowed(self, request):
+        if not request.user.is_authenticated:
+            return False
+        access = _ensure_user_access(request.user)
+        return (
+            access.has_profile(UserAccess.ROLE_RESPONSAVEL)
+            or access.has_profile(UserAccess.ROLE_PROFESSOR)
+            or access.has_profile(UserAccess.ROLE_DIRETOR)
+            or access.has_profile(UserAccess.ROLE_DIRETORIA)
+        )
+
+    def _guest_can_access_pedido(self, request, evento_id, pedido_id):
+        session_key = _evento_public_pedidos_session_key(evento_id)
+        raw_ids = request.session.get(session_key)
+        if not isinstance(raw_ids, list):
+            return False
+        for item in raw_ids:
+            text = str(item or '').strip()
+            if text.isdigit() and int(text) == int(pedido_id):
+                return True
+        return False
+
+    def get(self, request, event_id, pk):
+        evento = get_object_or_404(Evento, pk=event_id)
+        pedido = get_object_or_404(
+            LojaPedido.objects.select_related('responsavel', 'responsavel__user'),
+            pk=pk,
+            evento=evento,
+        )
+
+        if request.user.is_authenticated:
+            if not self._authenticated_profile_allowed(request):
+                return JsonResponse({'ok': False, 'error': 'forbidden_profile'}, status=403)
+            can_manage = _has_menu_permission(request, 'eventos') or _has_menu_permission(request, 'loja')
+            if not can_manage and pedido.responsavel.user_id != request.user.id:
+                return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+        else:
+            if not bool(evento.inscricao_publica):
+                return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+            if not self._guest_can_access_pedido(request, evento.id, pedido.id):
+                return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+
+        loja_view = LojaView()
+        if pedido.mp_payment_id and pedido.status != LojaPedido.STATUS_PAGO:
+            try:
+                payment_data = loja_view._get_mp_payment(pedido.mp_payment_id)
+                loja_view._sync_pedido_loja_from_mp(pedido, payment_data)
+                pedido.refresh_from_db()
+            except Exception:
+                pass
+
+        return JsonResponse({
+            'ok': True,
+            'pedido_id': pedido.pk,
+            'status': pedido.status,
+            'status_label': loja_view._pedido_loja_status_label(pedido),
+            'mp_status': pedido.mp_status,
+            'mp_status_detail': pedido.mp_status_detail,
+            'is_paid': pedido.status == LojaPedido.STATUS_PAGO,
         })
 
 

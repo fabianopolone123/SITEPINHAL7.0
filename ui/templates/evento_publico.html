@@ -553,6 +553,120 @@
       border-color: #93c5fd;
       background: #eff6ff;
     }
+    .event-checkout-feedback {
+      margin: 0.2rem 0 0;
+      font-size: 0.88rem;
+      color: #334155;
+      min-height: 1.2em;
+    }
+    .event-checkout-feedback.error {
+      color: #b91c1c;
+    }
+    .event-checkout-feedback.success {
+      color: #166534;
+    }
+    .event-pix-modal[hidden],
+    .event-paid-modal[hidden] {
+      display: none !important;
+    }
+    .event-pix-modal,
+    .event-paid-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      background: rgba(15, 23, 42, 0.58);
+      display: grid;
+      place-items: center;
+      padding: 0.7rem;
+    }
+    .event-pix-dialog,
+    .event-paid-dialog {
+      width: min(460px, 96vw);
+      border-radius: 14px;
+      border: 1px solid #dbeafe;
+      background: #fff;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
+      padding: 0.9rem;
+      display: grid;
+      gap: 0.65rem;
+    }
+    .event-pix-head,
+    .event-paid-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.65rem;
+      align-items: center;
+    }
+    .event-pix-head h4,
+    .event-paid-head h4 {
+      margin: 0;
+      color: #0f172a;
+    }
+    .event-pix-close,
+    .event-paid-close {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #fff;
+      color: #0f172a;
+      padding: 0.4rem 0.56rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .event-pix-status {
+      display: grid;
+      gap: 0.28rem;
+      color: #334155;
+      font-size: 0.9rem;
+    }
+    .event-pix-qr {
+      width: min(300px, 100%);
+      margin: 0 auto;
+      border: 1px solid #dbeafe;
+      border-radius: 12px;
+      background: #fff;
+      padding: 0.5rem;
+      box-sizing: border-box;
+    }
+    .event-pix-code {
+      width: 100%;
+      min-height: 88px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 0.62rem;
+      font: inherit;
+      color: #0f172a;
+      background: #f8fafc;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    .event-pix-actions,
+    .event-paid-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.55rem;
+    }
+    .event-paid-code {
+      display: inline-block;
+      border: 1px solid #93c5fd;
+      border-radius: 12px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 1.6rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      line-height: 1.05;
+      padding: 0.3rem 0.65rem;
+      min-width: 4.4rem;
+      text-align: center;
+    }
+    .event-paid-summary {
+      margin: 0;
+      padding-left: 1rem;
+      display: grid;
+      gap: 0.2rem;
+      color: #0f172a;
+      font-size: 0.9rem;
+    }
     .inscritos-kids-count {
       display: inline-flex;
       align-items: center;
@@ -683,6 +797,15 @@
       }
       .event-register-code-wrap {
         align-items: flex-start;
+      }
+      .event-pix-actions,
+      .event-paid-actions {
+        grid-template-columns: 1fr;
+      }
+      .event-pix-dialog,
+      .event-paid-dialog {
+        border-radius: 12px;
+        padding: 0.75rem;
       }
     }
     @media (max-width: 560px) {
@@ -1159,23 +1282,6 @@
             <div class="event-cart-body">
               <p id="event-cart-empty" class="event-cart-empty">Nenhum item no carrinho.</p>
               <div id="event-cart-items" class="event-cart-items"></div>
-              {% if not is_authenticated %}
-                <div class="event-cart-guest-box">
-                  <h5>Dados do comprador</h5>
-                  <label>
-                    Nome *
-                    <input type="text" id="event-guest-name" placeholder="Seu nome completo" />
-                  </label>
-                  <label>
-                    E-mail (opcional)
-                    <input type="email" id="event-guest-email" placeholder="seu@email.com" />
-                  </label>
-                  <label>
-                    Celular (opcional)
-                    <input type="text" id="event-guest-phone" placeholder="5511999999999" />
-                  </label>
-                </div>
-              {% endif %}
             </div>
             <div class="event-cart-foot">
               <span class="panel-note">Total e pagamento no resumo final da pagina.</span>
@@ -1208,7 +1314,58 @@
       <div class="action-row">
         <button type="button" class="primary" id="event-finalizar-pagar">Finalizar e pagar</button>
       </div>
+      <p class="event-checkout-feedback" id="event-checkout-feedback" aria-live="polite"></p>
     </section>
+    <div
+      id="eventPixApiConfig"
+      data-create-url="{% url 'accounts:evento_comprar_pix' evento.id %}"
+      data-status-url-template="{% url 'accounts:evento_pedido_status' evento.id 0 %}"
+    ></div>
+    <div class="event-pix-modal" id="eventPixModal" hidden aria-hidden="true">
+      <div class="event-pix-dialog" role="dialog" aria-modal="true" aria-labelledby="eventPixTitle">
+        <div class="event-pix-head">
+          <h4 id="eventPixTitle">Pagamento via Pix</h4>
+          <button type="button" class="event-pix-close" id="eventPixClose">Fechar</button>
+        </div>
+        <div class="event-pix-status">
+          <span><strong>Pedido:</strong> <span id="eventPixPedidoId">-</span></span>
+          <span><strong>Status:</strong> <span id="eventPixStatusLabel">Aguardando pagamento</span></span>
+          <span><strong>Total:</strong> <span id="eventPixTotal">R$ 0,00</span></span>
+        </div>
+        <img id="eventPixQr" class="event-pix-qr" alt="QR code Pix do evento" />
+        <label for="eventPixCode"><strong>Pix copia e cola</strong></label>
+        <textarea id="eventPixCode" class="event-pix-code" readonly></textarea>
+        <div class="event-pix-actions">
+          <button type="button" class="secondary" id="eventPixCopyBtn">Copiar codigo Pix</button>
+          <button type="button" class="primary" id="eventPixRefreshBtn">Atualizar status</button>
+        </div>
+        <p class="panel-note" id="eventPixNote">Apos pagar, aguarde alguns segundos e atualize o status.</p>
+      </div>
+    </div>
+    <div class="event-paid-modal" id="eventPaidModal" hidden aria-hidden="true">
+      <div class="event-paid-dialog" role="dialog" aria-modal="true" aria-labelledby="eventPaidTitle">
+        <div class="event-paid-head">
+          <h4 id="eventPaidTitle">Pagamento aprovado</h4>
+          <button type="button" class="event-paid-close" id="eventPaidClose">Fechar</button>
+        </div>
+        <p class="panel-note">Pagamento confirmado para este evento.</p>
+        <div>
+          <strong>Codigo da inscricao</strong><br />
+          <span class="event-paid-code" id="eventPaidCode">---</span>
+        </div>
+        <div class="event-pix-status">
+          <span><strong>Pedido:</strong> <span id="eventPaidPedidoId">-</span></span>
+          <span><strong>Total:</strong> <span id="eventPaidTotal">R$ 0,00</span></span>
+        </div>
+        <div>
+          <strong>Resumo</strong>
+          <ul class="event-paid-summary" id="eventPaidSummary"></ul>
+        </div>
+        <div class="event-paid-actions">
+          <button type="button" class="primary" id="eventPaidContinueBtn">Continuar</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script>
@@ -1251,6 +1408,30 @@
       let currentFeeTotal = 0;
       let currentCartItems = 0;
       let currentCartTotal = 0;
+      const checkoutFeedbackNode = document.getElementById('event-checkout-feedback');
+      const pixApiConfig = document.getElementById('eventPixApiConfig');
+      const pixModal = document.getElementById('eventPixModal');
+      const pixCloseBtn = document.getElementById('eventPixClose');
+      const pixPedidoIdEl = document.getElementById('eventPixPedidoId');
+      const pixStatusEl = document.getElementById('eventPixStatusLabel');
+      const pixTotalEl = document.getElementById('eventPixTotal');
+      const pixQrEl = document.getElementById('eventPixQr');
+      const pixCodeEl = document.getElementById('eventPixCode');
+      const pixCopyBtn = document.getElementById('eventPixCopyBtn');
+      const pixRefreshBtn = document.getElementById('eventPixRefreshBtn');
+      const pixNoteEl = document.getElementById('eventPixNote');
+      const paidModal = document.getElementById('eventPaidModal');
+      const paidCloseBtn = document.getElementById('eventPaidClose');
+      const paidContinueBtn = document.getElementById('eventPaidContinueBtn');
+      const paidCodeEl = document.getElementById('eventPaidCode');
+      const paidPedidoIdEl = document.getElementById('eventPaidPedidoId');
+      const paidTotalEl = document.getElementById('eventPaidTotal');
+      const paidSummaryEl = document.getElementById('eventPaidSummary');
+      const PIX_CREATE_URL = pixApiConfig ? String(pixApiConfig.dataset.createUrl || '') : '';
+      const PIX_STATUS_URL_TEMPLATE = pixApiConfig ? String(pixApiConfig.dataset.statusUrlTemplate || '') : '';
+      let pixPedidoAtual = null;
+      let pixPollingTimer = null;
+      let paidModalShownForPedido = '';
       if (feeConfigNode) {
         try {
           const parsedFeeConfig = JSON.parse(feeConfigNode.textContent || '{}');
@@ -1274,6 +1455,175 @@
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#39;');
+      };
+
+      const setCheckoutFeedback = (text, kind) => {
+        if (!checkoutFeedbackNode) return;
+        checkoutFeedbackNode.textContent = String(text || '');
+        checkoutFeedbackNode.classList.remove('error', 'success');
+        if (kind === 'error') checkoutFeedbackNode.classList.add('error');
+        if (kind === 'success') checkoutFeedbackNode.classList.add('success');
+      };
+
+      const getCookie = (name) => {
+        const cookies = document.cookie ? document.cookie.split(';') : [];
+        for (let i = 0; i < cookies.length; i += 1) {
+          const cookie = cookies[i].trim();
+          if (cookie.startsWith(name + '=')) {
+            return decodeURIComponent(cookie.slice(name.length + 1));
+          }
+        }
+        return '';
+      };
+
+      const clearPixPolling = () => {
+        if (pixPollingTimer) {
+          clearTimeout(pixPollingTimer);
+          pixPollingTimer = null;
+        }
+      };
+
+      const closePixModal = () => {
+        clearPixPolling();
+        if (!pixModal || pixModal.hidden) return;
+        pixModal.hidden = true;
+        pixModal.setAttribute('aria-hidden', 'true');
+      };
+
+      const openPixModal = () => {
+        if (!pixModal) return;
+        pixModal.hidden = false;
+        pixModal.setAttribute('aria-hidden', 'false');
+      };
+
+      const closePaidModal = () => {
+        if (!paidModal || paidModal.hidden) return;
+        paidModal.hidden = true;
+        paidModal.setAttribute('aria-hidden', 'true');
+      };
+
+      const openPaidModal = () => {
+        if (!paidModal) return;
+        paidModal.hidden = false;
+        paidModal.setAttribute('aria-hidden', 'false');
+      };
+
+      const renderPixModal = (pedido) => {
+        if (!pedido) return;
+        pixPedidoAtual = pedido;
+        if (pixPedidoIdEl) pixPedidoIdEl.textContent = String(pedido.pedido_id || pedido.id || '-');
+        if (pixStatusEl) pixStatusEl.textContent = String(pedido.status_label || 'Aguardando pagamento');
+        if (pixTotalEl) pixTotalEl.textContent = String(pedido.valor_total || toMoney(0));
+        if (pixCodeEl) pixCodeEl.value = String(pedido.pix_code || '');
+        if (pixQrEl) {
+          const base64 = String(pedido.qr_base64 || '');
+          pixQrEl.src = base64 ? ('data:image/png;base64,' + base64) : '';
+        }
+        if (pixNoteEl) {
+          pixNoteEl.textContent = pedido.status === 'pago'
+            ? 'Pagamento aprovado. Pedido marcado como pago.'
+            : 'Apos pagar, aguarde alguns segundos e atualize o status.';
+        }
+        openPixModal();
+      };
+
+      const showPaidFinalization = (pedido) => {
+        if (!pedido) return;
+        const pedidoId = String(pedido.pedido_id || pedido.id || '');
+        if (pedidoId && paidModalShownForPedido === pedidoId) return;
+        paidModalShownForPedido = pedidoId || paidModalShownForPedido;
+        if (paidCodeEl) {
+          const code = String(pedido.inscricao_codigo || '{{ inscricao_codigo|default:""|escapejs }}' || '').trim();
+          paidCodeEl.textContent = code || '---';
+        }
+        if (paidPedidoIdEl) paidPedidoIdEl.textContent = pedidoId || '-';
+        if (paidTotalEl) paidTotalEl.textContent = String(pedido.valor_total || toMoney(0));
+        if (paidSummaryEl) {
+          paidSummaryEl.innerHTML = '';
+          const lines = Array.isArray(pedido.resumo_linhas) ? pedido.resumo_linhas : [];
+          if (!lines.length) {
+            const li = document.createElement('li');
+            li.textContent = 'Pagamento do evento confirmado.';
+            paidSummaryEl.appendChild(li);
+          } else {
+            lines.forEach((line) => {
+              const li = document.createElement('li');
+              li.textContent = String(line || '');
+              paidSummaryEl.appendChild(li);
+            });
+          }
+        }
+        closePixModal();
+        openPaidModal();
+      };
+
+      const fetchPixStatus = async () => {
+        if (!pixPedidoAtual || !pixPedidoAtual.pedido_id || !PIX_STATUS_URL_TEMPLATE) return null;
+        const url = PIX_STATUS_URL_TEMPLATE.replace('/0/status/', '/' + String(pixPedidoAtual.pedido_id) + '/status/');
+        const response = await fetch(url, {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json' },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok) {
+          throw new Error(data.message || data.error || 'Falha ao consultar status do pedido.');
+        }
+        pixPedidoAtual.status = data.status;
+        pixPedidoAtual.status_label = data.status_label;
+        renderPixModal(pixPedidoAtual);
+        if (data.is_paid) {
+          cart.length = 0;
+          renderCart();
+          closeCartDrawer();
+          setCheckoutFeedback('Pagamento aprovado com sucesso.', 'success');
+          clearPixPolling();
+          showPaidFinalization(pixPedidoAtual);
+        }
+        return data;
+      };
+
+      const schedulePixPolling = () => {
+        clearPixPolling();
+        if (!pixPedidoAtual || pixPedidoAtual.status === 'pago') return;
+        pixPollingTimer = window.setTimeout(() => {
+          fetchPixStatus()
+            .catch(() => {})
+            .finally(() => {
+              if (pixPedidoAtual && pixPedidoAtual.status !== 'pago' && pixModal && !pixModal.hidden) {
+                schedulePixPolling();
+              }
+            });
+        }, 5000);
+      };
+
+      const createPixPedidoFromEvent = async () => {
+        if (!PIX_CREATE_URL) {
+          throw new Error('URL de pagamento do evento nao configurada.');
+        }
+        const payload = {
+          payment_method: 'pix',
+          items: cart.map((item) => ({
+            product_id: item.productId,
+            variation_id: item.variationId,
+            quantity: item.quantity,
+          })),
+        };
+        const response = await fetch(PIX_CREATE_URL, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok) {
+          throw new Error(data.message || data.error || 'Nao foi possivel gerar o Pix deste evento agora.');
+        }
+        return data.pedido || null;
       };
 
       const normalizeLookupText = (value) => {
@@ -1822,8 +2172,95 @@
       }
 
       if (finalizarPagarBtn) {
-        finalizarPagarBtn.addEventListener('click', () => {
-          // Fluxo de pagamento sera implementado depois.
+        finalizarPagarBtn.addEventListener('click', async () => {
+          const previewTotal = Number(currentFeeTotal || 0) + Number(currentCartTotal || 0);
+          if (previewTotal <= 0) {
+            setCheckoutFeedback('Nao ha valor para pagar neste evento.', 'error');
+            return;
+          }
+          try {
+            finalizarPagarBtn.disabled = true;
+            setCheckoutFeedback('Gerando Pix do valor total do evento...');
+            const pedido = await createPixPedidoFromEvent();
+            if (!pedido) {
+              throw new Error('Resposta invalida ao gerar pagamento.');
+            }
+            renderPixModal(pedido);
+            if (pedido.status === 'pago') {
+              cart.length = 0;
+              renderCart();
+              closeCartDrawer();
+              setCheckoutFeedback('Pagamento aprovado com sucesso.', 'success');
+              showPaidFinalization(pedido);
+            } else {
+              schedulePixPolling();
+              setCheckoutFeedback('Pix gerado. Finalize o pagamento e acompanhe o status.', 'success');
+            }
+          } catch (error) {
+            setCheckoutFeedback((error && error.message) ? error.message : 'Nao foi possivel gerar o pagamento Pix agora.', 'error');
+          } finally {
+            if (finalizarPagarBtn) finalizarPagarBtn.disabled = false;
+          }
+        });
+      }
+      if (pixModal) {
+        pixModal.addEventListener('click', (event) => {
+          if (event.target === pixModal) closePixModal();
+        });
+      }
+      if (pixCloseBtn) {
+        pixCloseBtn.addEventListener('click', () => {
+          closePixModal();
+        });
+      }
+      if (pixCopyBtn) {
+        pixCopyBtn.addEventListener('click', async () => {
+          const text = pixCodeEl ? String(pixCodeEl.value || '') : '';
+          if (!text) return;
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(text);
+            } else if (pixCodeEl) {
+              pixCodeEl.select();
+              document.execCommand('copy');
+            }
+            if (pixNoteEl) pixNoteEl.textContent = 'Codigo Pix copiado para a area de transferencia.';
+          } catch (error) {
+            if (pixNoteEl) pixNoteEl.textContent = 'Nao foi possivel copiar automaticamente. Copie manualmente.';
+          }
+        });
+      }
+      if (pixRefreshBtn) {
+        pixRefreshBtn.addEventListener('click', async () => {
+          try {
+            pixRefreshBtn.disabled = true;
+            if (pixNoteEl) pixNoteEl.textContent = 'Consultando status do pagamento...';
+            await fetchPixStatus();
+            if (pixPedidoAtual && pixPedidoAtual.status !== 'pago' && pixNoteEl) {
+              pixNoteEl.textContent = 'Pagamento ainda pendente. Aguarde alguns segundos e atualize novamente.';
+            }
+          } catch (error) {
+            if (pixNoteEl) {
+              pixNoteEl.textContent = (error && error.message) ? error.message : 'Falha ao consultar o status.';
+            }
+          } finally {
+            pixRefreshBtn.disabled = false;
+          }
+        });
+      }
+      if (paidModal) {
+        paidModal.addEventListener('click', (event) => {
+          if (event.target === paidModal) closePaidModal();
+        });
+      }
+      if (paidCloseBtn) {
+        paidCloseBtn.addEventListener('click', () => {
+          closePaidModal();
+        });
+      }
+      if (paidContinueBtn) {
+        paidContinueBtn.addEventListener('click', () => {
+          closePaidModal();
         });
       }
 
@@ -1907,6 +2344,14 @@
 
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
+        if (paidModal && !paidModal.hidden) {
+          closePaidModal();
+          return;
+        }
+        if (pixModal && !pixModal.hidden) {
+          closePixModal();
+          return;
+        }
         if (cartOverlay && !cartOverlay.hidden) {
           closeCartDrawer();
           return;
