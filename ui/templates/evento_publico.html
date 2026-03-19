@@ -553,6 +553,47 @@
       border-color: #93c5fd;
       background: #eff6ff;
     }
+    .event-consulta-results {
+      display: grid;
+      gap: 0.8rem;
+    }
+    .event-consulta-card {
+      border: 1px solid #dbeafe;
+      border-radius: 14px;
+      background: #f8fbff;
+      padding: 0.75rem;
+      display: grid;
+      gap: 0.6rem;
+    }
+    .event-consulta-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      align-items: center;
+    }
+    .event-consulta-pedido {
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      background: #fff;
+      padding: 0.62rem;
+      display: grid;
+      gap: 0.4rem;
+    }
+    .event-consulta-pedido-top {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .event-consulta-itens {
+      margin: 0;
+      padding-left: 1rem;
+      display: grid;
+      gap: 0.2rem;
+      color: #0f172a;
+      font-size: 0.86rem;
+    }
     .event-checkout-feedback {
       margin: 0.2rem 0 0;
       font-size: 0.88rem;
@@ -843,6 +884,7 @@
 </head>
 <body class="painel-page">
   {{ evento.inscricao_valor_config|default:"{}"|json_script:"event-fee-config-data" }}
+  {{ form_initial_by_input|default:"{}"|json_script:"event-form-initial-data" }}
   {% if is_authenticated %}
     {% include '_painel_sidebar.html' %}
   {% endif %}
@@ -864,6 +906,136 @@
         {% endfor %}
       </div>
     </section>
+
+    {% if evento_fluxo_selector %}
+      <section class="painel-card event-step">
+        <h3>O que voce deseja fazer?</h3>
+        <div class="action-row">
+          <a href="?modo=inscricao" class="{% if active_mode == 'inscricao' %}primary{% else %}secondary{% endif %}">Fazer inscricao no evento</a>
+          <a href="?modo=consulta" class="{% if active_mode == 'consulta' %}primary{% else %}secondary{% endif %}">Consultar inscricao feita</a>
+        </div>
+        {% if active_mode == 'menu' %}
+          <p class="panel-note">Escolha uma opcao para continuar.</p>
+        {% endif %}
+      </section>
+    {% endif %}
+
+    {% if active_mode == 'consulta' %}
+      <section class="painel-card event-step">
+        <h3>Consultar inscricao</h3>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="consultar_inscricao" />
+          <input type="hidden" name="modo" value="consulta" />
+          <label>
+            CPF ou codigo da inscricao
+            <input type="text" name="consulta_termo" value="{{ consulta_term }}" placeholder="Digite CPF ou codigo (ex.: 123)" required />
+          </label>
+          <div class="action-row">
+            <button type="submit" class="primary">Consultar agora</button>
+            <a href="?modo=inscricao" class="secondary">Ir para inscricao</a>
+          </div>
+        </form>
+      </section>
+
+      {% if consulta_results %}
+        <section class="painel-card event-step">
+          <h3>Resultado da consulta</h3>
+          <div class="event-consulta-results">
+            {% for row in consulta_results %}
+              <article class="event-consulta-card">
+                <div class="event-consulta-head">
+                  <span class="event-metric-pill">Codigo: {{ row.codigo }}</span>
+                  <span class="event-metric-pill">Responsavel: {{ row.responsavel }}</span>
+                  <span class="event-metric-pill">CPF: {{ row.cpf_responsavel }}</span>
+                  <span class="event-metric-pill">Inscricao: {{ row.valor_inscricao_fmt }}{% if row.valor_inscricao_unidades %} ({{ row.valor_inscricao_unidades }}x){% endif %}</span>
+                  <span class="event-metric-pill">Data: {{ row.data_inscricao|date:"d/m/Y H:i" }}</span>
+                </div>
+                {% if row.criancas_total > 0 %}
+                  <div>
+                    <strong>Criancas:</strong>
+                    <div class="inscritos-kids-list">
+                      {% for linha in row.criancas_linhas %}
+                        <div class="inscritos-kids-line">{{ linha.display }}</div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                {% endif %}
+                <div><strong>Outros dados:</strong> {{ row.dados_resumo }}</div>
+                <details>
+                  <summary>Ver todos os dados da inscricao</summary>
+                  <pre style="white-space:pre-wrap;">{{ row.dados_json }}</pre>
+                </details>
+                {% if row.pode_editar %}
+                  <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="abrir_edicao_inscricao" />
+                    <input type="hidden" name="modo" value="consulta" />
+                    <input type="hidden" name="consulta_termo" value="{{ consulta_term }}" />
+                    <input type="hidden" name="inscricao_id" value="{{ row.id }}" />
+                    <button type="submit" class="secondary">Editar esta inscricao</button>
+                  </form>
+                {% endif %}
+
+                <div>
+                  <strong>Pedidos da loja neste evento</strong>
+                  {% if row.pedidos %}
+                    <div class="event-consulta-results" style="margin-top:.45rem;">
+                      {% for ped in row.pedidos %}
+                        <div class="event-consulta-pedido">
+                          <div class="event-consulta-pedido-top">
+                            <span><strong>Pedido #{{ ped.id }}</strong></span>
+                            <span>{{ ped.status_label }}</span>
+                            <span><strong>Total:</strong> {{ ped.valor_total_fmt }}</span>
+                          </div>
+                          {% if ped.itens %}
+                            <ul class="event-consulta-itens">
+                              {% for item in ped.itens %}
+                                <li>{{ item.produto_titulo }} - {{ item.variacao_nome }} x{{ item.quantidade }} ({{ item.valor_total_fmt }})</li>
+                              {% endfor %}
+                            </ul>
+                          {% endif %}
+                          {% if not ped.is_paid %}
+                            <div class="action-row">
+                              <button
+                                type="button"
+                                class="primary"
+                                data-consulta-pagar
+                                data-pedido-id="{{ ped.id }}"
+                                data-inscricao-codigo="{{ row.codigo }}"
+                              >
+                                Pagar agora
+                              </button>
+                            </div>
+                          {% else %}
+                            <p class="panel-note">Pagamento aprovado.</p>
+                          {% endif %}
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <p class="panel-note">Nenhum pedido encontrado para esta inscricao.</p>
+                    {% if row.tem_valor_inscricao %}
+                      <div class="action-row">
+                        <button
+                          type="button"
+                          class="primary"
+                          data-consulta-gerar-inscricao-pix
+                          data-inscricao-id="{{ row.id }}"
+                          data-inscricao-codigo="{{ row.codigo }}"
+                        >
+                          Gerar Pix da inscricao
+                        </button>
+                      </div>
+                    {% endif %}
+                  {% endif %}
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+    {% endif %}
 
     {% if show_register_summary %}
       <div class="modal event-report-modal" id="event-register-summary-modal" aria-hidden="true" data-autoshow="1">
@@ -1162,6 +1334,7 @@
       </div>
     {% endif %}
 
+    {% if active_mode == 'inscricao' %}
     <div class="event-main-grid">
     <section class="painel-card event-step">
       <h3>Passo 1: Inscrição</h3>
@@ -1169,12 +1342,15 @@
       <form method="post" id="event-register-form">
         {% csrf_token %}
         <input type="hidden" name="action" value="register_event" />
+        <input type="hidden" name="modo" value="inscricao" />
+        <input type="hidden" name="edit_registration_id" id="event-edit-registration-id" value="{{ form_edit_registration_id }}" />
         <div class="field-section">
           {% for field in schema %}
             {% if field.type == 'repetidor' %}
               <div
                 class="event-repeat-group"
                 data-repeat-field="{{ field.input_name }}"
+                data-repeat-input-name="{{ field.input_name }}"
                 data-repeat-required="{% if field.required or field.repeat_require_click %}1{% else %}0{% endif %}"
                 data-repeat-click-required="{% if field.repeat_require_click %}1{% else %}0{% endif %}"
                 data-repeat-schema='{{ field.repeat_fields_data_json|default:"[]"|escape }}'
@@ -1220,7 +1396,10 @@
           {% endfor %}
         </div>
         <div class="action-row">
-          <button type="submit" class="primary">Salvar inscrição</button>
+          <button type="submit" class="primary">{% if form_edit_registration_id %}Salvar alteracoes da inscricao{% else %}Salvar inscricao{% endif %}</button>
+          {% if form_edit_registration_id %}
+            <a href="?modo=consulta" class="secondary">Cancelar edicao</a>
+          {% endif %}
         </div>
       </form>
     </section>
@@ -1316,6 +1495,7 @@
       </div>
       <p class="event-checkout-feedback" id="event-checkout-feedback" aria-live="polite"></p>
     </section>
+    {% endif %}
     <div
       id="eventPixApiConfig"
       data-create-url="{% url 'accounts:evento_comprar_pix' evento.id %}"
@@ -1400,10 +1580,12 @@
       const deleteSelectedPasswordInput = document.getElementById('event-delete-selected-password');
       const inscritosSelectAll = document.getElementById('event-inscritos-select-all');
       const feeConfigNode = document.getElementById('event-fee-config-data');
+      const formInitialNode = document.getElementById('event-form-initial-data');
       const feeMode = String('{{ evento.inscricao_valor_modo|default:"nenhum"|escapejs }}' || '').trim().toLowerCase() || 'nenhum';
       const feeUnitRaw = String('{{ evento.inscricao_valor_unitario|default:"0"|escapejs }}' || '').trim();
       const feeUnit = Number(feeUnitRaw.replace(/\./g, '').replace(',', '.')) || Number(feeUnitRaw.replace(',', '.')) || 0;
       let feeConfig = {};
+      let formInitialByInput = {};
       let currentFeeUnits = 0;
       let currentFeeTotal = 0;
       let currentCartItems = 0;
@@ -1440,6 +1622,16 @@
           }
         } catch (error) {
           feeConfig = {};
+        }
+      }
+      if (formInitialNode) {
+        try {
+          const parsedInitial = JSON.parse(formInitialNode.textContent || '{}');
+          if (parsedInitial && typeof parsedInitial === 'object') {
+            formInitialByInput = parsedInitial;
+          }
+        } catch (error) {
+          formInitialByInput = {};
         }
       }
 
@@ -1571,6 +1763,10 @@
         }
         pixPedidoAtual.status = data.status;
         pixPedidoAtual.status_label = data.status_label;
+        if (data.valor_total) pixPedidoAtual.valor_total = data.valor_total;
+        if (data.qr_base64) pixPedidoAtual.qr_base64 = data.qr_base64;
+        if (data.pix_code) pixPedidoAtual.pix_code = data.pix_code;
+        if (Array.isArray(data.resumo_linhas)) pixPedidoAtual.resumo_linhas = data.resumo_linhas;
         renderPixModal(pixPedidoAtual);
         if (data.is_paid) {
           cart.length = 0;
@@ -1581,6 +1777,31 @@
           showPaidFinalization(pixPedidoAtual);
         }
         return data;
+      };
+
+      const fetchPedidoPixById = async (pedidoId) => {
+        if (!pedidoId || !PIX_STATUS_URL_TEMPLATE) {
+          throw new Error('Pedido invalido para pagamento.');
+        }
+        const url = PIX_STATUS_URL_TEMPLATE.replace('/0/status/', '/' + String(pedidoId) + '/status/');
+        const response = await fetch(url, {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json' },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok) {
+          throw new Error(data.message || data.error || 'Nao foi possivel abrir este pagamento.');
+        }
+        return {
+          pedido_id: data.pedido_id,
+          status: data.status,
+          status_label: data.status_label,
+          valor_total: data.valor_total,
+          qr_base64: data.qr_base64,
+          pix_code: data.pix_code,
+          resumo_linhas: Array.isArray(data.resumo_linhas) ? data.resumo_linhas : [],
+        };
       };
 
       const schedulePixPolling = () => {
@@ -1597,7 +1818,7 @@
         }, 5000);
       };
 
-      const createPixPedidoFromEvent = async () => {
+      const createPixPedidoFromEvent = async (inscricaoId) => {
         if (!PIX_CREATE_URL) {
           throw new Error('URL de pagamento do evento nao configurada.');
         }
@@ -1609,6 +1830,9 @@
             quantity: item.quantity,
           })),
         };
+        if (inscricaoId) {
+          payload.inscricao_id = Number(inscricaoId);
+        }
         const response = await fetch(PIX_CREATE_URL, {
           method: 'POST',
           credentials: 'same-origin',
@@ -1864,10 +2088,11 @@
           .filter((item) => item);
       };
 
-      const buildRepeatItem = (fieldWrap, fieldsSchema, index) => {
+      const buildRepeatItem = (fieldWrap, fieldsSchema, index, rowData) => {
         const item = document.createElement('div');
         item.className = 'event-repeat-item';
         item.dataset.repeatIndex = String(index);
+        const sourceRow = rowData && typeof rowData === 'object' ? rowData : {};
 
         const grid = document.createElement('div');
         grid.className = 'event-repeat-item-grid';
@@ -1926,6 +2151,9 @@
           input.setAttribute('data-repeat-key', label);
           input.setAttribute('data-repeat-type', fieldType);
           input.setAttribute('data-repeat-required-key', fieldRequired ? '1' : '0');
+          if (Object.prototype.hasOwnProperty.call(sourceRow, label)) {
+            input.value = String(sourceRow[label] == null ? '' : sourceRow[label]);
+          }
           grid.appendChild(labelNode);
         });
 
@@ -1963,19 +2191,32 @@
         return payload;
       };
 
-      const addRepeatItem = (fieldWrap) => {
+      const addRepeatItem = (fieldWrap, rowData) => {
         const list = fieldWrap.querySelector('[data-repeat-list]');
         if (!list) return;
         const fieldsSchema = parseRepeatSchema(fieldWrap);
         if (!fieldsSchema.length) return;
         const nextIndex = list.querySelectorAll('.event-repeat-item').length + 1;
-        list.appendChild(buildRepeatItem(fieldWrap, fieldsSchema, nextIndex));
+        list.appendChild(buildRepeatItem(fieldWrap, fieldsSchema, nextIndex, rowData));
         serializeRepeatField(fieldWrap);
       };
 
       const initRepeatFields = () => {
         if (!registerForm) return;
         const repeatFields = Array.from(registerForm.querySelectorAll('[data-repeat-field]'));
+        const applySimpleInitialValues = () => {
+          Object.entries(formInitialByInput || {}).forEach(([inputName, inputValue]) => {
+            if (Array.isArray(inputValue) || (inputValue && typeof inputValue === 'object')) return;
+            const safeName = String(inputName || '').replace(/"/g, '\\"');
+            if (!safeName) return;
+            const node = registerForm.querySelector('[name="' + safeName + '"]');
+            if (!node) return;
+            if (node.hasAttribute('data-repeat-hidden')) return;
+            if (node.closest('[data-repeat-list]')) return;
+            node.value = String(inputValue == null ? '' : inputValue);
+          });
+        };
+        applySimpleInitialValues();
         if (!repeatFields.length) return;
 
         repeatFields.forEach((fieldWrap) => {
@@ -1983,6 +2224,7 @@
           const list = fieldWrap.querySelector('[data-repeat-list]');
           const required = fieldWrap.getAttribute('data-repeat-required') === '1';
           const clickRequired = fieldWrap.getAttribute('data-repeat-click-required') === '1';
+          const repeatInputName = String(fieldWrap.getAttribute('data-repeat-input-name') || '').trim();
           if (addBtn) {
             addBtn.addEventListener('click', () => {
               addRepeatItem(fieldWrap);
@@ -2001,7 +2243,16 @@
               serializeRepeatField(fieldWrap);
             });
           }
-          if (required && !clickRequired) {
+          const initialRows = (repeatInputName && Array.isArray(formInitialByInput[repeatInputName]))
+            ? formInitialByInput[repeatInputName]
+            : [];
+          if (initialRows.length) {
+            initialRows.forEach((rowObj) => {
+              if (!rowObj || typeof rowObj !== 'object') return;
+              addRepeatItem(fieldWrap, rowObj);
+            });
+            serializeRepeatField(fieldWrap);
+          } else if (required && !clickRequired) {
             addRepeatItem(fieldWrap);
           } else {
             serializeRepeatField(fieldWrap);
@@ -2203,6 +2454,63 @@
           }
         });
       }
+      document.querySelectorAll('[data-consulta-pagar]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const pedidoId = Number(button.getAttribute('data-pedido-id') || 0);
+          const inscricaoCodigo = String(button.getAttribute('data-inscricao-codigo') || '').trim();
+          if (!pedidoId) {
+            setCheckoutFeedback('Pedido invalido para pagamento.', 'error');
+            return;
+          }
+          try {
+            button.disabled = true;
+            setCheckoutFeedback('Abrindo pagamento do pedido selecionado...');
+            const pedido = await fetchPedidoPixById(pedidoId);
+            pedido.inscricao_codigo = inscricaoCodigo || pedido.inscricao_codigo || '';
+            renderPixModal(pedido);
+            if (pedido.status === 'pago') {
+              setCheckoutFeedback('Este pedido ja esta pago.', 'success');
+              showPaidFinalization(pedido);
+            } else {
+              schedulePixPolling();
+              setCheckoutFeedback('Pagamento aberto. Finalize o Pix para confirmar.', 'success');
+            }
+          } catch (error) {
+            setCheckoutFeedback((error && error.message) ? error.message : 'Falha ao abrir pagamento.', 'error');
+          } finally {
+            button.disabled = false;
+          }
+        });
+      });
+      document.querySelectorAll('[data-consulta-gerar-inscricao-pix]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const inscricaoId = Number(button.getAttribute('data-inscricao-id') || 0);
+          const inscricaoCodigo = String(button.getAttribute('data-inscricao-codigo') || '').trim();
+          if (!inscricaoId) {
+            setCheckoutFeedback('Inscricao invalida para gerar pagamento.', 'error');
+            return;
+          }
+          try {
+            button.disabled = true;
+            setCheckoutFeedback('Gerando Pix da inscricao...');
+            const pedido = await createPixPedidoFromEvent(inscricaoId);
+            if (!pedido) throw new Error('Resposta invalida ao gerar pagamento.');
+            pedido.inscricao_codigo = inscricaoCodigo || pedido.inscricao_codigo || '';
+            renderPixModal(pedido);
+            if (pedido.status === 'pago') {
+              setCheckoutFeedback('Pagamento aprovado com sucesso.', 'success');
+              showPaidFinalization(pedido);
+            } else {
+              schedulePixPolling();
+              setCheckoutFeedback('Pix gerado para inscricao. Conclua o pagamento.', 'success');
+            }
+          } catch (error) {
+            setCheckoutFeedback((error && error.message) ? error.message : 'Falha ao gerar Pix da inscricao.', 'error');
+          } finally {
+            button.disabled = false;
+          }
+        });
+      });
       if (pixModal) {
         pixModal.addEventListener('click', (event) => {
           if (event.target === pixModal) closePixModal();

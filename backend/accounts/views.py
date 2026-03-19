@@ -127,6 +127,22 @@ def _evento_public_pedidos_session_key(evento_id):
     return f'evento_public_pedidos_{event_part}'
 
 
+def _evento_public_consulta_inscricoes_session_key(evento_id):
+    try:
+        event_part = int(evento_id)
+    except (TypeError, ValueError):
+        event_part = str(evento_id or '').strip() or '0'
+    return f'evento_public_consulta_inscricoes_{event_part}'
+
+
+def _evento_public_consulta_pedidos_session_key(evento_id):
+    try:
+        event_part = int(evento_id)
+    except (TypeError, ValueError):
+        event_part = str(evento_id or '').strip() or '0'
+    return f'evento_public_consulta_pedidos_{event_part}'
+
+
 def _get_pending_aventures(session):
     return session.get('aventures_pending', [])
 
@@ -4776,9 +4792,234 @@ class EventoPublicoView(View):
                 break
         return ' | '.join(parts) if parts else '-'
 
-    def _context(self, request, evento, show_register_summary=False):
+    def _parse_session_int_ids(self, value):
+        if not isinstance(value, list):
+            return []
+        ids = []
+        for item in value:
+            text = str(item or '').strip()
+            if text.isdigit():
+                ids.append(int(text))
+        return sorted(set(ids))
+
+    def _store_public_consulta_session_ids(self, request, evento, inscricao_ids=None, pedido_ids=None):
+        inscricao_ids = [int(item) for item in (inscricao_ids or []) if str(item).isdigit()]
+        pedido_ids = [int(item) for item in (pedido_ids or []) if str(item).isdigit()]
+        request.session[_evento_public_consulta_inscricoes_session_key(evento.id)] = sorted(set(inscricao_ids))[-200:]
+        request.session[_evento_public_consulta_pedidos_session_key(evento.id)] = sorted(set(pedido_ids))[-400:]
+
+    def _guest_can_access_consulta_inscricao(self, request, evento_id, inscricao_id):
+        allowed_ids = self._parse_session_int_ids(
+            request.session.get(_evento_public_consulta_inscricoes_session_key(evento_id))
+        )
+        return int(inscricao_id) in allowed_ids
+
+    def _can_edit_inscricao(self, request, evento, inscricao):
+        if not inscricao or inscricao.evento_id != evento.id:
+            return False
+        if request.user.is_authenticated:
+            if _has_menu_permission(request, 'eventos') or _has_menu_permission(request, 'loja'):
+                return True
+            if inscricao.user_id and inscricao.user_id == request.user.id:
+                return True
+            if inscricao.responsavel_id and inscricao.responsavel.user_id == request.user.id:
+                return True
+            return False
+        return self._guest_can_access_consulta_inscricao(request, evento.id, inscricao.id)
+
+    def _cpf_candidates_from_inscricao(self, inscricao):
+        cpfs = set()
+        responsavel = getattr(inscricao, 'responsavel', None)
+        if responsavel:
+            for raw in [
+                responsavel.responsavel_cpf,
+                responsavel.pai_cpf,
+                responsavel.mae_cpf,
+            ]:
+                digits = re.sub(r'\D', '', str(raw or ''))
+                if len(digits) >= 11:
+                    cpfs.add(digits)
+
+        dados = inscricao.dados if isinstance(inscricao.dados, dict) else {}
+        for key, value in dados.items():
+            norm_key = self._normalize_lookup_text(key)
+            if 'cpf' not in norm_key:
+                continue
+            digits = re.sub(r'\D', '', str(value or ''))
+            if len(digits) >= 11:
+                cpfs.add(digits)
+        return cpfs
+
+    def _pedidos_for_consulta_inscricao(self, evento, inscricao):
+        base_qs = (
+            LojaPedido.objects
+            .filter(evento=evento)
+            .select_related('responsavel', 'responsavel__user')
+            .prefetch_related('itens')
+            .order_by('-created_at')
+        )
+        if inscricao.responsavel_id:
+            return list(base_qs.filter(responsavel_id=inscricao.responsavel_id)[:50])
+        if inscricao.user_id:
+            return list(base_qs.filter(responsavel__user_id=inscricao.user_id)[:50])
+
+        cpfs = self._cpf_candidates_from_inscricao(inscricao)
+        if not cpfs:
+            return []
+        filters = Q()
+        for cpf in cpfs:
+            filters |= Q(responsavel__responsavel_cpf__icontains=cpf)
+            filters |= Q(responsavel__pai_cpf__icontains=cpf)
+            filters |= Q(responsavel__mae_cpf__icontains=cpf)
+        return list(base_qs.filter(filters)[:50])
+
+    def _consulta_inscricoes(self, request, evento, termo):
+        termo = str(termo or '').strip()
+        if not termo:
+            return [], [], []
+
+        digits = re.sub(r'\D', '', termo)
+        codigo = ''
+        if digits and len(digits) <= 3 and len(termo) <= 3:
+            codigo = digits.zfill(3)
+        elif re.fullmatch(r'\d{3}', termo):
+            codigo = termo
+
+        base_qs = (
+            EventoInscricao.objects
+            .filter(evento=evento)
+            .select_related('user', 'responsavel', 'responsavel__user')
+            .order_by('-created_at')
+        )
+
+        inscricoes = []
+        if codigo:
+            inscricoes = list(base_qs.filter(codigo_inscricao=codigo)[:20])
+        elif len(digits) >= 11:
+            candidates = list(
+                base_qs.filter(
+                    Q(responsavel__responsavel_cpf__icontains=digits)
+                    | Q(responsavel__pai_cpf__icontains=digits)
+                    | Q(responsavel__mae_cpf__icontains=digits)
+                    | Q(dados__icontains=digits)
+                )[:200]
+            )
+            for item in candidates:
+                cpfs = self._cpf_candidates_from_inscricao(item)
+                if any(digits in cpf for cpf in cpfs):
+                    inscricoes.append(item)
+        else:
+            maybe_code = re.sub(r'\D', '', termo)[:3]
+            if len(maybe_code) == 3:
+                inscricoes = list(base_qs.filter(codigo_inscricao=maybe_code)[:20])
+
+        loja_view = LojaView()
+        results = []
+        inscricao_ids = []
+        pedido_ids = []
+        for inscricao in inscricoes[:40]:
+            pedidos = self._pedidos_for_consulta_inscricao(evento, inscricao)
+            pedidos_rows = []
+            for pedido in pedidos:
+                itens_rows = []
+                resumo_linhas = []
+                for item in pedido.itens.all():
+                    linha = f'{item.produto_titulo} - {item.variacao_nome} x{item.quantidade} ({self._format_currency(item.valor_total)})'
+                    resumo_linhas.append(linha)
+                    itens_rows.append({
+                        'produto_titulo': item.produto_titulo,
+                        'variacao_nome': item.variacao_nome,
+                        'quantidade': item.quantidade,
+                        'valor_total_fmt': self._format_currency(item.valor_total),
+                    })
+                pix_data = loja_view._pix_modal_context_loja(pedido)
+                pedidos_rows.append({
+                    'id': pedido.id,
+                    'status': pedido.status,
+                    'status_label': loja_view._pedido_loja_status_label(pedido),
+                    'is_paid': pedido.status == LojaPedido.STATUS_PAGO,
+                    'valor_total_fmt': self._format_currency(pedido.valor_total),
+                    'created_at': pedido.created_at,
+                    'itens': itens_rows,
+                    'pix_data': pix_data,
+                    'resumo_linhas': resumo_linhas,
+                })
+                pedido_ids.append(int(pedido.id))
+
+            dados_obj = inscricao.dados if isinstance(inscricao.dados, dict) else {}
+            criancas_info = self._criancas_info_from_inscricao(inscricao, evento=evento)
+            results.append({
+                'id': inscricao.id,
+                'codigo': inscricao.codigo_inscricao or '-',
+                'responsavel': self._responsavel_label_from_inscricao(inscricao),
+                'cpf_responsavel': self._cpf_responsavel_from_inscricao(inscricao),
+                'valor_inscricao': getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00'),
+                'valor_inscricao_fmt': self._format_currency(
+                    getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
+                ),
+                'valor_inscricao_unidades': int(getattr(inscricao, 'valor_inscricao_unidades', 0) or 0),
+                'data_inscricao': inscricao.created_at,
+                'criancas_linhas': criancas_info.get('linhas', []),
+                'criancas_total': int(criancas_info.get('total', 0) or 0),
+                'dados_resumo': self._dados_resumo(dados_obj),
+                'dados_json': json.dumps(dados_obj, ensure_ascii=False, indent=2) if dados_obj else '',
+                'dados': dados_obj,
+                'pedidos': pedidos_rows,
+                'tem_pedido': bool(pedidos_rows),
+                'tem_valor_inscricao': (getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')) > Decimal('0.00'),
+                'pode_editar': self._can_edit_inscricao(request, evento, inscricao) if request.user.is_authenticated else True,
+            })
+            inscricao_ids.append(int(inscricao.id))
+        return results, sorted(set(inscricao_ids)), sorted(set(pedido_ids))
+
+    def _context(
+        self,
+        request,
+        evento,
+        show_register_summary=False,
+        active_mode=None,
+        consulta_term='',
+        consulta_results=None,
+        edit_target_inscricao=None,
+    ):
         schema = self._event_schema(evento)
-        inscricao = self._current_inscricao(request, evento)
+        produtos = self._produto_rows_evento(evento)
+        evento_fluxo_selector = bool(schema or produtos)
+
+        normalized_mode = str(active_mode or '').strip().lower()
+        if normalized_mode not in {'inscricao', 'consulta'}:
+            if show_register_summary:
+                normalized_mode = 'inscricao'
+            elif request.method == 'POST':
+                normalized_mode = 'inscricao'
+            elif evento_fluxo_selector:
+                normalized_mode = 'menu'
+            else:
+                normalized_mode = 'inscricao'
+
+        if not edit_target_inscricao and request.method == 'POST':
+            posted_edit_id = str(request.POST.get('edit_registration_id') or '').strip()
+            if posted_edit_id.isdigit():
+                posted_target = (
+                    EventoInscricao.objects
+                    .filter(pk=int(posted_edit_id), evento=evento)
+                    .select_related('responsavel', 'responsavel__user', 'user')
+                    .first()
+                )
+                if posted_target and self._can_edit_inscricao(request, evento, posted_target):
+                    edit_target_inscricao = posted_target
+
+        inscricao = edit_target_inscricao or self._current_inscricao(request, evento)
+        form_source = edit_target_inscricao or inscricao
+        form_initial = form_source.dados if form_source and isinstance(form_source.dados, dict) else {}
+        form_initial_by_input = {}
+        for field in schema:
+            raw_value = form_initial.get(field.get('name'))
+            if field.get('type') == 'repetidor':
+                form_initial_by_input[field['input_name']] = raw_value if isinstance(raw_value, list) else []
+            else:
+                form_initial_by_input[field['input_name']] = '' if raw_value is None else str(raw_value)
+
         register_summary_items = []
         register_summary_code = ''
         register_summary_fee_mode_label = ''
@@ -4818,7 +5059,6 @@ class EventoPublicoView(View):
             register_summary_fee_units = int(getattr(inscricao, 'valor_inscricao_unidades', 0) or 0)
             if fee_value > 0:
                 register_summary_fee_value_fmt = self._format_currency(fee_value)
-        produtos = self._produto_rows_evento(evento)
         can_manage_evento = bool(request.user.is_authenticated and _has_menu_permission(request, 'eventos'))
         inscricoes_count = 0
         pedidos_count = 0
@@ -4937,6 +5177,12 @@ class EventoPublicoView(View):
             'inscricao': inscricao,
             'inscricao_dados': (inscricao.dados or {}) if inscricao else {},
             'inscricao_codigo': (inscricao.codigo_inscricao if inscricao else ''),
+            'active_mode': normalized_mode,
+            'evento_fluxo_selector': evento_fluxo_selector,
+            'consulta_term': str(consulta_term or '').strip(),
+            'consulta_results': consulta_results if isinstance(consulta_results, list) else [],
+            'form_initial_by_input': form_initial_by_input,
+            'form_edit_registration_id': str(edit_target_inscricao.id) if edit_target_inscricao else '',
             'show_register_summary': bool(show_register_summary and inscricao),
             'register_summary_items': register_summary_items,
             'register_summary_code': register_summary_code,
@@ -4979,7 +5225,12 @@ class EventoPublicoView(View):
                 return redirect(f'{login_url}?next={next_path}')
             messages.error(request, 'Este evento não está com página pública habilitada.')
             return redirect('accounts:painel')
-        return render(request, self.template_name, self._context(request, evento))
+        requested_mode = str(request.GET.get('modo') or '').strip().lower()
+        return render(
+            request,
+            self.template_name,
+            self._context(request, evento, active_mode=requested_mode),
+        )
 
     def post(self, request, event_id):
         evento = get_object_or_404(Evento, pk=event_id)
@@ -4992,6 +5243,79 @@ class EventoPublicoView(View):
             return redirect('accounts:painel')
         action = str(request.POST.get('action') or '').strip()
         can_manage_evento = bool(request.user.is_authenticated and _has_menu_permission(request, 'eventos'))
+
+        if action == 'consultar_inscricao':
+            termo = str(request.POST.get('consulta_termo') or '').strip()
+            if not termo:
+                messages.error(request, 'Informe CPF ou codigo da inscricao para consultar.')
+                return render(
+                    request,
+                    self.template_name,
+                    self._context(
+                        request,
+                        evento,
+                        active_mode='consulta',
+                        consulta_term=termo,
+                        consulta_results=[],
+                    ),
+                )
+            consulta_results, consulta_ids, consulta_pedido_ids = self._consulta_inscricoes(request, evento, termo)
+            self._store_public_consulta_session_ids(
+                request,
+                evento,
+                inscricao_ids=consulta_ids,
+                pedido_ids=consulta_pedido_ids,
+            )
+            if not consulta_results:
+                messages.error(request, 'Nenhuma inscricao encontrada para este evento com os dados informados.')
+            else:
+                messages.success(request, f'{len(consulta_results)} inscricao(oes) encontrada(s).')
+            return render(
+                request,
+                self.template_name,
+                self._context(
+                    request,
+                    evento,
+                    active_mode='consulta',
+                    consulta_term=termo,
+                    consulta_results=consulta_results,
+                ),
+            )
+
+        if action == 'abrir_edicao_inscricao':
+            inscricao_id_raw = str(request.POST.get('inscricao_id') or '').strip()
+            consulta_term = str(request.POST.get('consulta_termo') or '').strip()
+            if not inscricao_id_raw.isdigit():
+                messages.error(request, 'Inscricao invalida para edicao.')
+                return render(
+                    request,
+                    self.template_name,
+                    self._context(request, evento, active_mode='consulta', consulta_term=consulta_term),
+                )
+            target_inscricao = (
+                EventoInscricao.objects
+                .filter(pk=int(inscricao_id_raw), evento=evento)
+                .select_related('responsavel', 'responsavel__user', 'user')
+                .first()
+            )
+            if not target_inscricao or not self._can_edit_inscricao(request, evento, target_inscricao):
+                messages.error(request, 'Sem permissao para editar esta inscricao.')
+                return render(
+                    request,
+                    self.template_name,
+                    self._context(request, evento, active_mode='consulta', consulta_term=consulta_term),
+                )
+            messages.info(request, f'Editando inscricao codigo {target_inscricao.codigo_inscricao}.')
+            return render(
+                request,
+                self.template_name,
+                self._context(
+                    request,
+                    evento,
+                    active_mode='inscricao',
+                    edit_target_inscricao=target_inscricao,
+                ),
+            )
         if action == 'toggle_event_public':
             if not can_manage_evento:
                 messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
@@ -5109,6 +5433,22 @@ class EventoPublicoView(View):
             messages.error(request, 'Ação inválida na página do evento.')
             return render(request, self.template_name, self._context(request, evento))
 
+        edit_registration_id_raw = str(request.POST.get('edit_registration_id') or '').strip()
+        edit_target_inscricao = None
+        if edit_registration_id_raw:
+            if not edit_registration_id_raw.isdigit():
+                messages.error(request, 'Inscrição inválida para edição.')
+                return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
+            edit_target_inscricao = (
+                EventoInscricao.objects
+                .filter(pk=int(edit_registration_id_raw), evento=evento)
+                .select_related('responsavel', 'responsavel__user', 'user')
+                .first()
+            )
+            if not edit_target_inscricao or not self._can_edit_inscricao(request, evento, edit_target_inscricao):
+                messages.error(request, 'Sem permissão para editar esta inscrição.')
+                return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
+
         schema = self._event_schema(evento)
         dados = {}
         for field in schema:
@@ -5209,52 +5549,77 @@ class EventoPublicoView(View):
             messages.error(request, fee_error)
             return render(request, self.template_name, self._context(request, evento))
         inscricao_salva = None
-        if request.user.is_authenticated:
-            responsavel = LojaView()._ensure_loja_responsavel(request.user, create=False)
-            created = False
-            for _attempt in range(10):
-                try:
-                    inscricao_salva = EventoInscricao.objects.create(
-                        evento=evento,
-                        user=request.user,
-                        responsavel=responsavel,
-                        dados=dados,
-                        valor_inscricao=fee_total,
-                        valor_inscricao_unidades=fee_units,
-                    )
-                    created = True
-                    break
-                except IntegrityError:
-                    continue
-            if not created:
-                messages.error(request, 'Não foi possível gerar código único da inscrição. Tente novamente.')
-                return render(request, self.template_name, self._context(request, evento))
+        if edit_target_inscricao:
+            if request.user.is_authenticated and not edit_target_inscricao.responsavel_id:
+                responsavel_edit = LojaView()._ensure_loja_responsavel(request.user, create=False)
+                if responsavel_edit:
+                    edit_target_inscricao.responsavel = responsavel_edit
+            edit_target_inscricao.dados = dados
+            edit_target_inscricao.valor_inscricao = fee_total
+            edit_target_inscricao.valor_inscricao_unidades = fee_units
+            edit_target_inscricao.save(update_fields=[
+                'responsavel',
+                'dados',
+                'valor_inscricao',
+                'valor_inscricao_unidades',
+                'updated_at',
+            ])
+            inscricao_salva = edit_target_inscricao
+            if not request.user.is_authenticated:
+                request.session[_evento_public_inscricao_session_key(evento.id)] = int(edit_target_inscricao.pk)
+            messages.success(request, 'Inscricao do evento atualizada com sucesso.')
         else:
-            session_key = _evento_public_inscricao_session_key(evento.id)
-            inscricao_obj = None
-            for _attempt in range(10):
-                try:
-                    inscricao_obj = EventoInscricao.objects.create(
-                        evento=evento,
-                        user=None,
-                        responsavel=None,
-                        dados=dados,
-                        valor_inscricao=fee_total,
-                        valor_inscricao_unidades=fee_units,
-                    )
-                    break
-                except IntegrityError:
-                    continue
-            if not inscricao_obj:
-                messages.error(request, 'Não foi possível gerar código único da inscrição. Tente novamente.')
-                return render(request, self.template_name, self._context(request, evento))
-            request.session[session_key] = inscricao_obj.pk
-            inscricao_salva = inscricao_obj
-        messages.success(request, 'Inscrição do evento salva com sucesso.')
+            if request.user.is_authenticated:
+                responsavel = LojaView()._ensure_loja_responsavel(request.user, create=False)
+                created = False
+                for _attempt in range(10):
+                    try:
+                        inscricao_salva = EventoInscricao.objects.create(
+                            evento=evento,
+                            user=request.user,
+                            responsavel=responsavel,
+                            dados=dados,
+                            valor_inscricao=fee_total,
+                            valor_inscricao_unidades=fee_units,
+                        )
+                        created = True
+                        break
+                    except IntegrityError:
+                        continue
+                if not created:
+                    messages.error(request, 'Nao foi possivel gerar codigo unico da inscricao. Tente novamente.')
+                    return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
+            else:
+                session_key = _evento_public_inscricao_session_key(evento.id)
+                inscricao_obj = None
+                for _attempt in range(10):
+                    try:
+                        inscricao_obj = EventoInscricao.objects.create(
+                            evento=evento,
+                            user=None,
+                            responsavel=None,
+                            dados=dados,
+                            valor_inscricao=fee_total,
+                            valor_inscricao_unidades=fee_units,
+                        )
+                        break
+                    except IntegrityError:
+                        continue
+                if not inscricao_obj:
+                    messages.error(request, 'Nao foi possivel gerar codigo unico da inscricao. Tente novamente.')
+                    return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
+                request.session[session_key] = inscricao_obj.pk
+                inscricao_salva = inscricao_obj
+            messages.success(request, 'Inscricao do evento salva com sucesso.')
         return render(
             request,
             self.template_name,
-            self._context(request, evento, show_register_summary=bool(inscricao_salva)),
+            self._context(
+                request,
+                evento,
+                show_register_summary=bool(inscricao_salva),
+                active_mode='inscricao',
+            ),
         )
 
 
@@ -5384,6 +5749,38 @@ class EventoPedidoCreatePixApiView(View):
         )
         return responsavel, ''
 
+    def _parse_session_int_ids(self, value):
+        if not isinstance(value, list):
+            return []
+        ids = []
+        for item in value:
+            text = str(item or '').strip()
+            if text.isdigit():
+                ids.append(int(text))
+        return sorted(set(ids))
+
+    def _guest_can_access_consulta_inscricao(self, request, evento_id, inscricao_id):
+        allowed_ids = self._parse_session_int_ids(
+            request.session.get(_evento_public_consulta_inscricoes_session_key(evento_id))
+        )
+        return int(inscricao_id) in allowed_ids
+
+    def _can_use_inscricao_checkout(self, request, evento, inscricao):
+        if not inscricao or inscricao.evento_id != evento.id:
+            return False
+        if request.user.is_authenticated:
+            if _has_menu_permission(request, 'eventos') or _has_menu_permission(request, 'loja'):
+                return True
+            if inscricao.user_id and inscricao.user_id == request.user.id:
+                return True
+            if inscricao.responsavel_id and inscricao.responsavel.user_id == request.user.id:
+                return True
+            return False
+        current_session_id = request.session.get(_evento_public_inscricao_session_key(evento.id))
+        if str(current_session_id or '').isdigit() and int(current_session_id) == int(inscricao.id):
+            return True
+        return self._guest_can_access_consulta_inscricao(request, evento.id, inscricao.id)
+
     def post(self, request, event_id):
         evento = get_object_or_404(Evento, pk=event_id)
         if not bool(evento.inscricao_publica) and not self._authenticated_profile_allowed(request):
@@ -5394,8 +5791,23 @@ class EventoPedidoCreatePixApiView(View):
         except json.JSONDecodeError:
             return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
 
+        requested_inscricao_raw = str(payload.get('inscricao_id') or '').strip()
         inscricao = None
-        if request.user.is_authenticated:
+        if requested_inscricao_raw:
+            if not requested_inscricao_raw.isdigit():
+                return JsonResponse({'ok': False, 'error': 'invalid_registration', 'message': 'Inscricao invalida para pagamento.'}, status=400)
+            requested_inscricao = (
+                EventoInscricao.objects
+                .filter(pk=int(requested_inscricao_raw), evento=evento)
+                .select_related('responsavel', 'responsavel__user', 'user')
+                .first()
+            )
+            if not requested_inscricao or not self._can_use_inscricao_checkout(request, evento, requested_inscricao):
+                return JsonResponse({'ok': False, 'error': 'forbidden_registration', 'message': 'Sem permissao para usar esta inscricao.'}, status=403)
+            inscricao = requested_inscricao
+            if not request.user.is_authenticated:
+                request.session[_evento_public_inscricao_session_key(evento.id)] = int(inscricao.pk)
+        elif request.user.is_authenticated:
             inscricao = (
                 EventoInscricao.objects
                 .filter(evento=evento, user=request.user)
@@ -5603,6 +6015,7 @@ class EventoPedidoCreatePixApiView(View):
             )
         pedido_payload = loja_view._pix_modal_context_loja(pedido)
         pedido_payload.update({
+            'inscricao_id': int(inscricao.id),
             'inscricao_codigo': str(inscricao.codigo_inscricao or '').strip(),
             'inscricao_valor': loja_view._format_currency(fee_total),
             'itens_valor': loja_view._format_currency(itens_total),
@@ -5628,13 +6041,20 @@ class EventoPedidoStatusApiView(View):
         )
 
     def _guest_can_access_pedido(self, request, evento_id, pedido_id):
-        session_key = _evento_public_pedidos_session_key(evento_id)
-        raw_ids = request.session.get(session_key)
-        if not isinstance(raw_ids, list):
-            return False
-        for item in raw_ids:
-            text = str(item or '').strip()
-            if text.isdigit() and int(text) == int(pedido_id):
+        all_ids = []
+        for session_key in (
+            _evento_public_pedidos_session_key(evento_id),
+            _evento_public_consulta_pedidos_session_key(evento_id),
+        ):
+            raw_ids = request.session.get(session_key)
+            if not isinstance(raw_ids, list):
+                continue
+            for item in raw_ids:
+                text = str(item or '').strip()
+                if text.isdigit():
+                    all_ids.append(int(text))
+        for allowed_id in all_ids:
+            if allowed_id == int(pedido_id):
                 return True
         return False
 
@@ -5667,6 +6087,12 @@ class EventoPedidoStatusApiView(View):
             except Exception:
                 pass
 
+        resumo_linhas = []
+        for item in pedido.itens.all():
+            resumo_linhas.append(
+                f'{item.produto_titulo} - {item.variacao_nome} x{item.quantidade} ({loja_view._format_currency(item.valor_total)})'
+            )
+
         return JsonResponse({
             'ok': True,
             'pedido_id': pedido.pk,
@@ -5675,6 +6101,10 @@ class EventoPedidoStatusApiView(View):
             'mp_status': pedido.mp_status,
             'mp_status_detail': pedido.mp_status_detail,
             'is_paid': pedido.status == LojaPedido.STATUS_PAGO,
+            'valor_total': loja_view._format_currency(pedido.valor_total),
+            'qr_base64': pedido.mp_qr_code_base64,
+            'pix_code': pedido.mp_qr_code,
+            'resumo_linhas': resumo_linhas,
         })
 
 
