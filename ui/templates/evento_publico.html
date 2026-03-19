@@ -917,6 +917,66 @@
       color: #0f172a;
       font-size: 0.9rem;
     }
+    .event-mode-modal[hidden] {
+      display: none !important;
+    }
+    .event-mode-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1400;
+      background: rgba(15, 23, 42, 0.6);
+      display: grid;
+      place-items: center;
+      padding: 0.65rem;
+    }
+    .event-mode-dialog {
+      width: min(1180px, 98vw);
+      height: min(92vh, 920px);
+      border-radius: 14px;
+      border: 1px solid #dbeafe;
+      background: #fff;
+      box-shadow: 0 22px 44px rgba(15, 23, 42, 0.26);
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+    }
+    .event-mode-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+      padding: 0.62rem 0.72rem;
+      border-bottom: 1px solid #dbeafe;
+      background: #f8fbff;
+    }
+    .event-mode-head h4 {
+      margin: 0;
+      color: #0f172a;
+    }
+    .event-mode-close {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #fff;
+      color: #0f172a;
+      padding: 0.36rem 0.54rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .event-mode-frame {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display: block;
+      background: #fff;
+    }
+    .event-embedded-page {
+      background: #fff;
+    }
+    .event-embedded-page .painel-content {
+      margin: 0;
+      max-width: none;
+      padding: 0.5rem;
+    }
     .inscritos-kids-count {
       display: inline-flex;
       align-items: center;
@@ -1057,6 +1117,14 @@
         border-radius: 12px;
         padding: 0.75rem;
       }
+      .event-mode-modal {
+        padding: 0.35rem;
+      }
+      .event-mode-dialog {
+        width: 100%;
+        height: 94vh;
+        border-radius: 10px;
+      }
     }
     @media (max-width: 560px) {
       .event-step {
@@ -1112,16 +1180,18 @@
     }
   </style>
 </head>
-<body class="painel-page">
+<body class="painel-page{% if is_embedded_modal %} event-embedded-page{% endif %}">
   {{ evento.inscricao_valor_config|default:"{}"|json_script:"event-fee-config-data" }}
   {{ form_initial_by_input|default:"{}"|json_script:"event-form-initial-data" }}
-  {% if is_authenticated %}
+  {% if is_authenticated and not is_embedded_modal %}
     {% include '_painel_sidebar.html' %}
   {% endif %}
   <main class="painel-content">
-    <header class="painel-header">
-      <h2>{{ evento.name }}</h2>
-    </header>
+    {% if not is_embedded_modal %}
+      <header class="painel-header">
+        <h2>{{ evento.name }}</h2>
+      </header>
+    {% endif %}
 
     {% if messages %}
       <section class="painel-card">
@@ -1133,7 +1203,7 @@
       </section>
     {% endif %}
 
-    {% if evento_fluxo_selector %}
+    {% if evento_fluxo_selector and not is_embedded_modal %}
       <section class="painel-card event-step">
         <div class="event-entry-details">
           {% if evento.event_description %}
@@ -1164,7 +1234,7 @@
           <a href="?modo=consulta" data-open-event-mode="consulta" class="{% if active_mode == 'consulta' %}primary{% else %}secondary{% endif %}">Consultar inscricao</a>
         </div>
         {% if active_mode == 'menu' %}
-          <p class="panel-note">Escolha uma opcao para continuar. O sistema tenta abrir em janela; se bloquear, abre nesta pagina.</p>
+          <p class="panel-note">Escolha uma opcao para continuar.</p>
         {% endif %}
       </section>
     {% endif %}
@@ -1858,6 +1928,23 @@
         </div>
       </div>
     </div>
+    {% if evento_fluxo_selector and not is_embedded_modal %}
+      <div class="event-mode-modal" id="eventModeSelectorModal" hidden aria-hidden="true">
+        <div class="event-mode-dialog" role="dialog" aria-modal="true" aria-labelledby="eventModeSelectorTitle">
+          <div class="event-mode-head">
+            <h4 id="eventModeSelectorTitle">{{ evento.name }}</h4>
+            <button type="button" class="event-mode-close" id="eventModeSelectorClose">Fechar</button>
+          </div>
+          <iframe
+            id="eventModeSelectorFrame"
+            class="event-mode-frame"
+            title="Tela de inscricao/consulta do evento"
+            src="about:blank"
+            loading="lazy"
+          ></iframe>
+        </div>
+      </div>
+    {% endif %}
   </main>
 
   <script>
@@ -1921,6 +2008,9 @@
       const paidPedidoIdEl = document.getElementById('eventPaidPedidoId');
       const paidTotalEl = document.getElementById('eventPaidTotal');
       const paidSummaryEl = document.getElementById('eventPaidSummary');
+      const modeSelectorModal = document.getElementById('eventModeSelectorModal');
+      const modeSelectorFrame = document.getElementById('eventModeSelectorFrame');
+      const modeSelectorCloseBtn = document.getElementById('eventModeSelectorClose');
       const PIX_CREATE_URL = pixApiConfig ? String(pixApiConfig.dataset.createUrl || '') : '';
       const PIX_STATUS_URL_TEMPLATE = pixApiConfig ? String(pixApiConfig.dataset.statusUrlTemplate || '') : '';
       const modeLauncherLinks = Array.from(document.querySelectorAll('[data-open-event-mode]'));
@@ -1947,36 +2037,22 @@
           formInitialByInput = {};
         }
       }
+      const openModeSelectorModal = (targetUrl) => {
+        if (!modeSelectorModal || !modeSelectorFrame) {
+          window.location.href = targetUrl;
+          return;
+        }
+        modeSelectorFrame.src = targetUrl;
+        modeSelectorModal.hidden = false;
+        modeSelectorModal.setAttribute('aria-hidden', 'false');
+      };
+      const closeModeSelectorModal = () => {
+        if (!modeSelectorModal || !modeSelectorFrame) return;
+        modeSelectorModal.hidden = true;
+        modeSelectorModal.setAttribute('aria-hidden', 'true');
+        modeSelectorFrame.src = 'about:blank';
+      };
       if (modeLauncherLinks.length) {
-        const openModePopup = (targetUrl, modeName) => {
-          const popupWidth = Math.min(1200, Math.max(980, Math.floor(window.innerWidth * 0.92)));
-          const popupHeight = Math.min(860, Math.max(700, Math.floor(window.innerHeight * 0.92)));
-          const left = Math.max(0, Math.floor((window.screen.width - popupWidth) / 2));
-          const top = Math.max(0, Math.floor((window.screen.height - popupHeight) / 2));
-          const popupName = 'evento_mode_' + String(modeName || 'page') + '_{{ evento.id }}';
-          const features = [
-            'popup=yes',
-            'scrollbars=yes',
-            'resizable=yes',
-            'noopener=yes',
-            'noreferrer=yes',
-            'width=' + String(popupWidth),
-            'height=' + String(popupHeight),
-            'left=' + String(left),
-            'top=' + String(top),
-          ].join(',');
-          const popup = window.open(targetUrl, popupName, features);
-          if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-            window.location.href = targetUrl;
-            return;
-          }
-          try {
-            popup.focus();
-          } catch (error) {
-            window.location.href = targetUrl;
-          }
-        };
-
         modeLauncherLinks.forEach((link) => {
           link.addEventListener('click', (event) => {
             if (event.defaultPrevented) return;
@@ -1987,12 +2063,14 @@
             event.preventDefault();
             let targetUrl = rawHref;
             try {
-              targetUrl = new URL(rawHref, window.location.href).toString();
+              const urlObj = new URL(rawHref, window.location.href);
+              urlObj.searchParams.set('embedded', '1');
+              targetUrl = urlObj.toString();
             } catch (error) {
-              targetUrl = rawHref;
+              if (rawHref.indexOf('?') >= 0) targetUrl = rawHref + '&embedded=1';
+              else targetUrl = rawHref + '?embedded=1';
             }
-            const modeName = String(link.dataset.openEventMode || '').trim().toLowerCase() || 'page';
-            openModePopup(targetUrl, modeName);
+            openModeSelectorModal(targetUrl);
           });
         });
       }
@@ -2944,6 +3022,18 @@
         modal.classList.remove('show');
         modal.setAttribute('aria-hidden', 'true');
       };
+      if (modeSelectorCloseBtn) {
+        modeSelectorCloseBtn.addEventListener('click', () => {
+          closeModeSelectorModal();
+        });
+      }
+      if (modeSelectorModal) {
+        modeSelectorModal.addEventListener('click', (event) => {
+          if (event.target === modeSelectorModal) {
+            closeModeSelectorModal();
+          }
+        });
+      }
 
       if (openReportBtn && reportModal) {
         openReportBtn.addEventListener('click', () => {
@@ -3024,6 +3114,10 @@
         }
         if (cartOverlay && !cartOverlay.hidden) {
           closeCartDrawer();
+          return;
+        }
+        if (modeSelectorModal && !modeSelectorModal.hidden) {
+          closeModeSelectorModal();
           return;
         }
         if (reportModal && reportModal.getAttribute('aria-hidden') === 'false') {

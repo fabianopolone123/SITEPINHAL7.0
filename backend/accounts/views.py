@@ -5100,10 +5100,13 @@ class EventoPublicoView(View):
         schema = self._event_schema(evento)
         produtos = self._produto_rows_evento(evento)
         evento_fluxo_selector = bool(schema or produtos)
+        is_embedded_modal = str(request.GET.get('embedded') or '').strip().lower() in {'1', 'true', 'yes'}
 
         normalized_mode = str(active_mode or '').strip().lower()
         if normalized_mode not in {'inscricao', 'consulta'}:
-            if show_register_summary:
+            if is_embedded_modal:
+                normalized_mode = 'inscricao'
+            elif show_register_summary:
                 normalized_mode = 'inscricao'
             elif request.method == 'POST':
                 normalized_mode = 'inscricao'
@@ -5301,6 +5304,7 @@ class EventoPublicoView(View):
             'inscricao_dados': (inscricao.dados or {}) if inscricao else {},
             'inscricao_codigo': (inscricao.codigo_inscricao if inscricao else ''),
             'active_mode': normalized_mode,
+            'is_embedded_modal': is_embedded_modal,
             'evento_fluxo_selector': evento_fluxo_selector,
             'consulta_term': str(consulta_term or '').strip(),
             'consulta_results': consulta_results if isinstance(consulta_results, list) else [],
