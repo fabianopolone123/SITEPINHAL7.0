@@ -20,6 +20,7 @@ from django.views import View
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 from django.utils.decorators import method_decorator
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.urls import reverse
@@ -4096,6 +4097,7 @@ class EventosView(LoginRequiredMixin, View):
         return render(request, self.template_name, self._context(request))
 
 
+@method_decorator(xframe_options_sameorigin, name='dispatch')
 class EventoPublicoView(View):
     template_name = 'evento_publico.html'
     delete_inscricao_password = '1580'
