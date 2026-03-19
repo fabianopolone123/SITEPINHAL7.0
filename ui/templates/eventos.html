@@ -298,6 +298,9 @@
                 Criado por: {{ evento.created_by.username|default:"sistema" }} |
                 Data do cadastro: {{ evento.created_at|date:"d/m/Y H:i" }}
               </p>
+              {% if evento.event_description %}
+                <p class="panel-note">{{ evento.event_description }}</p>
+              {% endif %}
               {% if evento.fields_data %}
                 <ul class="event-fields-list">
                   {% for campo in evento.fields_data %}
@@ -345,6 +348,9 @@
                     <label>Nome do evento <input type="text" name="name" value="{{ evento.name }}" required /></label>
                     <label>Tipo <input type="text" name="event_type" value="{{ evento.event_type|default:'' }}" /></label>
                     <label>Local <input type="text" name="event_location" value="{{ evento.event_location|default:'' }}" placeholder="Ex.: Sede do clube - Rua X, 123" /></label>
+                    <label class="full">Descricao
+                      <textarea name="event_description" rows="2" placeholder="Descreva objetivo, publico e orientacoes do evento.">{{ evento.event_description|default:'' }}</textarea>
+                    </label>
                     <label><input type="checkbox" name="inscricao_publica" value="1" {% if evento.inscricao_publica %}checked{% endif %} /> Página pública de inscrição (sem login)</label>
                     <label>Data <input type="date" name="event_date" value="{{ evento.event_date|date:'Y-m-d' }}" required /></label>
                     <label>Hora início <input type="time" name="event_time" value="{{ evento.event_time|time:'H:i' }}" required /></label>
@@ -647,6 +653,10 @@
           <label>
             Local do evento
             <input type="text" name="event_location" id="event-location" placeholder="Ex.: Sede do clube - Rua X, 123" />
+          </label>
+          <label class="full">
+            Descricao do evento
+            <textarea name="event_description" id="event-description" rows="2" placeholder="Descreva objetivo, publico e orientacoes do evento."></textarea>
           </label>
           <label>
             <input type="checkbox" name="inscricao_publica" id="event-public" value="1" />
@@ -1150,7 +1160,9 @@
         document.getElementById('event-name').value = preset.event_name || '';
         document.getElementById('event-type').value = preset.event_type || '';
         const eventLocationInput = document.getElementById('event-location');
+        const eventDescriptionInput = document.getElementById('event-description');
         if (eventLocationInput) eventLocationInput.value = '';
+        if (eventDescriptionInput) eventDescriptionInput.value = preset.event_description || '';
         document.getElementById('event-date').value = preset.event_date || '';
         document.getElementById('event-time').value = preset.event_time || '';
         document.getElementById('event-end-time').value = preset.event_end_time || '';
@@ -1523,4 +1535,6 @@
   </script>
 </body>
 </html>
+
+
 

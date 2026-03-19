@@ -3851,6 +3851,7 @@ class EventosView(LoginRequiredMixin, View):
             name = (request.POST.get('name') or '').strip()
             event_type = (request.POST.get('event_type') or '').strip()
             event_location = (request.POST.get('event_location') or '').strip()
+            event_description = (request.POST.get('event_description') or '').strip()
             inscricao_publica = bool(request.POST.get('inscricao_publica'))
             inscricao_valor_modo, inscricao_valor_unitario, inscricao_valor_config = self._parse_inscricao_valor_config_request(request)
             if inscricao_valor_modo is None:
@@ -3890,6 +3891,7 @@ class EventosView(LoginRequiredMixin, View):
                     name=name,
                     event_type=event_type,
                     event_location=event_location,
+                    event_description=event_description,
                     inscricao_publica=inscricao_publica,
                     event_date=event_date_value,
                     event_time=event_time_value,
@@ -3969,6 +3971,7 @@ class EventosView(LoginRequiredMixin, View):
             name = (request.POST.get('name') or '').strip()
             event_type = (request.POST.get('event_type') or '').strip()
             event_location = (request.POST.get('event_location') or '').strip()
+            event_description = (request.POST.get('event_description') or '').strip()
             inscricao_publica = bool(request.POST.get('inscricao_publica'))
             inscricao_valor_modo, inscricao_valor_unitario, inscricao_valor_config = self._parse_inscricao_valor_config_request(request)
             if inscricao_valor_modo is None:
@@ -4007,6 +4010,7 @@ class EventosView(LoginRequiredMixin, View):
             evento.name = name
             evento.event_type = event_type
             evento.event_location = event_location
+            evento.event_description = event_description
             evento.inscricao_publica = inscricao_publica
             evento.event_date = event_date_value
             evento.event_time = event_time_value
@@ -4019,6 +4023,7 @@ class EventosView(LoginRequiredMixin, View):
                 'name',
                 'event_type',
                 'event_location',
+                'event_description',
                 'inscricao_publica',
                 'event_date',
                 'event_time',

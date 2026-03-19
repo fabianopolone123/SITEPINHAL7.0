@@ -439,6 +439,14 @@
       font-size: 1.06rem;
       font-weight: 900;
     }
+    .event-entry-description {
+      margin: 0;
+      color: #334155;
+      font-size: 0.92rem;
+      line-height: 1.35;
+      text-align: center;
+      word-break: break-word;
+    }
     .event-entry-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -1136,6 +1144,9 @@
         <h3>O que voce deseja fazer?</h3>
         <div class="event-entry-details">
           <h4>{{ evento.name }}</h4>
+          {% if evento.event_description %}
+            <p class="event-entry-description">{{ evento.event_description }}</p>
+          {% endif %}
           <div class="event-entry-grid">
             <div class="event-entry-item">
               <span>Dia</span>
