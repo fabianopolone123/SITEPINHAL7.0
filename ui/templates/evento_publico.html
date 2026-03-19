@@ -433,12 +433,6 @@
       display: grid;
       gap: 0.6rem;
     }
-    .event-entry-details h4 {
-      margin: 0;
-      color: #0f172a;
-      font-size: 1.06rem;
-      font-weight: 900;
-    }
     .event-entry-description {
       margin: 0;
       color: #334155;
@@ -446,6 +440,7 @@
       line-height: 1.35;
       text-align: center;
       word-break: break-word;
+      white-space: pre-line;
     }
     .event-entry-grid {
       display: grid;
@@ -1129,29 +1124,24 @@
       </p>
     </header>
 
-    <section class="painel-card">
-      <div class="status" aria-live="polite">
-        {% for message in messages %}
-          <p data-state="{{ message.tags }}">{{ message }}</p>
-        {% empty %}
-          <p data-state="info">Preencha a inscrição do evento.</p>
-        {% endfor %}
-      </div>
-    </section>
+    {% if messages %}
+      <section class="painel-card">
+        <div class="status" aria-live="polite">
+          {% for message in messages %}
+            <p data-state="{{ message.tags }}">{{ message }}</p>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
 
     {% if evento_fluxo_selector %}
       <section class="painel-card event-step">
         <h3>O que voce deseja fazer?</h3>
         <div class="event-entry-details">
-          <h4>{{ evento.name }}</h4>
           {% if evento.event_description %}
-            <p class="event-entry-description">{{ evento.event_description }}</p>
+            <p class="event-entry-description">{{ evento.event_description|linebreaksbr }}</p>
           {% endif %}
           <div class="event-entry-grid">
-            <div class="event-entry-item">
-              <span>Dia</span>
-              <strong>{% if evento.event_date %}{{ evento.event_date|date:"d/m/Y" }}{% else %}Nao informado{% endif %}</strong>
-            </div>
             <div class="event-entry-item">
               <span>Horario</span>
               <strong>
