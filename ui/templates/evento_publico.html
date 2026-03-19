@@ -472,6 +472,13 @@
       line-height: 1.28;
       word-break: break-word;
     }
+    .event-mode-selector-title {
+      text-align: center;
+      margin-bottom: 0.55rem;
+    }
+    .event-mode-actions {
+      justify-content: center;
+    }
     .event-metric-pill {
       border: 1px solid #cbd5e1;
       border-radius: 999px;
@@ -1236,8 +1243,8 @@
             </div>
           </div>
         </div>
-        <h3>O que voce deseja fazer?</h3>
-        <div class="action-row">
+        <h3 class="event-mode-selector-title">O que voce deseja fazer?</h3>
+        <div class="action-row event-mode-actions">
           <a href="?modo=inscricao" data-open-event-mode="inscricao" class="{% if active_mode == 'inscricao' %}primary{% else %}secondary{% endif %}">Nova inscricao</a>
           <a href="?modo=consulta" data-open-event-mode="consulta" class="{% if active_mode == 'consulta' %}primary{% else %}secondary{% endif %}">Consultar inscricao</a>
         </div>
