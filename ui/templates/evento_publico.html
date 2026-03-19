@@ -417,6 +417,9 @@
       gap: 0.5rem;
       margin-bottom: 0.7rem;
     }
+    .painel-header {
+      text-align: center;
+    }
     .event-step .action-row {
       display: flex;
       flex-wrap: wrap;
@@ -1118,10 +1121,6 @@
   <main class="painel-content">
     <header class="painel-header">
       <h2>{{ evento.name }}</h2>
-      <p>
-        {{ evento.event_date|date:"d/m/Y"|default:"sem data" }}
-        {{ evento.event_time|time:"H:i"|default:"" }} - {{ evento.event_end_time|time:"H:i"|default:"" }}
-      </p>
     </header>
 
     {% if messages %}
@@ -1136,7 +1135,6 @@
 
     {% if evento_fluxo_selector %}
       <section class="painel-card event-step">
-        <h3>O que voce deseja fazer?</h3>
         <div class="event-entry-details">
           {% if evento.event_description %}
             <p class="event-entry-description">{{ evento.event_description|linebreaksbr }}</p>
@@ -1160,6 +1158,7 @@
             </div>
           </div>
         </div>
+        <h3>O que voce deseja fazer?</h3>
         <div class="action-row">
           <a href="?modo=inscricao" class="{% if active_mode == 'inscricao' %}primary{% else %}secondary{% endif %}">Fazer inscricao no evento</a>
           <a href="?modo=consulta" class="{% if active_mode == 'consulta' %}primary{% else %}secondary{% endif %}">Consultar inscricao feita</a>
