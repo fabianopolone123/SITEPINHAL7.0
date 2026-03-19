@@ -1139,10 +1139,6 @@
                     <p class="panel-note">Nenhum outro dado adicional informado.</p>
                   {% endif %}
                 </div>
-                <details class="event-consulta-others">
-                  <summary>Ver todos os dados da inscricao</summary>
-                  <pre style="white-space:pre-wrap;">{{ row.dados_json }}</pre>
-                </details>
                 {% if row.pode_editar %}
                   <form method="post">
                     {% csrf_token %}
