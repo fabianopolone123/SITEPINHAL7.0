@@ -423,6 +423,49 @@
       gap: 0.55rem;
       align-items: center;
     }
+    .event-entry-details {
+      border: 1px solid #bfdbfe;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #f8fbff, #eef6ff);
+      padding: 0.85rem;
+      margin-bottom: 0.72rem;
+      text-align: center;
+      display: grid;
+      gap: 0.6rem;
+    }
+    .event-entry-details h4 {
+      margin: 0;
+      color: #0f172a;
+      font-size: 1.06rem;
+      font-weight: 900;
+    }
+    .event-entry-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.48rem;
+    }
+    .event-entry-item {
+      border: 1px solid #cfe3ff;
+      border-radius: 10px;
+      background: #fff;
+      padding: 0.46rem 0.56rem;
+      display: grid;
+      gap: 0.16rem;
+      text-align: center;
+    }
+    .event-entry-item span {
+      color: #64748b;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .event-entry-item strong {
+      color: #0f172a;
+      font-size: 0.9rem;
+      line-height: 1.28;
+      word-break: break-word;
+    }
     .event-metric-pill {
       border: 1px solid #cbd5e1;
       border-radius: 999px;
@@ -1013,6 +1056,12 @@
       .event-step {
         margin-bottom: 0.72rem;
       }
+      .event-entry-details {
+        padding: 0.72rem;
+      }
+      .event-entry-grid {
+        grid-template-columns: 1fr;
+      }
       .event-consulta-search {
         padding: 0.72rem;
       }
@@ -1085,6 +1134,35 @@
     {% if evento_fluxo_selector %}
       <section class="painel-card event-step">
         <h3>O que voce deseja fazer?</h3>
+        <div class="event-entry-details">
+          <h4>{{ evento.name }}</h4>
+          <div class="event-entry-grid">
+            <div class="event-entry-item">
+              <span>Dia</span>
+              <strong>{% if evento.event_date %}{{ evento.event_date|date:"d/m/Y" }}{% else %}Nao informado{% endif %}</strong>
+            </div>
+            <div class="event-entry-item">
+              <span>Horario</span>
+              <strong>
+                {% if evento.event_time and evento.event_end_time %}
+                  {{ evento.event_time|time:"H:i" }} - {{ evento.event_end_time|time:"H:i" }}
+                {% elif evento.event_time %}
+                  {{ evento.event_time|time:"H:i" }}
+                {% else %}
+                  Nao informado
+                {% endif %}
+              </strong>
+            </div>
+            <div class="event-entry-item">
+              <span>Local</span>
+              <strong>{{ evento.location|default:evento.local|default:"Nao informado" }}</strong>
+            </div>
+            <div class="event-entry-item">
+              <span>Tipo</span>
+              <strong>{{ evento.event_type|default:"Nao informado" }}</strong>
+            </div>
+          </div>
+        </div>
         <div class="action-row">
           <a href="?modo=inscricao" class="{% if active_mode == 'inscricao' %}primary{% else %}secondary{% endif %}">Fazer inscricao no evento</a>
           <a href="?modo=consulta" class="{% if active_mode == 'consulta' %}primary{% else %}secondary{% endif %}">Consultar inscricao feita</a>
