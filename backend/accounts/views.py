@@ -5276,8 +5276,15 @@ class EventoPublicoView(View):
                 pedido = LojaPedido.objects.filter(pk=pedido_id, evento=evento).first()
                 if pedido:
                     pedido_modal = LojaView()._pix_modal_context_loja(pedido)
+        evento_local_label = (
+            str(getattr(evento, 'location', '') or '').strip()
+            or str(getattr(evento, 'local', '') or '').strip()
+            or str(getattr(evento, 'address', '') or '').strip()
+            or 'Nao informado'
+        )
         context = {
             'evento': evento,
+            'evento_local_label': evento_local_label,
             'schema': schema,
             'inscricao': inscricao,
             'inscricao_dados': (inscricao.dados or {}) if inscricao else {},
