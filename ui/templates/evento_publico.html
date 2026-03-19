@@ -557,6 +557,59 @@
       display: grid;
       gap: 0.8rem;
     }
+    .event-consulta-search {
+      border: 1px solid #bfdbfe;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #f8fbff, #f1f7ff);
+      padding: 0.82rem;
+      display: grid;
+      gap: 0.72rem;
+    }
+    .event-consulta-search-head {
+      display: grid;
+      gap: 0.22rem;
+    }
+    .event-consulta-search-head h3 {
+      margin: 0;
+      color: #0f172a;
+      font-size: 1.06rem;
+    }
+    .event-consulta-search-head p {
+      margin: 0;
+      color: #475569;
+      font-size: 0.9rem;
+    }
+    .event-consulta-search-form {
+      display: grid;
+      gap: 0.58rem;
+    }
+    .event-consulta-search-form label {
+      color: #1e293b;
+      font-size: 0.9rem;
+      font-weight: 700;
+      display: grid;
+      gap: 0.33rem;
+    }
+    .event-consulta-search-form input[type="text"] {
+      width: 100%;
+      border: 1px solid #93c5fd;
+      border-radius: 12px;
+      background: #fff;
+      color: #0f172a;
+      font-size: 1rem;
+      padding: 0.72rem 0.78rem;
+      box-sizing: border-box;
+    }
+    .event-consulta-search-form input[type="text"]:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+    }
+    .event-consulta-search-tip {
+      margin: 0;
+      color: #64748b;
+      font-size: 0.82rem;
+    }
     .event-consulta-card {
       border: 1px solid #dbeafe;
       border-radius: 14px;
@@ -960,6 +1013,9 @@
       .event-step {
         margin-bottom: 0.72rem;
       }
+      .event-consulta-search {
+        padding: 0.72rem;
+      }
       .event-consulta-head {
         flex-direction: column;
         align-items: flex-start;
@@ -1041,20 +1097,26 @@
 
     {% if active_mode == 'consulta' %}
       <section class="painel-card event-step">
-        <h3>Consultar inscricao</h3>
-        <form method="post">
+        <div class="event-consulta-search">
+          <div class="event-consulta-search-head">
+            <h3>Consultar inscricao</h3>
+            <p>Digite o CPF do responsavel ou o codigo de 3 digitos da inscricao para localizar rapidamente.</p>
+          </div>
+          <form method="post" class="event-consulta-search-form">
           {% csrf_token %}
           <input type="hidden" name="action" value="consultar_inscricao" />
           <input type="hidden" name="modo" value="consulta" />
           <label>
             CPF ou codigo da inscricao
-            <input type="text" name="consulta_termo" value="{{ consulta_term }}" placeholder="Digite CPF ou codigo (ex.: 123)" required />
+            <input type="text" name="consulta_termo" value="{{ consulta_term }}" placeholder="Ex.: 15648614861 ou 123" autocomplete="off" inputmode="numeric" required />
           </label>
+          <p class="event-consulta-search-tip">Dica: o sistema detecta automaticamente se voce digitou CPF ou codigo.</p>
           <div class="action-row">
-            <button type="submit" class="primary">Consultar agora</button>
-            <a href="?modo=inscricao" class="secondary">Ir para inscricao</a>
+            <button type="submit" class="primary">Buscar inscricao</button>
+            <a href="?modo=inscricao" class="secondary">Fazer nova inscricao</a>
           </div>
-        </form>
+          </form>
+        </div>
       </section>
 
       {% if consulta_results %}
