@@ -291,6 +291,7 @@
               <p class="event-meta">
                 Local: {{ evento.event_location|default:"-" }} |
                 Página: {% if evento.inscricao_publica %}Pública{% else %}Privada{% endif %} |
+                Botão responsável: {% if evento.mostrar_no_menu_responsavel %}Ativo{% else %}Inativo{% endif %} |
                 Data do evento: {{ evento.event_date|date:"d/m/Y"|default:"-" }} |
                 Início: {{ evento.event_time|time:"H:i"|default:"-" }} |
                 Fim: {{ evento.event_end_time|time:"H:i"|default:"-" }} |
@@ -350,6 +351,7 @@
                       <textarea name="event_description" rows="2" placeholder="Descreva objetivo, publico e orientacoes do evento.">{{ evento.event_description|default:'' }}</textarea>
                     </label>
                     <label><input type="checkbox" name="inscricao_publica" value="1" {% if evento.inscricao_publica %}checked{% endif %} /> Página pública de inscrição (sem login)</label>
+                    <label><input type="checkbox" name="mostrar_no_menu_responsavel" value="1" {% if evento.mostrar_no_menu_responsavel %}checked{% endif %} /> Mostrar botão deste evento no perfil Responsável</label>
                     <label>Data <input type="date" name="event_date" value="{{ evento.event_date|date:'Y-m-d' }}" required /></label>
                     <label>Hora início <input type="time" name="event_time" value="{{ evento.event_time|time:'H:i' }}" required /></label>
                     <label>Hora fim <input type="time" name="event_end_time" value="{{ evento.event_end_time|time:'H:i' }}" required /></label>
@@ -716,6 +718,10 @@
           <label>
             <input type="checkbox" name="inscricao_publica" id="event-public" value="1" />
             Página pública de inscrição (sem login)
+          </label>
+          <label>
+            <input type="checkbox" name="mostrar_no_menu_responsavel" id="event-show-responsavel" value="1" />
+            Mostrar botão deste evento no perfil Responsável
           </label>
           <label>
             Data do evento *

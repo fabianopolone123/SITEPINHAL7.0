@@ -294,10 +294,37 @@ def _sidebar_context(request):
     _ensure_default_access_groups()
     access = _ensure_user_access(request.user)
     active_profile = _get_active_profile(request, access=access)
+    menu_permissions = _effective_menu_permissions(request.user, active_profile=active_profile)
     profile_options = [
         {'value': profile, 'label': _profile_display_name(profile)}
         for profile in _available_profiles(access)
     ]
+    eventos_atalho_responsavel = []
+    try:
+        if active_profile == UserAccess.ROLE_RESPONSAVEL and 'eventos' in menu_permissions:
+            eventos_qs = (
+                Evento.objects
+                .filter(mostrar_no_menu_responsavel=True)
+                .prefetch_related('produtos_loja__variacoes')
+                .order_by('event_date', 'event_time', 'name')
+            )
+            for evento in eventos_qs:
+                has_fields = bool(evento.fields_data or [])
+                has_produtos = False
+                for produto in evento.produtos_loja.all():
+                    if not produto.ativo:
+                        continue
+                    if any(variacao.ativo for variacao in produto.variacoes.all()):
+                        has_produtos = True
+                        break
+                if not (has_fields and has_produtos):
+                    continue
+                eventos_atalho_responsavel.append({
+                    'id': int(evento.id),
+                    'name': str(evento.name or f'Evento {evento.id}'),
+                })
+    except Exception:
+        logger.exception('Falha ao montar atalhos de eventos para sidebar do responsavel.')
     return {
         'is_diretor': access.has_profile(UserAccess.ROLE_DIRETOR),
         'active_profile': active_profile,
@@ -306,7 +333,8 @@ def _sidebar_context(request):
         'profile_switch_enabled': len(profile_options) > 1,
         'current_path': request.get_full_path(),
         'current_profiles': [_profile_display_name(item) for item in _available_profiles(access)],
-        'menu_permissions': _effective_menu_permissions(request.user, active_profile=active_profile),
+        'menu_permissions': menu_permissions,
+        'eventos_atalho_responsavel': eventos_atalho_responsavel,
     }
 
 
@@ -3854,6 +3882,7 @@ class EventosView(LoginRequiredMixin, View):
             event_location = (request.POST.get('event_location') or '').strip()
             event_description = (request.POST.get('event_description') or '').strip()
             inscricao_publica = bool(request.POST.get('inscricao_publica'))
+            mostrar_no_menu_responsavel = bool(request.POST.get('mostrar_no_menu_responsavel'))
             inscricao_valor_modo, inscricao_valor_unitario, inscricao_valor_config = self._parse_inscricao_valor_config_request(request)
             if inscricao_valor_modo is None:
                 return render(request, self.template_name, self._context(request))
@@ -3894,6 +3923,7 @@ class EventosView(LoginRequiredMixin, View):
                     event_location=event_location,
                     event_description=event_description,
                     inscricao_publica=inscricao_publica,
+                    mostrar_no_menu_responsavel=mostrar_no_menu_responsavel,
                     event_date=event_date_value,
                     event_time=event_time_value,
                     event_end_time=event_end_time_value,
@@ -3974,6 +4004,7 @@ class EventosView(LoginRequiredMixin, View):
             event_location = (request.POST.get('event_location') or '').strip()
             event_description = (request.POST.get('event_description') or '').strip()
             inscricao_publica = bool(request.POST.get('inscricao_publica'))
+            mostrar_no_menu_responsavel = bool(request.POST.get('mostrar_no_menu_responsavel'))
             inscricao_valor_modo, inscricao_valor_unitario, inscricao_valor_config = self._parse_inscricao_valor_config_request(request)
             if inscricao_valor_modo is None:
                 return render(request, self.template_name, self._context(request))
@@ -4013,6 +4044,7 @@ class EventosView(LoginRequiredMixin, View):
             evento.event_location = event_location
             evento.event_description = event_description
             evento.inscricao_publica = inscricao_publica
+            evento.mostrar_no_menu_responsavel = mostrar_no_menu_responsavel
             evento.event_date = event_date_value
             evento.event_time = event_time_value
             evento.event_end_time = event_end_time_value
@@ -4026,6 +4058,7 @@ class EventosView(LoginRequiredMixin, View):
                 'event_location',
                 'event_description',
                 'inscricao_publica',
+                'mostrar_no_menu_responsavel',
                 'event_date',
                 'event_time',
                 'event_end_time',

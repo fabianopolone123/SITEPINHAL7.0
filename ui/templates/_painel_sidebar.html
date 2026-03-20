@@ -43,6 +43,11 @@
       {% if 'meus_dados' in menu_permissions %}<li><a href="{% url 'accounts:meus_dados' %}">Meus dados</a></li>{% endif %}
       {% if 'aventureiros' in menu_permissions %}<li><a href="{% url 'accounts:aventureiros_gerais' %}">Aventureiros</a></li>{% endif %}
       {% if 'eventos' in menu_permissions %}<li><a href="{% url 'accounts:eventos' %}">Eventos</a></li>{% endif %}
+      {% if eventos_atalho_responsavel %}
+        {% for atalho in eventos_atalho_responsavel %}
+          <li><a href="{% url 'accounts:evento_publico' atalho.id %}">{{ atalho.name }}</a></li>
+        {% endfor %}
+      {% endif %}
       {% if 'presenca' in menu_permissions %}<li><a href="{% url 'accounts:presenca' %}">Presença</a></li>{% endif %}
       {% if 'auditoria' in menu_permissions %}<li><a href="{% url 'accounts:auditoria' %}">Auditoria</a></li>{% endif %}
       {% if 'usuarios' in menu_permissions %}<li><a href="{% url 'accounts:usuarios' %}">Usuários</a></li>{% endif %}

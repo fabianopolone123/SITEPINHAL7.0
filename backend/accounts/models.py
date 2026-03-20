@@ -464,6 +464,7 @@ class Evento(models.Model):
     event_location = models.CharField('local do evento', max_length=255, blank=True)
     event_description = models.TextField('descricao do evento', blank=True)
     inscricao_publica = models.BooleanField('página pública de inscrição', default=False)
+    mostrar_no_menu_responsavel = models.BooleanField('mostrar botao no perfil responsavel', default=False)
     event_date = models.DateField('data do evento', null=True, blank=True)
     event_time = models.TimeField('hora de início do evento', null=True, blank=True)
     event_end_time = models.TimeField('hora de fim do evento', null=True, blank=True)
