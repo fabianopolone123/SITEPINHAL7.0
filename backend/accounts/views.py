@@ -6060,7 +6060,7 @@ class EventoPublicoView(View):
             self._context(
                 request,
                 evento,
-                show_register_summary=bool(inscricao_salva),
+                show_register_summary=bool(inscricao_salva and not finalize_after_save),
                 active_mode='inscricao',
                 auto_start_pix=bool(finalize_after_save and inscricao_salva),
             ),
