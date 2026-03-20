@@ -4085,6 +4085,115 @@ class EventosView(LoginRequiredMixin, View):
             produto.ativo = ativo
             produto.save(update_fields=['ativo', 'updated_at'])
             messages.success(request, f'Produto do evento {"ativado" if ativo else "inativado"} com sucesso.')
+        elif action == 'edit_event_product':
+            event_id = request.POST.get('event_id')
+            produto_id = request.POST.get('produto_id')
+            produto = (
+                LojaProduto.objects
+                .prefetch_related('variacoes')
+                .filter(pk=produto_id, evento_id=event_id)
+                .first()
+            )
+            if not produto:
+                messages.error(request, 'Produto do evento nao encontrado para edicao.')
+                return render(request, self.template_name, self._context(request))
+
+            titulo = str(request.POST.get('edit_titulo') or '').strip()
+            descricao = str(request.POST.get('edit_descricao') or '').strip()
+            minimo_raw = str(request.POST.get('edit_minimo_pedidos_pagos') or '').strip()
+            remover_foto = str(request.POST.get('edit_remove_foto') or '').strip() == '1'
+            nova_foto = request.FILES.get('edit_foto')
+
+            if not titulo:
+                messages.error(request, 'Informe o titulo do produto.')
+                return render(request, self.template_name, self._context(request))
+
+            minimo_pedidos_pagos = None
+            if minimo_raw:
+                if not re.fullmatch(r'\d+', minimo_raw):
+                    messages.error(request, 'Informe um numero inteiro valido no minimo de pedidos pagos.')
+                    return render(request, self.template_name, self._context(request))
+                minimo_pedidos_pagos = int(minimo_raw)
+                if minimo_pedidos_pagos <= 0:
+                    messages.error(request, 'O minimo de pedidos pagos deve ser maior que zero.')
+                    return render(request, self.template_name, self._context(request))
+
+            variacao_ids_raw = request.POST.getlist('edit_variacao_id[]')
+            variacao_nomes_raw = request.POST.getlist('edit_variacao_nome[]')
+            variacao_valores_raw = request.POST.getlist('edit_variacao_valor[]')
+            variacao_estoques_raw = request.POST.getlist('edit_variacao_estoque[]')
+            variacao_ativos_raw = request.POST.getlist('edit_variacao_ativo[]')
+            if not variacao_ids_raw:
+                messages.error(request, 'Nenhuma variacao enviada para edicao.')
+                return render(request, self.template_name, self._context(request))
+
+            updates = {}
+            for idx, variacao_id_raw in enumerate(variacao_ids_raw):
+                variacao_id_text = str(variacao_id_raw or '').strip()
+                if not variacao_id_text.isdigit():
+                    messages.error(request, f'Variacao invalida na linha {idx + 1}.')
+                    return render(request, self.template_name, self._context(request))
+                nome = str(variacao_nomes_raw[idx] if idx < len(variacao_nomes_raw) else '').strip()
+                valor_raw = str(variacao_valores_raw[idx] if idx < len(variacao_valores_raw) else '').strip()
+                estoque_raw = str(variacao_estoques_raw[idx] if idx < len(variacao_estoques_raw) else '').strip()
+                ativo_raw = str(variacao_ativos_raw[idx] if idx < len(variacao_ativos_raw) else '').strip()
+
+                if not nome:
+                    messages.error(request, f'Informe o nome da variacao na linha {idx + 1}.')
+                    return render(request, self.template_name, self._context(request))
+                valor = self._parse_valor(valor_raw)
+                if valor is None:
+                    messages.error(request, f'Valor invalido para a variacao "{nome}".')
+                    return render(request, self.template_name, self._context(request))
+                estoque = None
+                if estoque_raw:
+                    if not re.fullmatch(r'-?\d+', estoque_raw):
+                        messages.error(request, f'Estoque invalido para a variacao "{nome}".')
+                        return render(request, self.template_name, self._context(request))
+                    estoque = int(estoque_raw)
+                    if estoque < 0:
+                        messages.error(request, f'Estoque nao pode ser negativo para a variacao "{nome}".')
+                        return render(request, self.template_name, self._context(request))
+                ativo = ativo_raw == '1'
+
+                updates[int(variacao_id_text)] = {
+                    'nome': nome,
+                    'valor': valor,
+                    'estoque': estoque,
+                    'ativo': ativo,
+                }
+
+            variacoes = list(
+                LojaProdutoVariacao.objects.filter(produto=produto, id__in=list(updates.keys())).order_by('id')
+            )
+            if len(variacoes) != len(updates):
+                messages.error(request, 'Uma ou mais variacoes nao pertencem ao produto informado.')
+                return render(request, self.template_name, self._context(request))
+
+            with transaction.atomic():
+                produto.titulo = titulo
+                produto.descricao = descricao
+                produto.minimo_pedidos_pagos = minimo_pedidos_pagos
+                if remover_foto:
+                    produto.foto = None
+                if nova_foto:
+                    produto.foto = nova_foto
+                produto.save(update_fields=[
+                    'titulo',
+                    'descricao',
+                    'minimo_pedidos_pagos',
+                    'foto',
+                    'updated_at',
+                ])
+                for variacao in variacoes:
+                    dados = updates.get(int(variacao.id), {})
+                    variacao.nome = dados.get('nome', variacao.nome)
+                    variacao.valor = dados.get('valor', variacao.valor)
+                    variacao.estoque = dados.get('estoque', variacao.estoque)
+                    variacao.ativo = bool(dados.get('ativo', variacao.ativo))
+                    variacao.save(update_fields=['nome', 'valor', 'estoque', 'ativo', 'updated_at'])
+
+            messages.success(request, f'Produto "{produto.titulo}" atualizado com sucesso.')
         elif action == 'update_event_product_stock':
             event_id = request.POST.get('event_id')
             produto_id = request.POST.get('produto_id')

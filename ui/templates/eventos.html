@@ -489,6 +489,40 @@
                             {{ v.nome }} (R$ {{ v.valor }}{% if v.estoque is None %} | estoque ilimitado{% else %} | estoque {{ v.estoque }}{% endif %}){% if not forloop.last %}, {% endif %}
                           {% endfor %}
                         </div>
+                        <details style="margin-top:0.6rem;">
+                          <summary>Editar produto e variacoes</summary>
+                          <form method="post" enctype="multipart/form-data" class="painel-card" style="margin-top:0.6rem;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="edit_event_product" />
+                            <input type="hidden" name="event_id" value="{{ evento.id }}" />
+                            <input type="hidden" name="produto_id" value="{{ p.produto.id }}" />
+                            <div class="field-section">
+                              <label>Titulo <input type="text" name="edit_titulo" value="{{ p.produto.titulo }}" required /></label>
+                              <label>Minimo pedidos pagos (opcional) <input type="number" name="edit_minimo_pedidos_pagos" min="1" step="1" value="{% if p.produto.minimo_pedidos_pagos %}{{ p.produto.minimo_pedidos_pagos }}{% endif %}" /></label>
+                              <label>Nova foto de capa (opcional) <input type="file" name="edit_foto" accept="image/*" /></label>
+                              <label><input type="checkbox" name="edit_remove_foto" value="1" /> Remover foto atual</label>
+                              <label class="full">Descricao <textarea name="edit_descricao" rows="3">{{ p.produto.descricao|default:'' }}</textarea></label>
+                            </div>
+                            <div class="field-section">
+                              <h4 style="margin:0;">Variacoes</h4>
+                              {% for v in p.variacoes %}
+                                <div class="event-field-row event-var-row">
+                                  <input type="hidden" name="edit_variacao_id[]" value="{{ v.id }}" />
+                                  <input type="text" name="edit_variacao_nome[]" value="{{ v.nome }}" placeholder="Variacao" required />
+                                  <input type="text" name="edit_variacao_valor[]" value="{{ v.valor }}" placeholder="Valor" required />
+                                  <input type="number" name="edit_variacao_estoque[]" min="0" step="1" value="{% if v.estoque is not None %}{{ v.estoque }}{% endif %}" placeholder="Estoque ilimitado" />
+                                  <select name="edit_variacao_ativo[]">
+                                    <option value="1" {% if v.ativo %}selected{% endif %}>Ativa</option>
+                                    <option value="0" {% if not v.ativo %}selected{% endif %}>Inativa</option>
+                                  </select>
+                                </div>
+                              {% endfor %}
+                            </div>
+                            <div class="action-row">
+                              <button type="submit" class="primary">Salvar edicao do produto</button>
+                            </div>
+                          </form>
+                        </details>
                         {% if p.variacoes %}
                           <form method="post" class="painel-card" style="margin-top:0.6rem;">
                             {% csrf_token %}
