@@ -5230,7 +5230,7 @@ class EventoPublicoView(View):
 
         base_qs = (
             EventoInscricao.objects
-            .filter(evento=evento)
+            .filter(evento=evento, confirmada=True)
             .select_related('user', 'responsavel', 'responsavel__user')
             .order_by('-created_at')
         )
@@ -5456,7 +5456,7 @@ class EventoPublicoView(View):
             try:
                 inscricoes_base_qs = (
                     EventoInscricao.objects
-                    .filter(evento=evento)
+                    .filter(evento=evento, confirmada=True)
                     .select_related('user', 'responsavel', 'responsavel__user')
                     .order_by('-created_at')
                 )
@@ -5993,6 +5993,7 @@ class EventoPublicoView(View):
                                 dados=dados,
                                 valor_inscricao=fee_total,
                                 valor_inscricao_unidades=fee_units,
+                                confirmada=False,
                             )
                             created = True
                             break
@@ -6002,10 +6003,6 @@ class EventoPublicoView(View):
                         messages.error(request, 'Nao foi possivel gerar codigo unico da inscricao. Tente novamente.')
                         return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
                     messages.success(request, 'Inscricao do evento salva com sucesso.')
-                    try:
-                        self._dispatch_whatsapp_nova_inscricao_evento(evento, inscricao_salva)
-                    except Exception:
-                        logger.exception('Falha ao enviar notificacao de nova inscricao de evento (evento=%s, inscricao=%s).', evento.id, getattr(inscricao_salva, 'id', None))
             else:
                 session_key = _evento_public_inscricao_session_key(evento.id)
                 existing_id = request.session.get(session_key)
@@ -6040,6 +6037,7 @@ class EventoPublicoView(View):
                                 dados=dados,
                                 valor_inscricao=fee_total,
                                 valor_inscricao_unidades=fee_units,
+                                confirmada=False,
                             )
                             break
                         except IntegrityError:
@@ -6050,10 +6048,6 @@ class EventoPublicoView(View):
                     request.session[session_key] = inscricao_obj.pk
                     inscricao_salva = inscricao_obj
                     messages.success(request, 'Inscricao do evento salva com sucesso.')
-                    try:
-                        self._dispatch_whatsapp_nova_inscricao_evento(evento, inscricao_salva)
-                    except Exception:
-                        logger.exception('Falha ao enviar notificacao de nova inscricao de evento (evento=%s, inscricao=%s).', evento.id, getattr(inscricao_salva, 'id', None))
         return render(
             request,
             self.template_name,
@@ -6387,6 +6381,7 @@ class EventoPedidoCreatePixApiView(View):
                 pedido = LojaPedido.objects.create(
                     responsavel=responsavel,
                     evento=evento,
+                    evento_inscricao=inscricao,
                     forma_pagamento=LojaPedido.FORMA_PAGAMENTO_PIX,
                     valor_total=total,
                     created_by=request.user if request.user.is_authenticated else None,
@@ -9623,7 +9618,30 @@ class LojaView(LoginRequiredMixin, View):
 
         if mp_status == 'approved' and not was_paid:
             self._apply_stock_deduction_for_paid_order(pedido)
+            self._confirm_evento_inscricao_after_paid(pedido)
             self._send_whatsapp_pedido_loja_aprovado(pedido)
+
+    def _confirm_evento_inscricao_after_paid(self, pedido):
+        if not pedido or not getattr(pedido, 'evento_inscricao_id', None):
+            return
+        inscricao = (
+            EventoInscricao.objects
+            .select_related('evento')
+            .filter(pk=pedido.evento_inscricao_id)
+            .first()
+        )
+        if not inscricao or inscricao.confirmada:
+            return
+        inscricao.confirmada = True
+        inscricao.save(update_fields=['confirmada', 'updated_at'])
+        try:
+            EventoPublicoView()._dispatch_whatsapp_nova_inscricao_evento(inscricao.evento, inscricao)
+        except Exception:
+            logger.exception(
+                'Falha ao enviar WhatsApp de inscricao confirmada (evento=%s, inscricao=%s).',
+                getattr(inscricao.evento, 'id', None),
+                inscricao.id,
+            )
 
     def _send_whatsapp_pedido_loja_aprovado(self, pedido):
         if pedido.whatsapp_notified_at:

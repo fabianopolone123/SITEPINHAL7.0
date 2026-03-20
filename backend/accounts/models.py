@@ -584,6 +584,7 @@ class EventoInscricao(models.Model):
     codigo_inscricao = models.CharField('codigo da inscricao', max_length=3, blank=True, editable=False)
     valor_inscricao = models.DecimalField('valor da inscrição', max_digits=10, decimal_places=2, default=Decimal('0.00'))
     valor_inscricao_unidades = models.PositiveIntegerField('unidades da cobrança de inscrição', default=0)
+    confirmada = models.BooleanField('inscricao confirmada por pagamento', default=True)
     quer_comprar_itens = models.BooleanField('quer comprar itens', default=False)
     created_at = models.DateTimeField('criado em', auto_now_add=True)
     updated_at = models.DateTimeField('atualizado em', auto_now=True)
@@ -871,6 +872,13 @@ class LojaPedido(models.Model):
         null=True,
         blank=True,
         related_name='pedidos_loja',
+    )
+    evento_inscricao = models.ForeignKey(
+        EventoInscricao,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pedidos_evento',
     )
     forma_pagamento = models.CharField(
         'forma de pagamento',
