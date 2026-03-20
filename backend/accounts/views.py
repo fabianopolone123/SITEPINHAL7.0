@@ -4085,6 +4085,53 @@ class EventosView(LoginRequiredMixin, View):
             produto.ativo = ativo
             produto.save(update_fields=['ativo', 'updated_at'])
             messages.success(request, f'Produto do evento {"ativado" if ativo else "inativado"} com sucesso.')
+        elif action == 'update_event_product_stock':
+            event_id = request.POST.get('event_id')
+            produto_id = request.POST.get('produto_id')
+            produto = LojaProduto.objects.filter(pk=produto_id, evento_id=event_id).first()
+            if not produto:
+                messages.error(request, 'Produto do evento nao encontrado para atualizar estoque.')
+                return render(request, self.template_name, self._context(request))
+
+            variacao_ids_raw = request.POST.getlist('estoque_variacao_id[]')
+            estoques_raw = request.POST.getlist('estoque_variacao_valor[]')
+            if not variacao_ids_raw:
+                messages.error(request, 'Nenhuma variacao enviada para atualizar estoque.')
+                return render(request, self.template_name, self._context(request))
+
+            updates = {}
+            for idx, variacao_id_raw in enumerate(variacao_ids_raw):
+                variacao_id_text = str(variacao_id_raw or '').strip()
+                if not variacao_id_text.isdigit():
+                    messages.error(request, f'Variacao invalida na linha {idx + 1}.')
+                    return render(request, self.template_name, self._context(request))
+                estoque_text = str(estoques_raw[idx] if idx < len(estoques_raw) else '').strip()
+                estoque_value = None
+                if estoque_text:
+                    if not re.fullmatch(r'-?\d+', estoque_text):
+                        messages.error(request, f'Estoque invalido na linha {idx + 1}.')
+                        return render(request, self.template_name, self._context(request))
+                    estoque_value = int(estoque_text)
+                    if estoque_value < 0:
+                        messages.error(request, f'Estoque nao pode ser negativo na linha {idx + 1}.')
+                        return render(request, self.template_name, self._context(request))
+                updates[int(variacao_id_text)] = estoque_value
+
+            variacoes = list(
+                LojaProdutoVariacao.objects.filter(produto=produto, id__in=list(updates.keys())).order_by('id')
+            )
+            if len(variacoes) != len(updates):
+                messages.error(request, 'Uma ou mais variacoes nao pertencem ao produto informado.')
+                return render(request, self.template_name, self._context(request))
+
+            with transaction.atomic():
+                for variacao in variacoes:
+                    novo_estoque = updates.get(int(variacao.id))
+                    if variacao.estoque == novo_estoque:
+                        continue
+                    variacao.estoque = novo_estoque
+                    variacao.save(update_fields=['estoque', 'updated_at'])
+            messages.success(request, f'Estoque do produto "{produto.titulo}" atualizado com sucesso.')
         elif action == 'delete_preset':
             preset_id = request.POST.get('preset_id')
             preset = EventoPreset.objects.filter(pk=preset_id).first()
@@ -4497,6 +4544,10 @@ class EventoPublicoView(View):
             variacoes = [v for v in produto.variacoes.all() if v.ativo]
             if not variacoes:
                 continue
+            has_stock_available = any(
+                (variacao.estoque is None) or (int(variacao.estoque) > 0)
+                for variacao in variacoes
+            )
             capa = produto.foto
             if not capa:
                 first_foto = produto.fotos.order_by('ordem', 'id').first()
@@ -4505,6 +4556,7 @@ class EventoPublicoView(View):
                 'produto': produto,
                 'variacoes': variacoes,
                 'capa_foto': capa,
+                'has_stock_available': has_stock_available,
             })
         return rows
 
@@ -5994,6 +6046,7 @@ class EventoPedidoCreatePixApiView(View):
 
         parsed_items = []
         itens_total = Decimal('0.00')
+        requested_qty_by_variacao = {}
         for idx, item in enumerate(raw_items, start=1):
             if not isinstance(item, dict):
                 return JsonResponse({'ok': False, 'error': 'invalid_item', 'message': f'Item {idx} invalido.'}, status=400)
@@ -6023,6 +6076,19 @@ class EventoPedidoCreatePixApiView(View):
             )
             if not variacao:
                 return JsonResponse({'ok': False, 'error': 'variation_not_found', 'message': f'Variacao invalida ou inativa no item {idx}.'}, status=400)
+
+            requested_qty = requested_qty_by_variacao.get(variacao.id, 0) + quantity
+            requested_qty_by_variacao[variacao.id] = requested_qty
+            if variacao.estoque is not None and requested_qty > int(variacao.estoque):
+                disponivel = max(0, int(variacao.estoque))
+                return JsonResponse({
+                    'ok': False,
+                    'error': 'insufficient_stock',
+                    'message': (
+                        f'Estoque insuficiente para "{variacao.produto.titulo} - {variacao.nome}". '
+                        f'Disponivel: {disponivel}.'
+                    ),
+                }, status=400)
 
             unit_price = Decimal(variacao.valor).quantize(Decimal('0.01'))
             line_total = (unit_price * quantity).quantize(Decimal('0.01'))
@@ -6095,25 +6161,18 @@ class EventoPedidoCreatePixApiView(View):
                 LojaPedidoItem.objects.bulk_create(pedido_items)
 
                 mp_payload = loja_view._create_mp_pix_payment_loja(request, pedido)
-                pedido.mp_payment_id = mp_payload['payment_id']
-                pedido.mp_external_reference = mp_payload['external_reference']
-                pedido.mp_status = mp_payload['status']
-                pedido.mp_status_detail = mp_payload['status_detail']
                 pedido.mp_qr_code = mp_payload['pix_code']
                 pedido.mp_qr_code_base64 = mp_payload['qr_base64']
-                if mp_payload['status'] == 'approved':
-                    pedido.status = LojaPedido.STATUS_PAGO
-                    pedido.paid_at = timezone.now()
-                elif mp_payload['status'] == 'in_process':
-                    pedido.status = LojaPedido.STATUS_PROCESSANDO
-                else:
-                    pedido.status = LojaPedido.STATUS_PENDENTE
                 pedido.save(update_fields=[
-                    'mp_payment_id', 'mp_external_reference', 'mp_status', 'mp_status_detail',
-                    'mp_qr_code', 'mp_qr_code_base64', 'status', 'paid_at', 'updated_at',
+                    'mp_qr_code', 'mp_qr_code_base64', 'updated_at',
                 ])
-                if pedido.status == LojaPedido.STATUS_PAGO:
-                    loja_view._send_whatsapp_pedido_loja_aprovado(pedido)
+                loja_view._sync_pedido_loja_from_mp(pedido, {
+                    'id': mp_payload['payment_id'],
+                    'external_reference': mp_payload['external_reference'],
+                    'status': mp_payload['status'],
+                    'status_detail': mp_payload['status_detail'],
+                })
+                pedido.refresh_from_db()
         except ValueError as exc:
             return JsonResponse({'ok': False, 'error': 'mercadopago', 'message': str(exc)}, status=400)
         except Exception:
@@ -9200,8 +9259,45 @@ class LojaView(LoginRequiredMixin, View):
         }
         return status_map.get(status, 'Aguardando pagamento')
 
+    def _apply_stock_deduction_for_paid_order(self, pedido):
+        if not pedido:
+            return
+        qty_by_variacao = {}
+        for item in pedido.itens.all():
+            if not item.variacao_id:
+                continue
+            if item.quantidade <= 0:
+                continue
+            qty_by_variacao[item.variacao_id] = qty_by_variacao.get(item.variacao_id, 0) + int(item.quantidade)
+        if not qty_by_variacao:
+            return
+
+        with transaction.atomic():
+            variacoes = {
+                variacao.id: variacao
+                for variacao in (
+                    LojaProdutoVariacao.objects
+                    .select_for_update()
+                    .filter(id__in=list(qty_by_variacao.keys()))
+                )
+            }
+            for variacao_id, quantidade in qty_by_variacao.items():
+                variacao = variacoes.get(variacao_id)
+                if not variacao:
+                    continue
+                if variacao.estoque is None:
+                    continue
+                estoque_atual = int(variacao.estoque)
+                novo_estoque = estoque_atual - int(quantidade)
+                if novo_estoque < 0:
+                    novo_estoque = 0
+                if novo_estoque == estoque_atual:
+                    continue
+                variacao.estoque = novo_estoque
+                variacao.save(update_fields=['estoque', 'updated_at'])
+
     def _sync_pedido_loja_from_mp(self, pedido, payment_data):
-        was_paid = pedido.status == LojaPedido.STATUS_PAGO
+        was_paid = pedido.status == LojaPedido.STATUS_PAGO or bool(pedido.paid_at)
         mp_status = (payment_data.get('status') or '').lower()
         mp_status_detail = payment_data.get('status_detail') or ''
         mp_payment_id = str(payment_data.get('id') or pedido.mp_payment_id or '')
@@ -9239,14 +9335,12 @@ class LojaView(LoginRequiredMixin, View):
         if mp_status == 'approved' and not pedido.paid_at:
             pedido.paid_at = timezone.now()
             update_fields.append('paid_at')
-        elif mp_status != 'approved' and pedido.paid_at:
-            pedido.paid_at = None
-            update_fields.append('paid_at')
 
         if update_fields:
             pedido.save(update_fields=list(dict.fromkeys(update_fields)))
 
         if mp_status == 'approved' and not was_paid:
+            self._apply_stock_deduction_for_paid_order(pedido)
             self._send_whatsapp_pedido_loja_aprovado(pedido)
 
     def _send_whatsapp_pedido_loja_aprovado(self, pedido):
@@ -9818,6 +9912,7 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
 
         parsed_items = []
         total = Decimal('0.00')
+        requested_qty_by_variacao = {}
         for idx, item in enumerate(raw_items, start=1):
             if not isinstance(item, dict):
                 return JsonResponse({'ok': False, 'error': 'invalid_item', 'message': f'Item {idx} inválido.'}, status=400)
@@ -9850,6 +9945,19 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
 
             unit_price = Decimal(variacao.valor).quantize(Decimal('0.01'))
             line_total = (unit_price * quantity).quantize(Decimal('0.01'))
+
+            requested_qty = requested_qty_by_variacao.get(variacao.id, 0) + quantity
+            requested_qty_by_variacao[variacao.id] = requested_qty
+            if variacao.estoque is not None and requested_qty > int(variacao.estoque):
+                disponivel = max(0, int(variacao.estoque))
+                return JsonResponse({
+                    'ok': False,
+                    'error': 'insufficient_stock',
+                    'message': (
+                        f'Estoque insuficiente para "{variacao.produto.titulo} - {variacao.nome}". '
+                        f'Disponivel: {disponivel}.'
+                    ),
+                }, status=400)
 
             foto_url = ''
             foto = (
@@ -9909,25 +10017,18 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
                     for item in parsed_items
                 ])
                 mp_payload = loja_view._create_mp_pix_payment_loja(request, pedido)
-                pedido.mp_payment_id = mp_payload['payment_id']
-                pedido.mp_external_reference = mp_payload['external_reference']
-                pedido.mp_status = mp_payload['status']
-                pedido.mp_status_detail = mp_payload['status_detail']
                 pedido.mp_qr_code = mp_payload['pix_code']
                 pedido.mp_qr_code_base64 = mp_payload['qr_base64']
-                if mp_payload['status'] == 'approved':
-                    pedido.status = LojaPedido.STATUS_PAGO
-                    pedido.paid_at = timezone.now()
-                elif mp_payload['status'] == 'in_process':
-                    pedido.status = LojaPedido.STATUS_PROCESSANDO
-                else:
-                    pedido.status = LojaPedido.STATUS_PENDENTE
                 pedido.save(update_fields=[
-                    'mp_payment_id', 'mp_external_reference', 'mp_status', 'mp_status_detail',
-                    'mp_qr_code', 'mp_qr_code_base64', 'status', 'paid_at', 'updated_at',
+                    'mp_qr_code', 'mp_qr_code_base64', 'updated_at',
                 ])
-                if pedido.status == LojaPedido.STATUS_PAGO:
-                    loja_view._send_whatsapp_pedido_loja_aprovado(pedido)
+                loja_view._sync_pedido_loja_from_mp(pedido, {
+                    'id': mp_payload['payment_id'],
+                    'external_reference': mp_payload['external_reference'],
+                    'status': mp_payload['status'],
+                    'status_detail': mp_payload['status_detail'],
+                })
+                pedido.refresh_from_db()
         except ValueError as exc:
             return JsonResponse({'ok': False, 'error': 'mercadopago', 'message': str(exc)}, status=400)
         except Exception:

@@ -1834,17 +1834,28 @@
                   <select data-variation-select>
                     <option value="">Selecione uma variação</option>
                     {% for v in row.variacoes %}
-                      <option value="{{ v.id }}" data-price="{{ v.valor }}">{{ v.nome }} - R$ {{ v.valor }}</option>
+                      <option
+                        value="{{ v.id }}"
+                        data-price="{{ v.valor }}"
+                        data-stock="{% if v.estoque is not None %}{{ v.estoque }}{% endif %}"
+                        data-variation-name="{{ v.nome }}"
+                        {% if v.estoque is not None and v.estoque <= 0 %}disabled{% endif %}
+                      >
+                        {{ v.nome }} - R$ {{ v.valor }}{% if v.estoque is None %}{% else %} - Estoque: {{ v.estoque }}{% if v.estoque <= 0 %} (esgotado){% endif %}{% endif %}
+                      </option>
                     {% endfor %}
                   </select>
                 </label>
                 <div class="event-product-buy">
                   <label class="event-product-field">
                     <span>Quantidade</span>
-                    <input type="number" min="1" step="1" value="1" data-qty-input />
+                    <input type="number" min="1" step="1" value="1" data-qty-input {% if not row.has_stock_available %}disabled{% endif %} />
                   </label>
-                  <button type="button" class="event-add-cart-btn" data-add-cart>Adicionar ao carrinho</button>
+                  <button type="button" class="event-add-cart-btn" data-add-cart {% if not row.has_stock_available %}disabled{% endif %}>Adicionar ao carrinho</button>
                 </div>
+                {% if not row.has_stock_available %}
+                  <p class="panel-note" style="margin:0.35rem 0 0;">Produto esgotado no momento.</p>
+                {% endif %}
               </div>
             </article>
           {% endfor %}
@@ -2033,6 +2044,7 @@
       let pixPedidoAtual = null;
       let pixPollingTimer = null;
       let paidModalShownForPedido = '';
+      const pendingStockByPedido = {};
       if (feeConfigNode) {
         try {
           const parsedFeeConfig = JSON.parse(feeConfigNode.textContent || '{}');
@@ -2103,6 +2115,79 @@
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#39;');
+      };
+
+      const parseStockLimit = (rawValue) => {
+        const raw = String(rawValue == null ? '' : rawValue).trim();
+        if (!raw) return null;
+        const parsed = Number(raw);
+        if (!Number.isFinite(parsed)) return null;
+        const normalized = Math.floor(parsed);
+        return normalized < 0 ? 0 : normalized;
+      };
+
+      const buildVariationOptionLabel = (option) => {
+        if (!(option instanceof HTMLOptionElement)) return '';
+        const name = String(option.dataset.variationName || '').trim();
+        const price = String(option.dataset.price || '').trim();
+        let label = (name || option.textContent || '').trim();
+        if (name && price) {
+          label = name + ' - R$ ' + price;
+        }
+        const stock = parseStockLimit(option.dataset.stock);
+        if (stock !== null) {
+          label += ' - Estoque: ' + String(stock);
+          if (stock <= 0) label += ' (esgotado)';
+        }
+        return label;
+      };
+
+      const refreshProductCardAvailability = (card) => {
+        if (!(card instanceof HTMLElement)) return;
+        const select = card.querySelector('[data-variation-select]');
+        const addBtn = card.querySelector('[data-add-cart]');
+        const qtyInput = card.querySelector('[data-qty-input]');
+        if (!(select instanceof HTMLSelectElement)) return;
+        const options = Array.from(select.options || []);
+        const availableOptions = options.filter((opt) => String(opt.value || '').trim() && !opt.disabled);
+        const hasAvailable = availableOptions.length > 0;
+        if (addBtn instanceof HTMLButtonElement) {
+          addBtn.disabled = !hasAvailable;
+        }
+        if (qtyInput instanceof HTMLInputElement) {
+          qtyInput.disabled = !hasAvailable;
+          if (!hasAvailable) qtyInput.value = '1';
+        }
+        const selected = select.options[select.selectedIndex];
+        if (selected && selected.disabled) {
+          select.value = '';
+        }
+      };
+
+      const applyLocalPaidStock = (pedidoId) => {
+        const key = String(pedidoId || '').trim();
+        if (!key) return;
+        const snapshot = pendingStockByPedido[key];
+        if (!Array.isArray(snapshot) || !snapshot.length) {
+          delete pendingStockByPedido[key];
+          return;
+        }
+        snapshot.forEach((entry) => {
+          const variationId = Number(entry.variationId || 0);
+          const quantity = Math.max(0, Number(entry.quantity || 0));
+          if (!variationId || !quantity) return;
+          const option = document.querySelector('[data-variation-select] option[value="' + String(variationId) + '"]');
+          if (!(option instanceof HTMLOptionElement)) return;
+          const currentStock = parseStockLimit(option.dataset.stock);
+          if (currentStock === null) return;
+          const nextStock = Math.max(0, currentStock - quantity);
+          option.dataset.stock = String(nextStock);
+          option.disabled = nextStock <= 0;
+          option.textContent = buildVariationOptionLabel(option);
+          const card = option.closest('[data-product-id]');
+          refreshProductCardAvailability(card);
+        });
+        delete pendingStockByPedido[key];
       };
 
       const setCheckoutFeedback = (text, kind) => {
@@ -2225,6 +2310,8 @@
         if (Array.isArray(data.resumo_linhas)) pixPedidoAtual.resumo_linhas = data.resumo_linhas;
         renderPixModal(pixPedidoAtual);
         if (data.is_paid) {
+          const paidPedidoId = String(data.pedido_id || pixPedidoAtual.pedido_id || pixPedidoAtual.id || '');
+          applyLocalPaidStock(paidPedidoId);
           cart.length = 0;
           renderCart();
           closeCartDrawer();
@@ -2278,6 +2365,11 @@
         if (!PIX_CREATE_URL) {
           throw new Error('URL de pagamento do evento nao configurada.');
         }
+        const stockSnapshot = cart.map((item) => ({
+          productId: Number(item.productId || 0),
+          variationId: Number(item.variationId || 0),
+          quantity: Math.max(0, Number(item.quantity || 0)),
+        })).filter((item) => item.variationId && item.quantity > 0);
         const payload = {
           payment_method: 'pix',
           items: cart.map((item) => ({
@@ -2303,7 +2395,12 @@
         if (!response.ok || !data.ok) {
           throw new Error(data.message || data.error || 'Nao foi possivel gerar o Pix deste evento agora.');
         }
-        return data.pedido || null;
+        const pedido = data.pedido || null;
+        const pedidoId = Number((pedido && (pedido.pedido_id || pedido.id)) || 0);
+        if (pedidoId && stockSnapshot.length) {
+          pendingStockByPedido[String(pedidoId)] = stockSnapshot;
+        }
+        return pedido;
       };
 
       const normalizeLookupText = (value) => {
@@ -2835,18 +2932,35 @@
           }
           const quantity = Math.max(1, Number(qtyInput.value || 1));
           const selectedOption = select.options[select.selectedIndex];
+          if (!selectedOption || selectedOption.disabled) {
+            window.alert('Esta variação está esgotada no momento.');
+            select.focus();
+            return;
+          }
+          const stockLimit = parseStockLimit(selectedOption.dataset.stock);
+          const currentCartQty = cart
+            .filter((item) => item.productId === productId && item.variationId === variationId)
+            .reduce((sum, item) => sum + Math.max(0, Number(item.quantity || 0)), 0);
+          if (stockLimit !== null && (currentCartQty + quantity) > stockLimit) {
+            window.alert('Quantidade acima do estoque disponível para esta variação.');
+            qtyInput.focus();
+            return;
+          }
           const price = Number((selectedOption?.dataset?.price || '0').replace(',', '.')) || 0;
           const variationLabel = selectedOption ? selectedOption.textContent : '';
           const productTitle = (card.querySelector('h4') || {}).textContent || 'Produto';
           const existing = cart.find((item) => item.productId === productId && item.variationId === variationId);
           if (existing) {
             existing.quantity += quantity;
+            existing.stockLimit = stockLimit;
           } else {
-            cart.push({ productId, variationId, quantity, price, variationLabel, productTitle });
+            cart.push({ productId, variationId, quantity, price, variationLabel, productTitle, stockLimit });
           }
           renderCart();
           openCartDrawer();
         });
+        const card = button.closest('[data-product-id]');
+        if (card) refreshProductCardAvailability(card);
       });
 
       if (cartItemsWrap) {
@@ -2859,6 +2973,12 @@
           const numeric = Number(idx);
           if (Number.isNaN(numeric) || !cart[numeric]) return;
           if (action === 'plus') {
+            const item = cart[numeric];
+            const stockLimit = parseStockLimit(item.stockLimit);
+            if (stockLimit !== null && (item.quantity + 1) > stockLimit) {
+              window.alert('Limite de estoque atingido para este item.');
+              return;
+            }
             cart[numeric].quantity += 1;
           } else if (action === 'minus') {
             cart[numeric].quantity = Math.max(1, cart[numeric].quantity - 1);
@@ -2905,6 +3025,8 @@
             }
             renderPixModal(pedido);
             if (pedido.status === 'pago') {
+              const paidPedidoId = String(pedido.pedido_id || pedido.id || '');
+              applyLocalPaidStock(paidPedidoId);
               cart.length = 0;
               renderCart();
               closeCartDrawer();

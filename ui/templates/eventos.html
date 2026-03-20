@@ -483,7 +483,34 @@
                       <div class="event-item" style="margin-bottom:0.6rem;">
                         <strong>{{ p.produto.titulo }}</strong>
                         <div class="panel-note">Status: {% if p.produto.ativo %}Ativo{% else %}Inativo{% endif %}</div>
-                        <div class="panel-note">Variações: {% for v in p.variacoes %}{{ v.nome }} (R$ {{ v.valor }}){% if not forloop.last %}, {% endif %}{% endfor %}</div>
+                        <div class="panel-note">
+                          Variações:
+                          {% for v in p.variacoes %}
+                            {{ v.nome }} (R$ {{ v.valor }}{% if v.estoque is None %} | estoque ilimitado{% else %} | estoque {{ v.estoque }}{% endif %}){% if not forloop.last %}, {% endif %}
+                          {% endfor %}
+                        </div>
+                        {% if p.variacoes %}
+                          <form method="post" class="painel-card" style="margin-top:0.6rem;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="update_event_product_stock" />
+                            <input type="hidden" name="event_id" value="{{ evento.id }}" />
+                            <input type="hidden" name="produto_id" value="{{ p.produto.id }}" />
+                            <div class="field-section">
+                              <h4 style="margin:0;">Alterar estoque das variações</h4>
+                              <p class="panel-note" style="margin:0;">Deixe em branco para estoque ilimitado.</p>
+                              {% for v in p.variacoes %}
+                                <div class="event-field-row event-var-row">
+                                  <label style="margin:0;min-width:220px;">{{ v.nome }} (R$ {{ v.valor }})</label>
+                                  <input type="hidden" name="estoque_variacao_id[]" value="{{ v.id }}" />
+                                  <input type="number" name="estoque_variacao_valor[]" min="0" step="1" value="{% if v.estoque is not None %}{{ v.estoque }}{% endif %}" placeholder="Ilimitado" />
+                                </div>
+                              {% endfor %}
+                              <div class="action-row">
+                                <button type="submit" class="secondary">Salvar estoque</button>
+                              </div>
+                            </div>
+                          </form>
+                        {% endif %}
                         <div class="action-row">
                           <form method="post">
                             {% csrf_token %}
