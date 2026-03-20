@@ -2126,6 +2126,24 @@
         return normalized < 0 ? 0 : normalized;
       };
 
+      const getCartQtyForVariation = (variationId) => {
+        const targetId = Number(variationId || 0);
+        if (!targetId) return 0;
+        return cart
+          .filter((item) => Number(item.variationId || 0) === targetId)
+          .reduce((sum, item) => sum + Math.max(0, Number(item.quantity || 0)), 0);
+      };
+
+      const getOptionRemainingStock = (option) => {
+        if (!(option instanceof HTMLOptionElement)) return null;
+        const stock = parseStockLimit(option.dataset.stock);
+        if (stock === null) return null;
+        const variationId = Number(option.value || 0);
+        if (!variationId) return stock;
+        const inCart = getCartQtyForVariation(variationId);
+        return Math.max(0, stock - inCart);
+      };
+
       const buildVariationOptionLabel = (option) => {
         if (!(option instanceof HTMLOptionElement)) return '';
         const name = String(option.dataset.variationName || '').trim();
@@ -2136,8 +2154,13 @@
         }
         const stock = parseStockLimit(option.dataset.stock);
         if (stock !== null) {
+          const remaining = parseStockLimit(option.dataset.remainingStock);
+          const availableNow = remaining === null ? stock : remaining;
           label += ' - Estoque: ' + String(stock);
-          if (stock <= 0) label += ' (esgotado)';
+          if (availableNow !== stock) {
+            label += ' - Disponivel: ' + String(availableNow);
+          }
+          if (availableNow <= 0) label += ' (esgotado)';
         }
         return label;
       };
@@ -2149,6 +2172,18 @@
         const qtyInput = card.querySelector('[data-qty-input]');
         if (!(select instanceof HTMLSelectElement)) return;
         const options = Array.from(select.options || []);
+        options.forEach((option) => {
+          if (!String(option.value || '').trim()) return;
+          const remaining = getOptionRemainingStock(option);
+          if (remaining === null) {
+            option.dataset.remainingStock = '';
+            option.disabled = false;
+          } else {
+            option.dataset.remainingStock = String(remaining);
+            option.disabled = remaining <= 0;
+          }
+          option.textContent = buildVariationOptionLabel(option);
+        });
         const availableOptions = options.filter((opt) => String(opt.value || '').trim() && !opt.disabled);
         const hasAvailable = availableOptions.length > 0;
         if (addBtn instanceof HTMLButtonElement) {
@@ -2162,6 +2197,26 @@
         if (selected && selected.disabled) {
           select.value = '';
         }
+        const selectedAfterRefresh = select.options[select.selectedIndex];
+        if (qtyInput instanceof HTMLInputElement) {
+          let maxQty = null;
+          if (selectedAfterRefresh instanceof HTMLOptionElement) {
+            maxQty = getOptionRemainingStock(selectedAfterRefresh);
+          }
+          if (maxQty !== null) {
+            qtyInput.max = String(Math.max(1, maxQty));
+            const currentQty = Math.max(1, Number(qtyInput.value || 1));
+            qtyInput.value = String(Math.min(currentQty, Math.max(1, maxQty)));
+          } else {
+            qtyInput.removeAttribute('max');
+          }
+        }
+      };
+
+      const refreshAllProductCardsAvailability = () => {
+        document.querySelectorAll('[data-product-id]').forEach((card) => {
+          refreshProductCardAvailability(card);
+        });
       };
 
       const applyLocalPaidStock = (pedidoId) => {
@@ -2908,6 +2963,7 @@
         currentCartItems = itemsCount;
         currentCartTotal = total;
         updateCheckoutSummary();
+        refreshAllProductCardsAvailability();
       };
 
       document.querySelectorAll('[data-add-cart]').forEach((button) => {
@@ -2937,6 +2993,12 @@
             select.focus();
             return;
           }
+          const remainingNow = getOptionRemainingStock(selectedOption);
+          if (remainingNow !== null && quantity > remainingNow) {
+            window.alert('Quantidade acima do estoque disponivel para esta variacao.');
+            qtyInput.focus();
+            return;
+          }
           const stockLimit = parseStockLimit(selectedOption.dataset.stock);
           const currentCartQty = cart
             .filter((item) => item.productId === productId && item.variationId === variationId)
@@ -2960,7 +3022,32 @@
           openCartDrawer();
         });
         const card = button.closest('[data-product-id]');
-        if (card) refreshProductCardAvailability(card);
+        if (card instanceof HTMLElement) {
+          const select = card.querySelector('[data-variation-select]');
+          const qtyInput = card.querySelector('[data-qty-input]');
+          if (select instanceof HTMLSelectElement) {
+            select.addEventListener('change', () => {
+              refreshProductCardAvailability(card);
+            });
+          }
+          if (qtyInput instanceof HTMLInputElement) {
+            qtyInput.addEventListener('input', () => {
+              const selected = select instanceof HTMLSelectElement
+                ? select.options[select.selectedIndex]
+                : null;
+              const remaining = selected instanceof HTMLOptionElement
+                ? getOptionRemainingStock(selected)
+                : null;
+              const currentQty = Math.max(1, Number(qtyInput.value || 1));
+              if (remaining !== null) {
+                qtyInput.value = String(Math.min(currentQty, Math.max(1, remaining)));
+              } else {
+                qtyInput.value = String(currentQty);
+              }
+            });
+          }
+          refreshProductCardAvailability(card);
+        }
       });
 
       if (cartItemsWrap) {
