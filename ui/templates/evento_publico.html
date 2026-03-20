@@ -1751,6 +1751,7 @@
         <input type="hidden" name="action" value="register_event" />
         <input type="hidden" name="modo" value="inscricao" />
         <input type="hidden" name="edit_registration_id" id="event-edit-registration-id" value="{{ form_edit_registration_id }}" />
+        <input type="hidden" name="finalize_after_save" id="event-finalize-after-save" value="0" />
         <div class="field-section">
           {% for field in schema %}
             {% if field.type == 'repetidor' %}
@@ -1803,9 +1804,11 @@
           {% endfor %}
         </div>
         <div class="action-row">
-          <button type="submit" class="primary">{% if form_edit_registration_id %}Salvar alteracoes da inscricao{% else %}Salvar inscricao{% endif %}</button>
           {% if form_edit_registration_id %}
+            <button type="submit" class="primary">Salvar alteracoes da inscricao</button>
             <a href="?modo=consulta" class="secondary">Cancelar edicao</a>
+          {% else %}
+            <p class="panel-note" style="margin:0;">Use o botao "Finalizar e pagar" para salvar a inscricao e gerar o Pix.</p>
           {% endif %}
         </div>
       </form>
@@ -2012,9 +2015,13 @@
       const closeRegisterSummaryBtn = document.getElementById('close-event-register-summary');
       const togglePublicForm = document.getElementById('toggle-public-form');
       const registerForm = document.getElementById('event-register-form');
+      const finalizeAfterSaveInput = document.getElementById('event-finalize-after-save');
       const deleteSelectedInscricoesForm = document.getElementById('event-delete-selected-inscricoes-form');
       const deleteSelectedPasswordInput = document.getElementById('event-delete-selected-password');
       const inscritosSelectAll = document.getElementById('event-inscritos-select-all');
+      const autoStartPixAfterSave = String('{{ auto_start_pix|yesno:"1,0" }}') === '1';
+      const pendingCartStorageKey = 'evento_pending_cart_{{ evento.id }}';
+      let skipSaveBeforePix = autoStartPixAfterSave;
       const feeConfigNode = document.getElementById('event-fee-config-data');
       const formInitialNode = document.getElementById('event-form-initial-data');
       const feeMode = String('{{ evento.inscricao_valor_modo|default:"nenhum"|escapejs }}' || '').trim().toLowerCase() || 'nenhum';
@@ -2466,6 +2473,89 @@
           pendingStockByPedido[String(pedidoId)] = stockSnapshot;
         }
         return pedido;
+      };
+
+      const persistCartForPostSavePix = () => {
+        try {
+          if (!window.sessionStorage) return;
+          const serializedItems = cart.map((item) => ({
+            productId: Number(item.productId || 0),
+            variationId: Number(item.variationId || 0),
+            quantity: Math.max(1, Number(item.quantity || 1)),
+            price: Number(item.price || 0),
+            variationLabel: String(item.variationLabel || ''),
+            productTitle: String(item.productTitle || ''),
+            stockLimit: item.stockLimit == null ? null : Number(item.stockLimit),
+          })).filter((item) => item.productId > 0 && item.variationId > 0);
+          window.sessionStorage.setItem(
+            pendingCartStorageKey,
+            JSON.stringify({ items: serializedItems, savedAt: Date.now() })
+          );
+        } catch (error) {
+          // ignore storage failures
+        }
+      };
+
+      const restoreCartAfterSave = () => {
+        try {
+          if (!window.sessionStorage) return;
+          const raw = window.sessionStorage.getItem(pendingCartStorageKey);
+          if (!raw) return;
+          window.sessionStorage.removeItem(pendingCartStorageKey);
+          const parsed = JSON.parse(raw);
+          const items = Array.isArray(parsed && parsed.items) ? parsed.items : [];
+          cart.length = 0;
+          items.forEach((item) => {
+            const productId = Number(item && item.productId || 0);
+            const variationId = Number(item && item.variationId || 0);
+            const quantity = Math.max(1, Number(item && item.quantity || 1));
+            if (!productId || !variationId) return;
+            cart.push({
+              productId: productId,
+              variationId: variationId,
+              quantity: quantity,
+              price: Number(item && item.price || 0),
+              variationLabel: String(item && item.variationLabel || ''),
+              productTitle: String(item && item.productTitle || 'Produto'),
+              stockLimit: item && item.stockLimit == null ? null : Number(item.stockLimit),
+            });
+          });
+        } catch (error) {
+          // ignore restore failures
+        }
+      };
+
+      const runPixCheckoutFlow = async () => {
+        const previewTotal = Number(currentFeeTotal || 0) + Number(currentCartTotal || 0);
+        if (previewTotal <= 0) {
+          setCheckoutFeedback('Nao ha valor para pagar neste evento.', 'error');
+          return;
+        }
+        try {
+          if (finalizarPagarBtn) finalizarPagarBtn.disabled = true;
+          setCheckoutFeedback('Gerando Pix do valor total do evento...');
+          const pedido = await createPixPedidoFromEvent();
+          if (!pedido) {
+            throw new Error('Resposta invalida ao gerar pagamento.');
+          }
+          renderPixModal(pedido);
+          if (pedido.status === 'pago') {
+            const paidPedidoId = String(pedido.pedido_id || pedido.id || '');
+            applyLocalPaidStock(paidPedidoId);
+            cart.length = 0;
+            renderCart();
+            closeCartDrawer();
+            setCheckoutFeedback('Pagamento aprovado com sucesso.', 'success');
+            showPaidFinalization(pedido);
+          } else {
+            schedulePixPolling();
+            setCheckoutFeedback('Pix gerado. Finalize o pagamento e acompanhe o status.', 'success');
+          }
+        } catch (error) {
+          setCheckoutFeedback((error && error.message) ? error.message : 'Nao foi possivel gerar o pagamento Pix agora.', 'error');
+        } finally {
+          if (finalizarPagarBtn) finalizarPagarBtn.disabled = false;
+        }
       };
 
       const normalizeLookupText = (value) => {
@@ -3108,36 +3198,21 @@
 
       if (finalizarPagarBtn) {
         finalizarPagarBtn.addEventListener('click', async () => {
-          const previewTotal = Number(currentFeeTotal || 0) + Number(currentCartTotal || 0);
-          if (previewTotal <= 0) {
-            setCheckoutFeedback('Nao ha valor para pagar neste evento.', 'error');
+          if (registerForm && !skipSaveBeforePix) {
+            const previewTotal = Number(currentFeeTotal || 0) + Number(currentCartTotal || 0);
+            if (previewTotal <= 0) {
+              setCheckoutFeedback('Nao ha valor para pagar neste evento.', 'error');
+              return;
+            }
+            persistCartForPostSavePix();
+            if (finalizeAfterSaveInput) {
+              finalizeAfterSaveInput.value = '1';
+            }
+            setCheckoutFeedback('Salvando inscricao antes de gerar o Pix...');
+            registerForm.requestSubmit();
             return;
           }
-          try {
-            finalizarPagarBtn.disabled = true;
-            setCheckoutFeedback('Gerando Pix do valor total do evento...');
-            const pedido = await createPixPedidoFromEvent();
-            if (!pedido) {
-              throw new Error('Resposta invalida ao gerar pagamento.');
-            }
-            renderPixModal(pedido);
-            if (pedido.status === 'pago') {
-              const paidPedidoId = String(pedido.pedido_id || pedido.id || '');
-              applyLocalPaidStock(paidPedidoId);
-              cart.length = 0;
-              renderCart();
-              closeCartDrawer();
-              setCheckoutFeedback('Pagamento aprovado com sucesso.', 'success');
-              showPaidFinalization(pedido);
-            } else {
-              schedulePixPolling();
-              setCheckoutFeedback('Pix gerado. Finalize o pagamento e acompanhe o status.', 'success');
-            }
-          } catch (error) {
-            setCheckoutFeedback((error && error.message) ? error.message : 'Nao foi possivel gerar o pagamento Pix agora.', 'error');
-          } finally {
-            if (finalizarPagarBtn) finalizarPagarBtn.disabled = false;
-          }
+          await runPixCheckoutFlow();
         });
       }
       document.querySelectorAll('[data-consulta-pagar]').forEach((button) => {
@@ -3461,9 +3536,27 @@
         openModal(registerSummaryModal);
       }
 
+      if (registerForm) {
+        if (finalizeAfterSaveInput) finalizeAfterSaveInput.value = '0';
+        const markNeedsSaveBeforePix = () => {
+          skipSaveBeforePix = false;
+          if (finalizeAfterSaveInput) finalizeAfterSaveInput.value = '0';
+        };
+        registerForm.addEventListener('input', markNeedsSaveBeforePix);
+        registerForm.addEventListener('change', markNeedsSaveBeforePix);
+      }
+
       initRepeatFields();
+      if (autoStartPixAfterSave) {
+        restoreCartAfterSave();
+      }
       renderCart();
       updateCheckoutSummary();
+      if (autoStartPixAfterSave) {
+        window.setTimeout(() => {
+          runPixCheckoutFlow();
+        }, 180);
+      }
     })();
   </script>
 </body>

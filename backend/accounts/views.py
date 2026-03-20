@@ -5357,6 +5357,7 @@ class EventoPublicoView(View):
         consulta_term='',
         consulta_results=None,
         edit_target_inscricao=None,
+        auto_start_pix=False,
     ):
         schema = self._event_schema(evento)
         produtos = self._produto_rows_evento(evento)
@@ -5577,6 +5578,7 @@ class EventoPublicoView(View):
             'register_summary_fee_mode_label': register_summary_fee_mode_label,
             'register_summary_fee_units': register_summary_fee_units,
             'register_summary_fee_value_fmt': register_summary_fee_value_fmt,
+            'auto_start_pix': bool(auto_start_pix),
             'produtos': produtos,
             'has_produtos': bool(produtos),
             'can_buy': bool(produtos),
@@ -5936,6 +5938,7 @@ class EventoPublicoView(View):
         if fee_error:
             messages.error(request, fee_error)
             return render(request, self.template_name, self._context(request, evento))
+        finalize_after_save = str(request.POST.get('finalize_after_save') or '').strip() == '1'
         inscricao_salva = None
         if edit_target_inscricao:
             if request.user.is_authenticated and not edit_target_inscricao.responsavel_id:
@@ -5959,50 +5962,98 @@ class EventoPublicoView(View):
         else:
             if request.user.is_authenticated:
                 responsavel = LojaView()._ensure_loja_responsavel(request.user, create=False)
-                created = False
-                for _attempt in range(10):
+                existing_inscricao = (
+                    EventoInscricao.objects
+                    .filter(evento=evento, user=request.user)
+                    .order_by('-created_at')
+                    .first()
+                )
+                if existing_inscricao:
+                    existing_inscricao.responsavel = responsavel
+                    existing_inscricao.dados = dados
+                    existing_inscricao.valor_inscricao = fee_total
+                    existing_inscricao.valor_inscricao_unidades = fee_units
+                    existing_inscricao.save(update_fields=[
+                        'responsavel',
+                        'dados',
+                        'valor_inscricao',
+                        'valor_inscricao_unidades',
+                        'updated_at',
+                    ])
+                    inscricao_salva = existing_inscricao
+                    messages.success(request, 'Inscricao do evento atualizada com sucesso.')
+                else:
+                    created = False
+                    for _attempt in range(10):
+                        try:
+                            inscricao_salva = EventoInscricao.objects.create(
+                                evento=evento,
+                                user=request.user,
+                                responsavel=responsavel,
+                                dados=dados,
+                                valor_inscricao=fee_total,
+                                valor_inscricao_unidades=fee_units,
+                            )
+                            created = True
+                            break
+                        except IntegrityError:
+                            continue
+                    if not created:
+                        messages.error(request, 'Nao foi possivel gerar codigo unico da inscricao. Tente novamente.')
+                        return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
+                    messages.success(request, 'Inscricao do evento salva com sucesso.')
                     try:
-                        inscricao_salva = EventoInscricao.objects.create(
-                            evento=evento,
-                            user=request.user,
-                            responsavel=responsavel,
-                            dados=dados,
-                            valor_inscricao=fee_total,
-                            valor_inscricao_unidades=fee_units,
-                        )
-                        created = True
-                        break
-                    except IntegrityError:
-                        continue
-                if not created:
-                    messages.error(request, 'Nao foi possivel gerar codigo unico da inscricao. Tente novamente.')
-                    return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
+                        self._dispatch_whatsapp_nova_inscricao_evento(evento, inscricao_salva)
+                    except Exception:
+                        logger.exception('Falha ao enviar notificacao de nova inscricao de evento (evento=%s, inscricao=%s).', evento.id, getattr(inscricao_salva, 'id', None))
             else:
                 session_key = _evento_public_inscricao_session_key(evento.id)
-                inscricao_obj = None
-                for _attempt in range(10):
+                existing_id = request.session.get(session_key)
+                existing_inscricao = None
+                if str(existing_id or '').isdigit():
+                    existing_inscricao = (
+                        EventoInscricao.objects
+                        .filter(pk=int(existing_id), evento=evento, user__isnull=True)
+                        .first()
+                    )
+                if existing_inscricao:
+                    existing_inscricao.dados = dados
+                    existing_inscricao.valor_inscricao = fee_total
+                    existing_inscricao.valor_inscricao_unidades = fee_units
+                    existing_inscricao.save(update_fields=[
+                        'dados',
+                        'valor_inscricao',
+                        'valor_inscricao_unidades',
+                        'updated_at',
+                    ])
+                    request.session[session_key] = int(existing_inscricao.pk)
+                    inscricao_salva = existing_inscricao
+                    messages.success(request, 'Inscricao do evento atualizada com sucesso.')
+                else:
+                    inscricao_obj = None
+                    for _attempt in range(10):
+                        try:
+                            inscricao_obj = EventoInscricao.objects.create(
+                                evento=evento,
+                                user=None,
+                                responsavel=None,
+                                dados=dados,
+                                valor_inscricao=fee_total,
+                                valor_inscricao_unidades=fee_units,
+                            )
+                            break
+                        except IntegrityError:
+                            continue
+                    if not inscricao_obj:
+                        messages.error(request, 'Nao foi possivel gerar codigo unico da inscricao. Tente novamente.')
+                        return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
+                    request.session[session_key] = inscricao_obj.pk
+                    inscricao_salva = inscricao_obj
+                    messages.success(request, 'Inscricao do evento salva com sucesso.')
                     try:
-                        inscricao_obj = EventoInscricao.objects.create(
-                            evento=evento,
-                            user=None,
-                            responsavel=None,
-                            dados=dados,
-                            valor_inscricao=fee_total,
-                            valor_inscricao_unidades=fee_units,
-                        )
-                        break
-                    except IntegrityError:
-                        continue
-                if not inscricao_obj:
-                    messages.error(request, 'Nao foi possivel gerar codigo unico da inscricao. Tente novamente.')
-                    return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
-                request.session[session_key] = inscricao_obj.pk
-                inscricao_salva = inscricao_obj
-            messages.success(request, 'Inscricao do evento salva com sucesso.')
-            try:
-                self._dispatch_whatsapp_nova_inscricao_evento(evento, inscricao_salva)
-            except Exception:
-                logger.exception('Falha ao enviar notificacao de nova inscricao de evento (evento=%s, inscricao=%s).', evento.id, getattr(inscricao_salva, 'id', None))
+                        self._dispatch_whatsapp_nova_inscricao_evento(evento, inscricao_salva)
+                    except Exception:
+                        logger.exception('Falha ao enviar notificacao de nova inscricao de evento (evento=%s, inscricao=%s).', evento.id, getattr(inscricao_salva, 'id', None))
         return render(
             request,
             self.template_name,
@@ -6011,6 +6062,7 @@ class EventoPublicoView(View):
                 evento,
                 show_register_summary=bool(inscricao_salva),
                 active_mode='inscricao',
+                auto_start_pix=bool(finalize_after_save and inscricao_salva),
             ),
         )
 
