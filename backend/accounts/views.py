@@ -4863,6 +4863,71 @@ class EventoPublicoView(View):
         candidates.sort(key=lambda item: item[0])
         return candidates[0][1]
 
+    def _dispatch_whatsapp_nova_inscricao_evento(self, evento, inscricao):
+        if not evento or not inscricao:
+            return
+
+        template_text = get_template_message(WhatsAppTemplate.TYPE_EVENTO_INSCRICAO)
+        prefs = list(
+            WhatsAppPreference.objects
+            .filter(notify_evento_inscricao=True)
+            .select_related('user')
+        )
+        if not prefs:
+            return
+
+        event_date_text = evento.event_date.strftime('%d/%m/%Y') if getattr(evento, 'event_date', None) else '-'
+        if getattr(evento, 'event_time', None) and getattr(evento, 'event_end_time', None):
+            event_time_text = f'{evento.event_time.strftime("%H:%M")} - {evento.event_end_time.strftime("%H:%M")}'
+        elif getattr(evento, 'event_time', None):
+            event_time_text = evento.event_time.strftime('%H:%M')
+        else:
+            event_time_text = '-'
+
+        responsavel_nome = self._nome_responsavel_from_inscricao(inscricao)
+        responsavel_cpf = self._cpf_responsavel_from_inscricao(inscricao)
+        responsavel_whatsapp = self._whatsapp_responsavel_from_inscricao(inscricao)
+        valor_inscricao = getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
+        payload = {
+            'evento_nome': str(getattr(evento, 'name', '') or f'Evento {evento.id}'),
+            'evento_data': event_date_text,
+            'evento_horario': event_time_text,
+            'evento_local': str(getattr(evento, 'event_location', '') or '-'),
+            'codigo_inscricao': str(getattr(inscricao, 'codigo_inscricao', '') or '-'),
+            'responsavel_nome': responsavel_nome or '-',
+            'responsavel_cpf': responsavel_cpf or '-',
+            'responsavel_whatsapp': responsavel_whatsapp or '-',
+            'valor_inscricao': self._format_currency(valor_inscricao),
+            'data_hora': timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M'),
+        }
+        message_text = render_message(template_text, payload)
+
+        for pref in prefs:
+            user = pref.user
+            if not user:
+                continue
+            phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(user))
+            if not phone_number:
+                continue
+            queue_item = WhatsAppQueue.objects.create(
+                user=user,
+                phone_number=phone_number,
+                notification_type=WhatsAppQueue.TYPE_EVENTO_INSCRICAO,
+                message_text=message_text,
+                status=WhatsAppQueue.STATUS_PENDING,
+            )
+            success, provider_id, error_message = send_wapi_text(phone_number, message_text)
+            queue_item.attempts = 1
+            if success:
+                queue_item.status = WhatsAppQueue.STATUS_SENT
+                queue_item.provider_message_id = provider_id
+                queue_item.sent_at = timezone.now()
+                queue_item.last_error = ''
+            else:
+                queue_item.status = WhatsAppQueue.STATUS_FAILED
+                queue_item.last_error = error_message
+            queue_item.save(update_fields=['status', 'attempts', 'provider_message_id', 'sent_at', 'last_error'])
+
     def _consulta_outros_dados_rows(self, dados):
         if not isinstance(dados, dict) or not dados:
             return []
@@ -5934,6 +5999,10 @@ class EventoPublicoView(View):
                 request.session[session_key] = inscricao_obj.pk
                 inscricao_salva = inscricao_obj
             messages.success(request, 'Inscricao do evento salva com sucesso.')
+            try:
+                self._dispatch_whatsapp_nova_inscricao_evento(evento, inscricao_salva)
+            except Exception:
+                logger.exception('Falha ao enviar notificacao de nova inscricao de evento (evento=%s, inscricao=%s).', evento.id, getattr(inscricao_salva, 'id', None))
         return render(
             request,
             self.template_name,
@@ -7396,6 +7465,7 @@ class WhatsAppView(LoginRequiredMixin, View):
         confirmacao_template = get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO)
         financeiro_template = get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO)
         loja_template = get_template_message(WhatsAppTemplate.TYPE_LOJA)
+        evento_inscricao_template = get_template_message(WhatsAppTemplate.TYPE_EVENTO_INSCRICAO)
         teste_template = get_template_message(WhatsAppTemplate.TYPE_TESTE)
         context = {
             'rows': self._users_context(),
@@ -7405,6 +7475,7 @@ class WhatsAppView(LoginRequiredMixin, View):
             'confirmacao_template': confirmacao_template,
             'financeiro_template': financeiro_template,
             'loja_template': loja_template,
+            'evento_inscricao_template': evento_inscricao_template,
             'teste_template': teste_template,
         }
         context.update(_sidebar_context(request))
@@ -7419,6 +7490,7 @@ class WhatsAppView(LoginRequiredMixin, View):
         diretoria_enabled = []
         financeiro_enabled = []
         loja_enabled = []
+        evento_inscricao_enabled = []
         for row in rows:
             user = row['user']
             pref = row['pref']
@@ -7428,6 +7500,7 @@ class WhatsAppView(LoginRequiredMixin, View):
             pref.notify_diretoria = bool(request.POST.get(f'{prefix}_diretoria'))
             pref.notify_financeiro = bool(request.POST.get(f'{prefix}_financeiro'))
             pref.notify_loja = bool(request.POST.get(f'{prefix}_loja'))
+            pref.notify_evento_inscricao = bool(request.POST.get(f'{prefix}_evento_inscricao'))
             pref.notify_geral = False
             pref.save(
                 update_fields=[
@@ -7436,6 +7509,7 @@ class WhatsAppView(LoginRequiredMixin, View):
                     'notify_diretoria',
                     'notify_financeiro',
                     'notify_loja',
+                    'notify_evento_inscricao',
                     'notify_geral',
                     'updated_at',
                 ]
@@ -7448,6 +7522,8 @@ class WhatsAppView(LoginRequiredMixin, View):
                 financeiro_enabled.append(user.username)
             if pref.notify_loja:
                 loja_enabled.append(user.username)
+            if pref.notify_evento_inscricao:
+                evento_inscricao_enabled.append(user.username)
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_CADASTRO,
             defaults={'message_text': request.POST.get('template_cadastro', '').strip()},
@@ -7467,6 +7543,10 @@ class WhatsAppView(LoginRequiredMixin, View):
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_LOJA,
             defaults={'message_text': request.POST.get('template_loja', '').strip()},
+        )
+        WhatsAppTemplate.objects.update_or_create(
+            notification_type=WhatsAppTemplate.TYPE_EVENTO_INSCRICAO,
+            defaults={'message_text': request.POST.get('template_evento_inscricao', '').strip()},
         )
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_TESTE,
@@ -7489,6 +7569,7 @@ class WhatsAppView(LoginRequiredMixin, View):
                     'confirmacao_template': get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO),
                     'financeiro_template': get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO),
                     'loja_template': get_template_message(WhatsAppTemplate.TYPE_LOJA),
+                    'evento_inscricao_template': get_template_message(WhatsAppTemplate.TYPE_EVENTO_INSCRICAO),
                     'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
                 }
                 context.update(_sidebar_context(request))
@@ -7577,6 +7658,12 @@ class WhatsAppView(LoginRequiredMixin, View):
             messages.info(request, f'Pedido da loja pago marcado para: {preview}{suffix}')
         else:
             messages.info(request, 'Nenhum contato está marcado para receber notificação de Pedido da loja pago.')
+        if evento_inscricao_enabled:
+            preview = ', '.join(evento_inscricao_enabled[:6])
+            suffix = '...' if len(evento_inscricao_enabled) > 6 else ''
+            messages.info(request, f'Nova inscricao de evento marcado para: {preview}{suffix}')
+        else:
+            messages.info(request, 'Nenhum contato esta marcado para receber notificacao de Nova inscricao de evento.')
         context = {
             'rows': self._users_context(),
             'queue': queue_stats(),
@@ -7585,6 +7672,7 @@ class WhatsAppView(LoginRequiredMixin, View):
             'confirmacao_template': get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO),
             'financeiro_template': get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO),
             'loja_template': get_template_message(WhatsAppTemplate.TYPE_LOJA),
+            'evento_inscricao_template': get_template_message(WhatsAppTemplate.TYPE_EVENTO_INSCRICAO),
             'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
         }
         context.update(_sidebar_context(request))
@@ -10526,3 +10614,4 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
             messages.success(request, 'Permissões atualizadas com sucesso.')
             return redirect('accounts:usuarios')
         return render(request, self.template_name, self._base_context(request, target_user, form))
+

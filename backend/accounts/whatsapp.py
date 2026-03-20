@@ -59,6 +59,20 @@ DEFAULT_LOJA_MESSAGE = (
     'Data/Hora: {data_hora}'
 )
 
+DEFAULT_EVENTO_INSCRICAO_MESSAGE = (
+    'Nova inscricao de evento recebida!\n'
+    'Evento: {evento_nome}\n'
+    'Data do evento: {evento_data}\n'
+    'Horario: {evento_horario}\n'
+    'Local: {evento_local}\n'
+    'Codigo da inscricao: {codigo_inscricao}\n'
+    'Responsavel: {responsavel_nome}\n'
+    'CPF: {responsavel_cpf}\n'
+    'WhatsApp: {responsavel_whatsapp}\n'
+    'Valor da inscricao: {valor_inscricao}\n'
+    'Data/Hora do cadastro: {data_hora}'
+)
+
 DEFAULT_TESTE_MESSAGE = (
     '✅ Mensagem de teste do sistema Pinhal Junior.\n'
     'Se voce recebeu este aviso, o canal WhatsApp esta ativo.'
@@ -221,6 +235,7 @@ def get_template_message(notification_type):
         WhatsAppTemplate.TYPE_CONFIRMACAO: DEFAULT_CONFIRMACAO_MESSAGE,
         WhatsAppTemplate.TYPE_FINANCEIRO: DEFAULT_FINANCEIRO_MESSAGE,
         WhatsAppTemplate.TYPE_LOJA: DEFAULT_LOJA_MESSAGE,
+        WhatsAppTemplate.TYPE_EVENTO_INSCRICAO: DEFAULT_EVENTO_INSCRICAO_MESSAGE,
         WhatsAppTemplate.TYPE_TESTE: DEFAULT_TESTE_MESSAGE,
     }
     default_message = defaults.get(notification_type, DEFAULT_TESTE_MESSAGE)
