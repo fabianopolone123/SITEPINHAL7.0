@@ -1226,6 +1226,16 @@
           {% endif %}
           <div class="event-entry-grid">
             <div class="event-entry-item">
+              <span>Data</span>
+              <strong>
+                {% if evento.event_date %}
+                  {{ evento.event_date|date:"d/m/Y" }}
+                {% else %}
+                  Nao informada
+                {% endif %}
+              </strong>
+            </div>
+            <div class="event-entry-item">
               <span>Horario</span>
               <strong>
                 {% if evento.event_time and evento.event_end_time %}
