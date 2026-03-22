@@ -242,6 +242,73 @@
         {% else %}
           <p class="panel-note">Nenhum aventureiro vinculado ao seu usuário de responsável.</p>
         {% endif %}
+
+        <div class="financeiro-report-section">
+          <h3>Cashback por aventureiro</h3>
+          {% if cashback_rows %}
+            <div class="financeiro-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Aventureiro</th>
+                    <th>Codigo de indicacao</th>
+                    <th>Saldo total</th>
+                    <th>Saldo disponivel</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in cashback_rows %}
+                    <tr>
+                      <td>{{ row.nome }}</td>
+                      <td><strong>{{ row.codigo_indicacao|default:"-" }}</strong></td>
+                      <td>{{ row.saldo_fmt }}</td>
+                      <td>{{ row.disponivel_fmt }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="panel-note">Nenhum aventureiro com carteira cashback disponível.</p>
+          {% endif %}
+        </div>
+
+        <div class="financeiro-report-section">
+          <h3>Extrato cashback</h3>
+          {% if cashback_lancamentos_rows %}
+            <div class="financeiro-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Aventureiro</th>
+                    <th>Tipo</th>
+                    <th>Valor</th>
+                    <th>Saldo apos</th>
+                    <th>Origem</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in cashback_lancamentos_rows %}
+                    <tr>
+                      <td>{{ row.created_at_label }}</td>
+                      <td>{{ row.aventureiro_nome }}</td>
+                      <td>{{ row.tipo_label }}</td>
+                      <td>{{ row.valor_sinal }} {{ row.valor_fmt }}</td>
+                      <td>{{ row.saldo_apos_fmt }}</td>
+                      <td>
+                        {{ row.origem }}
+                        {% if row.descricao %}<small>{{ row.descricao }}</small>{% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="panel-note">Nenhum lançamento de cashback encontrado.</p>
+          {% endif %}
+        </div>
       </div>
       {% elif active_financeiro_tab == 'relatorios' %}
       <div class="financeiro-report-cards">

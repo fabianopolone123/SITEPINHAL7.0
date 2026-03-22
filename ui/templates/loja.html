@@ -600,6 +600,14 @@
       box-shadow:none;
     }
     .cart-foot-note { margin:0; font-size:.78rem; color:#64748b; }
+    .cart-cashback-toggle {
+      display:inline-flex;
+      align-items:center;
+      gap:.45rem;
+      color:#0f172a;
+      font-weight:700;
+      font-size:.86rem;
+    }
     .cart-inline-feedback { margin:0; font-size:.8rem; color:#0369a1; min-height:1rem; }
     .pix-modal[hidden] { display:none !important; }
     .pix-modal {
@@ -1454,6 +1462,28 @@
           <span>Total do pedido</span>
           <span class="cart-total-value" id="catalogCartTotal">R$ 0,00</span>
         </div>
+        {% if cashback_rows %}
+          <label class="cart-cashback-toggle">
+            <input type="checkbox" id="catalogCartUseCashback" />
+            Usar cashback
+          </label>
+          <label style="display:grid; gap:.3rem;">
+            <span class="catalog-label">Aventureiro do cashback</span>
+            <select class="cart-payment-select" id="catalogCartCashbackAventureiro">
+              <option value="">Selecione o aventureiro</option>
+              {% for row in cashback_rows %}
+                <option value="{{ row.id }}" data-disponivel="{{ row.disponivel }}">
+                  {{ row.nome }} - disponivel {{ row.disponivel_fmt }}{% if row.codigo_indicacao %} (codigo {{ row.codigo_indicacao }}){% endif %}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+          <div class="cart-total-row">
+            <span>Desconto cashback</span>
+            <span class="cart-total-value" id="catalogCartCashbackTotal">R$ 0,00</span>
+          </div>
+          <p class="cart-foot-note" id="catalogCartCashbackMeta">Disponivel: R$ 0,00</p>
+        {% endif %}
         <label style="display:grid; gap:.3rem;">
           <span class="catalog-label">Forma de pagamento</span>
           <select class="cart-payment-select" id="catalogCartPaymentMethod">
@@ -1651,6 +1681,10 @@
       const cartEmpty = document.getElementById('catalogCartEmpty');
       const cartTotalEl = document.getElementById('catalogCartTotal');
       const cartPaymentSelect = document.getElementById('catalogCartPaymentMethod');
+      const cartUseCashbackInput = document.getElementById('catalogCartUseCashback');
+      const cartCashbackAventureiroSelect = document.getElementById('catalogCartCashbackAventureiro');
+      const cartCashbackTotalEl = document.getElementById('catalogCartCashbackTotal');
+      const cartCashbackMetaEl = document.getElementById('catalogCartCashbackMeta');
       const cartFinalizeBtn = document.getElementById('catalogCartFinalizeBtn');
       const cartInlineFeedback = document.getElementById('catalogCartInlineFeedback');
       const pixApiConfig = document.getElementById('lojaPixApiConfig');
@@ -1676,7 +1710,7 @@
       const PIX_STATUS_URL_TEMPLATE = pixApiConfig ? String(pixApiConfig.dataset.statusUrlTemplate || '') : '';
       let modalGalleryItems = [];
       let modalGalleryIndex = 0;
-      let cartState = { items: [], payment_method: 'pix' };
+      let cartState = { items: [], payment_method: 'pix', use_cashback: false, cashback_aventureiro_id: '' };
       let pixPedidoAtual = null;
       let pixPollingTimer = null;
       let approvedSuccessShownForPedido = '';
@@ -1686,6 +1720,8 @@
         const items = Array.isArray(base.items) ? base.items : [];
         return {
           payment_method: String(base.payment_method || 'pix') || 'pix',
+          use_cashback: !!base.use_cashback,
+          cashback_aventureiro_id: String(base.cashback_aventureiro_id || '').trim(),
           items: items
             .filter(function (item) {
               return item && item.key && item.product_id && item.variation_id;
@@ -1712,7 +1748,7 @@
           if (!raw) return;
           cartState = normalizeCartState(JSON.parse(raw));
         } catch (error) {
-          cartState = { items: [], payment_method: '' };
+          cartState = { items: [], payment_method: '', use_cashback: false, cashback_aventureiro_id: '' };
         }
       }
 
@@ -1733,6 +1769,26 @@
         return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
       }
 
+      function getSelectedCashbackDisponivel() {
+        if (!cartCashbackAventureiroSelect) return 0;
+        const selected = cartCashbackAventureiroSelect.options[cartCashbackAventureiroSelect.selectedIndex];
+        if (!selected) return 0;
+        const raw = String(selected.getAttribute('data-disponivel') || '').trim();
+        const direct = Number(raw.replace(',', '.'));
+        if (Number.isFinite(direct)) return Math.max(0, direct);
+        const normalized = raw.replace(/\./g, '').replace(',', '.');
+        const fallback = Number(normalized);
+        return Number.isFinite(fallback) ? Math.max(0, fallback) : 0;
+      }
+
+      function calculateCashbackPreview(subtotal) {
+        if (!cartUseCashbackInput || !cartUseCashbackInput.checked) return 0;
+        if (!cartCashbackAventureiroSelect || !String(cartCashbackAventureiroSelect.value || '').trim()) return 0;
+        const disponivel = getSelectedCashbackDisponivel();
+        const total = Math.max(0, Number(subtotal || 0));
+        return Math.max(0, Math.min(disponivel, total));
+      }
+
       function escapeHtml(value) {
         return String(value || '')
           .replace(/&/g, '&amp;')
@@ -1745,16 +1801,27 @@
       function renderCart() {
         if (!cartItemsWrap || !cartTotalEl) return;
         const items = cartState.items || [];
-        const total = items.reduce(function (acc, item) {
+        const subtotal = items.reduce(function (acc, item) {
           return acc + (Number(item.unit_price || 0) * Number(item.quantity || 0));
         }, 0);
+        if (cartUseCashbackInput) {
+          cartUseCashbackInput.checked = !!cartState.use_cashback;
+        }
+        if (cartCashbackAventureiroSelect) {
+          cartCashbackAventureiroSelect.value = String(cartState.cashback_aventureiro_id || '');
+        }
+        const cashbackDesconto = calculateCashbackPreview(subtotal);
+        const total = Math.max(0, subtotal - cashbackDesconto);
 
         if (cartOpenCount) cartOpenCount.textContent = String(cartItemsCount());
         cartTotalEl.textContent = formatPriceNumber(total);
         if (!cartState.payment_method) cartState.payment_method = 'pix';
         if (cartPaymentSelect) cartPaymentSelect.value = cartState.payment_method || 'pix';
+        if (cartCashbackTotalEl) cartCashbackTotalEl.textContent = formatPriceNumber(cashbackDesconto);
+        if (cartCashbackMetaEl) cartCashbackMetaEl.textContent = 'Disponivel: ' + formatPriceNumber(getSelectedCashbackDisponivel());
         if (cartFinalizeBtn) {
-          cartFinalizeBtn.disabled = !(items.length && (cartState.payment_method || '').trim());
+          const invalidCashback = !!(cartUseCashbackInput && cartUseCashbackInput.checked && !(cartCashbackAventureiroSelect && String(cartCashbackAventureiroSelect.value || '').trim()));
+          cartFinalizeBtn.disabled = (!(items.length && (cartState.payment_method || '').trim())) || invalidCashback;
         }
 
         if (cartEmpty) cartEmpty.hidden = items.length > 0;
@@ -1923,6 +1990,12 @@
             };
           }),
         };
+        if (cartUseCashbackInput && cartUseCashbackInput.checked) {
+          payload.usar_cashback = true;
+          if (cartCashbackAventureiroSelect && String(cartCashbackAventureiroSelect.value || '').trim()) {
+            payload.cashback_aventureiro_id = Number(cartCashbackAventureiroSelect.value);
+          }
+        }
         const response = await fetch(PIX_CREATE_URL, {
           method: 'POST',
           credentials: 'same-origin',
@@ -2121,6 +2194,29 @@
           setCartFeedback('');
         });
       }
+      if (cartUseCashbackInput) {
+        cartUseCashbackInput.addEventListener('change', function () {
+          cartState.use_cashback = !!cartUseCashbackInput.checked;
+          if (cartState.use_cashback && cartCashbackAventureiroSelect && String(cartCashbackAventureiroSelect.value || '').trim()) {
+            cartState.cashback_aventureiro_id = String(cartCashbackAventureiroSelect.value || '').trim();
+          }
+          saveCartState();
+          renderCart();
+          setCartFeedback('');
+        });
+      }
+      if (cartCashbackAventureiroSelect) {
+        cartCashbackAventureiroSelect.addEventListener('change', function () {
+          cartState.cashback_aventureiro_id = String(cartCashbackAventureiroSelect.value || '').trim();
+          if (cartUseCashbackInput && cartState.cashback_aventureiro_id) {
+            cartUseCashbackInput.checked = true;
+            cartState.use_cashback = true;
+          }
+          saveCartState();
+          renderCart();
+          setCartFeedback('');
+        });
+      }
       if (cartFinalizeBtn) {
         cartFinalizeBtn.addEventListener('click', async function () {
           if (!cartState.items.length) {
@@ -2130,6 +2226,14 @@
           if (!String(cartState.payment_method || '').trim()) {
             setCartFeedback('Selecione a forma de pagamento para continuar.');
             return;
+          }
+          if (cartUseCashbackInput && cartUseCashbackInput.checked) {
+            const avId = cartCashbackAventureiroSelect ? String(cartCashbackAventureiroSelect.value || '').trim() : '';
+            if (!avId) {
+              setCartFeedback('Selecione o aventureiro para usar cashback.');
+              if (cartCashbackAventureiroSelect) cartCashbackAventureiroSelect.focus();
+              return;
+            }
           }
           try {
             cartFinalizeBtn.disabled = true;

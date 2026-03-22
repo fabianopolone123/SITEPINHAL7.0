@@ -58,6 +58,7 @@ from .models import (
     AuditLog,
     MensalidadeAventureiro,
     PagamentoMensalidade,
+    AventureiroCashbackLancamento,
     LojaProduto,
     LojaProdutoVariacao,
     LojaProdutoFoto,
@@ -5231,7 +5232,7 @@ class EventoPublicoView(View):
         base_qs = (
             EventoInscricao.objects
             .filter(evento=evento, confirmada=True)
-            .select_related('user', 'responsavel', 'responsavel__user')
+            .select_related('user', 'responsavel', 'responsavel__user', 'indicador_aventureiro')
             .order_by('-created_at')
         )
 
@@ -5284,6 +5285,9 @@ class EventoPublicoView(View):
                     'pago_label': 'Pago' if pedido.status == LojaPedido.STATUS_PAGO else 'Nao pago',
                     'status_css': 'is-paid' if pedido.status == LojaPedido.STATUS_PAGO else 'is-unpaid',
                     'valor_total_fmt': self._format_currency(pedido.valor_total),
+                    'cashback_desconto_fmt': self._format_currency(
+                        Decimal(getattr(pedido, 'cashback_desconto_valor', Decimal('0.00')) or Decimal('0.00'))
+                    ),
                     'created_at': pedido.created_at,
                     'itens': itens_rows,
                     'pix_data': pix_data,
@@ -5294,6 +5298,11 @@ class EventoPublicoView(View):
             dados_obj = inscricao.dados if isinstance(inscricao.dados, dict) else {}
             criancas_info = self._criancas_info_from_inscricao(inscricao, evento=evento)
             valor_inscricao = getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
+            cashback_creditado_valor = Decimal(getattr(inscricao, 'cashback_creditado_valor', Decimal('0.00')) or Decimal('0.00'))
+            cashback_usado_valor = Decimal(getattr(inscricao, 'cashback_usado_valor', Decimal('0.00')) or Decimal('0.00'))
+            indicador_nome = ''
+            if getattr(inscricao, 'indicador_aventureiro', None):
+                indicador_nome = str(inscricao.indicador_aventureiro.nome or '').strip()
             pedidos_total = len(pedidos_rows)
             pedidos_pagos = sum(1 for item in pedidos_rows if item.get('is_paid'))
             if pedidos_total > 0:
@@ -5328,6 +5337,11 @@ class EventoPublicoView(View):
                     valor_inscricao
                 ),
                 'valor_inscricao_unidades': int(getattr(inscricao, 'valor_inscricao_unidades', 0) or 0),
+                'codigo_indicacao_usado': str(getattr(inscricao, 'codigo_indicacao_usado', '') or '').strip(),
+                'indicador_nome': indicador_nome,
+                'cashback_creditado': bool(getattr(inscricao, 'cashback_creditado', False)),
+                'cashback_creditado_valor_fmt': self._format_currency(cashback_creditado_valor),
+                'cashback_usado_valor_fmt': self._format_currency(cashback_usado_valor),
                 'data_inscricao': inscricao.created_at,
                 'criancas_linhas': criancas_info.get('linhas', []),
                 'criancas_total': int(criancas_info.get('total', 0) or 0),
@@ -5399,6 +5413,12 @@ class EventoPublicoView(View):
                 form_initial_by_input[field['input_name']] = raw_value if isinstance(raw_value, list) else []
             else:
                 form_initial_by_input[field['input_name']] = '' if raw_value is None else str(raw_value)
+        form_codigo_indicacao = str(getattr(form_source, 'codigo_indicacao_usado', '') or '').strip()
+        cashback_rows = []
+        if request.user.is_authenticated:
+            loja_view = LojaView()
+            responsavel_cashback = loja_view._ensure_loja_responsavel(request.user, create=False)
+            cashback_rows = loja_view._cashback_rows_for_responsavel(responsavel_cashback)
 
         register_summary_items = []
         register_summary_code = ''
@@ -5571,6 +5591,7 @@ class EventoPublicoView(View):
             'consulta_term': str(consulta_term or '').strip(),
             'consulta_results': consulta_results if isinstance(consulta_results, list) else [],
             'form_initial_by_input': form_initial_by_input,
+            'form_codigo_indicacao': form_codigo_indicacao,
             'form_edit_registration_id': str(edit_target_inscricao.id) if edit_target_inscricao else '',
             'show_register_summary': bool(show_register_summary and inscricao),
             'register_summary_items': register_summary_items,
@@ -5601,6 +5622,7 @@ class EventoPublicoView(View):
             'inscricoes_preview': inscricoes_preview,
             'pedidos_preview': pedidos_preview,
             'inscritos_detalhes': inscritos_detalhes,
+            'cashback_rows': cashback_rows,
         }
         if request.user.is_authenticated:
             context.update(_sidebar_context(request))
@@ -5938,19 +5960,34 @@ class EventoPublicoView(View):
         if fee_error:
             messages.error(request, fee_error)
             return render(request, self.template_name, self._context(request, evento))
+        loja_view = LojaView()
+        codigo_indicacao_input = loja_view._normalize_indicacao_code(request.POST.get('codigo_indicacao'))
+        indicador_aventureiro = loja_view._resolve_indicador_from_code(codigo_indicacao_input) if codigo_indicacao_input else None
         finalize_after_save = str(request.POST.get('finalize_after_save') or '').strip() == '1'
         inscricao_salva = None
         if edit_target_inscricao:
+            codigo_indicacao_save = codigo_indicacao_input
+            indicador_save = indicador_aventureiro
+            if edit_target_inscricao.cashback_creditado:
+                codigo_atual = str(edit_target_inscricao.codigo_indicacao_usado or '').strip()
+                if codigo_indicacao_save != codigo_atual:
+                    messages.info(request, 'Codigo de indicacao ja creditado e nao pode ser alterado nesta inscricao.')
+                codigo_indicacao_save = codigo_atual
+                indicador_save = edit_target_inscricao.indicador_aventureiro
             if request.user.is_authenticated and not edit_target_inscricao.responsavel_id:
                 responsavel_edit = LojaView()._ensure_loja_responsavel(request.user, create=False)
                 if responsavel_edit:
                     edit_target_inscricao.responsavel = responsavel_edit
             edit_target_inscricao.dados = dados
+            edit_target_inscricao.codigo_indicacao_usado = codigo_indicacao_save
+            edit_target_inscricao.indicador_aventureiro = indicador_save
             edit_target_inscricao.valor_inscricao = fee_total
             edit_target_inscricao.valor_inscricao_unidades = fee_units
             edit_target_inscricao.save(update_fields=[
                 'responsavel',
                 'dados',
+                'codigo_indicacao_usado',
+                'indicador_aventureiro',
                 'valor_inscricao',
                 'valor_inscricao_unidades',
                 'updated_at',
@@ -5969,13 +6006,25 @@ class EventoPublicoView(View):
                     .first()
                 )
                 if existing_inscricao:
+                    codigo_indicacao_save = codigo_indicacao_input
+                    indicador_save = indicador_aventureiro
+                    if existing_inscricao.cashback_creditado:
+                        codigo_atual = str(existing_inscricao.codigo_indicacao_usado or '').strip()
+                        if codigo_indicacao_save != codigo_atual:
+                            messages.info(request, 'Codigo de indicacao ja creditado e nao pode ser alterado nesta inscricao.')
+                        codigo_indicacao_save = codigo_atual
+                        indicador_save = existing_inscricao.indicador_aventureiro
                     existing_inscricao.responsavel = responsavel
                     existing_inscricao.dados = dados
+                    existing_inscricao.codigo_indicacao_usado = codigo_indicacao_save
+                    existing_inscricao.indicador_aventureiro = indicador_save
                     existing_inscricao.valor_inscricao = fee_total
                     existing_inscricao.valor_inscricao_unidades = fee_units
                     existing_inscricao.save(update_fields=[
                         'responsavel',
                         'dados',
+                        'codigo_indicacao_usado',
+                        'indicador_aventureiro',
                         'valor_inscricao',
                         'valor_inscricao_unidades',
                         'updated_at',
@@ -5991,6 +6040,8 @@ class EventoPublicoView(View):
                                 user=request.user,
                                 responsavel=responsavel,
                                 dados=dados,
+                                codigo_indicacao_usado=codigo_indicacao_input,
+                                indicador_aventureiro=indicador_aventureiro,
                                 valor_inscricao=fee_total,
                                 valor_inscricao_unidades=fee_units,
                                 confirmada=False,
@@ -6014,11 +6065,23 @@ class EventoPublicoView(View):
                         .first()
                     )
                 if existing_inscricao:
+                    codigo_indicacao_save = codigo_indicacao_input
+                    indicador_save = indicador_aventureiro
+                    if existing_inscricao.cashback_creditado:
+                        codigo_atual = str(existing_inscricao.codigo_indicacao_usado or '').strip()
+                        if codigo_indicacao_save != codigo_atual:
+                            messages.info(request, 'Codigo de indicacao ja creditado e nao pode ser alterado nesta inscricao.')
+                        codigo_indicacao_save = codigo_atual
+                        indicador_save = existing_inscricao.indicador_aventureiro
                     existing_inscricao.dados = dados
+                    existing_inscricao.codigo_indicacao_usado = codigo_indicacao_save
+                    existing_inscricao.indicador_aventureiro = indicador_save
                     existing_inscricao.valor_inscricao = fee_total
                     existing_inscricao.valor_inscricao_unidades = fee_units
                     existing_inscricao.save(update_fields=[
                         'dados',
+                        'codigo_indicacao_usado',
+                        'indicador_aventureiro',
                         'valor_inscricao',
                         'valor_inscricao_unidades',
                         'updated_at',
@@ -6035,6 +6098,8 @@ class EventoPublicoView(View):
                                 user=None,
                                 responsavel=None,
                                 dados=dados,
+                                codigo_indicacao_usado=codigo_indicacao_input,
+                                indicador_aventureiro=indicador_aventureiro,
                                 valor_inscricao=fee_total,
                                 valor_inscricao_unidades=fee_units,
                                 confirmada=False,
@@ -6368,8 +6433,22 @@ class EventoPedidoCreatePixApiView(View):
             })
             itens_total += line_total
 
-        total = (itens_total + fee_total).quantize(Decimal('0.01'))
-        if total <= 0:
+        total_bruto = (itens_total + fee_total).quantize(Decimal('0.01'))
+        cashback_aventureiro = None
+        cashback_desconto = Decimal('0.00')
+        if request.user.is_authenticated:
+            cashback_aventureiro, cashback_desconto, cashback_error = loja_view._resolve_cashback_checkout(
+                payload,
+                responsavel,
+                total_bruto,
+            )
+            if cashback_error:
+                return JsonResponse({'ok': False, 'error': 'cashback_invalid', 'message': cashback_error}, status=400)
+
+        total = (total_bruto - cashback_desconto).quantize(Decimal('0.01'))
+        if total < 0:
+            total = Decimal('0.00')
+        if total <= 0 and cashback_desconto <= 0:
             return JsonResponse({
                 'ok': False,
                 'error': 'empty_total',
@@ -6382,6 +6461,8 @@ class EventoPedidoCreatePixApiView(View):
                     responsavel=responsavel,
                     evento=evento,
                     evento_inscricao=inscricao,
+                    cashback_aventureiro=cashback_aventureiro,
+                    cashback_desconto_valor=cashback_desconto,
                     forma_pagamento=LojaPedido.FORMA_PAGAMENTO_PIX,
                     valor_total=total,
                     created_by=request.user if request.user.is_authenticated else None,
@@ -6418,19 +6499,28 @@ class EventoPedidoCreatePixApiView(View):
                     )
                 LojaPedidoItem.objects.bulk_create(pedido_items)
 
-                mp_payload = loja_view._create_mp_pix_payment_loja(request, pedido)
-                pedido.mp_qr_code = mp_payload['pix_code']
-                pedido.mp_qr_code_base64 = mp_payload['qr_base64']
-                pedido.save(update_fields=[
-                    'mp_qr_code', 'mp_qr_code_base64', 'updated_at',
-                ])
-                loja_view._sync_pedido_loja_from_mp(pedido, {
-                    'id': mp_payload['payment_id'],
-                    'external_reference': mp_payload['external_reference'],
-                    'status': mp_payload['status'],
-                    'status_detail': mp_payload['status_detail'],
-                })
-                pedido.refresh_from_db()
+                if total > 0:
+                    mp_payload = loja_view._create_mp_pix_payment_loja(request, pedido)
+                    pedido.mp_qr_code = mp_payload['pix_code']
+                    pedido.mp_qr_code_base64 = mp_payload['qr_base64']
+                    pedido.save(update_fields=[
+                        'mp_qr_code', 'mp_qr_code_base64', 'updated_at',
+                    ])
+                    loja_view._sync_pedido_loja_from_mp(pedido, {
+                        'id': mp_payload['payment_id'],
+                        'external_reference': mp_payload['external_reference'],
+                        'status': mp_payload['status'],
+                        'status_detail': mp_payload['status_detail'],
+                    })
+                    pedido.refresh_from_db()
+                else:
+                    loja_view._sync_pedido_loja_from_mp(pedido, {
+                        'id': str(pedido.mp_payment_id or ''),
+                        'external_reference': str(pedido.mp_external_reference or ''),
+                        'status': 'approved',
+                        'status_detail': 'cashback_full',
+                    })
+                    pedido.refresh_from_db()
         except ValueError as exc:
             return JsonResponse({'ok': False, 'error': 'mercadopago', 'message': str(exc)}, status=400)
         except Exception:
@@ -6451,6 +6541,10 @@ class EventoPedidoCreatePixApiView(View):
             request.session[session_key] = allowed_ids[-80:]
 
         summary_lines = []
+        if cashback_desconto > 0:
+            summary_lines.append(
+                f'Cashback aplicado: -{loja_view._format_currency(cashback_desconto)}'
+            )
         if fee_total > 0:
             summary_lines.append(
                 f'Inscricao do evento ({str(inscricao.codigo_inscricao or "-").strip()}): {loja_view._format_currency(fee_total)}'
@@ -6465,6 +6559,7 @@ class EventoPedidoCreatePixApiView(View):
             'inscricao_codigo': str(inscricao.codigo_inscricao or '').strip(),
             'inscricao_valor': loja_view._format_currency(fee_total),
             'itens_valor': loja_view._format_currency(itens_total),
+            'cashback_desconto': loja_view._format_currency(cashback_desconto),
             'resumo_linhas': summary_lines,
         })
 
@@ -6548,6 +6643,9 @@ class EventoPedidoStatusApiView(View):
             'mp_status_detail': pedido.mp_status_detail,
             'is_paid': pedido.status == LojaPedido.STATUS_PAGO,
             'valor_total': loja_view._format_currency(pedido.valor_total),
+            'cashback_desconto': loja_view._format_currency(
+                Decimal(getattr(pedido, 'cashback_desconto_valor', Decimal('0.00')) or Decimal('0.00'))
+            ),
             'qr_base64': pedido.mp_qr_code_base64,
             'pix_code': pedido.mp_qr_code,
             'resumo_linhas': resumo_linhas,
@@ -8158,12 +8256,15 @@ class FinanceiroView(LoginRequiredMixin, View):
         hoje = timezone.localdate()
         responsavel = getattr(request.user, 'responsavel', None)
         rows = []
+        cashback_rows = []
+        cashback_lancamentos_rows = []
         if responsavel:
             aventureiros = list(
                 Aventureiro.objects
                 .filter(responsavel=responsavel)
                 .order_by('nome')
             )
+            cashback_rows = LojaView()._cashback_rows_for_responsavel(responsavel)
             if aventureiros:
                 itens = (
                     self._mensalidades_responsavel_base_queryset(
@@ -8193,6 +8294,32 @@ class FinanceiroView(LoginRequiredMixin, View):
                         'is_atrasada': (item.ano_referencia < hoje.year) or (item.ano_referencia == hoje.year and item.mes_referencia < hoje.month),
                     })
                 rows = [row for row in rows_map.values() if row['mensalidades']]
+            av_ids = [int(row['id']) for row in cashback_rows if str(row.get('id', '')).isdigit()]
+            if av_ids:
+                lancamentos = list(
+                    AventureiroCashbackLancamento.objects
+                    .filter(aventureiro_id__in=av_ids)
+                    .select_related('aventureiro', 'evento_inscricao', 'evento_inscricao__evento', 'loja_pedido')
+                    .order_by('-created_at')[:80]
+                )
+                for item in lancamentos:
+                    is_credit = item.tipo == AventureiroCashbackLancamento.TYPE_CREDITO_INDICACAO
+                    origem = 'Ajuste'
+                    if item.evento_inscricao_id and getattr(item.evento_inscricao, 'evento', None):
+                        origem = f'Evento: {item.evento_inscricao.evento.name}'
+                    elif item.loja_pedido_id:
+                        origem = f'Pedido loja #{item.loja_pedido_id}'
+                    cashback_lancamentos_rows.append({
+                        'aventureiro_nome': item.aventureiro.nome,
+                        'tipo_label': item.get_tipo_display(),
+                        'valor_fmt': self._format_currency(item.valor),
+                        'valor_sinal': '+' if is_credit else '-',
+                        'saldo_apos_fmt': self._format_currency(item.saldo_apos),
+                        'origem': origem,
+                        'descricao': str(item.descricao or '').strip(),
+                        'created_at_label': timezone.localtime(item.created_at).strftime('%d/%m/%Y %H:%M'),
+                        'is_credit': is_credit,
+                    })
         return {
             'financeiro_mode': 'responsavel',
             'responsavel_rows': rows,
@@ -8201,6 +8328,8 @@ class FinanceiroView(LoginRequiredMixin, View):
             'mes_atual_label': self._month_label(hoje.month),
             'ano_atual': hoje.year,
             'responsavel_pix_pagamento': None,
+            'cashback_rows': cashback_rows,
+            'cashback_lancamentos_rows': cashback_lancamentos_rows,
         }
 
     def _mensalidades_context(self, aventureiro_id='', valor_mensalidade='30'):
@@ -9433,6 +9562,160 @@ class LojaView(LoginRequiredMixin, View):
         text = f'{decimal_value:,.2f}'
         return 'R$ ' + text.replace(',', 'X').replace('.', ',').replace('X', '.')
 
+    def _normalize_indicacao_code(self, raw_value):
+        text = str(raw_value or '').strip().upper()
+        if not text:
+            return ''
+        text = re.sub(r'[^A-Z0-9]', '', text)
+        return text[:12]
+
+    def _digits_only(self, raw_value):
+        return re.sub(r'\D', '', str(raw_value or ''))
+
+    def _normalize_phone_digits(self, raw_value):
+        normalized = normalize_phone_number(raw_value or '')
+        if normalized:
+            return self._digits_only(normalized)
+        return self._digits_only(raw_value)
+
+    def _responsavel_cpf_set(self, responsavel):
+        if not responsavel:
+            return set()
+        values = set()
+        for raw in [
+            responsavel.responsavel_cpf,
+            responsavel.pai_cpf,
+            responsavel.mae_cpf,
+        ]:
+            digits = self._digits_only(raw)
+            if len(digits) >= 11:
+                values.add(digits)
+        return values
+
+    def _responsavel_phone_set(self, responsavel):
+        if not responsavel:
+            return set()
+        values = set()
+        for raw in [
+            responsavel.responsavel_celular,
+            responsavel.responsavel_telefone,
+            responsavel.mae_celular,
+            responsavel.mae_telefone,
+            responsavel.pai_celular,
+            responsavel.pai_telefone,
+        ]:
+            digits = self._normalize_phone_digits(raw)
+            if len(digits) >= 10:
+                values.add(digits)
+        return values
+
+    def _is_self_indicacao_responsavel(self, indicador_aventureiro, comprador_responsavel):
+        if not indicador_aventureiro or not comprador_responsavel:
+            return False
+        if indicador_aventureiro.responsavel_id and indicador_aventureiro.responsavel_id == comprador_responsavel.id:
+            return True
+        indicador_responsavel = indicador_aventureiro.responsavel
+        if not indicador_responsavel:
+            return False
+        indicador_cpfs = self._responsavel_cpf_set(indicador_responsavel)
+        comprador_cpfs = self._responsavel_cpf_set(comprador_responsavel)
+        if indicador_cpfs and comprador_cpfs and (indicador_cpfs & comprador_cpfs):
+            return True
+        indicador_phones = self._responsavel_phone_set(indicador_responsavel)
+        comprador_phones = self._responsavel_phone_set(comprador_responsavel)
+        if indicador_phones and comprador_phones and (indicador_phones & comprador_phones):
+            return True
+        return False
+
+    def _resolve_indicador_from_code(self, code):
+        normalized = self._normalize_indicacao_code(code)
+        if not normalized:
+            return None
+        return (
+            Aventureiro.objects
+            .select_related('responsavel')
+            .filter(codigo_indicacao=normalized)
+            .first()
+        )
+
+    def _cashback_pending_reserva(self, aventureiro, exclude_pedido_id=None):
+        if not aventureiro:
+            return Decimal('0.00')
+        qs = (
+            LojaPedido.objects
+            .filter(
+                cashback_aventureiro=aventureiro,
+                status__in={LojaPedido.STATUS_PENDENTE, LojaPedido.STATUS_PROCESSANDO},
+            )
+        )
+        if exclude_pedido_id:
+            qs = qs.exclude(pk=exclude_pedido_id)
+        reservado = qs.aggregate(total=Sum('cashback_desconto_valor')).get('total') or Decimal('0.00')
+        try:
+            return Decimal(reservado).quantize(Decimal('0.01'))
+        except (InvalidOperation, TypeError, ValueError):
+            return Decimal('0.00')
+
+    def _cashback_disponivel(self, aventureiro, exclude_pedido_id=None):
+        if not aventureiro:
+            return Decimal('0.00')
+        saldo = Decimal(getattr(aventureiro, 'cashback_saldo', Decimal('0.00')) or Decimal('0.00'))
+        reservado = self._cashback_pending_reserva(aventureiro, exclude_pedido_id=exclude_pedido_id)
+        disponivel = (saldo - reservado).quantize(Decimal('0.01'))
+        if disponivel < 0:
+            return Decimal('0.00')
+        return disponivel
+
+    def _cashback_rows_for_responsavel(self, responsavel):
+        if not responsavel:
+            return []
+        aventureiros = list(
+            Aventureiro.objects
+            .filter(responsavel=responsavel)
+            .order_by('nome')
+        )
+        rows = []
+        for av in aventureiros:
+            saldo = Decimal(getattr(av, 'cashback_saldo', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+            disponivel = self._cashback_disponivel(av)
+            rows.append({
+                'id': av.id,
+                'nome': av.nome,
+                'codigo_indicacao': str(av.codigo_indicacao or '').strip(),
+                'saldo': saldo,
+                'saldo_fmt': self._format_currency(saldo),
+                'disponivel': disponivel,
+                'disponivel_fmt': self._format_currency(disponivel),
+            })
+        return rows
+
+    def _resolve_cashback_checkout(self, payload, responsavel, total):
+        if not responsavel:
+            return None, Decimal('0.00'), ''
+        should_use_cashback = str(payload.get('usar_cashback') or '').strip().lower() in {'1', 'true', 'on', 'sim', 'yes'}
+        if not should_use_cashback:
+            return None, Decimal('0.00'), ''
+        raw_aventureiro_id = str(payload.get('cashback_aventureiro_id') or '').strip()
+        if not raw_aventureiro_id.isdigit():
+            return None, Decimal('0.00'), 'Selecione o aventureiro para usar cashback.'
+        aventureiro = (
+            Aventureiro.objects
+            .filter(pk=int(raw_aventureiro_id), responsavel=responsavel)
+            .first()
+        )
+        if not aventureiro:
+            return None, Decimal('0.00'), 'Aventureiro invalido para cashback.'
+        total_dec = Decimal(total or Decimal('0.00')).quantize(Decimal('0.01'))
+        if total_dec <= 0:
+            return None, Decimal('0.00'), ''
+        disponivel = self._cashback_disponivel(aventureiro)
+        if disponivel <= 0:
+            return None, Decimal('0.00'), 'Nao ha saldo cashback disponivel para este aventureiro.'
+        desconto = min(disponivel, total_dec).quantize(Decimal('0.01'))
+        if desconto <= 0:
+            return None, Decimal('0.00'), ''
+        return aventureiro, desconto, ''
+
     def _mp_client(self):
         return FinanceiroView()
 
@@ -9619,6 +9902,7 @@ class LojaView(LoginRequiredMixin, View):
         if mp_status == 'approved' and not was_paid:
             self._apply_stock_deduction_for_paid_order(pedido)
             self._confirm_evento_inscricao_after_paid(pedido)
+            self._apply_cashback_after_paid(pedido)
             self._send_whatsapp_pedido_loja_aprovado(pedido)
 
     def _confirm_evento_inscricao_after_paid(self, pedido):
@@ -9642,6 +9926,217 @@ class LojaView(LoginRequiredMixin, View):
                 getattr(inscricao.evento, 'id', None),
                 inscricao.id,
             )
+
+    def _apply_cashback_after_paid(self, pedido):
+        if not pedido:
+            return
+        try:
+            self._apply_cashback_credit_indicacao_after_paid(pedido)
+        except Exception:
+            logger.exception('Falha ao creditar cashback por indicacao no pedido=%s.', getattr(pedido, 'id', None))
+        try:
+            self._apply_cashback_debito_after_paid(pedido)
+        except Exception:
+            logger.exception('Falha ao debitar cashback usado no pedido=%s.', getattr(pedido, 'id', None))
+
+    def _apply_cashback_credit_indicacao_after_paid(self, pedido):
+        if not pedido or not getattr(pedido, 'evento_inscricao_id', None):
+            return
+        with transaction.atomic():
+            inscricao = (
+                EventoInscricao.objects
+                .select_for_update()
+                .select_related('evento', 'responsavel', 'indicador_aventureiro', 'indicador_aventureiro__responsavel')
+                .filter(pk=pedido.evento_inscricao_id)
+                .first()
+            )
+            if not inscricao or inscricao.cashback_creditado:
+                return
+
+            codigo = self._normalize_indicacao_code(inscricao.codigo_indicacao_usado)
+            indicador = inscricao.indicador_aventureiro
+            if not indicador and codigo:
+                indicador = self._resolve_indicador_from_code(codigo)
+            if not indicador:
+                if codigo != (inscricao.codigo_indicacao_usado or ''):
+                    inscricao.codigo_indicacao_usado = codigo
+                    inscricao.save(update_fields=['codigo_indicacao_usado', 'updated_at'])
+                return
+
+            comprador_responsavel = pedido.responsavel or inscricao.responsavel
+            if self._is_self_indicacao_responsavel(indicador, comprador_responsavel):
+                if codigo != (inscricao.codigo_indicacao_usado or '') or inscricao.indicador_aventureiro_id:
+                    inscricao.codigo_indicacao_usado = codigo
+                    inscricao.indicador_aventureiro = None
+                    inscricao.save(update_fields=['codigo_indicacao_usado', 'indicador_aventureiro', 'updated_at'])
+                return
+
+            valor_base = Decimal(getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+            if valor_base <= 0:
+                return
+            valor_credito = (valor_base * Decimal('0.15')).quantize(Decimal('0.01'))
+            if valor_credito <= 0:
+                return
+
+            existing_credit = (
+                AventureiroCashbackLancamento.objects
+                .filter(
+                    tipo=AventureiroCashbackLancamento.TYPE_CREDITO_INDICACAO,
+                    evento_inscricao=inscricao,
+                )
+                .first()
+            )
+            if existing_credit:
+                if not inscricao.cashback_creditado:
+                    inscricao.cashback_creditado = True
+                    inscricao.cashback_creditado_valor = Decimal(existing_credit.valor or Decimal('0.00')).quantize(Decimal('0.01'))
+                    if codigo:
+                        inscricao.codigo_indicacao_usado = codigo
+                    if not inscricao.indicador_aventureiro_id:
+                        inscricao.indicador_aventureiro = existing_credit.aventureiro
+                    inscricao.save(update_fields=[
+                        'cashback_creditado',
+                        'cashback_creditado_valor',
+                        'codigo_indicacao_usado',
+                        'indicador_aventureiro',
+                        'updated_at',
+                    ])
+                return
+
+            indicador_locked = (
+                Aventureiro.objects
+                .select_for_update()
+                .filter(pk=indicador.id)
+                .first()
+            )
+            if not indicador_locked:
+                return
+
+            saldo_atual = Decimal(indicador_locked.cashback_saldo or Decimal('0.00')).quantize(Decimal('0.01'))
+            saldo_novo = (saldo_atual + valor_credito).quantize(Decimal('0.01'))
+            indicador_locked.cashback_saldo = saldo_novo
+            indicador_locked.save(update_fields=['cashback_saldo'])
+
+            descricao = f'Indicacao aprovada no evento {inscricao.evento.name} (inscricao {inscricao.codigo_inscricao or "-"})'
+            AventureiroCashbackLancamento.objects.create(
+                aventureiro=indicador_locked,
+                tipo=AventureiroCashbackLancamento.TYPE_CREDITO_INDICACAO,
+                valor=valor_credito,
+                saldo_apos=saldo_novo,
+                descricao=descricao[:255],
+                evento_inscricao=inscricao,
+                loja_pedido=pedido,
+            )
+
+            inscricao.codigo_indicacao_usado = codigo
+            inscricao.indicador_aventureiro = indicador_locked
+            inscricao.cashback_creditado = True
+            inscricao.cashback_creditado_valor = valor_credito
+            inscricao.save(update_fields=[
+                'codigo_indicacao_usado',
+                'indicador_aventureiro',
+                'cashback_creditado',
+                'cashback_creditado_valor',
+                'updated_at',
+            ])
+
+    def _apply_cashback_debito_after_paid(self, pedido):
+        if not pedido or not getattr(pedido, 'cashback_aventureiro_id', None):
+            return
+        desconto_target = Decimal(getattr(pedido, 'cashback_desconto_valor', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+        if desconto_target <= 0:
+            self._refresh_evento_inscricao_cashback_usado(getattr(pedido, 'evento_inscricao_id', None))
+            return
+        with transaction.atomic():
+            pedido_locked = (
+                LojaPedido.objects
+                .select_for_update()
+                .select_related('cashback_aventureiro')
+                .filter(pk=pedido.id)
+                .first()
+            )
+            if not pedido_locked or pedido_locked.status != LojaPedido.STATUS_PAGO:
+                return
+
+            existing_debit = (
+                AventureiroCashbackLancamento.objects
+                .filter(
+                    tipo=AventureiroCashbackLancamento.TYPE_DEBITO_USO,
+                    loja_pedido=pedido_locked,
+                )
+                .first()
+            )
+            if existing_debit:
+                self._refresh_evento_inscricao_cashback_usado(pedido_locked.evento_inscricao_id)
+                return
+
+            aventureiro = pedido_locked.cashback_aventureiro
+            if not aventureiro:
+                self._refresh_evento_inscricao_cashback_usado(pedido_locked.evento_inscricao_id)
+                return
+            aventureiro_locked = (
+                Aventureiro.objects
+                .select_for_update()
+                .filter(pk=aventureiro.id)
+                .first()
+            )
+            if not aventureiro_locked:
+                self._refresh_evento_inscricao_cashback_usado(pedido_locked.evento_inscricao_id)
+                return
+
+            saldo_atual = Decimal(aventureiro_locked.cashback_saldo or Decimal('0.00')).quantize(Decimal('0.01'))
+            valor_debito = min(desconto_target, saldo_atual).quantize(Decimal('0.01'))
+            if valor_debito <= 0:
+                self._refresh_evento_inscricao_cashback_usado(pedido_locked.evento_inscricao_id)
+                return
+            saldo_novo = (saldo_atual - valor_debito).quantize(Decimal('0.01'))
+            aventureiro_locked.cashback_saldo = saldo_novo
+            aventureiro_locked.save(update_fields=['cashback_saldo'])
+
+            descricao = f'Uso de cashback no pedido da loja #{pedido_locked.id}'
+            AventureiroCashbackLancamento.objects.create(
+                aventureiro=aventureiro_locked,
+                tipo=AventureiroCashbackLancamento.TYPE_DEBITO_USO,
+                valor=valor_debito,
+                saldo_apos=saldo_novo,
+                descricao=descricao[:255],
+                evento_inscricao=pedido_locked.evento_inscricao,
+                loja_pedido=pedido_locked,
+            )
+            if valor_debito != desconto_target:
+                logger.warning(
+                    'Debito cashback parcial no pedido=%s. esperado=%s aplicado=%s',
+                    pedido_locked.id,
+                    str(desconto_target),
+                    str(valor_debito),
+                )
+            self._refresh_evento_inscricao_cashback_usado(pedido_locked.evento_inscricao_id)
+
+    def _refresh_evento_inscricao_cashback_usado(self, inscricao_id):
+        if not inscricao_id:
+            return
+        inscricao = (
+            EventoInscricao.objects
+            .filter(pk=inscricao_id)
+            .first()
+        )
+        if not inscricao:
+            return
+        total_usado = (
+            LojaPedido.objects
+            .filter(evento_inscricao_id=inscricao.id, status=LojaPedido.STATUS_PAGO)
+            .aggregate(total=Sum('cashback_desconto_valor'))
+            .get('total')
+            or Decimal('0.00')
+        )
+        try:
+            total_usado = Decimal(total_usado).quantize(Decimal('0.01'))
+        except (InvalidOperation, TypeError, ValueError):
+            total_usado = Decimal('0.00')
+        if total_usado == Decimal(getattr(inscricao, 'cashback_usado_valor', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01')):
+            return
+        inscricao.cashback_usado_valor = total_usado
+        inscricao.save(update_fields=['cashback_usado_valor', 'updated_at'])
 
     def _send_whatsapp_pedido_loja_aprovado(self, pedido):
         if pedido.whatsapp_notified_at:
@@ -9730,12 +10225,14 @@ class LojaView(LoginRequiredMixin, View):
             pedido.save(update_fields=['whatsapp_notified_at', 'updated_at'])
 
     def _pix_modal_context_loja(self, pedido):
+        cashback_desconto = Decimal(getattr(pedido, 'cashback_desconto_valor', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
         return {
             'pedido_id': pedido.pk,
             'payment_id': pedido.mp_payment_id,
             'status': pedido.status,
             'status_label': self._pedido_loja_status_label(pedido),
             'valor_total': self._format_currency(pedido.valor_total),
+            'cashback_desconto': self._format_currency(cashback_desconto),
             'qr_base64': pedido.mp_qr_code_base64,
             'pix_code': pedido.mp_qr_code,
         }
@@ -9869,6 +10366,7 @@ class LojaView(LoginRequiredMixin, View):
             row['default_variacao'] = row['variacoes'][0] if row['variacoes'] else None
         meus_pedidos = []
         responsavel = self._ensure_loja_responsavel(request.user, create=False)
+        cashback_rows = self._cashback_rows_for_responsavel(responsavel)
         if responsavel:
             pedidos_qs = (
                 LojaPedido.objects
@@ -9902,6 +10400,7 @@ class LojaView(LoginRequiredMixin, View):
             'catalog_rows': rows,
             'responsavel_catalogo_tem_produtos': bool(rows),
             'meus_pedidos_rows': meus_pedidos,
+            'cashback_rows': cashback_rows,
             'loja_buyer_label': 'Professor' if _get_active_profile(request) == UserAccess.ROLE_PROFESSOR else 'Responsavel',
         }
 
@@ -10293,12 +10792,30 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
         if not parsed_items:
             return JsonResponse({'ok': False, 'error': 'empty_cart', 'message': 'Carrinho vazio.'}, status=400)
 
+        total_bruto = Decimal(total or Decimal('0.00')).quantize(Decimal('0.01'))
+        cashback_aventureiro = None
+        cashback_desconto = Decimal('0.00')
+        cashback_aventureiro, cashback_desconto, cashback_error = loja_view._resolve_cashback_checkout(
+            payload,
+            responsavel,
+            total_bruto,
+        )
+        if cashback_error:
+            return JsonResponse({'ok': False, 'error': 'cashback_invalid', 'message': cashback_error}, status=400)
+        total_final = (total_bruto - cashback_desconto).quantize(Decimal('0.01'))
+        if total_final < 0:
+            total_final = Decimal('0.00')
+        if total_final <= 0 and cashback_desconto <= 0:
+            return JsonResponse({'ok': False, 'error': 'empty_total', 'message': 'Carrinho vazio.'}, status=400)
+
         try:
             with transaction.atomic():
                 pedido = LojaPedido.objects.create(
                     responsavel=responsavel,
+                    cashback_aventureiro=cashback_aventureiro,
+                    cashback_desconto_valor=cashback_desconto,
                     forma_pagamento=LojaPedido.FORMA_PAGAMENTO_PIX,
-                    valor_total=total.quantize(Decimal('0.01')),
+                    valor_total=total_final,
                     created_by=request.user,
                     status=LojaPedido.STATUS_PENDENTE,
                 )
@@ -10316,19 +10833,28 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
                     )
                     for item in parsed_items
                 ])
-                mp_payload = loja_view._create_mp_pix_payment_loja(request, pedido)
-                pedido.mp_qr_code = mp_payload['pix_code']
-                pedido.mp_qr_code_base64 = mp_payload['qr_base64']
-                pedido.save(update_fields=[
-                    'mp_qr_code', 'mp_qr_code_base64', 'updated_at',
-                ])
-                loja_view._sync_pedido_loja_from_mp(pedido, {
-                    'id': mp_payload['payment_id'],
-                    'external_reference': mp_payload['external_reference'],
-                    'status': mp_payload['status'],
-                    'status_detail': mp_payload['status_detail'],
-                })
-                pedido.refresh_from_db()
+                if total_final > 0:
+                    mp_payload = loja_view._create_mp_pix_payment_loja(request, pedido)
+                    pedido.mp_qr_code = mp_payload['pix_code']
+                    pedido.mp_qr_code_base64 = mp_payload['qr_base64']
+                    pedido.save(update_fields=[
+                        'mp_qr_code', 'mp_qr_code_base64', 'updated_at',
+                    ])
+                    loja_view._sync_pedido_loja_from_mp(pedido, {
+                        'id': mp_payload['payment_id'],
+                        'external_reference': mp_payload['external_reference'],
+                        'status': mp_payload['status'],
+                        'status_detail': mp_payload['status_detail'],
+                    })
+                    pedido.refresh_from_db()
+                else:
+                    loja_view._sync_pedido_loja_from_mp(pedido, {
+                        'id': str(pedido.mp_payment_id or ''),
+                        'external_reference': str(pedido.mp_external_reference or ''),
+                        'status': 'approved',
+                        'status_detail': 'cashback_full',
+                    })
+                    pedido.refresh_from_db()
         except ValueError as exc:
             return JsonResponse({'ok': False, 'error': 'mercadopago', 'message': str(exc)}, status=400)
         except Exception:
@@ -10369,6 +10895,9 @@ class LojaPedidoStatusApiView(LoginRequiredMixin, View):
             'mp_status': pedido.mp_status,
             'mp_status_detail': pedido.mp_status_detail,
             'is_paid': pedido.status == LojaPedido.STATUS_PAGO,
+            'cashback_desconto': loja_view._format_currency(
+                Decimal(getattr(pedido, 'cashback_desconto_valor', Decimal('0.00')) or Decimal('0.00'))
+            ),
         })
 
 

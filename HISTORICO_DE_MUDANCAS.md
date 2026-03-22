@@ -968,3 +968,14 @@ ame e label sem quebrar a tela.
 
 - Corrigido alinhamento do campo codigo_inscricao para evitar gerar migration pendente no makemigrations --check do deploy.
 - Com isso o processo de publicacao nao dispara rollback por "model sem migration" neste ponto.
+
+## 22/03/2026 - Cashback por indicacao (eventos + loja)
+
+- Implementado codigo de indicacao por aventureiro (`codigo_indicacao`) com geracao automatica e saldo de carteira cashback (`cashback_saldo`).
+- Inscricao de evento agora aceita `codigo de indicacao` opcional e vincula o indicador automaticamente.
+- Regra de autoindicacao bloqueada por responsavel, CPF e telefone (mesmo cadastro nao recebe credito).
+- Credito de cashback definido em 15% do valor da inscricao e aplicado somente apos pagamento aprovado.
+- Uso de cashback liberado no checkout da loja e do evento para responsavel autenticado, com abatimento no total.
+- Fluxo de pagamento com total zerado por cashback concluido automaticamente como pago (sem criar Pix externo).
+- Criado extrato de cashback por aventureiro no financeiro do responsavel (creditos e debitos com saldo apos lancamento).
+- Adicionadas migracoes e estruturas para auditoria de cashback (`AventureiroCashbackLancamento`) e campos de vinculo em pedidos/inscricoes.

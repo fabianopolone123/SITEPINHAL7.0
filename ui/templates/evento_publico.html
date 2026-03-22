@@ -605,6 +605,23 @@
       color: #64748b;
       font-size: 0.78rem;
     }
+    .event-checkout-item select {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 0.55rem 0.65rem;
+      background: #fff;
+      color: #0f172a;
+      font: inherit;
+    }
+    .event-cashback-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: #1e293b;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
     .event-checkout-item-total {
       border-color: #93c5fd;
       background: #eff6ff;
@@ -1347,6 +1364,19 @@
                       {% endif %}
                     </strong>
                   </div>
+                  <div class="event-consulta-field">
+                    <span>Codigo indicacao</span>
+                    <strong>
+                      {{ row.codigo_indicacao_usado|default:"-" }}
+                      {% if row.indicador_nome %} ({{ row.indicador_nome }}){% endif %}
+                    </strong>
+                  </div>
+                  <div class="event-consulta-field">
+                    <span>Cashback</span>
+                    <strong>
+                      Credito: {{ row.cashback_creditado_valor_fmt }} | Uso: {{ row.cashback_usado_valor_fmt }}
+                    </strong>
+                  </div>
                 </div>
                 {% if row.criancas_total > 0 %}
                   <div class="event-consulta-others">
@@ -1803,6 +1833,20 @@
             <p class="panel-note">Este evento não exige campos extras de inscrição.</p>
           {% endfor %}
         </div>
+        <div class="field-section" style="margin-top:.2rem;">
+          <label>
+            Codigo de indicacao (opcional)
+            <input
+              type="text"
+              name="codigo_indicacao"
+              value="{{ form_codigo_indicacao|default:'' }}"
+              maxlength="12"
+              autocomplete="off"
+              placeholder="Ex.: A1B2C3"
+            />
+          </label>
+          <p class="panel-note" style="margin:0;">Se alguem te indicou, informe o codigo para gerar cashback ao indicador apos pagamento aprovado.</p>
+        </div>
         <div class="action-row">
           {% if form_edit_registration_id %}
             <button type="submit" class="primary">Salvar alteracoes da inscricao</button>
@@ -1906,10 +1950,33 @@
           <strong id="event-items-total">R$ 0,00</strong>
           <small id="event-items-meta">0 item(ns)</small>
         </div>
+        {% if cashback_rows %}
+          <div class="event-checkout-item">
+            <span>Cashback</span>
+            <label class="event-cashback-toggle">
+              <input type="checkbox" id="event-use-cashback" />
+              Usar saldo cashback
+            </label>
+            <select id="event-cashback-aventureiro">
+              <option value="">Selecione o aventureiro</option>
+              {% for row in cashback_rows %}
+                <option value="{{ row.id }}" data-disponivel="{{ row.disponivel }}">
+                  {{ row.nome }} - disponivel {{ row.disponivel_fmt }}{% if row.codigo_indicacao %} (codigo {{ row.codigo_indicacao }}){% endif %}
+                </option>
+              {% endfor %}
+            </select>
+            <small id="event-cashback-available">Disponivel: R$ 0,00</small>
+          </div>
+          <div class="event-checkout-item">
+            <span>Desconto cashback</span>
+            <strong id="event-cashback-total">R$ 0,00</strong>
+            <small>Desconto aplicado no total do pedido</small>
+          </div>
+        {% endif %}
         <div class="event-checkout-item event-checkout-item-total">
           <span>Total geral</span>
           <strong id="event-grand-total">R$ 0,00</strong>
-          <small>Inscricao + carrinho</small>
+          <small>Inscricao + carrinho - cashback</small>
         </div>
       </div>
       <div class="action-row">
@@ -2001,6 +2068,10 @@
       const itemsTotalNode = document.getElementById('event-items-total');
       const itemsMetaNode = document.getElementById('event-items-meta');
       const grandTotalNode = document.getElementById('event-grand-total');
+      const cashbackTotalNode = document.getElementById('event-cashback-total');
+      const cashbackMetaNode = document.getElementById('event-cashback-available');
+      const cashbackUseInput = document.getElementById('event-use-cashback');
+      const cashbackAventureiroSelect = document.getElementById('event-cashback-aventureiro');
       const finalizarPagarBtn = document.getElementById('event-finalizar-pagar');
       const inscritosModal = document.getElementById('event-inscritos-modal');
       const openInscritosBtn = document.getElementById('open-event-inscritos');
@@ -2033,6 +2104,7 @@
       let currentFeeTotal = 0;
       let currentCartItems = 0;
       let currentCartTotal = 0;
+      let currentCashbackDesconto = 0;
       const checkoutFeedbackNode = document.getElementById('event-checkout-feedback');
       const pixApiConfig = document.getElementById('eventPixApiConfig');
       const pixModal = document.getElementById('eventPixModal');
@@ -2450,6 +2522,14 @@
             quantity: item.quantity,
           })),
         };
+        if (cashbackUseInput && cashbackUseInput.checked) {
+          const cashbackId = cashbackAventureiroSelect ? String(cashbackAventureiroSelect.value || '').trim() : '';
+          if (!cashbackId) {
+            throw new Error('Selecione o aventureiro para usar cashback.');
+          }
+          payload.usar_cashback = true;
+          payload.cashback_aventureiro_id = Number(cashbackId);
+        }
         if (inscricaoId) {
           payload.inscricao_id = Number(inscricaoId);
         }
@@ -2526,8 +2606,16 @@
       };
 
       const runPixCheckoutFlow = async () => {
-        const previewTotal = Number(currentFeeTotal || 0) + Number(currentCartTotal || 0);
-        if (previewTotal <= 0) {
+        if (cashbackUseInput && cashbackUseInput.checked) {
+          const selectedId = cashbackAventureiroSelect ? String(cashbackAventureiroSelect.value || '').trim() : '';
+          if (!selectedId) {
+            setCheckoutFeedback('Selecione o aventureiro para usar cashback.', 'error');
+            if (cashbackAventureiroSelect) cashbackAventureiroSelect.focus();
+            return;
+          }
+        }
+        const previewTotal = Math.max(0, Number(currentFeeTotal || 0) + Number(currentCartTotal || 0) - Number(currentCashbackDesconto || 0));
+        if (previewTotal <= 0 && Number(currentCashbackDesconto || 0) <= 0) {
           setCheckoutFeedback('Nao ha valor para pagar neste evento.', 'error');
           return;
         }
@@ -2728,15 +2816,40 @@
         return result;
       };
 
+      const getSelectedCashbackDisponivel = () => {
+        if (!cashbackAventureiroSelect) return 0;
+        const selected = cashbackAventureiroSelect.options[cashbackAventureiroSelect.selectedIndex];
+        if (!selected) return 0;
+        const raw = String(selected.getAttribute('data-disponivel') || '').trim();
+        const direct = Number(raw.replace(',', '.'));
+        if (Number.isFinite(direct)) return Math.max(0, direct);
+        const normalized = raw.replace(/\./g, '').replace(',', '.');
+        const fallback = Number(normalized);
+        return Number.isFinite(fallback) ? Math.max(0, fallback) : 0;
+      };
+
+      const calculateCashbackPreview = (subtotal) => {
+        if (!cashbackUseInput || !cashbackUseInput.checked) return 0;
+        if (!cashbackAventureiroSelect || !String(cashbackAventureiroSelect.value || '').trim()) return 0;
+        const disponivel = getSelectedCashbackDisponivel();
+        const total = Math.max(0, Number(subtotal || 0));
+        return Math.max(0, Math.min(disponivel, total));
+      };
+
       const updateCheckoutSummary = () => {
         const feePreview = calculateFeePreview();
         currentFeeUnits = Number(feePreview.units || 0);
         currentFeeTotal = Number(feePreview.total || 0);
+        const subtotal = currentFeeTotal + currentCartTotal;
+        currentCashbackDesconto = calculateCashbackPreview(subtotal);
+        const grandTotal = Math.max(0, subtotal - currentCashbackDesconto);
         if (feeTotalNode) feeTotalNode.textContent = toMoney(currentFeeTotal);
         if (feeMetaNode) feeMetaNode.textContent = currentFeeUnits + ' unidade(s)';
         if (itemsTotalNode) itemsTotalNode.textContent = toMoney(currentCartTotal);
         if (itemsMetaNode) itemsMetaNode.textContent = currentCartItems + ' item(ns)';
-        if (grandTotalNode) grandTotalNode.textContent = toMoney(currentFeeTotal + currentCartTotal);
+        if (cashbackTotalNode) cashbackTotalNode.textContent = toMoney(currentCashbackDesconto);
+        if (cashbackMetaNode) cashbackMetaNode.textContent = 'Disponivel: ' + toMoney(getSelectedCashbackDisponivel());
+        if (grandTotalNode) grandTotalNode.textContent = toMoney(grandTotal);
       };
 
       const parseRepeatSchema = (fieldWrap) => {
@@ -3008,6 +3121,20 @@
         });
       };
 
+      if (cashbackUseInput) {
+        cashbackUseInput.addEventListener('change', () => {
+          updateCheckoutSummary();
+        });
+      }
+      if (cashbackAventureiroSelect) {
+        cashbackAventureiroSelect.addEventListener('change', () => {
+          if (cashbackUseInput && String(cashbackAventureiroSelect.value || '').trim()) {
+            cashbackUseInput.checked = true;
+          }
+          updateCheckoutSummary();
+        });
+      }
+
       const openCartDrawer = () => {
         if (!cartOverlay) return;
         cartOverlay.hidden = false;
@@ -3199,8 +3326,8 @@
       if (finalizarPagarBtn) {
         finalizarPagarBtn.addEventListener('click', async () => {
           if (registerForm && !skipSaveBeforePix) {
-            const previewTotal = Number(currentFeeTotal || 0) + Number(currentCartTotal || 0);
-            if (previewTotal <= 0) {
+            const previewTotal = Math.max(0, Number(currentFeeTotal || 0) + Number(currentCartTotal || 0) - Number(currentCashbackDesconto || 0));
+            if (previewTotal <= 0 && Number(currentCashbackDesconto || 0) <= 0) {
               setCheckoutFeedback('Nao ha valor para pagar neste evento.', 'error');
               return;
             }

@@ -174,7 +174,33 @@ class Aventureiro(models.Model):
     autorizacao_imagem = models.BooleanField('autorização de imagem', default=False)
     foto = models.ImageField('foto 3x4', upload_to='photos/aventura', null=True, blank=True)
     assinatura = models.ImageField('assinatura do aventureiro', upload_to='signatures/aventura', null=True, blank=True)
+    codigo_indicacao = models.CharField('codigo de indicacao', max_length=12, unique=True, blank=True, db_index=True)
+    cashback_saldo = models.DecimalField('saldo cashback', max_digits=10, decimal_places=2, default=Decimal('0.00'))
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @classmethod
+    def _generate_codigo_indicacao(cls):
+        alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+        rng = random.SystemRandom()
+        return ''.join(rng.choice(alphabet) for _ in range(6))
+
+    def _next_codigo_indicacao(self):
+        for _ in range(40):
+            candidate = self._generate_codigo_indicacao()
+            qs = Aventureiro.objects.filter(codigo_indicacao=candidate)
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if not qs.exists():
+                return candidate
+        raise ValueError('Nao foi possivel gerar codigo de indicacao unico para aventureiro.')
+
+    def save(self, *args, **kwargs):
+        raw_code = str(self.codigo_indicacao or '').strip().upper()
+        if raw_code:
+            self.codigo_indicacao = raw_code
+        else:
+            self.codigo_indicacao = self._next_codigo_indicacao()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.nome} ({self.responsavel.user.username})"
@@ -582,8 +608,19 @@ class EventoInscricao(models.Model):
     )
     dados = models.JSONField('dados da inscrição', default=dict, blank=True)
     codigo_inscricao = models.CharField('codigo da inscricao', max_length=3, blank=True, editable=False)
+    codigo_indicacao_usado = models.CharField('codigo indicacao usado', max_length=12, blank=True)
+    indicador_aventureiro = models.ForeignKey(
+        Aventureiro,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='inscricoes_indicadas',
+    )
     valor_inscricao = models.DecimalField('valor da inscrição', max_digits=10, decimal_places=2, default=Decimal('0.00'))
     valor_inscricao_unidades = models.PositiveIntegerField('unidades da cobrança de inscrição', default=0)
+    cashback_creditado = models.BooleanField('cashback creditado', default=False)
+    cashback_creditado_valor = models.DecimalField('valor cashback creditado', max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    cashback_usado_valor = models.DecimalField('valor cashback usado', max_digits=10, decimal_places=2, default=Decimal('0.00'))
     confirmada = models.BooleanField('inscricao confirmada por pagamento', default=True)
     quer_comprar_itens = models.BooleanField('quer comprar itens', default=False)
     created_at = models.DateTimeField('criado em', auto_now_add=True)
@@ -764,6 +801,53 @@ class PagamentoMensalidade(models.Model):
         return f'Pagamento mensalidades #{self.pk} - {self.responsavel}'
 
 
+class AventureiroCashbackLancamento(models.Model):
+    TYPE_CREDITO_INDICACAO = 'credito_indicacao'
+    TYPE_DEBITO_USO = 'debito_uso'
+
+    TYPE_CHOICES = [
+        (TYPE_CREDITO_INDICACAO, 'Credito por indicacao'),
+        (TYPE_DEBITO_USO, 'Debito por uso'),
+    ]
+
+    aventureiro = models.ForeignKey(Aventureiro, on_delete=models.CASCADE, related_name='cashback_lancamentos')
+    tipo = models.CharField('tipo', max_length=24, choices=TYPE_CHOICES)
+    valor = models.DecimalField('valor', max_digits=10, decimal_places=2)
+    saldo_apos = models.DecimalField('saldo apos lancamento', max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    descricao = models.CharField('descricao', max_length=255, blank=True)
+    evento_inscricao = models.ForeignKey(
+        EventoInscricao,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cashback_lancamentos',
+    )
+    loja_pedido = models.ForeignKey(
+        'LojaPedido',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cashback_lancamentos',
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cashback_lancamentos_criados',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'lancamento de cashback'
+        verbose_name_plural = 'lancamentos de cashback'
+        ordering = ('-created_at', 'id')
+
+    def __str__(self):
+        return f'{self.aventureiro.nome} - {self.get_tipo_display()} ({self.valor})'
+
+
 class LojaProduto(models.Model):
     evento = models.ForeignKey(
         Evento,
@@ -880,6 +964,14 @@ class LojaPedido(models.Model):
         blank=True,
         related_name='pedidos_evento',
     )
+    cashback_aventureiro = models.ForeignKey(
+        Aventureiro,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pedidos_loja_cashback',
+    )
+    cashback_desconto_valor = models.DecimalField('desconto cashback', max_digits=10, decimal_places=2, default=Decimal('0.00'))
     forma_pagamento = models.CharField(
         'forma de pagamento',
         max_length=24,
