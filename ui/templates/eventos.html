@@ -507,20 +507,24 @@
                             </div>
                             <div class="field-section">
                               <h4 style="margin:0;">Variacoes</h4>
-                              {% for v in p.variacoes %}
-                                <div class="event-field-row event-var-row">
-                                  <input type="hidden" name="edit_variacao_id[]" value="{{ v.id }}" />
-                                  <input type="text" name="edit_variacao_nome[]" value="{{ v.nome }}" placeholder="Variacao" required />
-                                  <input type="text" name="edit_variacao_valor[]" value="{{ v.valor }}" placeholder="Valor" required />
-                                  <input type="number" name="edit_variacao_estoque[]" min="0" step="1" value="{% if v.estoque is not None %}{{ v.estoque }}{% endif %}" placeholder="Estoque ilimitado" />
-                                  <select name="edit_variacao_ativo[]">
-                                    <option value="1" {% if v.ativo %}selected{% endif %}>Ativa</option>
-                                    <option value="0" {% if not v.ativo %}selected{% endif %}>Inativa</option>
-                                  </select>
-                                </div>
-                              {% endfor %}
+                              <div class="js-edit-event-var-list">
+                                {% for v in p.variacoes %}
+                                  <div class="event-field-row event-var-row">
+                                    <input type="hidden" name="edit_variacao_id[]" value="{{ v.id }}" />
+                                    <input type="text" name="edit_variacao_nome[]" value="{{ v.nome }}" placeholder="Variacao" required />
+                                    <input type="text" name="edit_variacao_valor[]" value="{{ v.valor }}" placeholder="Valor" required />
+                                    <input type="number" name="edit_variacao_estoque[]" min="0" step="1" value="{% if v.estoque is not None %}{{ v.estoque }}{% endif %}" placeholder="Estoque ilimitado" />
+                                    <select name="edit_variacao_ativo[]">
+                                      <option value="1" {% if v.ativo %}selected{% endif %}>Ativa</option>
+                                      <option value="0" {% if not v.ativo %}selected{% endif %}>Inativa</option>
+                                    </select>
+                                    <button type="button" class="secondary js-remove-edit-event-var">Remover</button>
+                                  </div>
+                                {% endfor %}
+                              </div>
                             </div>
                             <div class="action-row">
+                              <button type="button" class="secondary js-add-edit-event-var">+ Variacao</button>
                               <button type="submit" class="primary">Salvar edicao do produto</button>
                             </div>
                           </form>
@@ -1495,6 +1499,22 @@
         return row;
       };
 
+      const createEditVariationRow = () => {
+        const row = document.createElement('div');
+        row.className = 'event-field-row event-var-row';
+        row.innerHTML = '' +
+          '<input type="hidden" name="edit_variacao_id[]" value="" />' +
+          '<input type="text" name="edit_variacao_nome[]" placeholder="Variacao" required />' +
+          '<input type="text" name="edit_variacao_valor[]" placeholder="Valor" required />' +
+          '<input type="number" name="edit_variacao_estoque[]" min="0" step="1" placeholder="Estoque ilimitado" />' +
+          '<select name="edit_variacao_ativo[]">' +
+            '<option value="1" selected>Ativa</option>' +
+            '<option value="0">Inativa</option>' +
+          '</select>' +
+          '<button type="button" class="secondary js-remove-edit-event-var">Remover</button>';
+        return row;
+      };
+
       document.addEventListener('click', (event) => {
         const target = event.target;
         if (!(target instanceof HTMLElement)) return;
@@ -1534,6 +1554,19 @@
           return;
         }
         if (target.classList.contains('js-remove-event-var')) {
+          const row = target.closest('.event-field-row');
+          const wrap = row?.parentElement;
+          if (row && wrap && wrap.querySelectorAll('.event-field-row').length > 1) {
+            row.remove();
+          }
+          return;
+        }
+        if (target.classList.contains('js-add-edit-event-var')) {
+          const wrap = target.closest('form')?.querySelector('.js-edit-event-var-list');
+          if (wrap) wrap.appendChild(createEditVariationRow());
+          return;
+        }
+        if (target.classList.contains('js-remove-edit-event-var')) {
           const row = target.closest('.event-field-row');
           const wrap = row?.parentElement;
           if (row && wrap && wrap.querySelectorAll('.event-field-row').length > 1) {

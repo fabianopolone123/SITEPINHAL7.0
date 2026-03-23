@@ -995,3 +995,9 @@ ame e label sem quebrar a tela.
 - Em caso de duplicidade, o sistema adiciona sufixo numerico automatico para manter codigo unico.
 - O codigo informado manualmente tambem passa por normalizacao (maiusculo e apenas letras/numeros).
 - Migration `0060_rebuild_aventureiro_codigos_legiveis` adicionada para atualizar tambem os codigos ja existentes com o novo padrao legivel.
+
+## 23/03/2026 - Eventos: editar produto com adicionar/remover variacoes
+
+- Edicao de produto do evento passou a permitir adicionar novas variacoes na mesma tela.
+- Edicao de produto do evento agora permite remover variacoes existentes no formulario.
+- Backend de `edit_event_product` atualizado para processar criacao, atualizacao e exclusao de variacoes em um unico salvamento.

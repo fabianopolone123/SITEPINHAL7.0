@@ -4157,52 +4157,90 @@ class EventosView(LoginRequiredMixin, View):
             variacao_valores_raw = request.POST.getlist('edit_variacao_valor[]')
             variacao_estoques_raw = request.POST.getlist('edit_variacao_estoque[]')
             variacao_ativos_raw = request.POST.getlist('edit_variacao_ativo[]')
-            if not variacao_ids_raw:
-                messages.error(request, 'Nenhuma variacao enviada para edicao.')
+            rows_total = max(
+                len(variacao_ids_raw),
+                len(variacao_nomes_raw),
+                len(variacao_valores_raw),
+                len(variacao_estoques_raw),
+                len(variacao_ativos_raw),
+            )
+            if rows_total <= 0:
+                messages.error(request, 'Cadastre ao menos uma variacao no produto.')
                 return render(request, self.template_name, self._context(request))
 
-            updates = {}
-            for idx, variacao_id_raw in enumerate(variacao_ids_raw):
-                variacao_id_text = str(variacao_id_raw or '').strip()
-                if not variacao_id_text.isdigit():
-                    messages.error(request, f'Variacao invalida na linha {idx + 1}.')
-                    return render(request, self.template_name, self._context(request))
+            parsed_rows = []
+            for idx in range(rows_total):
+                variacao_id_text = str(variacao_ids_raw[idx] if idx < len(variacao_ids_raw) else '').strip()
                 nome = str(variacao_nomes_raw[idx] if idx < len(variacao_nomes_raw) else '').strip()
                 valor_raw = str(variacao_valores_raw[idx] if idx < len(variacao_valores_raw) else '').strip()
                 estoque_raw = str(variacao_estoques_raw[idx] if idx < len(variacao_estoques_raw) else '').strip()
                 ativo_raw = str(variacao_ativos_raw[idx] if idx < len(variacao_ativos_raw) else '').strip()
 
+                if not any([variacao_id_text, nome, valor_raw, estoque_raw, ativo_raw]):
+                    continue
+
+                variacao_id = None
+                if variacao_id_text:
+                    if not variacao_id_text.isdigit():
+                        messages.error(request, f'Variacao invalida na linha {idx + 1}.')
+                        return render(request, self.template_name, self._context(request))
+                    variacao_id = int(variacao_id_text)
+
                 if not nome:
                     messages.error(request, f'Informe o nome da variacao na linha {idx + 1}.')
                     return render(request, self.template_name, self._context(request))
+
                 valor = self._parse_valor(valor_raw)
                 if valor is None:
-                    messages.error(request, f'Valor invalido para a variacao "{nome}".')
+                    messages.error(request, f'Valor invalido para a variacao "{nome}" (linha {idx + 1}).')
                     return render(request, self.template_name, self._context(request))
+
                 estoque = None
                 if estoque_raw:
                     if not re.fullmatch(r'-?\d+', estoque_raw):
-                        messages.error(request, f'Estoque invalido para a variacao "{nome}".')
+                        messages.error(request, f'Estoque invalido para a variacao "{nome}" (linha {idx + 1}).')
                         return render(request, self.template_name, self._context(request))
                     estoque = int(estoque_raw)
                     if estoque < 0:
-                        messages.error(request, f'Estoque nao pode ser negativo para a variacao "{nome}".')
+                        messages.error(request, f'Estoque nao pode ser negativo para a variacao "{nome}" (linha {idx + 1}).')
                         return render(request, self.template_name, self._context(request))
-                ativo = ativo_raw == '1'
 
-                updates[int(variacao_id_text)] = {
+                ativo = ativo_raw != '0'
+                parsed_rows.append({
+                    'id': variacao_id,
                     'nome': nome,
                     'valor': valor,
                     'estoque': estoque,
-                    'ativo': ativo,
-                }
+                    'ativo': bool(ativo),
+                })
 
-            variacoes = list(
-                LojaProdutoVariacao.objects.filter(produto=produto, id__in=list(updates.keys())).order_by('id')
-            )
-            if len(variacoes) != len(updates):
-                messages.error(request, 'Uma ou mais variacoes nao pertencem ao produto informado.')
+            if not parsed_rows:
+                messages.error(request, 'Cadastre ao menos uma variacao no produto.')
                 return render(request, self.template_name, self._context(request))
+
+            existing_variacoes = list(
+                LojaProdutoVariacao.objects.filter(produto=produto).order_by('id')
+            )
+            existing_map = {int(item.id): item for item in existing_variacoes}
+            keep_ids = set()
+            update_rows = []
+            create_rows = []
+            seen_existing_ids = set()
+
+            for row_item in parsed_rows:
+                row_id = row_item.get('id')
+                if row_id is None:
+                    create_rows.append(row_item)
+                    continue
+                if row_id not in existing_map:
+                    messages.error(request, f'A variacao #{row_id} nao pertence ao produto informado.')
+                    return render(request, self.template_name, self._context(request))
+                if row_id in seen_existing_ids:
+                    messages.error(request, f'Variacao duplicada na edicao (id {row_id}).')
+                    return render(request, self.template_name, self._context(request))
+                seen_existing_ids.add(row_id)
+                keep_ids.add(row_id)
+                update_rows.append(row_item)
 
             with transaction.atomic():
                 produto.titulo = titulo
@@ -4219,13 +4257,29 @@ class EventosView(LoginRequiredMixin, View):
                     'foto',
                     'updated_at',
                 ])
-                for variacao in variacoes:
-                    dados = updates.get(int(variacao.id), {})
-                    variacao.nome = dados.get('nome', variacao.nome)
-                    variacao.valor = dados.get('valor', variacao.valor)
-                    variacao.estoque = dados.get('estoque', variacao.estoque)
-                    variacao.ativo = bool(dados.get('ativo', variacao.ativo))
+                for row_item in update_rows:
+                    variacao = existing_map.get(int(row_item['id']))
+                    if not variacao:
+                        continue
+                    variacao.nome = row_item['nome']
+                    variacao.valor = row_item['valor']
+                    variacao.estoque = row_item['estoque']
+                    variacao.ativo = bool(row_item['ativo'])
                     variacao.save(update_fields=['nome', 'valor', 'estoque', 'ativo', 'updated_at'])
+                if create_rows:
+                    LojaProdutoVariacao.objects.bulk_create([
+                        LojaProdutoVariacao(
+                            produto=produto,
+                            nome=row_item['nome'],
+                            valor=row_item['valor'],
+                            estoque=row_item['estoque'],
+                            ativo=bool(row_item['ativo']),
+                        )
+                        for row_item in create_rows
+                    ])
+                delete_ids = [item.id for item in existing_variacoes if int(item.id) not in keep_ids]
+                if delete_ids:
+                    LojaProdutoVariacao.objects.filter(produto=produto, id__in=delete_ids).delete()
 
             messages.success(request, f'Produto "{produto.titulo}" atualizado com sucesso.')
         elif action == 'update_event_product_stock':
