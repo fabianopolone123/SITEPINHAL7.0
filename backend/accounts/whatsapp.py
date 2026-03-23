@@ -78,6 +78,15 @@ DEFAULT_TESTE_MESSAGE = (
     'Se voce recebeu este aviso, o canal WhatsApp esta ativo.'
 )
 
+DEFAULT_INDICACAO_CODIGO_MESSAGE = (
+    'Codigo de indicacao Pinhal Junior\n'
+    'Aventureiro: {aventureiro_nome}\n'
+    'Responsavel: {responsavel_nome}\n'
+    'Codigo: {codigo_indicacao}\n'
+    'Use este codigo nas inscricoes para gerar cashback apos pagamento aprovado.\n'
+    'Data/Hora: {data_hora}'
+)
+
 def normalize_phone_number(raw_phone):
     if not raw_phone:
         return ''
@@ -237,6 +246,7 @@ def get_template_message(notification_type):
         WhatsAppTemplate.TYPE_LOJA: DEFAULT_LOJA_MESSAGE,
         WhatsAppTemplate.TYPE_EVENTO_INSCRICAO: DEFAULT_EVENTO_INSCRICAO_MESSAGE,
         WhatsAppTemplate.TYPE_TESTE: DEFAULT_TESTE_MESSAGE,
+        WhatsAppTemplate.TYPE_INDICACAO_CODIGO: DEFAULT_INDICACAO_CODIGO_MESSAGE,
     }
     default_message = defaults.get(notification_type, DEFAULT_TESTE_MESSAGE)
     template, _ = WhatsAppTemplate.objects.get_or_create(

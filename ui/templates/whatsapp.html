@@ -67,6 +67,10 @@
           <span class="message-template-title">Mensagem de Teste</span>
           <textarea name="template_teste" form="whatsapp-form" rows="6">{{ teste_template|default:'' }}</textarea>
         </label>
+        <label class="message-template-card">
+          <span class="message-template-title">Mensagem de Codigo de indicacao</span>
+          <textarea name="template_indicacao_codigo" form="whatsapp-form" rows="6">{{ indicacao_codigo_template|default:'' }}</textarea>
+        </label>
       </div>
       <p class="panel-note">
         Placeholders para cadastro: <code>{tipo_cadastro}</code>, <code>{username}</code>, <code>{nome}</code>, <code>{responsavel_nome}</code>, <code>{aventureiros}</code>, <code>{data_hora}</code>.
@@ -82,6 +86,9 @@
       </p>
       <p class="panel-note">
         Placeholders para nova inscricao de evento: <code>{evento_nome}</code>, <code>{evento_data}</code>, <code>{evento_horario}</code>, <code>{evento_local}</code>, <code>{codigo_inscricao}</code>, <code>{responsavel_nome}</code>, <code>{responsavel_cpf}</code>, <code>{responsavel_whatsapp}</code>, <code>{valor_inscricao}</code>, <code>{data_hora}</code>.
+      </p>
+      <p class="panel-note">
+        Placeholders para codigo de indicacao: <code>{aventureiro_nome}</code>, <code>{codigo_indicacao}</code>, <code>{responsavel_nome}</code>, <code>{username}</code>, <code>{data_hora}</code>.
       </p>
     </section>
 
@@ -134,11 +141,78 @@
       </table>
       </div>
 
+      <div class="painel-card" style="margin-top:1rem;">
+        <h3 style="margin-top:0;">Enviar codigo de indicacao</h3>
+        <p class="panel-note" style="margin-top:0;">
+          Selecione alguns aventureiros ou marque "Selecionar todos". O sistema envia para o WhatsApp do responsavel de cada aventureiro.
+        </p>
+        <label style="display:flex; align-items:center; gap:.45rem; margin:.35rem 0 .75rem;">
+          <input type="checkbox" name="send_indicacao_all" id="send-indicacao-all" value="1" />
+          Selecionar todos os aventureiros
+        </label>
+        <div class="table-scroll">
+          <table class="users-table whatsapp-table">
+            <thead>
+              <tr>
+                <th>Selecionar</th>
+                <th>Aventureiro</th>
+                <th>Responsavel</th>
+                <th>Codigo de indicacao</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in aventureiros_rows %}
+                <tr>
+                  <td data-label="Selecionar">
+                    <input
+                      type="checkbox"
+                      name="aventureiro_send_codigo_ids"
+                      value="{{ item.id }}"
+                      class="send-indicacao-item"
+                    />
+                  </td>
+                  <td data-label="Aventureiro">{{ item.nome }}</td>
+                  <td data-label="Responsavel">
+                    {{ item.responsavel_nome|default:"-" }}
+                    {% if item.responsavel_username %}<small>@{{ item.responsavel_username }}</small>{% endif %}
+                  </td>
+                  <td data-label="Codigo de indicacao"><strong>{{ item.codigo_indicacao|default:"-" }}</strong></td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="4">Nenhum aventureiro cadastrado.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="action-row">
         <button type="submit" class="primary">Salvar preferências</button>
         <button type="submit" class="secondary" name="send_test" value="1">Enviar teste</button>
+        <button type="submit" class="secondary" name="send_indicacao" value="1">Enviar codigo de indicacao</button>
       </div>
     </form>
   </main>
+  <script>
+    (function () {
+      const allToggle = document.getElementById('send-indicacao-all');
+      const items = Array.from(document.querySelectorAll('.send-indicacao-item'));
+      if (!allToggle || !items.length) return;
+
+      allToggle.addEventListener('change', function () {
+        const checked = !!allToggle.checked;
+        items.forEach(function (item) { item.checked = checked; });
+      });
+
+      items.forEach(function (item) {
+        item.addEventListener('change', function () {
+          const allChecked = items.every(function (node) { return !!node.checked; });
+          allToggle.checked = allChecked;
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

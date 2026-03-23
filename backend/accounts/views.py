@@ -7601,28 +7601,62 @@ class WhatsAppView(LoginRequiredMixin, View):
         rows.sort(key=lambda row: (_profile_order_weight(row['access']), row['user'].username.lower()))
         return rows
 
+    def _aventureiros_context(self):
+        rows = []
+        aventureiros = (
+            Aventureiro.objects
+            .select_related('responsavel', 'responsavel__user')
+            .order_by('nome', 'id')
+        )
+        for aventureiro in aventureiros:
+            codigo = str(getattr(aventureiro, 'codigo_indicacao', '') or '').strip()
+            if not codigo:
+                try:
+                    aventureiro.save()
+                    codigo = str(getattr(aventureiro, 'codigo_indicacao', '') or '').strip()
+                except Exception:
+                    codigo = ''
+            responsavel = getattr(aventureiro, 'responsavel', None)
+            responsavel_user = getattr(responsavel, 'user', None)
+            responsavel_nome = ''
+            if responsavel:
+                responsavel_nome = (
+                    responsavel.responsavel_nome
+                    or responsavel.mae_nome
+                    or responsavel.pai_nome
+                    or ''
+                ).strip()
+            if not responsavel_nome and responsavel_user:
+                responsavel_nome = (responsavel_user.get_full_name() or responsavel_user.username or '').strip()
+            rows.append({
+                'id': aventureiro.id,
+                'nome': aventureiro.nome,
+                'codigo_indicacao': codigo,
+                'responsavel_nome': responsavel_nome,
+                'responsavel_username': responsavel_user.username if responsavel_user else '',
+            })
+        return rows
+
+    def _context(self, request):
+        return {
+            'rows': self._users_context(),
+            'aventureiros_rows': self._aventureiros_context(),
+            'queue': queue_stats(),
+            'cadastro_template': get_template_message(WhatsAppTemplate.TYPE_CADASTRO),
+            'diretoria_template': get_template_message(WhatsAppTemplate.TYPE_DIRETORIA),
+            'confirmacao_template': get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO),
+            'financeiro_template': get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO),
+            'loja_template': get_template_message(WhatsAppTemplate.TYPE_LOJA),
+            'evento_inscricao_template': get_template_message(WhatsAppTemplate.TYPE_EVENTO_INSCRICAO),
+            'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
+            'indicacao_codigo_template': get_template_message(WhatsAppTemplate.TYPE_INDICACAO_CODIGO),
+        }
+
     def get(self, request):
         guard = self._director_guard(request)
         if guard:
             return guard
-        cadastro_template = get_template_message(WhatsAppTemplate.TYPE_CADASTRO)
-        diretoria_template = get_template_message(WhatsAppTemplate.TYPE_DIRETORIA)
-        confirmacao_template = get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO)
-        financeiro_template = get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO)
-        loja_template = get_template_message(WhatsAppTemplate.TYPE_LOJA)
-        evento_inscricao_template = get_template_message(WhatsAppTemplate.TYPE_EVENTO_INSCRICAO)
-        teste_template = get_template_message(WhatsAppTemplate.TYPE_TESTE)
-        context = {
-            'rows': self._users_context(),
-            'queue': queue_stats(),
-            'cadastro_template': cadastro_template,
-            'diretoria_template': diretoria_template,
-            'confirmacao_template': confirmacao_template,
-            'financeiro_template': financeiro_template,
-            'loja_template': loja_template,
-            'evento_inscricao_template': evento_inscricao_template,
-            'teste_template': teste_template,
-        }
+        context = self._context(request)
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 
@@ -7697,6 +7731,131 @@ class WhatsAppView(LoginRequiredMixin, View):
             notification_type=WhatsAppTemplate.TYPE_TESTE,
             defaults={'message_text': request.POST.get('template_teste', '').strip()},
         )
+        WhatsAppTemplate.objects.update_or_create(
+            notification_type=WhatsAppTemplate.TYPE_INDICACAO_CODIGO,
+            defaults={'message_text': request.POST.get('template_indicacao_codigo', '').strip()},
+        )
+
+        if request.POST.get('send_indicacao') == '1':
+            send_all = bool(request.POST.get('send_indicacao_all'))
+            selected_ids = []
+            for raw_id in request.POST.getlist('aventureiro_send_codigo_ids'):
+                text = str(raw_id or '').strip()
+                if text.isdigit():
+                    selected_ids.append(int(text))
+            selected_ids = list(dict.fromkeys(selected_ids))
+
+            aventureiros_qs = (
+                Aventureiro.objects
+                .select_related('responsavel', 'responsavel__user')
+                .order_by('nome', 'id')
+            )
+            if not send_all:
+                if not selected_ids:
+                    messages.error(request, 'Selecione ao menos um aventureiro (ou marque "Selecionar todos").')
+                    context = self._context(request)
+                    context.update(_sidebar_context(request))
+                    return render(request, self.template_name, context)
+                aventureiros_qs = aventureiros_qs.filter(id__in=selected_ids)
+
+            aventureiros = list(aventureiros_qs)
+            if not aventureiros:
+                messages.error(request, 'Nenhum aventureiro encontrado para envio.')
+                context = self._context(request)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            template_indicacao = get_template_message(WhatsAppTemplate.TYPE_INDICACAO_CODIGO)
+            sent_count = 0
+            failed_count = 0
+            failed_items = []
+            now_label = timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M:%S')
+
+            for aventureiro in aventureiros:
+                responsavel = getattr(aventureiro, 'responsavel', None)
+                responsavel_user = getattr(responsavel, 'user', None)
+                if not responsavel_user:
+                    failed_count += 1
+                    failed_items.append(f'{aventureiro.nome}: responsavel sem usuario')
+                    continue
+
+                codigo_indicacao = str(getattr(aventureiro, 'codigo_indicacao', '') or '').strip()
+                if not codigo_indicacao:
+                    try:
+                        aventureiro.save()
+                        codigo_indicacao = str(getattr(aventureiro, 'codigo_indicacao', '') or '').strip()
+                    except Exception:
+                        codigo_indicacao = ''
+                if not codigo_indicacao:
+                    failed_count += 1
+                    failed_items.append(f'{aventureiro.nome}: codigo de indicacao ausente')
+                    continue
+
+                pref, _ = WhatsAppPreference.objects.get_or_create(user=responsavel_user)
+                phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(responsavel_user))
+                if not phone_number:
+                    failed_count += 1
+                    failed_items.append(f'{aventureiro.nome}: telefone do responsavel ausente/invalido')
+                    continue
+
+                responsavel_nome = (
+                    responsavel.responsavel_nome
+                    or responsavel.mae_nome
+                    or responsavel.pai_nome
+                    or responsavel_user.get_full_name()
+                    or responsavel_user.username
+                ).strip()
+                payload = {
+                    'aventureiro_nome': aventureiro.nome,
+                    'codigo_indicacao': codigo_indicacao,
+                    'responsavel_nome': responsavel_nome or responsavel_user.username,
+                    'username': responsavel_user.username,
+                    'data_hora': now_label,
+                }
+                message_text = render_message(template_indicacao, payload)
+
+                queue_item = WhatsAppQueue.objects.create(
+                    user=responsavel_user,
+                    phone_number=phone_number,
+                    notification_type=WhatsAppQueue.TYPE_INDICACAO_CODIGO,
+                    message_text=message_text,
+                    status=WhatsAppQueue.STATUS_PENDING,
+                )
+                success, provider_id, error_message = send_wapi_text(
+                    queue_item.phone_number,
+                    queue_item.message_text,
+                )
+                queue_item.attempts = 1
+                if success:
+                    queue_item.status = WhatsAppQueue.STATUS_SENT
+                    queue_item.provider_message_id = provider_id
+                    queue_item.sent_at = timezone.now()
+                    queue_item.last_error = ''
+                    sent_count += 1
+                else:
+                    queue_item.status = WhatsAppQueue.STATUS_FAILED
+                    queue_item.last_error = error_message
+                    failed_count += 1
+                    failed_items.append(f'{aventureiro.nome}: {error_message[:80]}')
+                queue_item.save(
+                    update_fields=[
+                        'status',
+                        'attempts',
+                        'provider_message_id',
+                        'sent_at',
+                        'last_error',
+                    ]
+                )
+
+            messages.success(
+                request,
+                f'Preferencias salvas. Mensagens de codigo enviadas: {sent_count}. Falhas: {failed_count}.',
+            )
+            if failed_items:
+                messages.error(request, 'Falhas: ' + ' | '.join(failed_items[:3]))
+            context = self._context(request)
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
 
         if request.POST.get('send_test') == '1':
             selected_rows = []
@@ -7706,17 +7865,7 @@ class WhatsAppView(LoginRequiredMixin, View):
                     selected_rows.append(row)
             if not selected_rows:
                 messages.error(request, 'Marque pelo menos um contato na coluna Teste para enviar.')
-                context = {
-                    'rows': self._users_context(),
-                    'queue': queue_stats(),
-                    'cadastro_template': get_template_message(WhatsAppTemplate.TYPE_CADASTRO),
-                    'diretoria_template': get_template_message(WhatsAppTemplate.TYPE_DIRETORIA),
-                    'confirmacao_template': get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO),
-                    'financeiro_template': get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO),
-                    'loja_template': get_template_message(WhatsAppTemplate.TYPE_LOJA),
-                    'evento_inscricao_template': get_template_message(WhatsAppTemplate.TYPE_EVENTO_INSCRICAO),
-                    'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
-                }
+                context = self._context(request)
                 context.update(_sidebar_context(request))
                 return render(request, self.template_name, context)
 
@@ -7809,17 +7958,7 @@ class WhatsAppView(LoginRequiredMixin, View):
             messages.info(request, f'Nova inscricao de evento marcado para: {preview}{suffix}')
         else:
             messages.info(request, 'Nenhum contato esta marcado para receber notificacao de Nova inscricao de evento.')
-        context = {
-            'rows': self._users_context(),
-            'queue': queue_stats(),
-            'cadastro_template': get_template_message(WhatsAppTemplate.TYPE_CADASTRO),
-            'diretoria_template': get_template_message(WhatsAppTemplate.TYPE_DIRETORIA),
-            'confirmacao_template': get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO),
-            'financeiro_template': get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO),
-            'loja_template': get_template_message(WhatsAppTemplate.TYPE_LOJA),
-            'evento_inscricao_template': get_template_message(WhatsAppTemplate.TYPE_EVENTO_INSCRICAO),
-            'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
-        }
+        context = self._context(request)
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
 

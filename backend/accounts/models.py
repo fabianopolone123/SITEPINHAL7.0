@@ -256,6 +256,7 @@ class WhatsAppQueue(models.Model):
     TYPE_EVENTO_INSCRICAO = WhatsAppPreference.NOTIFY_EVENTO_INSCRICAO
     TYPE_GERAL = WhatsAppPreference.NOTIFY_GERAL
     TYPE_TESTE = 'teste'
+    TYPE_INDICACAO_CODIGO = 'indicacao_codigo'
 
     TYPE_CHOICES = [
         (TYPE_CADASTRO, 'Cadastro'),
@@ -266,6 +267,7 @@ class WhatsAppQueue(models.Model):
         (TYPE_EVENTO_INSCRICAO, 'Nova inscricao de evento'),
         (TYPE_GERAL, 'Geral'),
         (TYPE_TESTE, 'Teste'),
+        (TYPE_INDICACAO_CODIGO, 'Codigo de indicacao'),
     ]
 
     STATUS_PENDING = 'pending'
@@ -304,6 +306,7 @@ class WhatsAppTemplate(models.Model):
     TYPE_LOJA = WhatsAppPreference.NOTIFY_LOJA
     TYPE_EVENTO_INSCRICAO = WhatsAppPreference.NOTIFY_EVENTO_INSCRICAO
     TYPE_TESTE = 'teste'
+    TYPE_INDICACAO_CODIGO = 'indicacao_codigo'
 
     TYPE_CHOICES = [
         (TYPE_CADASTRO, 'Cadastro'),
@@ -313,6 +316,7 @@ class WhatsAppTemplate(models.Model):
         (TYPE_LOJA, 'Loja'),
         (TYPE_EVENTO_INSCRICAO, 'Nova inscricao de evento'),
         (TYPE_TESTE, 'Teste'),
+        (TYPE_INDICACAO_CODIGO, 'Codigo de indicacao'),
     ]
 
     notification_type = models.CharField('tipo de notificacao', max_length=32, choices=TYPE_CHOICES, unique=True)

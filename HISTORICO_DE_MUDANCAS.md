@@ -979,3 +979,11 @@ ame e label sem quebrar a tela.
 - Fluxo de pagamento com total zerado por cashback concluido automaticamente como pago (sem criar Pix externo).
 - Criado extrato de cashback por aventureiro no financeiro do responsavel (creditos e debitos com saldo apos lancamento).
 - Adicionadas migracoes e estruturas para auditoria de cashback (`AventureiroCashbackLancamento`) e campos de vinculo em pedidos/inscricoes.
+
+## 23/03/2026 - WhatsApp: envio de codigo de indicacao por aventureiro
+
+- Adicionado template proprio de WhatsApp para envio de codigo de indicacao.
+- Tela WhatsApp agora lista aventureiros com opcao de selecionar alguns ou marcar todos.
+- Novo botao "Enviar codigo de indicacao" envia mensagem para o WhatsApp do responsavel de cada aventureiro selecionado.
+- Mensagem aceita placeholders: `{aventureiro_nome}`, `{codigo_indicacao}`, `{responsavel_nome}`, `{username}`, `{data_hora}`.
+- Novo tipo de notificacao `indicacao_codigo` registrado em fila e templates de WhatsApp.
