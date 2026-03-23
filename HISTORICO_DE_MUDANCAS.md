@@ -1010,3 +1010,8 @@ ame e label sem quebrar a tela.
 - Novo modelo FinanceiroComprovante com migration 0061_financeirocomprovante.
 - Saldo liquido do financeiro agora considera mensalidades pagas - gastos comprovados.
 - Adicionada secao Extrato do caixa no relatorio, incluindo entradas de mensalidades, pedidos da loja e saidas de gastos comprovados.
+
+## 23/03/2026 - Sidebar Responsavel: atalho de evento sem permissao do menu Eventos
+
+- Ajustado `_sidebar_context` para exibir atalhos de eventos marcados com `mostrar_no_menu_responsavel` mesmo quando o perfil Responsavel nao possui permissao no menu `eventos`.
+- Mantida a regra de exibir somente eventos completos (com campos + produtos/variacoes ativas).

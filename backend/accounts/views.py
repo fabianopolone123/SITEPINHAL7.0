@@ -303,7 +303,7 @@ def _sidebar_context(request):
     ]
     eventos_atalho_responsavel = []
     try:
-        if active_profile == UserAccess.ROLE_RESPONSAVEL and 'eventos' in menu_permissions:
+        if active_profile == UserAccess.ROLE_RESPONSAVEL:
             eventos_qs = (
                 Evento.objects
                 .filter(mostrar_no_menu_responsavel=True)
