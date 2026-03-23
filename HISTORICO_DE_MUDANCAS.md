@@ -1001,3 +1001,12 @@ ame e label sem quebrar a tela.
 - Edicao de produto do evento passou a permitir adicionar novas variacoes na mesma tela.
 - Edicao de produto do evento agora permite remover variacoes existentes no formulario.
 - Backend de `edit_event_product` atualizado para processar criacao, atualizacao e exclusao de variacoes em um unico salvamento.
+
+## 23/03/2026 - Financeiro: comprovantes de gastos + extrato no relatorio
+
+- Adicionado botao Comprovantes na aba Relatorios do financeiro com abertura em janela suspensa.
+- Novo cadastro de gasto do clube com campos nome, valor e anexo de comprovante (arquivo opcional), gravando data/hora automaticamente.
+- Incluida pesquisa por nome do gasto/usuario cadastrado na listagem de comprovantes.
+- Novo modelo FinanceiroComprovante com migration 0061_financeirocomprovante.
+- Saldo liquido do financeiro agora considera mensalidades pagas - gastos comprovados.
+- Adicionada secao Extrato do caixa no relatorio, incluindo entradas de mensalidades, pedidos da loja e saidas de gastos comprovados.

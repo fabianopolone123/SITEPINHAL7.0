@@ -29,6 +29,12 @@ def evento_custo_comprovante_upload_to(instance, filename):
     return f'eventos/custos/{event_part}/{timestamp}_{safe_name}'
 
 
+def financeiro_comprovante_upload_to(instance, filename):
+    timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
+    safe_name = (filename or 'comprovante').replace(' ', '_')
+    return f'financeiro/comprovantes/{timestamp}_{safe_name}'
+
+
 class UserAccess(models.Model):
     ROLE_RESPONSAVEL = 'responsavel'
     ROLE_DIRETORIA = 'diretoria'
@@ -595,6 +601,34 @@ class EventoCusto(models.Model):
 
     def __str__(self):
         return f'{self.evento.name} - {self.nome}'
+
+
+class FinanceiroComprovante(models.Model):
+    nome = models.CharField('nome do gasto', max_length=255)
+    valor = models.DecimalField('valor', max_digits=10, decimal_places=2)
+    comprovante = models.FileField(
+        'comprovante',
+        upload_to=financeiro_comprovante_upload_to,
+        null=True,
+        blank=True,
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='financeiro_comprovantes_criados',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        verbose_name = 'comprovante de gasto do clube'
+        verbose_name_plural = 'comprovantes de gastos do clube'
+
+    def __str__(self):
+        return self.nome
 
 
 class EventoPreset(models.Model):

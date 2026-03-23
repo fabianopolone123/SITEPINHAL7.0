@@ -140,9 +140,37 @@
     .financeiro-report-section li {
       margin:.15rem 0;
     }
+    .financeiro-report-toolbar {
+      margin:.2rem 0 1rem;
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:space-between;
+      align-items:center;
+      gap:.65rem;
+    }
+    .financeiro-report-search {
+      display:flex;
+      align-items:center;
+      gap:.5rem;
+      flex-wrap:wrap;
+    }
+    .financeiro-report-search input {
+      min-width:220px;
+      padding:.62rem .78rem;
+      border:1px solid #cbd5e1;
+      border-radius:10px;
+    }
+    .financeiro-report-search a {
+      text-decoration:none;
+      color:#334155;
+      font-weight:600;
+    }
     @media (max-width: 768px) {
       .financeiro-grid { grid-template-columns: 1fr; }
       .financeiro-grid .primary { width:100%; }
+      .financeiro-report-toolbar { align-items:flex-start; }
+      .financeiro-report-search { width:100%; }
+      .financeiro-report-search input { flex:1; min-width:0; width:100%; }
     }
   </style>
 </head>
@@ -320,7 +348,7 @@
         <div class="financeiro-report-card">
           <strong>Caixa liquido</strong>
           <span>{{ relatorios_caixa_liquido }}</span>
-          <p class="financeiro-report-note">Considera somente mensalidades pagas no saldo positivo do caixa.</p>
+          <p class="financeiro-report-note">Mensalidades pagas menos gastos comprovados do clube.</p>
         </div>
         <div class="financeiro-report-card">
           <strong>Total mensalidades pagas</strong>
@@ -332,6 +360,97 @@
           <span>{{ relatorios_total_loja_pago }}</span>
           <p class="financeiro-report-note">Entra no bruto, mas nao soma no liquido.</p>
         </div>
+        <div class="financeiro-report-card">
+          <strong>Total gastos comprovados</strong>
+          <span>{{ relatorios_total_gastos_comprovados }}</span>
+          <p class="financeiro-report-note">Abate diretamente o saldo liquido.</p>
+        </div>
+      </div>
+
+      <div class="financeiro-report-toolbar">
+        <button type="button" class="primary" id="financeiroOpenComprovanteModal">Comprovantes</button>
+        <form method="get" class="financeiro-report-search">
+          <input type="hidden" name="tab" value="relatorios" />
+          <input type="text" name="comprovante_q" value="{{ relatorios_comprovante_query|default:'' }}" placeholder="Pesquisar gasto ou usuario..." />
+          <button type="submit" class="secondary">Pesquisar</button>
+          {% if relatorios_comprovante_query %}
+            <a href="{% url 'accounts:financeiro' %}?tab=relatorios">Limpar</a>
+          {% endif %}
+        </form>
+      </div>
+
+      <div class="financeiro-report-section">
+        <h3>Comprovantes de gastos do clube</h3>
+        {% if relatorios_comprovantes_rows %}
+          <div class="financeiro-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Data/hora</th>
+                  <th>Nome</th>
+                  <th>Valor</th>
+                  <th>Cadastrado por</th>
+                  <th>Arquivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in relatorios_comprovantes_rows %}
+                  <tr>
+                    <td>#{{ row.id }}</td>
+                    <td>{{ row.created_at }}</td>
+                    <td>{{ row.nome }}</td>
+                    <td>{{ row.valor }}</td>
+                    <td>{{ row.created_by }}</td>
+                    <td>
+                      {% if row.comprovante_url %}
+                        <a href="{{ row.comprovante_url }}" target="_blank" rel="noopener">Ver comprovante</a>
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="panel-note">Nenhum comprovante de gasto encontrado para o filtro atual.</p>
+        {% endif %}
+      </div>
+
+      <div class="financeiro-report-section">
+        <h3>Extrato do caixa</h3>
+        {% if relatorios_extrato_rows %}
+          <div class="financeiro-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Tipo</th>
+                  <th>Descricao</th>
+                  <th>Valor</th>
+                  <th>Impacto</th>
+                  <th>Saldo liquido apos</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in relatorios_extrato_rows %}
+                  <tr>
+                    <td>{{ row.data }}</td>
+                    <td>{{ row.tipo }}</td>
+                    <td>{{ row.descricao }}</td>
+                    <td>{{ row.valor_sinal }} {{ row.valor }}</td>
+                    <td>{{ row.impacto_label }}</td>
+                    <td>{{ row.saldo_liquido_apos }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="panel-note">Ainda nao existem lancamentos para o extrato.</p>
+        {% endif %}
       </div>
 
       <div class="financeiro-report-section">
@@ -569,6 +688,59 @@
       {% endif %}
     </div>
   </div>
+  {% endif %}
+
+  {% if financeiro_mode != 'responsavel' and active_financeiro_tab == 'relatorios' and show_financeiro_relatorios_tab %}
+  <div class="modal-backdrop{% if relatorios_open_comprovante_modal %} is-open{% endif %}" id="financeiroComprovanteModal" aria-hidden="{% if relatorios_open_comprovante_modal %}false{% else %}true{% endif %}">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="financeiroComprovanteModalTitle">
+      <h3 id="financeiroComprovanteModalTitle">Novo comprovante de gasto</h3>
+      <p>Cadastre gastos do clube para abater o saldo liquido e registrar no extrato.</p>
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="tab" value="relatorios" />
+        <input type="hidden" name="action" value="add_financeiro_comprovante" />
+        <input type="hidden" name="comprovante_q" value="{{ relatorios_comprovante_query|default:'' }}" />
+        <label for="comprovanteNome">Nome do gasto</label>
+        <input id="comprovanteNome" type="text" name="comprovante_nome" required />
+        <label for="comprovanteValor">Valor</label>
+        <input id="comprovanteValor" type="text" name="comprovante_valor" inputmode="decimal" placeholder="0,00" required />
+        <label for="comprovanteArquivo">Arquivo do comprovante (opcional)</label>
+        <input id="comprovanteArquivo" type="file" name="comprovante_arquivo" />
+        <div class="modal-actions">
+          <button type="button" class="ghost" id="financeiroComprovanteModalCancelar">Cancelar</button>
+          <button type="submit" class="primary">Salvar comprovante</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const modal = document.getElementById('financeiroComprovanteModal');
+      const openBtn = document.getElementById('financeiroOpenComprovanteModal');
+      const closeBtn = document.getElementById('financeiroComprovanteModalCancelar');
+      if (!modal || !openBtn || !closeBtn) return;
+
+      function openModal() {
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeModal() {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+      }
+
+      openBtn.addEventListener('click', openModal);
+      closeBtn.addEventListener('click', closeModal);
+      modal.addEventListener('click', function (event) {
+        if (event.target === modal) closeModal();
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+      });
+    })();
+  </script>
   {% endif %}
 
   {% if financeiro_mode != 'responsavel' and active_financeiro_tab == 'mensalidades' %}

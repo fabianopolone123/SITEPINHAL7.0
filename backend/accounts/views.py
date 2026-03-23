@@ -51,6 +51,7 @@ from .models import (
     DocumentoInscricaoGerado,
     Evento,
     EventoCusto,
+    FinanceiroComprovante,
     EventoPreset,
     EventoInscricao,
     EventoPresenca,
@@ -8060,6 +8061,23 @@ class FinanceiroView(LoginRequiredMixin, View):
             return None
         return value.quantize(Decimal('0.01'))
 
+    def _parse_valor_positive(self, raw_value):
+        raw = str(raw_value or '').strip()
+        if not raw:
+            return None
+        normalized = raw.replace('R$', '').replace(' ', '')
+        if ',' in normalized and '.' in normalized:
+            normalized = normalized.replace('.', '').replace(',', '.')
+        else:
+            normalized = normalized.replace(',', '.')
+        try:
+            value = Decimal(normalized)
+        except (InvalidOperation, ValueError):
+            return None
+        if value <= 0:
+            return None
+        return value.quantize(Decimal('0.01'))
+
     def _format_currency(self, value):
         try:
             decimal_value = Decimal(value).quantize(Decimal('0.01'))
@@ -8593,7 +8611,8 @@ class FinanceiroView(LoginRequiredMixin, View):
             'resumo_rows': list(resumo_rows_map.values()),
         }
 
-    def _relatorios_context(self):
+    def _relatorios_context(self, comprovante_query='', open_comprovante_modal=False):
+        comprovante_query = str(comprovante_query or '').strip()
         mensalidades_pagas = list(
             PagamentoMensalidade.objects
             .filter(status=PagamentoMensalidade.STATUS_PAGO)
@@ -8608,6 +8627,13 @@ class FinanceiroView(LoginRequiredMixin, View):
             .prefetch_related('itens')
             .order_by('-paid_at', '-created_at')
         )
+        comprovantes_qs = FinanceiroComprovante.objects.select_related('created_by').order_by('-created_at')
+        if comprovante_query:
+            comprovantes_qs = comprovantes_qs.filter(
+                Q(nome__icontains=comprovante_query)
+                | Q(created_by__username__icontains=comprovante_query)
+            )
+        comprovantes_gasto = list(comprovantes_qs)
 
         total_mensalidades_pago = (
             PagamentoMensalidade.objects
@@ -8623,10 +8649,17 @@ class FinanceiroView(LoginRequiredMixin, View):
             .get('total')
             or Decimal('0.00')
         )
+        total_gastos_comprovados = (
+            FinanceiroComprovante.objects
+            .aggregate(total=Sum('valor'))
+            .get('total')
+            or Decimal('0.00')
+        )
         caixa_bruto = (Decimal(total_mensalidades_pago) + Decimal(total_loja_pago)).quantize(Decimal('0.01'))
-        caixa_liquido = Decimal(total_mensalidades_pago).quantize(Decimal('0.01'))
+        caixa_liquido = (Decimal(total_mensalidades_pago) - Decimal(total_gastos_comprovados)).quantize(Decimal('0.01'))
 
         mensalidades_rows = []
+        extrato_entries = []
         for pagamento in mensalidades_pagas:
             responsavel_nome = (
                 pagamento.responsavel.responsavel_nome
@@ -8646,6 +8679,14 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'valor_total': self._format_currency(pagamento.valor_total),
                 'pago_em': timezone.localtime(pagamento.paid_at or pagamento.created_at).strftime('%d/%m/%Y %H:%M'),
                 'competencias': competencias,
+            })
+            extrato_entries.append({
+                'created_at': pagamento.paid_at or pagamento.created_at,
+                'tipo': 'Mensalidade paga',
+                'descricao': f'Pagamento #{pagamento.pk} - {responsavel_nome}',
+                'valor': Decimal(pagamento.valor_total).quantize(Decimal('0.01')),
+                'impacto_liquido': Decimal(pagamento.valor_total).quantize(Decimal('0.01')),
+                'impacta_liquido': True,
             })
 
         pedidos_loja_rows = []
@@ -8670,14 +8711,68 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'pago_em': timezone.localtime(pedido.paid_at or pedido.created_at).strftime('%d/%m/%Y %H:%M'),
                 'itens': itens,
             })
+            extrato_entries.append({
+                'created_at': pedido.paid_at or pedido.created_at,
+                'tipo': 'Pedido loja pago',
+                'descricao': f'Pedido #{pedido.pk} - {responsavel_nome}',
+                'valor': Decimal(pedido.valor_total).quantize(Decimal('0.01')),
+                'impacto_liquido': Decimal('0.00'),
+                'impacta_liquido': False,
+            })
+
+        comprovantes_rows = []
+        for gasto in comprovantes_gasto:
+            comprovantes_rows.append({
+                'id': gasto.pk,
+                'nome': gasto.nome,
+                'valor': self._format_currency(gasto.valor),
+                'created_at': timezone.localtime(gasto.created_at).strftime('%d/%m/%Y %H:%M'),
+                'created_by': gasto.created_by.username if gasto.created_by else '-',
+                'comprovante_url': gasto.comprovante.url if getattr(gasto, 'comprovante', None) else '',
+            })
+            extrato_entries.append({
+                'created_at': gasto.created_at,
+                'tipo': 'Gasto comprovado',
+                'descricao': gasto.nome,
+                'valor': (-Decimal(gasto.valor)).quantize(Decimal('0.01')),
+                'impacto_liquido': (-Decimal(gasto.valor)).quantize(Decimal('0.01')),
+                'impacta_liquido': True,
+            })
+
+        sorted_entries = sorted(
+            extrato_entries,
+            key=lambda item: (item.get('created_at') or timezone.now(), item.get('descricao') or ''),
+        )
+        saldo_liquido_corrente = Decimal('0.00')
+        for item in sorted_entries:
+            saldo_liquido_corrente += Decimal(item.get('impacto_liquido') or Decimal('0.00'))
+            item['saldo_liquido_apos'] = saldo_liquido_corrente.quantize(Decimal('0.01'))
+
+        extrato_rows = []
+        for item in reversed(sorted_entries):
+            valor_decimal = Decimal(item.get('valor') or Decimal('0.00')).quantize(Decimal('0.01'))
+            extrato_rows.append({
+                'data': timezone.localtime(item.get('created_at')).strftime('%d/%m/%Y %H:%M') if item.get('created_at') else '-',
+                'tipo': item.get('tipo') or '-',
+                'descricao': item.get('descricao') or '-',
+                'valor': self._format_currency(abs(valor_decimal)),
+                'valor_sinal': '+' if valor_decimal >= 0 else '-',
+                'impacto_label': 'Entra no liquido' if item.get('impacta_liquido') else 'Nao entra no liquido',
+                'saldo_liquido_apos': self._format_currency(item.get('saldo_liquido_apos') or Decimal('0.00')),
+            })
 
         return {
             'relatorios_mensalidades_rows': mensalidades_rows,
             'relatorios_loja_rows': pedidos_loja_rows,
+            'relatorios_comprovantes_rows': comprovantes_rows,
+            'relatorios_extrato_rows': extrato_rows,
             'relatorios_total_mensalidades_pago': self._format_currency(total_mensalidades_pago),
             'relatorios_total_loja_pago': self._format_currency(total_loja_pago),
+            'relatorios_total_gastos_comprovados': self._format_currency(total_gastos_comprovados),
             'relatorios_caixa_bruto': self._format_currency(caixa_bruto),
             'relatorios_caixa_liquido': self._format_currency(caixa_liquido),
+            'relatorios_comprovante_query': comprovante_query,
+            'relatorios_open_comprovante_modal': bool(open_comprovante_modal),
         }
 
     def get(self, request):
@@ -8689,7 +8784,7 @@ class FinanceiroView(LoginRequiredMixin, View):
             context = self._mensalidades_responsavel_context(request, incluir_ano_todo=incluir_ano_todo)
             active_tab = 'mensalidades'
         elif str(request.GET.get('tab') or '').strip().lower() == 'relatorios' and self._is_diretor_mode(request):
-            context = self._relatorios_context()
+            context = self._relatorios_context(request.GET.get('comprovante_q', ''))
             active_tab = 'relatorios'
         else:
             context = self._mensalidades_context(
@@ -8796,6 +8891,36 @@ class FinanceiroView(LoginRequiredMixin, View):
                             context['responsavel_pix_pagamento'] = self._pix_modal_context(pagamento)
             context.update({'active_financeiro_tab': 'mensalidades'})
             context.update({'show_financeiro_relatorios_tab': self._is_diretor_mode(request)})
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+        post_tab = str(request.POST.get('tab') or '').strip().lower()
+        if post_tab == 'relatorios' and self._is_diretor_mode(request):
+            action = str(request.POST.get('action') or '').strip()
+            comprovante_query = str(request.POST.get('comprovante_q') or '').strip()
+            open_comprovante_modal = False
+            if action == 'add_financeiro_comprovante':
+                nome = str(request.POST.get('comprovante_nome') or '').strip()
+                valor = self._parse_valor_positive(request.POST.get('comprovante_valor'))
+                comprovante = request.FILES.get('comprovante_arquivo')
+                if not nome:
+                    open_comprovante_modal = True
+                    messages.error(request, 'Informe o nome do gasto para salvar o comprovante.')
+                elif valor is None:
+                    open_comprovante_modal = True
+                    messages.error(request, 'Informe um valor valido maior que zero para o gasto.')
+                else:
+                    FinanceiroComprovante.objects.create(
+                        nome=nome,
+                        valor=valor,
+                        comprovante=comprovante,
+                        created_by=request.user,
+                    )
+                    messages.success(request, 'Comprovante de gasto cadastrado com sucesso.')
+            context = self._relatorios_context(comprovante_query, open_comprovante_modal=open_comprovante_modal)
+            context.update({
+                'active_financeiro_tab': 'relatorios',
+                'show_financeiro_relatorios_tab': self._is_diretor_mode(request),
+            })
             context.update(_sidebar_context(request))
             return render(request, self.template_name, context)
         action = str(request.POST.get('action') or '').strip()
