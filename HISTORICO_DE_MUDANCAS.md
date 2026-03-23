@@ -994,3 +994,4 @@ ame e label sem quebrar a tela.
 - Novo padrao: 2 letras iniciais + nome/sobrenome normalizado (sem acento/simbolos), com ate 12 caracteres.
 - Em caso de duplicidade, o sistema adiciona sufixo numerico automatico para manter codigo unico.
 - O codigo informado manualmente tambem passa por normalizacao (maiusculo e apenas letras/numeros).
+- Migration `0060_rebuild_aventureiro_codigos_legiveis` adicionada para atualizar tambem os codigos ja existentes com o novo padrao legivel.
