@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from decimal import Decimal
 import random
+import unicodedata
 
 User = get_user_model()
 
@@ -178,15 +179,44 @@ class Aventureiro(models.Model):
     cashback_saldo = models.DecimalField('saldo cashback', max_digits=10, decimal_places=2, default=Decimal('0.00'))
     created_at = models.DateTimeField(auto_now_add=True)
 
-    @classmethod
-    def _generate_codigo_indicacao(cls):
+    @staticmethod
+    def _normalize_codigo_indicacao(raw_value):
+        text = unicodedata.normalize('NFKD', str(raw_value or ''))
+        text = ''.join(ch for ch in text if not unicodedata.combining(ch))
+        text = ''.join(ch for ch in text.upper() if ch.isalnum())
+        return text[:12]
+
+    def _codigo_indicacao_base(self):
+        raw_name = str(self.nome or '').strip()
+        tokens = []
+        for part in raw_name.split():
+            token = self._normalize_codigo_indicacao(part)
+            if token:
+                tokens.append(token)
+        if not tokens:
+            return 'AVENTUREIRO'
+        first = tokens[0]
+        last = tokens[-1] if len(tokens) > 1 else tokens[0]
+        prefix = (first[:1] + last[:1]).ljust(2, 'X')
+        body = first if len(first) >= 3 else last
+        if not body:
+            body = 'AVENTUREIRO'
+        return f'{prefix}{body}'[:12]
+
+    def _generate_codigo_indicacao(self, attempt=0):
+        base = self._codigo_indicacao_base()
+        if attempt <= 0:
+            return base
+        if attempt <= 99:
+            return f'{base[:10]}{attempt:02d}'
         alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
         rng = random.SystemRandom()
-        return ''.join(rng.choice(alphabet) for _ in range(6))
+        suffix = ''.join(rng.choice(alphabet) for _ in range(4))
+        return f'{base[:8]}{suffix}'[:12]
 
     def _next_codigo_indicacao(self):
-        for _ in range(40):
-            candidate = self._generate_codigo_indicacao()
+        for attempt in range(180):
+            candidate = self._generate_codigo_indicacao(attempt=attempt)
             qs = Aventureiro.objects.filter(codigo_indicacao=candidate)
             if self.pk:
                 qs = qs.exclude(pk=self.pk)
@@ -195,7 +225,7 @@ class Aventureiro(models.Model):
         raise ValueError('Nao foi possivel gerar codigo de indicacao unico para aventureiro.')
 
     def save(self, *args, **kwargs):
-        raw_code = str(self.codigo_indicacao or '').strip().upper()
+        raw_code = self._normalize_codigo_indicacao(self.codigo_indicacao)
         if raw_code:
             self.codigo_indicacao = raw_code
         else:

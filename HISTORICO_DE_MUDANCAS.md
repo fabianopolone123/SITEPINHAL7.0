@@ -987,3 +987,10 @@ ame e label sem quebrar a tela.
 - Novo botao "Enviar codigo de indicacao" envia mensagem para o WhatsApp do responsavel de cada aventureiro selecionado.
 - Mensagem aceita placeholders: `{aventureiro_nome}`, `{codigo_indicacao}`, `{responsavel_nome}`, `{username}`, `{data_hora}`.
 - Novo tipo de notificacao `indicacao_codigo` registrado em fila e templates de WhatsApp.
+
+## 23/03/2026 - Codigo de indicacao mais facil (nome/sobrenome)
+
+- Regra de geracao do codigo de indicacao do aventureiro ajustada para formato legivel.
+- Novo padrao: 2 letras iniciais + nome/sobrenome normalizado (sem acento/simbolos), com ate 12 caracteres.
+- Em caso de duplicidade, o sistema adiciona sufixo numerico automatico para manter codigo unico.
+- O codigo informado manualmente tambem passa por normalizacao (maiusculo e apenas letras/numeros).
