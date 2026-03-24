@@ -290,6 +290,8 @@ class WhatsAppQueue(models.Model):
     TYPE_FINANCEIRO = WhatsAppPreference.NOTIFY_FINANCEIRO
     TYPE_LOJA = WhatsAppPreference.NOTIFY_LOJA
     TYPE_EVENTO_INSCRICAO = WhatsAppPreference.NOTIFY_EVENTO_INSCRICAO
+    TYPE_EVENTO_INSCRICAO_RESPONSAVEL = 'evento_inscricao_responsavel'
+    TYPE_EVENTO_INSCRICAO_DIRETORIA = 'evento_inscricao_diretoria'
     TYPE_GERAL = WhatsAppPreference.NOTIFY_GERAL
     TYPE_TESTE = 'teste'
     TYPE_INDICACAO_CODIGO = 'indicacao_codigo'
@@ -301,6 +303,8 @@ class WhatsAppQueue(models.Model):
         (TYPE_FINANCEIRO, 'Financeiro'),
         (TYPE_LOJA, 'Loja'),
         (TYPE_EVENTO_INSCRICAO, 'Nova inscricao de evento'),
+        (TYPE_EVENTO_INSCRICAO_RESPONSAVEL, 'Confirmacao de evento (inscrito)'),
+        (TYPE_EVENTO_INSCRICAO_DIRETORIA, 'Confirmacao de evento (diretoria)'),
         (TYPE_GERAL, 'Geral'),
         (TYPE_TESTE, 'Teste'),
         (TYPE_INDICACAO_CODIGO, 'Codigo de indicacao'),
@@ -341,6 +345,8 @@ class WhatsAppTemplate(models.Model):
     TYPE_FINANCEIRO = WhatsAppPreference.NOTIFY_FINANCEIRO
     TYPE_LOJA = WhatsAppPreference.NOTIFY_LOJA
     TYPE_EVENTO_INSCRICAO = WhatsAppPreference.NOTIFY_EVENTO_INSCRICAO
+    TYPE_EVENTO_INSCRICAO_RESPONSAVEL = 'evento_inscricao_responsavel'
+    TYPE_EVENTO_INSCRICAO_DIRETORIA = 'evento_inscricao_diretoria'
     TYPE_TESTE = 'teste'
     TYPE_INDICACAO_CODIGO = 'indicacao_codigo'
 
@@ -351,6 +357,8 @@ class WhatsAppTemplate(models.Model):
         (TYPE_FINANCEIRO, 'Financeiro'),
         (TYPE_LOJA, 'Loja'),
         (TYPE_EVENTO_INSCRICAO, 'Nova inscricao de evento'),
+        (TYPE_EVENTO_INSCRICAO_RESPONSAVEL, 'Confirmacao de evento (inscrito)'),
+        (TYPE_EVENTO_INSCRICAO_DIRETORIA, 'Confirmacao de evento (diretoria)'),
         (TYPE_TESTE, 'Teste'),
         (TYPE_INDICACAO_CODIGO, 'Codigo de indicacao'),
     ]

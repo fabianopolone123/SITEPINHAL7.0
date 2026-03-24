@@ -78,6 +78,45 @@ DEFAULT_EVENTO_INSCRICAO_MESSAGE = (
     'Data/Hora do cadastro: {data_hora}'
 )
 
+DEFAULT_EVENTO_INSCRICAO_RESPONSAVEL_MESSAGE = (
+    'Inscricao do evento confirmada!\n'
+    'Evento: {evento_nome}\n'
+    'Data: {evento_data}\n'
+    'Horario: {evento_horario}\n'
+    'Local: {evento_local}\n'
+    'Codigo da inscricao: {codigo_inscricao}\n'
+    'Responsavel: {responsavel_nome}\n'
+    'CPF: {responsavel_cpf}\n'
+    'WhatsApp: {responsavel_whatsapp}\n'
+    'Status da inscricao: {status_inscricao}\n'
+    'Status do pagamento: {status_pagamento}\n'
+    'Pedido: {pedido_id}\n'
+    'Pagamento: {pagamento_id}\n'
+    'Valor da inscricao: {valor_inscricao}\n'
+    'Valor total pago: {valor_total_pago}\n'
+    'Data/Hora: {data_hora}'
+)
+
+DEFAULT_EVENTO_INSCRICAO_DIRETORIA_MESSAGE = (
+    'Nova inscricao de evento confirmada!\n'
+    'Evento: {evento_nome}\n'
+    'Data: {evento_data}\n'
+    'Horario: {evento_horario}\n'
+    'Local: {evento_local}\n'
+    'Codigo da inscricao: {codigo_inscricao}\n'
+    'Responsavel: {responsavel_nome}\n'
+    'CPF: {responsavel_cpf}\n'
+    'WhatsApp: {responsavel_whatsapp}\n'
+    'Status da inscricao: {status_inscricao}\n'
+    'Status do pagamento: {status_pagamento}\n'
+    'Pedido: {pedido_id}\n'
+    'Pagamento: {pagamento_id}\n'
+    'Valor da inscricao: {valor_inscricao}\n'
+    'Valor total pago: {valor_total_pago}\n'
+    'Origem: {origem_notificacao}\n'
+    'Data/Hora: {data_hora}'
+)
+
 DEFAULT_TESTE_MESSAGE = (
     '✅ Mensagem de teste do sistema Pinhal Junior.\n'
     'Se voce recebeu este aviso, o canal WhatsApp esta ativo.'
@@ -250,6 +289,8 @@ def get_template_message(notification_type):
         WhatsAppTemplate.TYPE_FINANCEIRO: DEFAULT_FINANCEIRO_MESSAGE,
         WhatsAppTemplate.TYPE_LOJA: DEFAULT_LOJA_MESSAGE,
         WhatsAppTemplate.TYPE_EVENTO_INSCRICAO: DEFAULT_EVENTO_INSCRICAO_MESSAGE,
+        WhatsAppTemplate.TYPE_EVENTO_INSCRICAO_RESPONSAVEL: DEFAULT_EVENTO_INSCRICAO_RESPONSAVEL_MESSAGE,
+        WhatsAppTemplate.TYPE_EVENTO_INSCRICAO_DIRETORIA: DEFAULT_EVENTO_INSCRICAO_DIRETORIA_MESSAGE,
         WhatsAppTemplate.TYPE_TESTE: DEFAULT_TESTE_MESSAGE,
         WhatsAppTemplate.TYPE_INDICACAO_CODIGO: DEFAULT_INDICACAO_CODIGO_MESSAGE,
     }

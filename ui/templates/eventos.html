@@ -387,7 +387,7 @@
                     <div class="event-fields js-inline-fields">
                       {% if evento.fields_data %}
                         {% for campo in evento.fields_data %}
-                          <div class="event-field-row">
+                          <div class="event-field-row" data-notification-phone="{% if campo.notification_phone %}1{% else %}0{% endif %}">
                             <input type="text" name="field_name[]" value="{% firstof campo.name campo.label '' %}" placeholder="Nome do campo" />
                             <select name="field_type[]" class="js-field-type">
                               <option value="texto" {% if campo.type|default:'texto' == 'texto' %}selected{% endif %}>Texto</option>
@@ -401,6 +401,10 @@
                             <select name="field_required[]">
                               <option value="1" {% if campo.required %}selected{% endif %}>Obrigatório</option>
                               <option value="0" {% if not campo.required %}selected{% endif %}>Opcional</option>
+                            </select>
+                            <select name="field_notification_phone[]">
+                              <option value="0" {% if not campo.notification_phone %}selected{% endif %}>Numero WhatsApp para notificacao: Nao</option>
+                              <option value="1" {% if campo.notification_phone %}selected{% endif %}>Numero WhatsApp para notificacao: Sim</option>
                             </select>
                             <input type="text" name="field_selector_options[]" value="{% if campo.options %}{{ campo.options|join:'; ' }}{% endif %}" placeholder="Opções (ex.: Sim;Não ou 1;2;3)" class="js-selector-config" />
                             <input type="number" name="field_selector_start[]" value="{{ campo.range_start|default:'' }}" placeholder="De" class="js-selector-config js-selector-range" />
@@ -429,6 +433,10 @@
                           <select name="field_required[]">
                             <option value="1">Obrigatório</option>
                             <option value="0">Opcional</option>
+                          </select>
+                          <select name="field_notification_phone[]">
+                            <option value="0" selected>Numero WhatsApp para notificacao: Nao</option>
+                            <option value="1">Numero WhatsApp para notificacao: Sim</option>
                           </select>
                           <input type="text" name="field_selector_options[]" placeholder="Opções (ex.: Sim;Não ou 1;2;3)" class="js-selector-config" />
                           <input type="number" name="field_selector_start[]" placeholder="De" class="js-selector-config js-selector-range" />
@@ -769,6 +777,7 @@
 
         <div class="field-section">
           <h3>Campos do evento</h3>
+          <p class="panel-note">Se um campo do tipo Numero deve receber o WhatsApp do inscrito, marque "Numero WhatsApp para notificacao: Sim".</p>
           <p class="panel-note">Use o botão + para adicionar os campos que esse evento precisa.</p>
           <p class="panel-note">No tipo Botao repetidor, clique em "Montar subcampos" para preencher sem codigo. Se quiser, ainda pode usar: Nome:texto; Idade:numero; Camiseta:seletor(P|M|G).</p>
 
@@ -787,6 +796,10 @@
               <select name="field_required[]">
                 <option value="1">Obrigatório</option>
                 <option value="0">Opcional</option>
+              </select>
+              <select name="field_notification_phone[]">
+                <option value="0" selected>Numero WhatsApp para notificacao: Nao</option>
+                <option value="1">Numero WhatsApp para notificacao: Sim</option>
               </select>
               <input type="text" name="field_selector_options[]" placeholder="Opções (ex.: Sim;Não ou 1;2;3)" class="js-selector-config" />
               <input type="number" name="field_selector_start[]" placeholder="De" class="js-selector-config js-selector-range" />
@@ -1160,6 +1173,7 @@
         nameValue,
         typeValue,
         requiredValue,
+        notificationPhoneValue,
         optionsValue,
         rangeStartValue,
         rangeEndValue,
@@ -1183,6 +1197,10 @@
             '<option value="1">Obrigatório</option>' +
             '<option value="0">Opcional</option>' +
           '</select>' +
+          '<select name="field_notification_phone[]">' +
+            '<option value="0" selected>Numero WhatsApp para notificacao: Nao</option>' +
+            '<option value="1">Numero WhatsApp para notificacao: Sim</option>' +
+          '</select>' +
           '<input type="text" name="field_selector_options[]" placeholder="Opções (ex.: Sim;Não ou 1;2;3)" class="js-selector-config" />' +
           '<input type="number" name="field_selector_start[]" placeholder="De" class="js-selector-config js-selector-range" />' +
           '<input type="number" name="field_selector_end[]" placeholder="Até" class="js-selector-config js-selector-range" />' +
@@ -1196,6 +1214,7 @@
         const input = row.querySelector('input[name="field_name[]"]');
         const select = row.querySelector('select[name="field_type[]"]');
         const requiredSelect = row.querySelector('select[name="field_required[]"]');
+        const notificationPhoneSelect = row.querySelector('select[name="field_notification_phone[]"]');
         const optionsInput = row.querySelector('input[name="field_selector_options[]"]');
         const startInput = row.querySelector('input[name="field_selector_start[]"]');
         const endInput = row.querySelector('input[name="field_selector_end[]"]');
@@ -1204,6 +1223,7 @@
         if (input) input.value = nameValue || '';
         if (select && typeValue) select.value = typeValue;
         if (requiredSelect) requiredSelect.value = String(requiredValue || '1');
+        if (notificationPhoneSelect) notificationPhoneSelect.value = String(notificationPhoneValue || '0');
         if (optionsInput) optionsInput.value = selectorOptionsToText(optionsValue);
         if (startInput) startInput.value = String(rangeStartValue ?? '');
         if (endInput) endInput.value = String(rangeEndValue ?? '');
@@ -1215,7 +1235,7 @@
 
       const clearFieldsToDefault = () => {
         fieldsContainer.innerHTML = '';
-        fieldsContainer.appendChild(createFieldRow('', 'texto', '1'));
+        fieldsContainer.appendChild(createFieldRow('', 'texto', '1', '0'));
         attachRemoveHandlers();
       };
 
@@ -1244,7 +1264,7 @@
         fieldsContainer.innerHTML = '';
         const rows = Array.isArray(preset.fields_data) ? preset.fields_data : [];
         if (!rows.length) {
-          fieldsContainer.appendChild(createFieldRow('', 'texto', '1'));
+          fieldsContainer.appendChild(createFieldRow('', 'texto', '1', '0'));
         } else {
           rows.forEach((field) => {
             fieldsContainer.appendChild(
@@ -1252,6 +1272,7 @@
                 field.name || field.label || '',
                 field.type || 'texto',
                 field.required ? '1' : '0',
+                field.notification_phone ? '1' : '0',
                 field.options || '',
                 field.range_start ?? '',
                 field.range_end ?? '',
@@ -1393,7 +1414,7 @@
       }
 
       addButton.addEventListener('click', () => {
-        fieldsContainer.appendChild(createFieldRow('', 'texto', '1'));
+        fieldsContainer.appendChild(createFieldRow('', 'texto', '1', '0'));
         attachRemoveHandlers();
       });
 
@@ -1443,6 +1464,10 @@
         if (row.querySelector('.js-field-type')) {
           syncSelectorRow(row);
         }
+        const notificationPhoneSelect = row.querySelector('select[name="field_notification_phone[]"]');
+        if (notificationPhoneSelect && row.dataset.notificationPhone) {
+          notificationPhoneSelect.value = row.dataset.notificationPhone === '1' ? '1' : '0';
+        }
       });
 
       const deleteButtons = document.querySelectorAll('.js-confirm-delete-event');
@@ -1473,6 +1498,10 @@
           '<select name="field_required[]">' +
             '<option value="1">Obrigatório</option>' +
             '<option value="0">Opcional</option>' +
+          '</select>' +
+          '<select name="field_notification_phone[]">' +
+            '<option value="0" selected>Numero WhatsApp para notificacao: Nao</option>' +
+            '<option value="1">Numero WhatsApp para notificacao: Sim</option>' +
           '</select>' +
           '<input type="text" name="field_selector_options[]" placeholder="Opções (ex.: Sim;Não ou 1;2;3)" class="js-selector-config" />' +
           '<input type="number" name="field_selector_start[]" placeholder="De" class="js-selector-config js-selector-range" />' +
@@ -1628,6 +1657,3 @@
   </script>
 </body>
 </html>
-
-
-

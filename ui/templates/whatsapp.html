@@ -60,8 +60,12 @@
           <textarea name="template_loja" form="whatsapp-form" rows="6">{{ loja_template|default:'' }}</textarea>
         </label>
         <label class="message-template-card">
-          <span class="message-template-title">Mensagem de Inscricao/pagamento de evento</span>
-          <textarea name="template_evento_inscricao" form="whatsapp-form" rows="6">{{ evento_inscricao_template|default:'' }}</textarea>
+          <span class="message-template-title">Mensagem de Confirmacao de evento (inscrito)</span>
+          <textarea name="template_evento_inscricao_responsavel" form="whatsapp-form" rows="6">{{ evento_inscricao_responsavel_template|default:'' }}</textarea>
+        </label>
+        <label class="message-template-card">
+          <span class="message-template-title">Mensagem de Confirmacao de evento (diretoria)</span>
+          <textarea name="template_evento_inscricao_diretoria" form="whatsapp-form" rows="6">{{ evento_inscricao_diretoria_template|default:'' }}</textarea>
         </label>
         <label class="message-template-card">
           <span class="message-template-title">Mensagem de Teste</span>
@@ -85,7 +89,7 @@
         Placeholders para pedido da loja pago: <code>{responsavel_nome}</code>, <code>{pedido_id}</code>, <code>{pedido_itens}</code>, <code>{valor_total}</code>, <code>{pagamento_id}</code>, <code>{data_hora}</code>.
       </p>
       <p class="panel-note">
-        Placeholders para inscricao/pagamento de evento: <code>{evento_nome}</code>, <code>{evento_data}</code>, <code>{evento_horario}</code>, <code>{evento_local}</code>, <code>{codigo_inscricao}</code>, <code>{responsavel_nome}</code>, <code>{responsavel_cpf}</code>, <code>{responsavel_whatsapp}</code>, <code>{status_inscricao}</code>, <code>{status_pagamento}</code>, <code>{pedido_id}</code>, <code>{pagamento_id}</code>, <code>{valor_inscricao}</code>, <code>{valor_total_pago}</code>, <code>{data_hora}</code>.
+        Placeholders para confirmacao de evento (inscrito e diretoria): <code>{evento_nome}</code>, <code>{evento_data}</code>, <code>{evento_horario}</code>, <code>{evento_local}</code>, <code>{codigo_inscricao}</code>, <code>{responsavel_nome}</code>, <code>{responsavel_cpf}</code>, <code>{responsavel_whatsapp}</code>, <code>{status_inscricao}</code>, <code>{status_pagamento}</code>, <code>{pedido_id}</code>, <code>{pagamento_id}</code>, <code>{valor_inscricao}</code>, <code>{valor_total_pago}</code>, <code>{origem_notificacao}</code>, <code>{data_hora}</code>.
       </p>
       <p class="panel-note">
         Placeholders para codigo de indicacao: <code>{aventureiro_nome}</code>, <code>{codigo_indicacao}</code>, <code>{responsavel_nome}</code>, <code>{username}</code>, <code>{data_hora}</code>.

@@ -3559,6 +3559,7 @@ class EventosView(LoginRequiredMixin, View):
             labels = request.POST.getlist('field_name[]') or request.POST.getlist('field_label[]')
             field_types = request.POST.getlist('field_type[]')
             field_required = request.POST.getlist('field_required[]')
+            field_notification_phone = request.POST.getlist('field_notification_phone[]')
             field_selector_options = request.POST.getlist('field_selector_options[]')
             field_selector_start = request.POST.getlist('field_selector_start[]')
             field_selector_end = request.POST.getlist('field_selector_end[]')
@@ -3660,6 +3661,9 @@ class EventosView(LoginRequiredMixin, View):
                 current_label = (label or '').strip()
                 current_type = (field_types[index] if index < len(field_types) else 'texto').strip().lower() or 'texto'
                 current_required_raw = (field_required[index] if index < len(field_required) else '1').strip().lower()
+                current_notification_phone_raw = (
+                    field_notification_phone[index] if index < len(field_notification_phone) else '0'
+                ).strip().lower()
                 current_selector_options_raw = (
                     field_selector_options[index] if index < len(field_selector_options) else ''
                 )
@@ -3681,10 +3685,18 @@ class EventosView(LoginRequiredMixin, View):
                     messages.error(request, f'Tipo de campo inválido: {current_type}.')
                     return None
                 is_required = current_required_raw in {'1', 'true', 'sim', 'obrigatorio', 'obrigatório'}
+                is_notification_phone = current_notification_phone_raw in {'1', 'true', 'sim', 'yes'}
+                if is_notification_phone and current_type != 'numero':
+                    messages.error(
+                        request,
+                        f'O campo "{current_label}" marcado para notificacao WhatsApp deve ser do tipo Numero.',
+                    )
+                    return None
                 field_data = {
                     'name': current_label,
                     'type': current_type,
                     'required': bool(is_required),
+                    'notification_phone': bool(is_notification_phone),
                 }
                 if current_type == 'seletor':
                     selector_options = []
@@ -4715,6 +4727,7 @@ class EventoPublicoView(View):
             repeat_button_label = self._fix_event_field_label_pt((field or {}).get('repeat_button_label') or label) or label
             is_required = bool((field or {}).get('required'))
             repeat_require_click = bool((field or {}).get('repeat_require_click')) if field_type == 'repetidor' else False
+            notification_phone = bool((field or {}).get('notification_phone')) and field_type == 'numero'
             schema.append({
                 'index': index,
                 'name': label,
@@ -4727,6 +4740,7 @@ class EventoPublicoView(View):
                 'repeat_fields_data_json': json.dumps(repeat_fields_data, ensure_ascii=False),
                 'repeat_button_label': repeat_button_label,
                 'repeat_require_click': repeat_require_click,
+                'notification_phone': notification_phone,
             })
         return schema
 
@@ -4886,7 +4900,29 @@ class EventoPublicoView(View):
         candidates.sort(key=lambda item: item[0])
         return candidates[0][1]
 
-    def _whatsapp_responsavel_from_inscricao(self, inscricao):
+    def _whatsapp_responsavel_from_inscricao(self, inscricao, evento=None):
+        dados = (inscricao.dados or {}) if isinstance(inscricao.dados, dict) else {}
+
+        evento_ref = evento or getattr(inscricao, 'evento', None)
+        if evento_ref:
+            try:
+                schema = self._event_schema(evento_ref)
+            except Exception:
+                schema = []
+            for field in schema:
+                if field.get('type') == 'repetidor':
+                    continue
+                if not bool(field.get('notification_phone')):
+                    continue
+                value = dados.get(field.get('name'))
+                if isinstance(value, (list, tuple, dict)):
+                    continue
+                text = str(value or '').strip()
+                if not text:
+                    continue
+                if normalize_phone_number(text):
+                    return text
+
         responsavel = getattr(inscricao, 'responsavel', None)
         if responsavel:
             for raw in [
@@ -4901,7 +4937,6 @@ class EventoPublicoView(View):
                 if text:
                     return text
 
-        dados = (inscricao.dados or {}) if isinstance(inscricao.dados, dict) else {}
         candidates = []
         for key, value in dados.items():
             norm_key = self._normalize_lookup_text(key)
@@ -4949,7 +4984,8 @@ class EventoPublicoView(View):
         if not evento or not inscricao:
             return
 
-        template_text = get_template_message(WhatsAppTemplate.TYPE_EVENTO_INSCRICAO)
+        template_responsavel = get_template_message(WhatsAppTemplate.TYPE_EVENTO_INSCRICAO_RESPONSAVEL)
+        template_diretoria = get_template_message(WhatsAppTemplate.TYPE_EVENTO_INSCRICAO_DIRETORIA)
         event_date_text = evento.event_date.strftime('%d/%m/%Y') if getattr(evento, 'event_date', None) else '-'
         if getattr(evento, 'event_time', None) and getattr(evento, 'event_end_time', None):
             event_time_text = f'{evento.event_time.strftime("%H:%M")} - {evento.event_end_time.strftime("%H:%M")}'
@@ -4960,7 +4996,7 @@ class EventoPublicoView(View):
 
         responsavel_nome = self._nome_responsavel_from_inscricao(inscricao)
         responsavel_cpf = self._cpf_responsavel_from_inscricao(inscricao)
-        responsavel_whatsapp = self._whatsapp_responsavel_from_inscricao(inscricao)
+        responsavel_whatsapp = self._whatsapp_responsavel_from_inscricao(inscricao, evento=evento)
         valor_inscricao = getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
         valor_total_pago = Decimal('0.00')
         pedido_id_text = '-'
@@ -4998,29 +5034,62 @@ class EventoPublicoView(View):
             'origem_notificacao': str(origem or 'inscricao'),
             'data_hora': timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M'),
         }
-        message_text = render_message(template_text, payload)
+        message_text_responsavel = render_message(template_responsavel, payload)
+        message_text_diretoria = render_message(template_diretoria, payload)
 
-        recipients = []
+        responsavel_recipients = []
+        diretoria_recipients = []
         seen_phones = set()
 
-        def add_recipient_user(user, force=False):
+        def add_responsavel_user(user):
             if not user:
                 return
             pref, _ = WhatsAppPreference.objects.get_or_create(user=user)
-            if not force and not pref.notify_evento_inscricao:
+            phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(user))
+            if not phone_number or phone_number in seen_phones:
+                return
+            seen_phones.add(phone_number)
+            responsavel_recipients.append((user, phone_number))
+
+        def add_responsavel_phone(raw_phone):
+            phone_number = normalize_phone_number(raw_phone)
+            if not phone_number or phone_number in seen_phones:
+                return
+            seen_phones.add(phone_number)
+            responsavel_recipients.append((None, phone_number))
+
+        def add_diretoria_user(user):
+            if not user:
+                return
+            pref, _ = WhatsAppPreference.objects.get_or_create(user=user)
+            if not pref.notify_evento_inscricao:
                 return
             phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(user))
             if not phone_number or phone_number in seen_phones:
                 return
             seen_phones.add(phone_number)
-            recipients.append((user, phone_number))
+            diretoria_recipients.append((user, phone_number))
 
-        def add_recipient_phone(raw_phone):
-            phone_number = normalize_phone_number(raw_phone)
-            if not phone_number or phone_number in seen_phones:
-                return
-            seen_phones.add(phone_number)
-            recipients.append((None, phone_number))
+        def send_to_recipients(recipients, message_text, queue_type):
+            for user, phone_number in recipients:
+                queue_item = WhatsAppQueue.objects.create(
+                    user=user,
+                    phone_number=phone_number,
+                    notification_type=queue_type,
+                    message_text=message_text,
+                    status=WhatsAppQueue.STATUS_PENDING,
+                )
+                success, provider_id, error_message = send_wapi_text(phone_number, message_text)
+                queue_item.attempts = 1
+                if success:
+                    queue_item.status = WhatsAppQueue.STATUS_SENT
+                    queue_item.provider_message_id = provider_id
+                    queue_item.sent_at = timezone.now()
+                    queue_item.last_error = ''
+                else:
+                    queue_item.status = WhatsAppQueue.STATUS_FAILED
+                    queue_item.last_error = error_message
+                queue_item.save(update_fields=['status', 'attempts', 'provider_message_id', 'sent_at', 'last_error'])
 
         # Responsável da própria inscrição sempre recebe confirmação/dados.
         responsavel_user = None
@@ -5029,12 +5098,12 @@ class EventoPublicoView(View):
         elif getattr(inscricao, 'user_id', None):
             responsavel_user = inscricao.user
         if responsavel_user:
-            before_count = len(recipients)
-            add_recipient_user(responsavel_user, force=True)
-            if len(recipients) == before_count:
-                add_recipient_phone(responsavel_whatsapp)
+            before_count = len(responsavel_recipients)
+            add_responsavel_user(responsavel_user)
+            if len(responsavel_recipients) == before_count:
+                add_responsavel_phone(responsavel_whatsapp)
         else:
-            add_recipient_phone(responsavel_whatsapp)
+            add_responsavel_phone(responsavel_whatsapp)
 
         # Administração do evento: diretoria/diretor marcados na coluna de evento.
         admin_accesses = (
@@ -5046,27 +5115,18 @@ class EventoPublicoView(View):
         for access in admin_accesses:
             if not (access.has_profile(UserAccess.ROLE_DIRETORIA) or access.has_profile(UserAccess.ROLE_DIRETOR)):
                 continue
-            add_recipient_user(access.user, force=False)
+            add_diretoria_user(access.user)
 
-        for user, phone_number in recipients:
-            queue_item = WhatsAppQueue.objects.create(
-                user=user,
-                phone_number=phone_number,
-                notification_type=WhatsAppQueue.TYPE_EVENTO_INSCRICAO,
-                message_text=message_text,
-                status=WhatsAppQueue.STATUS_PENDING,
-            )
-            success, provider_id, error_message = send_wapi_text(phone_number, message_text)
-            queue_item.attempts = 1
-            if success:
-                queue_item.status = WhatsAppQueue.STATUS_SENT
-                queue_item.provider_message_id = provider_id
-                queue_item.sent_at = timezone.now()
-                queue_item.last_error = ''
-            else:
-                queue_item.status = WhatsAppQueue.STATUS_FAILED
-                queue_item.last_error = error_message
-            queue_item.save(update_fields=['status', 'attempts', 'provider_message_id', 'sent_at', 'last_error'])
+        send_to_recipients(
+            responsavel_recipients,
+            message_text_responsavel,
+            WhatsAppQueue.TYPE_EVENTO_INSCRICAO_RESPONSAVEL,
+        )
+        send_to_recipients(
+            diretoria_recipients,
+            message_text_diretoria,
+            WhatsAppQueue.TYPE_EVENTO_INSCRICAO_DIRETORIA,
+        )
 
     def _consulta_outros_dados_rows(self, dados):
         if not isinstance(dados, dict) or not dados:
@@ -6364,19 +6424,15 @@ class EventoPedidoCreatePixApiView(View):
                 if 'responsavel' in norm_key:
                     break
 
-        for key, value in dados.items():
-            norm_key = self._normalize_lookup_text(key)
-            text = str(value or '').strip()
-            if not text:
-                continue
-            if not any(word in norm_key for word in ('telefone', 'celular', 'whatsapp')):
-                continue
-            phone = normalize_phone_number(text)
-            if not phone:
-                continue
-            buyer_phone = phone
-            if 'responsavel' in norm_key:
-                break
+        try:
+            guessed_phone = str(
+                EventoPublicoView()._whatsapp_responsavel_from_inscricao(inscricao, evento=evento) or ''
+            ).strip()
+        except Exception:
+            guessed_phone = ''
+        guessed_phone_normalized = normalize_phone_number(guessed_phone)
+        if guessed_phone_normalized:
+            buyer_phone = guessed_phone_normalized
 
         for key, value in dados.items():
             norm_key = self._normalize_lookup_text(key)
@@ -7822,7 +7878,12 @@ class WhatsAppView(LoginRequiredMixin, View):
             'confirmacao_template': get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO),
             'financeiro_template': get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO),
             'loja_template': get_template_message(WhatsAppTemplate.TYPE_LOJA),
-            'evento_inscricao_template': get_template_message(WhatsAppTemplate.TYPE_EVENTO_INSCRICAO),
+            'evento_inscricao_responsavel_template': get_template_message(
+                WhatsAppTemplate.TYPE_EVENTO_INSCRICAO_RESPONSAVEL
+            ),
+            'evento_inscricao_diretoria_template': get_template_message(
+                WhatsAppTemplate.TYPE_EVENTO_INSCRICAO_DIRETORIA
+            ),
             'teste_template': get_template_message(WhatsAppTemplate.TYPE_TESTE),
             'indicacao_codigo_template': get_template_message(WhatsAppTemplate.TYPE_INDICACAO_CODIGO),
         }
@@ -7899,8 +7960,16 @@ class WhatsAppView(LoginRequiredMixin, View):
             defaults={'message_text': request.POST.get('template_loja', '').strip()},
         )
         WhatsAppTemplate.objects.update_or_create(
+            notification_type=WhatsAppTemplate.TYPE_EVENTO_INSCRICAO_RESPONSAVEL,
+            defaults={'message_text': request.POST.get('template_evento_inscricao_responsavel', '').strip()},
+        )
+        WhatsAppTemplate.objects.update_or_create(
+            notification_type=WhatsAppTemplate.TYPE_EVENTO_INSCRICAO_DIRETORIA,
+            defaults={'message_text': request.POST.get('template_evento_inscricao_diretoria', '').strip()},
+        )
+        WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_EVENTO_INSCRICAO,
-            defaults={'message_text': request.POST.get('template_evento_inscricao', '').strip()},
+            defaults={'message_text': request.POST.get('template_evento_inscricao_diretoria', '').strip()},
         )
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_TESTE,
@@ -11658,4 +11727,3 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
             messages.success(request, 'Permissões atualizadas com sucesso.')
             return redirect('accounts:usuarios')
         return render(request, self.template_name, self._base_context(request, target_user, form))
-
