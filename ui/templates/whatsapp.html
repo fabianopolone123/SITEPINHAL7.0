@@ -108,7 +108,7 @@
             <th>Cadastro diretoria</th>
             <th>Pagamento aprovado</th>
             <th>Pedido loja pago</th>
-            <th>Administracao evento</th>
+            <th>Confirmacao evento (Diretoria)</th>
             <th>Teste</th>
           </tr>
         </thead>
@@ -133,7 +133,13 @@
               <td data-label="Cadastro diretoria"><input type="checkbox" name="u{{ item.user.pk }}_diretoria" {% if item.pref.notify_diretoria %}checked{% endif %} /></td>
               <td data-label="Pagamento aprovado"><input type="checkbox" name="u{{ item.user.pk }}_financeiro" {% if item.pref.notify_financeiro %}checked{% endif %} /></td>
               <td data-label="Pedido loja pago"><input type="checkbox" name="u{{ item.user.pk }}_loja" {% if item.pref.notify_loja %}checked{% endif %} /></td>
-              <td data-label="Administracao evento"><input type="checkbox" name="u{{ item.user.pk }}_evento_inscricao" {% if item.pref.notify_evento_inscricao %}checked{% endif %} /></td>
+              <td data-label="Confirmacao evento (Diretoria)">
+                {% if item.is_event_admin_eligible %}
+                  <input type="checkbox" name="u{{ item.user.pk }}_evento_inscricao" {% if item.pref.notify_evento_inscricao %}checked{% endif %} />
+                {% else %}
+                  <span class="panel-note">-</span>
+                {% endif %}
+              </td>
               <td data-label="Teste"><input type="checkbox" name="u{{ item.user.pk }}_send_test" /></td>
             </tr>
           {% empty %}

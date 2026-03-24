@@ -7894,11 +7894,16 @@ class WhatsAppView(LoginRequiredMixin, View):
                 pref.phone_number = detected_phone
                 pref.save(update_fields=['phone_number', 'updated_at'])
             display = _user_display_data(user)
+            is_event_admin_eligible = bool(
+                access.has_profile(UserAccess.ROLE_DIRETOR)
+                or access.has_profile(UserAccess.ROLE_DIRETORIA)
+            )
             rows.append({
                 'user': user,
                 'access': access,
                 'pref': pref,
                 'nome_completo': display['nome_completo'],
+                'is_event_admin_eligible': is_event_admin_eligible,
             })
         rows.sort(key=lambda row: (_profile_order_weight(row['access']), row['user'].username.lower()))
         return rows
@@ -7986,7 +7991,7 @@ class WhatsAppView(LoginRequiredMixin, View):
             pref.notify_diretoria = bool(request.POST.get(f'{prefix}_diretoria'))
             pref.notify_financeiro = bool(request.POST.get(f'{prefix}_financeiro'))
             pref.notify_loja = bool(request.POST.get(f'{prefix}_loja'))
-            pref.notify_evento_inscricao = bool(request.POST.get(f'{prefix}_evento_inscricao'))
+            pref.notify_evento_inscricao = bool(request.POST.get(f'{prefix}_evento_inscricao')) if row.get('is_event_admin_eligible') else False
             pref.notify_geral = False
             pref.save(
                 update_fields=[
