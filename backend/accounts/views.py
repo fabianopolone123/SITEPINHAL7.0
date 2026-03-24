@@ -3173,6 +3173,23 @@ class EventosView(LoginRequiredMixin, View):
         text = f'{decimal_value:,.2f}'
         return 'R$ ' + text.replace(',', 'X').replace('.', ',').replace('X', '.')
 
+    def _to_json_safe(self, value):
+        if isinstance(value, dict):
+            return {str(k): self._to_json_safe(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [self._to_json_safe(item) for item in value]
+        if isinstance(value, Decimal):
+            return str(value)
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, date):
+            return value.isoformat()
+        if isinstance(value, datetime_time):
+            return value.strftime('%H:%M:%S')
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return value
+        return str(value)
+
     def _normalize_inscricao_valor_modo(self, raw_mode):
         mode = str(raw_mode or '').strip().lower()
         allowed = {
@@ -3505,8 +3522,9 @@ class EventosView(LoginRequiredMixin, View):
                     'pedidos_preview': [],
                 })
         presets = list(EventoPreset.objects.select_related('created_by').all())
-        presets_json = [
-            {
+        presets_json = []
+        for preset in presets:
+            presets_json.append({
                 'id': preset.id,
                 'preset_name': preset.preset_name,
                 'event_name': preset.event_name or '',
@@ -3514,10 +3532,8 @@ class EventosView(LoginRequiredMixin, View):
                 'event_date': preset.event_date.isoformat() if preset.event_date else '',
                 'event_time': preset.event_time.strftime('%H:%M') if preset.event_time else '',
                 'event_end_time': preset.event_end_time.strftime('%H:%M') if preset.event_end_time else '',
-                'fields_data': preset.fields_data or [],
-            }
-            for preset in presets
-        ]
+                'fields_data': self._to_json_safe(preset.fields_data or []),
+            })
         context = {
             'eventos': event_rows,
             'presets': presets,
@@ -3548,7 +3564,18 @@ class EventosView(LoginRequiredMixin, View):
         guard = self._guard(request)
         if guard:
             return guard
-        return render(request, self.template_name, self._context(request))
+        try:
+            context = self._context(request)
+        except Exception:
+            logger.exception('Falha ao montar pagina de eventos.')
+            messages.error(request, 'Ocorreu um erro ao carregar eventos. Exibindo modo seguro.')
+            context = {
+                'eventos': [],
+                'presets': [],
+                'presets_json': [],
+            }
+            context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
 
     def post(self, request):
         guard = self._guard(request)
