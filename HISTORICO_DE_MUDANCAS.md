@@ -1033,3 +1033,9 @@ ame e label sem quebrar a tela.
 - LojaPedido no Admin agora mostra nome amigavel do responsavel (responsavel_nome/mae/pai) em vez de apenas username tecnico do usuario convidado.
 - Adicionada acao no Admin de LojaPedido para sincronizar status selecionados com o Mercado Pago (corrige pedidos pendentes que ja foram pagos no banco).
 - Melhorada captura do nome do responsavel no checkout publico de evento para reduzir criacao de responsavel convidado sem nome.
+
+## 24/03/2026 - Fallback de pagamento: sincronizacao automatica de pedidos pendentes
+
+- Criado comando `sync_loja_pagamentos` para sincronizar com Mercado Pago apenas pedidos da loja/evento com status pendente/processando.
+- Filtro padrao: ultimos 3 dias, com `mp_payment_id` preenchido, evitando varrer historico inteiro.
+- Suporte a execucao unica ou em loop (`--watch --interval 120`) para rodar a cada 2 minutos sem reenviar confirmacoes repetidas.
