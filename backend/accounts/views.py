@@ -3584,9 +3584,12 @@ class EventosView(LoginRequiredMixin, View):
             }
         try:
             return render(request, self.template_name, context)
-        except Exception:
+        except Exception as exc:
             logger.exception('Falha ao renderizar template de eventos.')
-            return HttpResponse('Falha ao renderizar pagina de eventos.', status=500)
+            return HttpResponse(
+                f'Falha ao renderizar pagina de eventos. ({exc.__class__.__name__}: {exc})',
+                status=500,
+            )
 
     def post(self, request):
         guard = self._guard(request)
