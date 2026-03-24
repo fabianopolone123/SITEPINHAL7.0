@@ -295,7 +295,7 @@
                 Data do evento: {{ evento.event_date|date:"d/m/Y"|default:"-" }} |
                 Início: {{ evento.event_time|time:"H:i"|default:"-" }} |
                 Fim: {{ evento.event_end_time|time:"H:i"|default:"-" }} |
-                Criado por: {{ evento.created_by.username|default:"sistema" }} |
+                Criado por: {{ evento.created_by|default:"sistema" }} |
                 Data do cadastro: {{ evento.created_at|date:"d/m/Y H:i" }}
               </p>
               {% if evento.event_description %}
