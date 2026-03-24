@@ -4873,6 +4873,10 @@ class EventoPublicoView(View):
             return text
         return '-'
 
+    def _nome_responsavel_from_inscricao(self, inscricao):
+        nome = str(self._responsavel_label_from_inscricao(inscricao) or '').strip()
+        return nome or '-'
+
     def _cpf_responsavel_from_inscricao(self, inscricao):
         responsavel = getattr(inscricao, 'responsavel', None)
         if responsavel:
