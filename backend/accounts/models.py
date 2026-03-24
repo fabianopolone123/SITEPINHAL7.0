@@ -371,6 +371,27 @@ class WhatsAppTemplate(models.Model):
         return f'{self.get_notification_type_display()}'
 
 
+class WhatsAppGatewayConfig(models.Model):
+    wapi_token = models.CharField('token W-API', max_length=512, blank=True)
+    wapi_instance = models.CharField('instance W-API', max_length=128, blank=True)
+    wapi_url = models.CharField('URL W-API', max_length=512, blank=True)
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='whatsapp_gateway_configs_updated',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'configuração do gateway WhatsApp'
+        verbose_name_plural = 'configurações do gateway WhatsApp'
+
+    def __str__(self):
+        return f'Gateway WhatsApp ({self.updated_at:%d/%m/%Y %H:%M})'
+
+
 class AuditLog(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
     username = models.CharField('username', max_length=150, blank=True)

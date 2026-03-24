@@ -44,6 +44,7 @@ from .models import (
     WhatsAppPreference,
     WhatsAppQueue,
     WhatsAppTemplate,
+    WhatsAppGatewayConfig,
     DocumentoTemplate,
     AventureiroFicha,
     DiretoriaFicha,
@@ -7944,11 +7945,45 @@ class WhatsAppView(LoginRequiredMixin, View):
             })
         return rows
 
+    def _gateway_context(self):
+        try:
+            config, _ = WhatsAppGatewayConfig.objects.get_or_create(pk=1)
+            db_token = str(config.wapi_token or '').strip()
+        except Exception:
+            logger.exception('Falha ao carregar configuracao do gateway WhatsApp.')
+            config = None
+            db_token = ''
+        env_token = str(os.environ.get('WAPI_TOKEN', '') or '').strip()
+        effective_token = db_token or env_token
+        if db_token:
+            source_label = 'Painel (banco)'
+        elif env_token:
+            source_label = 'Ambiente (.env)'
+        else:
+            source_label = 'Nao configurado'
+        if effective_token:
+            if len(effective_token) <= 8:
+                masked_token = '*' * len(effective_token)
+            else:
+                masked_token = f'{effective_token[:4]}...{effective_token[-4:]}'
+        else:
+            masked_token = '-'
+        return {
+            'gateway_config': config,
+            'wapi_token_source_label': source_label,
+            'wapi_token_masked': masked_token,
+            'wapi_token_configured': bool(effective_token),
+        }
+
     def _context(self, request):
+        gateway = self._gateway_context()
         return {
             'rows': self._users_context(),
             'aventureiros_rows': self._aventureiros_context(),
             'queue': queue_stats(),
+            'wapi_token_source_label': gateway['wapi_token_source_label'],
+            'wapi_token_masked': gateway['wapi_token_masked'],
+            'wapi_token_configured': gateway['wapi_token_configured'],
             'cadastro_template': get_template_message(WhatsAppTemplate.TYPE_CADASTRO),
             'diretoria_template': get_template_message(WhatsAppTemplate.TYPE_DIRETORIA),
             'confirmacao_template': get_template_message(WhatsAppTemplate.TYPE_CONFIRMACAO),
@@ -7976,6 +8011,19 @@ class WhatsAppView(LoginRequiredMixin, View):
         guard = self._director_guard(request)
         if guard:
             return guard
+
+        new_wapi_token = str(request.POST.get('wapi_token') or '').strip()
+        if new_wapi_token:
+            try:
+                gateway_config, _ = WhatsAppGatewayConfig.objects.get_or_create(pk=1)
+                gateway_config.wapi_token = new_wapi_token
+                gateway_config.updated_by = request.user
+                gateway_config.save(update_fields=['wapi_token', 'updated_by', 'updated_at'])
+                messages.info(request, 'Token W-API atualizado com sucesso pelo painel.')
+            except Exception:
+                logger.exception('Falha ao salvar token W-API pelo painel.')
+                messages.error(request, 'Nao foi possivel salvar o token W-API.')
+
         rows = self._users_context()
         cadastro_enabled = []
         diretoria_enabled = []

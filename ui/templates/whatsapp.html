@@ -35,6 +35,16 @@
       <p class="panel-note">Inscricao/pagamento de evento: dispara apos pagamento aprovado e envia para o responsavel da inscricao e para contatos da administracao (Diretor/Diretoria) marcados na coluna "Administracao evento".</p>
     </section>
 
+    <section class="painel-card">
+      <h3>Gateway WhatsApp (W-API)</h3>
+      <p><strong>Token atual:</strong> {{ wapi_token_masked }} | <strong>Origem:</strong> {{ wapi_token_source_label }}</p>
+      <p class="panel-note">Se o provedor trocar o token, cole o novo token abaixo e clique em "Salvar preferências".</p>
+      <label>
+        Novo token W-API (opcional)
+        <input type="password" name="wapi_token" form="whatsapp-form" placeholder="Cole o novo token aqui" autocomplete="off" />
+      </label>
+    </section>
+
     <section class="painel-card message-template-wrap">
       <h3>Mensagens padrão</h3>
       <p class="panel-note">Esses textos valem para todos os contatos.</p>

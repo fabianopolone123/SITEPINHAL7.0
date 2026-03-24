@@ -7,7 +7,7 @@ from urllib import error, request
 from django.db import transaction
 from django.utils import timezone
 
-from .models import WhatsAppPreference, WhatsAppQueue, WhatsAppTemplate
+from .models import WhatsAppGatewayConfig, WhatsAppPreference, WhatsAppQueue, WhatsAppTemplate
 
 DEFAULT_CADASTRO_MESSAGE = (
     '✨ Novo cadastro no Pinhal Junior!\n'
@@ -192,9 +192,23 @@ def enqueue_notification(user, notification_type, message_text):
     )
 
 
+def _gateway_config():
+    try:
+        return WhatsAppGatewayConfig.objects.order_by('-updated_at').first()
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _wapi_url():
-    instance = os.environ.get('WAPI_INSTANCE', '').strip()
-    custom_url = os.environ.get('WAPI_URL', '').strip()
+    gateway_config = _gateway_config()
+    instance = str(
+        (gateway_config.wapi_instance if gateway_config else '')
+        or os.environ.get('WAPI_INSTANCE', '')
+    ).strip()
+    custom_url = str(
+        (gateway_config.wapi_url if gateway_config else '')
+        or os.environ.get('WAPI_URL', '')
+    ).strip()
     if custom_url:
         return custom_url
     return f'https://api.w-api.app/v1/message/send-text?instanceId={instance}'
@@ -202,7 +216,11 @@ def _wapi_url():
 
 def send_wapi_text(phone_number, message_text):
     url = _wapi_url()
-    token = os.environ.get('WAPI_TOKEN', '').strip()
+    gateway_config = _gateway_config()
+    token = str(
+        (gateway_config.wapi_token if gateway_config else '')
+        or os.environ.get('WAPI_TOKEN', '')
+    ).strip()
     if not url or 'instanceId=' not in url:
         return False, '', 'WAPI_URL/WAPI_INSTANCE nao configurado.'
     if not token:
