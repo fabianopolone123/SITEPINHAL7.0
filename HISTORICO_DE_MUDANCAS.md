@@ -1024,3 +1024,9 @@ ame e label sem quebrar a tela.
 - Notificacao de evento agora envia sempre para o responsavel da inscricao e para usuarios de Diretor/Diretoria marcados na coluna Administracao evento.
 - Tela WhatsApp atualizada com novos placeholders de evento: status_inscricao, status_pagamento, pedido_id, pagamento_id e valor_total_pago.
 - Ajuste de regra: notificacao de evento voltou a disparar somente apos pagamento aprovado (nao dispara mais na simples criacao da inscricao).
+
+## 23/03/2026 - Django Admin: gestao de transacoes do financeiro
+
+- Registrados no Admin os modelos financeiros: MensalidadeAventureiro, PagamentoMensalidade, LojaPedido, FinanceiroComprovante e AventureiroCashbackLancamento.
+- Inclusa protecao no Admin de PagamentoMensalidade: ao excluir pagamento, as mensalidades vinculadas voltam para status pendente automaticamente.
+- Adicionados filtros e busca para facilitar exclusao manual de transacoes pela interface do Django Admin.
