@@ -1629,25 +1629,25 @@
           </section>
           <section class="field-section">
             <h4>Ultimas inscricoes</h4>
-            {% if inscricoes_preview %}
+            {% if inscricoes_preview_rows %}
               <div class="table-scroll">
                 <table class="users-table">
                   <thead>
                     <tr>
                       <th>Codigo</th>
-                      <th>Usuario</th>
+                      <th>Responsavel</th>
                       <th>Valor inscricao</th>
                       <th>Dados</th>
                       <th>Data</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {% for item in inscricoes_preview %}
+                    {% for item in inscricoes_preview_rows %}
                       <tr>
                         <td>{{ item.codigo_inscricao|default:"-" }}</td>
-                        <td>{{ item.user.username|default:"-" }}</td>
+                        <td>{{ item.responsavel_label|default:"-" }}</td>
                         <td>{{ item.valor_inscricao }}</td>
-                        <td>{{ item.dados }}</td>
+                        <td>{{ item.dados_resumo }}</td>
                         <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
                       </tr>
                     {% endfor %}
@@ -1660,7 +1660,7 @@
           </section>
           <section class="field-section">
             <h4>Ultimos pedidos</h4>
-            {% if pedidos_preview %}
+            {% if pedidos_preview_rows %}
               <div class="table-scroll">
                 <table class="users-table">
                   <thead>
@@ -1673,12 +1673,12 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {% for ped in pedidos_preview %}
+                    {% for ped in pedidos_preview_rows %}
                       <tr>
                         <td>#{{ ped.id }}</td>
-                        <td>{{ ped.responsavel.user.username|default:"-" }}</td>
-                        <td>{{ ped.get_status_display }}</td>
-                        <td>R$ {{ ped.valor_total }}</td>
+                        <td>{{ ped.responsavel_label|default:"-" }}</td>
+                        <td>{{ ped.status_label }}</td>
+                        <td>{{ ped.valor_total_fmt }}</td>
                         <td>{{ ped.created_at|date:"d/m/Y H:i" }}</td>
                       </tr>
                     {% endfor %}

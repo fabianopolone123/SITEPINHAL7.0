@@ -619,7 +619,7 @@
                     <thead>
                       <tr>
                         <th>Código</th>
-                        <th>Usuário</th>
+                        <th>Responsável</th>
                         <th>Valor inscricao</th>
                         <th>Dados</th>
                         <th>Data</th>
@@ -629,7 +629,7 @@
                       {% for item in row.inscricoes_preview %}
                         <tr>
                           <td>{{ item.codigo_inscricao|default:"-" }}</td>
-                          <td>{{ item.user.username|default:"-" }}</td>
+                          <td>{{ item.responsavel.responsavel_nome|default:item.responsavel.mae_nome|default:item.responsavel.pai_nome|default:item.user.username|default:"-" }}</td>
                           <td>{{ item.valor_inscricao }}</td>
                           <td>{{ item.dados }}</td>
                           <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
@@ -660,7 +660,7 @@
                       {% for ped in row.pedidos_preview %}
                         <tr>
                           <td>#{{ ped.id }}</td>
-                          <td>{{ ped.responsavel.user.username|default:"-" }}</td>
+                          <td>{{ ped.responsavel.responsavel_nome|default:ped.responsavel.mae_nome|default:ped.responsavel.pai_nome|default:ped.responsavel.user.username|default:"-" }}</td>
                           <td>{{ ped.get_status_display }}</td>
                           <td>R$ {{ ped.valor_total }}</td>
                           <td>{{ ped.created_at|date:"d/m/Y H:i" }}</td>

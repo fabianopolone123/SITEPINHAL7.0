@@ -4919,6 +4919,32 @@ class EventoPublicoView(View):
         candidates.sort(key=lambda item: item[0])
         return candidates[0][1]
 
+    def _responsavel_label_from_pedido(self, pedido):
+        responsavel = getattr(pedido, 'responsavel', None)
+        if responsavel:
+            label = (
+                responsavel.responsavel_nome
+                or responsavel.mae_nome
+                or responsavel.pai_nome
+                or (responsavel.user.get_full_name() if responsavel.user_id else '')
+            )
+            label = str(label or '').strip()
+            if label:
+                return label
+            username = str((responsavel.user.username if responsavel.user_id else '') or '').strip()
+            if username and not username.startswith('evento_guest_'):
+                return username
+
+        inscricao = getattr(pedido, 'evento_inscricao', None)
+        if inscricao:
+            from_inscricao = str(self._responsavel_label_from_inscricao(inscricao) or '').strip()
+            if from_inscricao and from_inscricao != '-':
+                return from_inscricao
+
+        if responsavel and responsavel.user_id:
+            return responsavel.user.username or '-'
+        return '-'
+
     def _dispatch_whatsapp_nova_inscricao_evento(self, evento, inscricao, pagamento_pedido=None, origem='inscricao'):
         if not evento or not inscricao:
             return
@@ -5581,6 +5607,8 @@ class EventoPublicoView(View):
         receita_total_fmt = self._format_currency(Decimal('0.00'))
         inscricoes_preview = []
         pedidos_preview = []
+        inscricoes_preview_rows = []
+        pedidos_preview_rows = []
         inscritos_detalhes = []
         custos_evento = []
         custos_total = Decimal('0.00')
@@ -5628,13 +5656,36 @@ class EventoPublicoView(View):
                 receita_total_fmt = self._format_currency(receita_total)
                 custos_evento = list(custos_qs[:300])
                 inscricoes_preview = list(inscricoes_base_qs[:20])
+                for item in inscricoes_preview:
+                    dados_obj = item.dados if isinstance(item.dados, dict) else {}
+                    inscricoes_preview_rows.append({
+                        'codigo_inscricao': item.codigo_inscricao or '-',
+                        'responsavel_label': self._responsavel_label_from_inscricao(item),
+                        'valor_inscricao': self._format_currency(item.valor_inscricao or Decimal('0.00')),
+                        'dados_resumo': self._dados_resumo(dados_obj),
+                        'created_at': item.created_at,
+                    })
                 pedidos_preview = list(
                     pedidos_qs
-                    .select_related('responsavel', 'responsavel__user')
+                    .select_related(
+                        'responsavel',
+                        'responsavel__user',
+                        'evento_inscricao',
+                        'evento_inscricao__responsavel',
+                        'evento_inscricao__responsavel__user',
+                        'evento_inscricao__user',
+                    )
                     .prefetch_related('itens')
                     .order_by('-created_at')[:20]
                 )
-
+                for ped in pedidos_preview:
+                    pedidos_preview_rows.append({
+                        'id': ped.id,
+                        'responsavel_label': self._responsavel_label_from_pedido(ped),
+                        'status_label': ped.get_status_display(),
+                        'valor_total_fmt': self._format_currency(ped.valor_total or Decimal('0.00')),
+                        'created_at': ped.created_at,
+                    })
                 pedidos_lookup_qs = list(
                     pedidos_qs
                     .select_related('responsavel', 'responsavel__user')
@@ -5734,6 +5785,8 @@ class EventoPublicoView(View):
             'custos_evento': custos_evento,
             'inscricoes_preview': inscricoes_preview,
             'pedidos_preview': pedidos_preview,
+            'inscricoes_preview_rows': inscricoes_preview_rows,
+            'pedidos_preview_rows': pedidos_preview_rows,
             'inscritos_detalhes': inscritos_detalhes,
             'cashback_rows': cashback_rows,
         }

@@ -1039,3 +1039,5 @@ ame e label sem quebrar a tela.
 - Criado comando `sync_loja_pagamentos` para sincronizar com Mercado Pago apenas pedidos da loja/evento com status pendente/processando.
 - Filtro padrao: ultimos 3 dias, com `mp_payment_id` preenchido, evitando varrer historico inteiro.
 - Suporte a execucao unica ou em loop (`--watch --interval 120`) para rodar a cada 2 minutos sem reenviar confirmacoes repetidas.
+- Relatorios de eventos ajustados para exibir nome amigavel do responsavel em "Ultimos pedidos" e "Ultimas inscricoes", evitando username tecnico `evento_guest_*` quando houver dados da inscricao.
+- Tela de eventos tambem passou a priorizar responsavel_nome/mae/pai nas tabelas de preview.
