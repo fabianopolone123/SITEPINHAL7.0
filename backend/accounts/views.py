@@ -3451,7 +3451,7 @@ class EventosView(LoginRequiredMixin, View):
         event_rows = []
         for evento in eventos:
             try:
-                fields_data = self._event_schema(evento)
+                fields_data = EventoPublicoView()._event_schema(evento)
                 produtos_qs = (
                     LojaProduto.objects
                     .filter(evento=evento)
