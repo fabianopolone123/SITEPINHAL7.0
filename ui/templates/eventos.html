@@ -301,9 +301,9 @@
               {% if evento.event_description %}
                 <p class="panel-note">{{ evento.event_description }}</p>
               {% endif %}
-              {% if evento.fields_data %}
+              {% if row.fields_data %}
                 <ul class="event-fields-list">
-                  {% for campo in evento.fields_data %}
+                  {% for campo in row.fields_data %}
                     <li class="event-field-pill">
                       <span>{% firstof campo.name campo.label "Campo" %}</span>
                       <span class="event-field-type">{{ campo.type|default:"texto" }}</span>
@@ -385,8 +385,8 @@
                   <div class="field-section">
                     <h4>Campos da inscrição</h4>
                     <div class="event-fields js-inline-fields">
-                      {% if evento.fields_data %}
-                        {% for campo in evento.fields_data %}
+                      {% if row.fields_data %}
+                        {% for campo in row.fields_data %}
                           <div class="event-field-row" data-notification-phone="{% if campo.notification_phone %}1{% else %}0{% endif %}">
                             <input type="text" name="field_name[]" value="{% firstof campo.name campo.label '' %}" placeholder="Nome do campo" />
                             <select name="field_type[]" class="js-field-type">

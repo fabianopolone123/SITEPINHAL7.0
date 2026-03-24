@@ -3451,6 +3451,7 @@ class EventosView(LoginRequiredMixin, View):
         event_rows = []
         for evento in eventos:
             try:
+                fields_data = self._event_schema(evento)
                 produtos_qs = (
                     LojaProduto.objects
                     .filter(evento=evento)
@@ -3496,7 +3497,8 @@ class EventosView(LoginRequiredMixin, View):
                     'lucro_liquido_fmt': self._format_currency(lucro_liquido),
                     'inscricao_valor_config_text': self._inscricao_valor_config_text(evento),
                     'inscricao_valor_faixas_texto': self._inscricao_valor_faixas_texto(evento),
-                    'has_public_page': bool((evento.fields_data or []) or produtos_rows),
+                    'has_public_page': bool(fields_data or produtos_rows),
+                    'fields_data': fields_data,
                     'inscricoes_preview': inscricoes,
                     'pedidos_preview': pedidos,
                 })
@@ -3518,6 +3520,7 @@ class EventosView(LoginRequiredMixin, View):
                     'inscricao_valor_config_text': 'Sem cobranca',
                     'inscricao_valor_faixas_texto': '',
                     'has_public_page': False,
+                    'fields_data': [],
                     'inscricoes_preview': [],
                     'pedidos_preview': [],
                 })
@@ -4749,7 +4752,11 @@ class EventoPublicoView(View):
     def _event_schema(self, evento):
         schema = []
         allowed_types = {'texto', 'data', 'hora', 'numero', 'booleano', 'seletor', 'repetidor'}
-        for index, field in enumerate(evento.fields_data or []):
+        raw_fields = getattr(evento, 'fields_data', None)
+        fields_source = raw_fields if isinstance(raw_fields, (list, tuple)) else []
+        for index, field in enumerate(fields_source):
+            if not isinstance(field, dict):
+                continue
             label = self._fix_event_field_label_pt((field or {}).get('name') or (field or {}).get('label') or '')
             if not label:
                 continue
@@ -4757,6 +4764,15 @@ class EventoPublicoView(View):
             if field_type not in allowed_types:
                 field_type = 'texto'
             selector_options = self._selector_options_from_field(field) if field_type == 'seletor' else []
+            range_start = ''
+            range_end = ''
+            if field_type == 'seletor':
+                try:
+                    range_start = int((field or {}).get('range_start'))
+                    range_end = int((field or {}).get('range_end'))
+                except (TypeError, ValueError):
+                    range_start = ''
+                    range_end = ''
             repeat_fields_data = self._repeat_fields_schema_from_field(field) if field_type == 'repetidor' else []
             repeat_fields = [str(item.get('name') or '').strip() for item in repeat_fields_data if str(item.get('name') or '').strip()]
             repeat_button_label = self._fix_event_field_label_pt((field or {}).get('repeat_button_label') or label) or label
@@ -4770,6 +4786,8 @@ class EventoPublicoView(View):
                 'required': is_required,
                 'input_name': f'campo_{index}',
                 'options': selector_options,
+                'range_start': range_start,
+                'range_end': range_end,
                 'repeat_fields': repeat_fields,
                 'repeat_fields_data': repeat_fields_data,
                 'repeat_fields_data_json': json.dumps(repeat_fields_data, ensure_ascii=False),
