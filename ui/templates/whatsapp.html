@@ -32,7 +32,7 @@
       <p class="panel-note">A confirmação de inscrição também é automática e vai para o WhatsApp do próprio inscrito (uma vez por conclusão).</p>
       <p class="panel-note">Pagamento aprovado sempre notifica o responsável do pagamento; as caixas abaixo servem para contatos adicionais.</p>
       <p class="panel-note">Pedido da loja pago notifica apenas os contatos da diretoria marcados na coluna "Pedido loja pago".</p>
-      <p class="panel-note">Nova inscricao de evento notifica os contatos marcados na coluna "Nova inscricao evento".</p>
+      <p class="panel-note">Inscricao/pagamento de evento: envia para o responsavel da inscricao e para contatos da administracao (Diretor/Diretoria) marcados na coluna "Administracao evento".</p>
     </section>
 
     <section class="painel-card message-template-wrap">
@@ -60,7 +60,7 @@
           <textarea name="template_loja" form="whatsapp-form" rows="6">{{ loja_template|default:'' }}</textarea>
         </label>
         <label class="message-template-card">
-          <span class="message-template-title">Mensagem de Nova inscricao evento</span>
+          <span class="message-template-title">Mensagem de Inscricao/pagamento de evento</span>
           <textarea name="template_evento_inscricao" form="whatsapp-form" rows="6">{{ evento_inscricao_template|default:'' }}</textarea>
         </label>
         <label class="message-template-card">
@@ -85,7 +85,7 @@
         Placeholders para pedido da loja pago: <code>{responsavel_nome}</code>, <code>{pedido_id}</code>, <code>{pedido_itens}</code>, <code>{valor_total}</code>, <code>{pagamento_id}</code>, <code>{data_hora}</code>.
       </p>
       <p class="panel-note">
-        Placeholders para nova inscricao de evento: <code>{evento_nome}</code>, <code>{evento_data}</code>, <code>{evento_horario}</code>, <code>{evento_local}</code>, <code>{codigo_inscricao}</code>, <code>{responsavel_nome}</code>, <code>{responsavel_cpf}</code>, <code>{responsavel_whatsapp}</code>, <code>{valor_inscricao}</code>, <code>{data_hora}</code>.
+        Placeholders para inscricao/pagamento de evento: <code>{evento_nome}</code>, <code>{evento_data}</code>, <code>{evento_horario}</code>, <code>{evento_local}</code>, <code>{codigo_inscricao}</code>, <code>{responsavel_nome}</code>, <code>{responsavel_cpf}</code>, <code>{responsavel_whatsapp}</code>, <code>{status_inscricao}</code>, <code>{status_pagamento}</code>, <code>{pedido_id}</code>, <code>{pagamento_id}</code>, <code>{valor_inscricao}</code>, <code>{valor_total_pago}</code>, <code>{data_hora}</code>.
       </p>
       <p class="panel-note">
         Placeholders para codigo de indicacao: <code>{aventureiro_nome}</code>, <code>{codigo_indicacao}</code>, <code>{responsavel_nome}</code>, <code>{username}</code>, <code>{data_hora}</code>.
@@ -104,7 +104,7 @@
             <th>Cadastro diretoria</th>
             <th>Pagamento aprovado</th>
             <th>Pedido loja pago</th>
-            <th>Nova inscricao evento</th>
+            <th>Administracao evento</th>
             <th>Teste</th>
           </tr>
         </thead>
@@ -129,7 +129,7 @@
               <td data-label="Cadastro diretoria"><input type="checkbox" name="u{{ item.user.pk }}_diretoria" {% if item.pref.notify_diretoria %}checked{% endif %} /></td>
               <td data-label="Pagamento aprovado"><input type="checkbox" name="u{{ item.user.pk }}_financeiro" {% if item.pref.notify_financeiro %}checked{% endif %} /></td>
               <td data-label="Pedido loja pago"><input type="checkbox" name="u{{ item.user.pk }}_loja" {% if item.pref.notify_loja %}checked{% endif %} /></td>
-              <td data-label="Nova inscricao evento"><input type="checkbox" name="u{{ item.user.pk }}_evento_inscricao" {% if item.pref.notify_evento_inscricao %}checked{% endif %} /></td>
+              <td data-label="Administracao evento"><input type="checkbox" name="u{{ item.user.pk }}_evento_inscricao" {% if item.pref.notify_evento_inscricao %}checked{% endif %} /></td>
               <td data-label="Teste"><input type="checkbox" name="u{{ item.user.pk }}_send_test" /></td>
             </tr>
           {% empty %}

@@ -4919,19 +4919,11 @@ class EventoPublicoView(View):
         candidates.sort(key=lambda item: item[0])
         return candidates[0][1]
 
-    def _dispatch_whatsapp_nova_inscricao_evento(self, evento, inscricao):
+    def _dispatch_whatsapp_nova_inscricao_evento(self, evento, inscricao, pagamento_pedido=None, origem='inscricao'):
         if not evento or not inscricao:
             return
 
         template_text = get_template_message(WhatsAppTemplate.TYPE_EVENTO_INSCRICAO)
-        prefs = list(
-            WhatsAppPreference.objects
-            .filter(notify_evento_inscricao=True)
-            .select_related('user')
-        )
-        if not prefs:
-            return
-
         event_date_text = evento.event_date.strftime('%d/%m/%Y') if getattr(evento, 'event_date', None) else '-'
         if getattr(evento, 'event_time', None) and getattr(evento, 'event_end_time', None):
             event_time_text = f'{evento.event_time.strftime("%H:%M")} - {evento.event_end_time.strftime("%H:%M")}'
@@ -4944,6 +4936,24 @@ class EventoPublicoView(View):
         responsavel_cpf = self._cpf_responsavel_from_inscricao(inscricao)
         responsavel_whatsapp = self._whatsapp_responsavel_from_inscricao(inscricao)
         valor_inscricao = getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
+        valor_total_pago = Decimal('0.00')
+        pedido_id_text = '-'
+        pagamento_id_text = '-'
+        status_pagamento = 'Sem cobranca'
+        if pagamento_pedido:
+            pedido_id_text = str(getattr(pagamento_pedido, 'id', '') or '-')
+            pagamento_id_text = str(getattr(pagamento_pedido, 'mp_payment_id', '') or f'Pedido #{pedido_id_text}')
+            valor_total_pago = Decimal(getattr(pagamento_pedido, 'valor_total', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+            if getattr(pagamento_pedido, 'status', '') == LojaPedido.STATUS_PAGO:
+                status_pagamento = 'Pago'
+            elif getattr(pagamento_pedido, 'status', '') == LojaPedido.STATUS_PROCESSANDO:
+                status_pagamento = 'Processando'
+            else:
+                status_pagamento = 'Pendente'
+        elif Decimal(valor_inscricao).quantize(Decimal('0.01')) > 0:
+            status_pagamento = 'Pendente'
+        status_inscricao = 'Confirmada' if bool(getattr(inscricao, 'confirmada', False)) else 'Aguardando pagamento'
+
         payload = {
             'evento_nome': str(getattr(evento, 'name', '') or f'Evento {evento.id}'),
             'evento_data': event_date_text,
@@ -4954,17 +4964,65 @@ class EventoPublicoView(View):
             'responsavel_cpf': responsavel_cpf or '-',
             'responsavel_whatsapp': responsavel_whatsapp or '-',
             'valor_inscricao': self._format_currency(valor_inscricao),
+            'valor_total_pago': self._format_currency(valor_total_pago),
+            'pedido_id': pedido_id_text,
+            'pagamento_id': pagamento_id_text,
+            'status_inscricao': status_inscricao,
+            'status_pagamento': status_pagamento,
+            'origem_notificacao': str(origem or 'inscricao'),
             'data_hora': timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M'),
         }
         message_text = render_message(template_text, payload)
 
-        for pref in prefs:
-            user = pref.user
+        recipients = []
+        seen_phones = set()
+
+        def add_recipient_user(user, force=False):
             if not user:
-                continue
+                return
+            pref, _ = WhatsAppPreference.objects.get_or_create(user=user)
+            if not force and not pref.notify_evento_inscricao:
+                return
             phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(user))
-            if not phone_number:
+            if not phone_number or phone_number in seen_phones:
+                return
+            seen_phones.add(phone_number)
+            recipients.append((user, phone_number))
+
+        def add_recipient_phone(raw_phone):
+            phone_number = normalize_phone_number(raw_phone)
+            if not phone_number or phone_number in seen_phones:
+                return
+            seen_phones.add(phone_number)
+            recipients.append((None, phone_number))
+
+        # Responsável da própria inscrição sempre recebe confirmação/dados.
+        responsavel_user = None
+        if getattr(inscricao, 'responsavel_id', None) and getattr(inscricao.responsavel, 'user_id', None):
+            responsavel_user = inscricao.responsavel.user
+        elif getattr(inscricao, 'user_id', None):
+            responsavel_user = inscricao.user
+        if responsavel_user:
+            before_count = len(recipients)
+            add_recipient_user(responsavel_user, force=True)
+            if len(recipients) == before_count:
+                add_recipient_phone(responsavel_whatsapp)
+        else:
+            add_recipient_phone(responsavel_whatsapp)
+
+        # Administração do evento: diretoria/diretor marcados na coluna de evento.
+        admin_accesses = (
+            UserAccess.objects
+            .select_related('user')
+            .filter(user__whatsapp_preference__notify_evento_inscricao=True)
+            .order_by('user__username')
+        )
+        for access in admin_accesses:
+            if not (access.has_profile(UserAccess.ROLE_DIRETORIA) or access.has_profile(UserAccess.ROLE_DIRETOR)):
                 continue
+            add_recipient_user(access.user, force=False)
+
+        for user, phone_number in recipients:
             queue_item = WhatsAppQueue.objects.create(
                 user=user,
                 phone_number=phone_number,
@@ -6019,6 +6077,7 @@ class EventoPublicoView(View):
         codigo_indicacao_input = loja_view._normalize_indicacao_code(request.POST.get('codigo_indicacao'))
         indicador_aventureiro = loja_view._resolve_indicador_from_code(codigo_indicacao_input) if codigo_indicacao_input else None
         finalize_after_save = str(request.POST.get('finalize_after_save') or '').strip() == '1'
+        inscricao_criada_agora = False
         inscricao_salva = None
         if edit_target_inscricao:
             codigo_indicacao_save = codigo_indicacao_input
@@ -6102,6 +6161,7 @@ class EventoPublicoView(View):
                                 confirmada=False,
                             )
                             created = True
+                            inscricao_criada_agora = True
                             break
                         except IntegrityError:
                             continue
@@ -6159,6 +6219,7 @@ class EventoPublicoView(View):
                                 valor_inscricao_unidades=fee_units,
                                 confirmada=False,
                             )
+                            inscricao_criada_agora = True
                             break
                         except IntegrityError:
                             continue
@@ -6168,6 +6229,20 @@ class EventoPublicoView(View):
                     request.session[session_key] = inscricao_obj.pk
                     inscricao_salva = inscricao_obj
                     messages.success(request, 'Inscricao do evento salva com sucesso.')
+        if inscricao_salva and inscricao_criada_agora:
+            try:
+                self._dispatch_whatsapp_nova_inscricao_evento(
+                    evento,
+                    inscricao_salva,
+                    pagamento_pedido=None,
+                    origem='nova_inscricao',
+                )
+            except Exception:
+                logger.exception(
+                    'Falha ao enviar WhatsApp de nova inscricao de evento (evento=%s, inscricao=%s).',
+                    getattr(evento, 'id', None),
+                    getattr(inscricao_salva, 'id', None),
+                )
         return render(
             request,
             self.template_name,
@@ -8010,9 +8085,9 @@ class WhatsAppView(LoginRequiredMixin, View):
         if evento_inscricao_enabled:
             preview = ', '.join(evento_inscricao_enabled[:6])
             suffix = '...' if len(evento_inscricao_enabled) > 6 else ''
-            messages.info(request, f'Nova inscricao de evento marcado para: {preview}{suffix}')
+            messages.info(request, f'Administracao de evento marcada para: {preview}{suffix}')
         else:
-            messages.info(request, 'Nenhum contato esta marcado para receber notificacao de Nova inscricao de evento.')
+            messages.info(request, 'Nenhum contato de administracao esta marcado para notificacao de inscricao/pagamento de evento.')
         context = self._context(request)
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
@@ -10221,7 +10296,8 @@ class LojaView(LoginRequiredMixin, View):
             self._apply_stock_deduction_for_paid_order(pedido)
             self._confirm_evento_inscricao_after_paid(pedido)
             self._apply_cashback_after_paid(pedido)
-            self._send_whatsapp_pedido_loja_aprovado(pedido)
+            if not getattr(pedido, 'evento_inscricao_id', None):
+                self._send_whatsapp_pedido_loja_aprovado(pedido)
 
     def _confirm_evento_inscricao_after_paid(self, pedido):
         if not pedido or not getattr(pedido, 'evento_inscricao_id', None):
@@ -10232,12 +10308,18 @@ class LojaView(LoginRequiredMixin, View):
             .filter(pk=pedido.evento_inscricao_id)
             .first()
         )
-        if not inscricao or inscricao.confirmada:
+        if not inscricao:
             return
-        inscricao.confirmada = True
-        inscricao.save(update_fields=['confirmada', 'updated_at'])
+        if not inscricao.confirmada:
+            inscricao.confirmada = True
+            inscricao.save(update_fields=['confirmada', 'updated_at'])
         try:
-            EventoPublicoView()._dispatch_whatsapp_nova_inscricao_evento(inscricao.evento, inscricao)
+            EventoPublicoView()._dispatch_whatsapp_nova_inscricao_evento(
+                inscricao.evento,
+                inscricao,
+                pagamento_pedido=pedido,
+                origem='pagamento_aprovado',
+            )
         except Exception:
             logger.exception(
                 'Falha ao enviar WhatsApp de inscricao confirmada (evento=%s, inscricao=%s).',

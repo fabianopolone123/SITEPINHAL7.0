@@ -1015,3 +1015,11 @@ ame e label sem quebrar a tela.
 
 - Ajustado `_sidebar_context` para exibir atalhos de eventos marcados com `mostrar_no_menu_responsavel` mesmo quando o perfil Responsavel nao possui permissao no menu `eventos`.
 - Mantida a regra de exibir somente eventos completos (com campos + produtos/variacoes ativas).
+
+## 23/03/2026 - WhatsApp eventos: ajuste de destino e mensagem de inscricao/pagamento
+
+- Corrigido fluxo para pedidos ligados a evento nao dispararem a notificacao de "Pedido da loja pago" para lista da lojinha.
+- Inscricao/pagamento de evento agora usa notificacao propria de evento com status da inscricao e status do pagamento.
+- Nova inscricao de evento passou a disparar notificacao imediatamente na criacao da inscricao (alem da confirmacao apos pagamento aprovado).
+- Notificacao de evento agora envia sempre para o responsavel da inscricao e para usuarios de Diretor/Diretoria marcados na coluna Administracao evento.
+- Tela WhatsApp atualizada com novos placeholders de evento: status_inscricao, status_pagamento, pedido_id, pagamento_id e valor_total_pago.

@@ -69,7 +69,12 @@ DEFAULT_EVENTO_INSCRICAO_MESSAGE = (
     'Responsavel: {responsavel_nome}\n'
     'CPF: {responsavel_cpf}\n'
     'WhatsApp: {responsavel_whatsapp}\n'
+    'Status da inscricao: {status_inscricao}\n'
+    'Status do pagamento: {status_pagamento}\n'
+    'Pedido: {pedido_id}\n'
+    'Pagamento: {pagamento_id}\n'
     'Valor da inscricao: {valor_inscricao}\n'
+    'Valor total pago: {valor_total_pago}\n'
     'Data/Hora do cadastro: {data_hora}'
 )
 
