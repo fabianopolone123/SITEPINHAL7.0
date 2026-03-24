@@ -3449,9 +3449,10 @@ class EventosView(LoginRequiredMixin, View):
             logger.exception('Falha ao calcular total de custos por evento.')
             custos_totais_map = {}
         event_rows = []
+        evento_publico_helper = EventoPublicoView()
         for evento in eventos:
             try:
-                fields_data = EventoPublicoView()._event_schema(evento)
+                fields_data = evento_publico_helper._event_schema(evento)
                 produtos_qs = (
                     LojaProduto.objects
                     .filter(evento=evento)
@@ -3470,6 +3471,11 @@ class EventosView(LoginRequiredMixin, View):
                     .select_related('user', 'responsavel', 'responsavel__user')
                     .order_by('-created_at')[:20]
                 )
+                for inscricao in inscricoes:
+                    try:
+                        inscricao._responsavel_label = evento_publico_helper._responsavel_label_from_inscricao(inscricao)
+                    except Exception:
+                        inscricao._responsavel_label = '-'
                 pedidos = list(
                     LojaPedido.objects
                     .filter(evento=evento)
@@ -3477,6 +3483,11 @@ class EventosView(LoginRequiredMixin, View):
                     .prefetch_related('itens')
                     .order_by('-created_at')[:20]
                 )
+                for pedido in pedidos:
+                    try:
+                        pedido._responsavel_label = evento_publico_helper._responsavel_label_from_pedido(pedido)
+                    except Exception:
+                        pedido._responsavel_label = '-'
                 pedidos_total_pago = Decimal(pedidos_pagos_totais_map.get(evento.id) or Decimal('0.00'))
                 inscricoes_valor_total = Decimal(inscricoes_valor_totais_map.get(evento.id) or Decimal('0.00'))
                 custos_total = Decimal(custos_totais_map.get(evento.id) or Decimal('0.00'))
