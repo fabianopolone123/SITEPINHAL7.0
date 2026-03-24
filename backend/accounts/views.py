@@ -3561,9 +3561,14 @@ class EventosView(LoginRequiredMixin, View):
             return True
 
     def get(self, request):
-        guard = self._guard(request)
-        if guard:
-            return guard
+        try:
+            guard = self._guard(request)
+            if guard:
+                return guard
+        except Exception:
+            logger.exception('Falha ao validar permissao da pagina de eventos.')
+            return HttpResponse('Falha ao validar permissao para acessar eventos.', status=500)
+
         try:
             context = self._context(request)
         except Exception:
@@ -3574,8 +3579,11 @@ class EventosView(LoginRequiredMixin, View):
                 'presets': [],
                 'presets_json': [],
             }
-            context.update(_sidebar_context(request))
-        return render(request, self.template_name, context)
+        try:
+            return render(request, self.template_name, context)
+        except Exception:
+            logger.exception('Falha ao renderizar template de eventos.')
+            return HttpResponse('Falha ao renderizar pagina de eventos.', status=500)
 
     def post(self, request):
         guard = self._guard(request)
