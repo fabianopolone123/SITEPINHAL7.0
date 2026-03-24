@@ -60,7 +60,7 @@ DEFAULT_LOJA_MESSAGE = (
 )
 
 DEFAULT_EVENTO_INSCRICAO_MESSAGE = (
-    'Nova inscricao de evento recebida!\n'
+    'Inscricao de evento confirmada (pagamento aprovado)!\n'
     'Evento: {evento_nome}\n'
     'Data do evento: {evento_data}\n'
     'Horario: {evento_horario}\n'

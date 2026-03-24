@@ -6077,7 +6077,6 @@ class EventoPublicoView(View):
         codigo_indicacao_input = loja_view._normalize_indicacao_code(request.POST.get('codigo_indicacao'))
         indicador_aventureiro = loja_view._resolve_indicador_from_code(codigo_indicacao_input) if codigo_indicacao_input else None
         finalize_after_save = str(request.POST.get('finalize_after_save') or '').strip() == '1'
-        inscricao_criada_agora = False
         inscricao_salva = None
         if edit_target_inscricao:
             codigo_indicacao_save = codigo_indicacao_input
@@ -6161,7 +6160,6 @@ class EventoPublicoView(View):
                                 confirmada=False,
                             )
                             created = True
-                            inscricao_criada_agora = True
                             break
                         except IntegrityError:
                             continue
@@ -6219,7 +6217,6 @@ class EventoPublicoView(View):
                                 valor_inscricao_unidades=fee_units,
                                 confirmada=False,
                             )
-                            inscricao_criada_agora = True
                             break
                         except IntegrityError:
                             continue
@@ -6229,20 +6226,6 @@ class EventoPublicoView(View):
                     request.session[session_key] = inscricao_obj.pk
                     inscricao_salva = inscricao_obj
                     messages.success(request, 'Inscricao do evento salva com sucesso.')
-        if inscricao_salva and inscricao_criada_agora:
-            try:
-                self._dispatch_whatsapp_nova_inscricao_evento(
-                    evento,
-                    inscricao_salva,
-                    pagamento_pedido=None,
-                    origem='nova_inscricao',
-                )
-            except Exception:
-                logger.exception(
-                    'Falha ao enviar WhatsApp de nova inscricao de evento (evento=%s, inscricao=%s).',
-                    getattr(evento, 'id', None),
-                    getattr(inscricao_salva, 'id', None),
-                )
         return render(
             request,
             self.template_name,
