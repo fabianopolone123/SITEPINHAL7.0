@@ -6270,14 +6270,23 @@ class EventoPedidoCreatePixApiView(View):
         buyer_phone = ''
         buyer_cpf = ''
 
-        for key, value in dados.items():
-            norm_key = self._normalize_lookup_text(key)
-            text = str(value or '').strip()
-            if not text:
-                continue
-            if 'responsavel' in norm_key and 'nome' in norm_key:
-                buyer_name = text
-                break
+        # Reaproveita o parser mais tolerante a variações de rótulo dos campos.
+        try:
+            guessed_name = str(EventoPublicoView()._responsavel_label_from_inscricao(inscricao) or '').strip()
+        except Exception:
+            guessed_name = ''
+        if guessed_name and guessed_name != '-':
+            buyer_name = guessed_name
+
+        if not buyer_name:
+            for key, value in dados.items():
+                norm_key = self._normalize_lookup_text(key)
+                text = str(value or '').strip()
+                if not text:
+                    continue
+                if 'responsavel' in norm_key and 'nome' in norm_key:
+                    buyer_name = text
+                    break
 
         if not buyer_name:
             for key, value in dados.items():

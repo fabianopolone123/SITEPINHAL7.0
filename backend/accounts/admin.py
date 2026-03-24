@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 
 from .models import (
     Responsavel,
@@ -202,7 +202,7 @@ class AventureiroCashbackLancamentoAdmin(admin.ModelAdmin):
 class LojaPedidoAdmin(admin.ModelAdmin):
     list_display = (
         'id',
-        'responsavel',
+        'responsavel_exibicao',
         'evento',
         'evento_inscricao',
         'valor_total',
@@ -212,6 +212,9 @@ class LojaPedidoAdmin(admin.ModelAdmin):
     )
     search_fields = (
         'responsavel__user__username',
+        'responsavel__responsavel_nome',
+        'responsavel__mae_nome',
+        'responsavel__pai_nome',
         'mp_payment_id',
         'mp_external_reference',
     )
@@ -219,3 +222,52 @@ class LojaPedidoAdmin(admin.ModelAdmin):
     autocomplete_fields = ('responsavel', 'cashback_aventureiro', 'created_by')
     raw_id_fields = ('evento', 'evento_inscricao')
     readonly_fields = ('created_at', 'updated_at')
+    actions = ('sincronizar_status_mp',)
+
+    def responsavel_exibicao(self, obj):
+        responsavel = getattr(obj, 'responsavel', None)
+        if not responsavel:
+            return '-'
+        return (
+            responsavel.responsavel_nome
+            or responsavel.mae_nome
+            or responsavel.pai_nome
+            or (responsavel.user.get_full_name() if responsavel.user_id else '')
+            or (responsavel.user.username if responsavel.user_id else '')
+            or '-'
+        )
+
+    responsavel_exibicao.short_description = 'responsavel'
+    responsavel_exibicao.admin_order_field = 'responsavel__responsavel_nome'
+
+    @admin.action(description='Sincronizar status selecionados com Mercado Pago')
+    def sincronizar_status_mp(self, request, queryset):
+        from .views import LojaView
+
+        loja_view = LojaView()
+        synced = 0
+        paid = 0
+        failed = 0
+        skipped = 0
+
+        for pedido in queryset:
+            payment_id = str(getattr(pedido, 'mp_payment_id', '') or '').strip()
+            if not payment_id:
+                skipped += 1
+                continue
+            try:
+                payment_data = loja_view._get_mp_payment(payment_id)
+                loja_view._sync_pedido_loja_from_mp(pedido, payment_data)
+                pedido.refresh_from_db()
+                synced += 1
+                if pedido.status == LojaPedido.STATUS_PAGO:
+                    paid += 1
+            except Exception:
+                failed += 1
+
+        summary = (
+            f'Sincronizacao concluida. Atualizados: {synced}; '
+            f'Pagos: {paid}; Sem mp_payment_id: {skipped}; Falhas: {failed}.'
+        )
+        level = messages.WARNING if failed else messages.SUCCESS
+        self.message_user(request, summary, level=level)

@@ -1030,3 +1030,6 @@ ame e label sem quebrar a tela.
 - Registrados no Admin os modelos financeiros: MensalidadeAventureiro, PagamentoMensalidade, LojaPedido, FinanceiroComprovante e AventureiroCashbackLancamento.
 - Inclusa protecao no Admin de PagamentoMensalidade: ao excluir pagamento, as mensalidades vinculadas voltam para status pendente automaticamente.
 - Adicionados filtros e busca para facilitar exclusao manual de transacoes pela interface do Django Admin.
+- LojaPedido no Admin agora mostra nome amigavel do responsavel (responsavel_nome/mae/pai) em vez de apenas username tecnico do usuario convidado.
+- Adicionada acao no Admin de LojaPedido para sincronizar status selecionados com o Mercado Pago (corrige pedidos pendentes que ja foram pagos no banco).
+- Melhorada captura do nome do responsavel no checkout publico de evento para reduzir criacao de responsavel convidado sem nome.
