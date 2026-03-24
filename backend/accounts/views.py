@@ -3473,9 +3473,9 @@ class EventosView(LoginRequiredMixin, View):
                 )
                 for inscricao in inscricoes:
                     try:
-                        inscricao._responsavel_label = evento_publico_helper._responsavel_label_from_inscricao(inscricao)
+                        inscricao.responsavel_label = evento_publico_helper._responsavel_label_from_inscricao(inscricao)
                     except Exception:
-                        inscricao._responsavel_label = '-'
+                        inscricao.responsavel_label = '-'
                 pedidos = list(
                     LojaPedido.objects
                     .filter(evento=evento)
@@ -3485,9 +3485,9 @@ class EventosView(LoginRequiredMixin, View):
                 )
                 for pedido in pedidos:
                     try:
-                        pedido._responsavel_label = evento_publico_helper._responsavel_label_from_pedido(pedido)
+                        pedido.responsavel_label = evento_publico_helper._responsavel_label_from_pedido(pedido)
                     except Exception:
-                        pedido._responsavel_label = '-'
+                        pedido.responsavel_label = '-'
                 pedidos_total_pago = Decimal(pedidos_pagos_totais_map.get(evento.id) or Decimal('0.00'))
                 inscricoes_valor_total = Decimal(inscricoes_valor_totais_map.get(evento.id) or Decimal('0.00'))
                 custos_total = Decimal(custos_totais_map.get(evento.id) or Decimal('0.00'))
