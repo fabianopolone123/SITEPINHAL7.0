@@ -11151,6 +11151,7 @@ class LojaView(LoginRequiredMixin, View):
         pedidos_rows = []
         pedidos_qs = (
             LojaPedido.objects
+            .filter(evento__isnull=True, evento_inscricao__isnull=True)
             .select_related('responsavel', 'responsavel__user')
             .prefetch_related('itens')
             .order_by('-created_at')
@@ -11204,7 +11205,11 @@ class LojaView(LoginRequiredMixin, View):
         if responsavel:
             pedidos_qs = (
                 LojaPedido.objects
-                .filter(responsavel=responsavel)
+                .filter(
+                    responsavel=responsavel,
+                    evento__isnull=True,
+                    evento_inscricao__isnull=True,
+                )
                 .prefetch_related('itens')
                 .order_by('-created_at')
             )
