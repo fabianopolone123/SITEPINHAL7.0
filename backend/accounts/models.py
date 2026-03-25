@@ -565,6 +565,7 @@ class Evento(models.Model):
     event_type = models.CharField('tipo do evento', max_length=128, blank=True)
     event_location = models.CharField('local do evento', max_length=255, blank=True)
     event_description = models.TextField('descricao do evento', blank=True)
+    event_inactive_message = models.TextField('mensagem da pagina inativa', blank=True)
     pagina_ativa = models.BooleanField('pagina do evento ativa', default=True)
     inscricao_publica = models.BooleanField('página pública de inscrição', default=False)
     mostrar_no_menu_responsavel = models.BooleanField('mostrar botao no perfil responsavel', default=False)

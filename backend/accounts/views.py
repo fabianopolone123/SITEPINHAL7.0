@@ -3948,6 +3948,7 @@ class EventosView(LoginRequiredMixin, View):
             event_type = (request.POST.get('event_type') or '').strip()
             event_location = (request.POST.get('event_location') or '').strip()
             event_description = (request.POST.get('event_description') or '').strip()
+            event_inactive_message = (request.POST.get('event_inactive_message') or '').strip()
             pagina_ativa = bool(request.POST.get('pagina_ativa'))
             inscricao_publica = bool(request.POST.get('inscricao_publica'))
             mostrar_no_menu_responsavel = bool(request.POST.get('mostrar_no_menu_responsavel'))
@@ -3990,6 +3991,7 @@ class EventosView(LoginRequiredMixin, View):
                     event_type=event_type,
                     event_location=event_location,
                     event_description=event_description,
+                    event_inactive_message=event_inactive_message,
                     pagina_ativa=pagina_ativa,
                     inscricao_publica=inscricao_publica,
                     mostrar_no_menu_responsavel=mostrar_no_menu_responsavel,
@@ -4086,6 +4088,7 @@ class EventosView(LoginRequiredMixin, View):
             event_type = (request.POST.get('event_type') or '').strip()
             event_location = (request.POST.get('event_location') or '').strip()
             event_description = (request.POST.get('event_description') or '').strip()
+            event_inactive_message = (request.POST.get('event_inactive_message') or '').strip()
             pagina_ativa = bool(request.POST.get('pagina_ativa'))
             inscricao_publica = bool(request.POST.get('inscricao_publica'))
             mostrar_no_menu_responsavel = bool(request.POST.get('mostrar_no_menu_responsavel'))
@@ -4127,6 +4130,7 @@ class EventosView(LoginRequiredMixin, View):
             evento.event_type = event_type
             evento.event_location = event_location
             evento.event_description = event_description
+            evento.event_inactive_message = event_inactive_message
             evento.pagina_ativa = pagina_ativa
             evento.inscricao_publica = inscricao_publica
             evento.mostrar_no_menu_responsavel = mostrar_no_menu_responsavel
@@ -4142,6 +4146,7 @@ class EventosView(LoginRequiredMixin, View):
                 'event_type',
                 'event_location',
                 'event_description',
+                'event_inactive_message',
                 'pagina_ativa',
                 'inscricao_publica',
                 'mostrar_no_menu_responsavel',
@@ -4453,6 +4458,22 @@ class EventoPublicoView(View):
         if bool(evento.inscricao_publica):
             return True
         return self._authenticated_profile_allowed(request)
+
+    def _inactive_page_message(self, evento):
+        message = str(getattr(evento, 'event_inactive_message', '') or '').strip()
+        if message:
+            return message
+        return 'Este evento esta inativo no momento. Em breve teremos novidades.'
+
+    def _render_evento_inativo(self, request, evento):
+        context = {
+            'evento': evento,
+            'inactive_message': self._inactive_page_message(evento),
+            'can_manage_evento': self._can_manage_evento_page(request),
+        }
+        if request.user.is_authenticated:
+            context.update(_sidebar_context(request))
+        return render(request, 'evento_pagina_inativa.html', context, status=403)
 
     def _current_inscricao(self, request, evento):
         if request.user.is_authenticated:
@@ -5956,10 +5977,7 @@ class EventoPublicoView(View):
         evento = get_object_or_404(Evento, pk=event_id)
         if not self._can_access_page(request, evento):
             if not bool(getattr(evento, 'pagina_ativa', True)):
-                if request.user.is_authenticated:
-                    messages.error(request, 'A pagina deste evento esta inativa no momento.')
-                    return redirect('accounts:painel')
-                return HttpResponse('A pagina deste evento esta inativa no momento.', status=403)
+                return self._render_evento_inativo(request, evento)
             if not request.user.is_authenticated:
                 login_url = reverse('accounts:login')
                 next_path = request.get_full_path()
@@ -5977,10 +5995,7 @@ class EventoPublicoView(View):
         evento = get_object_or_404(Evento, pk=event_id)
         if not self._can_access_page(request, evento):
             if not bool(getattr(evento, 'pagina_ativa', True)):
-                if request.user.is_authenticated:
-                    messages.error(request, 'A pagina deste evento esta inativa no momento.')
-                    return redirect('accounts:painel')
-                return HttpResponse('A pagina deste evento esta inativa no momento.', status=403)
+                return self._render_evento_inativo(request, evento)
             if not request.user.is_authenticated:
                 login_url = reverse('accounts:login')
                 next_path = request.get_full_path()

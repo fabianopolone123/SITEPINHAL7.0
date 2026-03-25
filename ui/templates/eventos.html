@@ -302,6 +302,9 @@
               {% if evento.event_description %}
                 <p class="panel-note">{{ evento.event_description }}</p>
               {% endif %}
+              {% if evento.event_inactive_message %}
+                <p class="panel-note"><strong>Mensagem pagina inativa:</strong> {{ evento.event_inactive_message|linebreaksbr }}</p>
+              {% endif %}
               {% if row.fields_data %}
                 <ul class="event-fields-list">
                   {% for campo in row.fields_data %}
@@ -360,6 +363,9 @@
                     <label>Local <input type="text" name="event_location" value="{{ evento.event_location|default:'' }}" placeholder="Ex.: Sede do clube - Rua X, 123" /></label>
                     <label class="full">Descricao
                       <textarea name="event_description" rows="2" placeholder="Descreva objetivo, publico e orientacoes do evento.">{{ evento.event_description|default:'' }}</textarea>
+                    </label>
+                    <label class="full">Mensagem quando pagina estiver inativa
+                      <textarea name="event_inactive_message" rows="2" placeholder="Ex.: Evento adiado por chuva. Nova data sera divulgada em breve.">{{ evento.event_inactive_message|default:'' }}</textarea>
                     </label>
                     <label><input type="checkbox" name="inscricao_publica" value="1" {% if evento.inscricao_publica %}checked{% endif %} /> Página pública de inscrição (sem login)</label>
                     <label><input type="checkbox" name="pagina_ativa" value="1" {% if evento.pagina_ativa %}checked{% endif %} /> Pagina do evento ativa</label>
@@ -738,6 +744,10 @@
           <label class="full">
             Descricao do evento
             <textarea name="event_description" id="event-description" rows="2" placeholder="Descreva objetivo, publico e orientacoes do evento."></textarea>
+          </label>
+          <label class="full">
+            Mensagem quando pagina estiver inativa
+            <textarea name="event_inactive_message" id="event-inactive-message" rows="2" placeholder="Ex.: Evento adiado por chuva. Nova data sera divulgada em breve."></textarea>
           </label>
           <label>
             <input type="checkbox" name="inscricao_publica" id="event-public" value="1" />
@@ -1261,8 +1271,10 @@
         document.getElementById('event-name').value = preset.event_name || '';
         const eventLocationInput = document.getElementById('event-location');
         const eventDescriptionInput = document.getElementById('event-description');
+        const eventInactiveMessageInput = document.getElementById('event-inactive-message');
         if (eventLocationInput) eventLocationInput.value = '';
         if (eventDescriptionInput) eventDescriptionInput.value = preset.event_description || '';
+        if (eventInactiveMessageInput) eventInactiveMessageInput.value = '';
         document.getElementById('event-date').value = preset.event_date || '';
         document.getElementById('event-time').value = preset.event_time || '';
         document.getElementById('event-end-time').value = preset.event_end_time || '';
