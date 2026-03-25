@@ -8390,6 +8390,8 @@ class WhatsAppView(LoginRequiredMixin, View):
 
 class FinanceiroView(LoginRequiredMixin, View):
     template_name = 'financeiro.html'
+    relatorios_sync_days_default = 3
+    relatorios_sync_max_items_default = 150
 
     def _guard(self, request):
         if not _has_menu_permission(request, 'financeiro'):
@@ -9121,12 +9123,15 @@ class FinanceiroView(LoginRequiredMixin, View):
         extrato_rows = []
         for item in reversed(sorted_entries):
             valor_decimal = Decimal(item.get('valor') or Decimal('0.00')).quantize(Decimal('0.01'))
+            is_saida = valor_decimal < 0
             extrato_rows.append({
                 'data': timezone.localtime(item.get('created_at')).strftime('%d/%m/%Y %H:%M') if item.get('created_at') else '-',
                 'tipo': item.get('tipo') or '-',
                 'descricao': item.get('descricao') or '-',
                 'valor': self._format_currency(abs(valor_decimal)),
                 'valor_sinal': '+' if valor_decimal >= 0 else '-',
+                'valor_css': 'is-saida' if is_saida else 'is-entrada',
+                'fluxo_label': 'Saida' if is_saida else 'Entrada',
                 'impacto_label': 'Entra no liquido' if item.get('impacta_liquido') else 'Nao entra no liquido',
                 'saldo_liquido_apos': self._format_currency(item.get('saldo_liquido_apos') or Decimal('0.00')),
             })
@@ -9143,7 +9148,20 @@ class FinanceiroView(LoginRequiredMixin, View):
             'relatorios_caixa_liquido': self._format_currency(caixa_liquido),
             'relatorios_comprovante_query': comprovante_query,
             'relatorios_open_comprovante_modal': bool(open_comprovante_modal),
+            'relatorios_sync_days': int(self.relatorios_sync_days_default),
+            'relatorios_sync_max_items': int(self.relatorios_sync_max_items_default),
         }
+
+    def _sync_loja_pagamentos_manual(self, days=None, max_items=None):
+        from accounts.management.commands.sync_loja_pagamentos import Command as SyncLojaPagamentosCommand
+
+        days_value = int(days or self.relatorios_sync_days_default)
+        max_items_value = int(max_items or self.relatorios_sync_max_items_default)
+        days_value = max(1, min(days_value, 60))
+        max_items_value = max(1, min(max_items_value, 500))
+
+        command = SyncLojaPagamentosCommand()
+        return command._run_once(days=days_value, max_items=max_items_value)
 
     def get(self, request):
         guard = self._guard(request)
@@ -9286,6 +9304,24 @@ class FinanceiroView(LoginRequiredMixin, View):
                         created_by=request.user,
                     )
                     messages.success(request, 'Comprovante de gasto cadastrado com sucesso.')
+            elif action == 'sync_loja_pagamentos_manual':
+                try:
+                    result = self._sync_loja_pagamentos_manual()
+                except Exception as exc:
+                    logger.exception('Falha na sincronizacao manual de pedidos da loja (financeiro).')
+                    messages.error(request, f'Falha ao sincronizar pagamentos da loja agora. {exc}')
+                else:
+                    messages.success(
+                        request,
+                        (
+                            'Sincronizacao concluida: '
+                            f"checados={result.get('checked', 0)} | "
+                            f"alterados={result.get('changed', 0)} | "
+                            f"pagos_agora={result.get('approved_now', 0)} | "
+                            f"cashback_reconciliados={result.get('cashback_reconciled', 0)} | "
+                            f"falhas={result.get('failed', 0)}"
+                        ),
+                    )
             context = self._relatorios_context(comprovante_query, open_comprovante_modal=open_comprovante_modal)
             context.update({
                 'active_financeiro_tab': 'relatorios',
