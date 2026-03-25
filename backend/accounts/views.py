@@ -8995,7 +8995,7 @@ class FinanceiroView(LoginRequiredMixin, View):
         pedidos_loja_pagos = list(
             LojaPedido.objects
             .filter(status=LojaPedido.STATUS_PAGO)
-            .select_related('responsavel', 'responsavel__user')
+            .select_related('responsavel', 'responsavel__user', 'evento')
             .prefetch_related('itens')
             .order_by('-paid_at', '-created_at')
         )
@@ -9069,6 +9069,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                 or pedido.responsavel.pai_nome
                 or pedido.responsavel.user.username
             )
+            evento_nome = str(getattr(getattr(pedido, 'evento', None), 'name', '') or '').strip()
             itens = []
             for item in pedido.itens.all():
                 descricao = f'{item.quantidade}x {item.produto_titulo}'
@@ -9085,8 +9086,12 @@ class FinanceiroView(LoginRequiredMixin, View):
             })
             extrato_entries.append({
                 'created_at': pedido.paid_at or pedido.created_at,
-                'tipo': 'Pedido loja pago',
-                'descricao': f'Pedido #{pedido.pk} - {responsavel_nome}',
+                'tipo': 'Pedido evento pago' if evento_nome else 'Pedido loja pago',
+                'descricao': (
+                    f'Pedido #{pedido.pk} - {responsavel_nome} | Evento: {evento_nome}'
+                    if evento_nome
+                    else f'Pedido #{pedido.pk} - {responsavel_nome}'
+                ),
                 'valor': Decimal(pedido.valor_total).quantize(Decimal('0.01')),
                 'impacto_liquido': Decimal('0.00'),
                 'impacta_liquido': False,
