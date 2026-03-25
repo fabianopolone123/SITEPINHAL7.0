@@ -74,6 +74,16 @@
       background: linear-gradient(180deg, #eef5ff, #e4efff);
       box-shadow: inset 0 0 0 1px #bfdbfe;
     }
+    .event-item.event-item-inactive {
+      border-color: #fbbf24;
+      background: linear-gradient(180deg, #fff8eb, #fff3d7);
+      box-shadow: inset 0 0 0 1px #fde68a;
+    }
+    .event-item.event-item-robust.event-item-inactive {
+      border-color: #f59e0b;
+      background: linear-gradient(180deg, #fff3cf, #ffe8b0);
+      box-shadow: inset 0 0 0 1px #fcd34d;
+    }
     .event-item h4 {
       margin-bottom: 0.25rem;
     }
@@ -285,7 +295,7 @@
       <div class="event-list">
         {% for row in eventos %}
           {% with evento=row.evento %}
-            <article class="event-item{% if row.has_public_page %} event-item-robust{% endif %}">
+            <article class="event-item{% if row.has_public_page %} event-item-robust{% endif %}{% if not evento.pagina_ativa %} event-item-inactive{% endif %}">
               <span class="event-status-chip">{{ row.relative_label }}</span>
               <h4>{{ evento.name }}</h4>
               <p class="event-meta">
