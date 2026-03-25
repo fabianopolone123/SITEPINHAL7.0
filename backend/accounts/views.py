@@ -9021,6 +9021,20 @@ class FinanceiroView(LoginRequiredMixin, View):
             .get('total')
             or Decimal('0.00')
         )
+        total_loja_eventos_pago = (
+            LojaPedido.objects
+            .filter(status=LojaPedido.STATUS_PAGO, evento__isnull=False)
+            .aggregate(total=Sum('valor_total'))
+            .get('total')
+            or Decimal('0.00')
+        )
+        total_loja_geral_pago = (
+            LojaPedido.objects
+            .filter(status=LojaPedido.STATUS_PAGO, evento__isnull=True)
+            .aggregate(total=Sum('valor_total'))
+            .get('total')
+            or Decimal('0.00')
+        )
         total_gastos_comprovados = (
             FinanceiroComprovante.objects
             .aggregate(total=Sum('valor'))
@@ -9083,6 +9097,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'valor_total': self._format_currency(pedido.valor_total),
                 'pago_em': timezone.localtime(pedido.paid_at or pedido.created_at).strftime('%d/%m/%Y %H:%M'),
                 'itens': itens,
+                'origem_label': f'Evento: {evento_nome}' if evento_nome else 'Loja geral',
             })
             extrato_entries.append({
                 'created_at': pedido.paid_at or pedido.created_at,
@@ -9095,6 +9110,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'valor': Decimal(pedido.valor_total).quantize(Decimal('0.01')),
                 'impacto_liquido': Decimal('0.00'),
                 'impacta_liquido': False,
+                'impacto_label_custom': 'Nao entra no liquido (evento)' if evento_nome else 'Nao entra no liquido (loja)',
             })
 
         comprovantes_rows = []
@@ -9137,7 +9153,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'valor_sinal': '+' if valor_decimal >= 0 else '-',
                 'valor_css': 'is-saida' if is_saida else 'is-entrada',
                 'fluxo_label': 'Saida' if is_saida else 'Entrada',
-                'impacto_label': 'Entra no liquido' if item.get('impacta_liquido') else 'Nao entra no liquido',
+                'impacto_label': item.get('impacto_label_custom') or ('Entra no liquido' if item.get('impacta_liquido') else 'Nao entra no liquido'),
                 'saldo_liquido_apos': self._format_currency(item.get('saldo_liquido_apos') or Decimal('0.00')),
             })
 
@@ -9148,6 +9164,8 @@ class FinanceiroView(LoginRequiredMixin, View):
             'relatorios_extrato_rows': extrato_rows,
             'relatorios_total_mensalidades_pago': self._format_currency(total_mensalidades_pago),
             'relatorios_total_loja_pago': self._format_currency(total_loja_pago),
+            'relatorios_total_loja_eventos_pago': self._format_currency(total_loja_eventos_pago),
+            'relatorios_total_loja_geral_pago': self._format_currency(total_loja_geral_pago),
             'relatorios_total_gastos_comprovados': self._format_currency(total_gastos_comprovados),
             'relatorios_caixa_bruto': self._format_currency(caixa_bruto),
             'relatorios_caixa_liquido': self._format_currency(caixa_liquido),

@@ -370,7 +370,17 @@
         <div class="financeiro-report-card">
           <strong>Total loja pago</strong>
           <span>{{ relatorios_total_loja_pago }}</span>
-          <p class="financeiro-report-note">Entra no bruto, mas nao soma no liquido.</p>
+          <p class="financeiro-report-note">Entra no bruto, mas nao soma no liquido (eventos + loja geral).</p>
+        </div>
+        <div class="financeiro-report-card">
+          <strong>Total pedidos de evento pagos</strong>
+          <span>{{ relatorios_total_loja_eventos_pago }}</span>
+          <p class="financeiro-report-note">Parte do total da loja. Nao soma no liquido.</p>
+        </div>
+        <div class="financeiro-report-card">
+          <strong>Total pedidos da loja geral pagos</strong>
+          <span>{{ relatorios_total_loja_geral_pago }}</span>
+          <p class="financeiro-report-note">Parte do total da loja. Nao soma no liquido.</p>
         </div>
         <div class="financeiro-report-card">
           <strong>Total gastos comprovados</strong>
@@ -523,6 +533,7 @@
                 <tr>
                   <th>ID</th>
                   <th>Responsavel</th>
+                  <th>Origem</th>
                   <th>Pago em</th>
                   <th>Valor</th>
                   <th>Itens</th>
@@ -533,6 +544,7 @@
                   <tr>
                     <td>#{{ row.id }}</td>
                     <td>{{ row.responsavel_nome }}<small>{{ row.username }}</small></td>
+                    <td>{{ row.origem_label }}</td>
                     <td>{{ row.pago_em }}</td>
                     <td>{{ row.valor_total }}</td>
                     <td>
