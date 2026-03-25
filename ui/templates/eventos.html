@@ -290,6 +290,7 @@
               <h4>{{ evento.name }}</h4>
               <p class="event-meta">
                 Local: {{ evento.event_location|default:"-" }} |
+                Pagina ativa: {% if evento.pagina_ativa %}Ativa{% else %}Inativa{% endif %} |
                 Página: {% if evento.inscricao_publica %}Pública{% else %}Privada{% endif %} |
                 Botão responsável: {% if evento.mostrar_no_menu_responsavel %}Ativo{% else %}Inativo{% endif %} |
                 Data do evento: {{ evento.event_date|date:"d/m/Y"|default:"-" }} |
@@ -316,6 +317,7 @@
               {% endif %}
               <div class="action-row">
                 <span class="event-status-chip">{% if evento.inscricao_publica %}Público{% else %}Privado{% endif %}</span>
+                <span class="event-status-chip">{% if evento.pagina_ativa %}Pagina ativa{% else %}Pagina inativa{% endif %}</span>
                 <span class="event-field-pill">Cobranca inscricao: {{ row.inscricao_valor_config_text }}</span>
                 <span class="event-field-pill">Inscrições: {{ row.inscricoes_count }}</span>
                 <span class="event-field-pill">Pedidos: {{ row.pedidos_count }}</span>
@@ -331,6 +333,15 @@
                   <input type="hidden" name="publico" value="{% if evento.inscricao_publica %}0{% else %}1{% endif %}" />
                   <button type="submit" class="secondary">{% if evento.inscricao_publica %}Tornar privado{% else %}Tornar público{% endif %}</button>
                 </form>
+                {% if row.has_public_page %}
+                  <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_event_page_active" />
+                    <input type="hidden" name="event_id" value="{{ evento.id }}" />
+                    <input type="hidden" name="ativo" value="{% if evento.pagina_ativa %}0{% else %}1{% endif %}" />
+                    <button type="submit" class="secondary">{% if evento.pagina_ativa %}Desativar pagina{% else %}Ativar pagina{% endif %}</button>
+                  </form>
+                {% endif %}
                 <button type="button" class="secondary js-open-report" data-modal-id="event-report-{{ evento.id }}">Relatório</button>
                 {% if row.has_public_page %}
                   <a href="{% url 'accounts:evento_publico' evento.id %}" class="secondary">Visualizar página do evento</a>
@@ -351,6 +362,7 @@
                       <textarea name="event_description" rows="2" placeholder="Descreva objetivo, publico e orientacoes do evento.">{{ evento.event_description|default:'' }}</textarea>
                     </label>
                     <label><input type="checkbox" name="inscricao_publica" value="1" {% if evento.inscricao_publica %}checked{% endif %} /> Página pública de inscrição (sem login)</label>
+                    <label><input type="checkbox" name="pagina_ativa" value="1" {% if evento.pagina_ativa %}checked{% endif %} /> Pagina do evento ativa</label>
                     <label><input type="checkbox" name="mostrar_no_menu_responsavel" value="1" {% if evento.mostrar_no_menu_responsavel %}checked{% endif %} /> Mostrar botão deste evento no perfil Responsável</label>
                     <label>Data <input type="date" name="event_date" value="{{ evento.event_date|date:'Y-m-d' }}" required /></label>
                     <label>Hora início <input type="time" name="event_time" value="{{ evento.event_time|time:'H:i' }}" required /></label>
@@ -730,6 +742,10 @@
           <label>
             <input type="checkbox" name="inscricao_publica" id="event-public" value="1" />
             Página pública de inscrição (sem login)
+          </label>
+          <label>
+            <input type="checkbox" name="pagina_ativa" id="event-page-active" value="1" checked />
+            Pagina do evento ativa
           </label>
           <label>
             <input type="checkbox" name="mostrar_no_menu_responsavel" id="event-show-responsavel" value="1" />

@@ -307,7 +307,7 @@ def _sidebar_context(request):
         if active_profile == UserAccess.ROLE_RESPONSAVEL:
             eventos_qs = (
                 Evento.objects
-                .filter(mostrar_no_menu_responsavel=True)
+                .filter(mostrar_no_menu_responsavel=True, pagina_ativa=True)
                 .prefetch_related('produtos_loja__variacoes')
                 .order_by('event_date', 'event_time', 'name')
             )
@@ -3948,6 +3948,7 @@ class EventosView(LoginRequiredMixin, View):
             event_type = (request.POST.get('event_type') or '').strip()
             event_location = (request.POST.get('event_location') or '').strip()
             event_description = (request.POST.get('event_description') or '').strip()
+            pagina_ativa = bool(request.POST.get('pagina_ativa'))
             inscricao_publica = bool(request.POST.get('inscricao_publica'))
             mostrar_no_menu_responsavel = bool(request.POST.get('mostrar_no_menu_responsavel'))
             inscricao_valor_modo, inscricao_valor_unitario, inscricao_valor_config = self._parse_inscricao_valor_config_request(request)
@@ -3989,6 +3990,7 @@ class EventosView(LoginRequiredMixin, View):
                     event_type=event_type,
                     event_location=event_location,
                     event_description=event_description,
+                    pagina_ativa=pagina_ativa,
                     inscricao_publica=inscricao_publica,
                     mostrar_no_menu_responsavel=mostrar_no_menu_responsavel,
                     event_date=event_date_value,
@@ -4048,6 +4050,20 @@ class EventosView(LoginRequiredMixin, View):
                 f'Evento marcado como {"público" if make_public else "privado"} com sucesso.',
             )
 
+        elif action == 'toggle_event_page_active':
+            event_id = request.POST.get('event_id')
+            evento = Evento.objects.filter(pk=event_id).first()
+            if not evento:
+                messages.error(request, 'Evento nao encontrado.')
+                return render(request, self.template_name, self._context(request))
+            make_active = str(request.POST.get('ativo') or '').strip() == '1'
+            evento.pagina_ativa = make_active
+            evento.save(update_fields=['pagina_ativa', 'updated_at'])
+            messages.success(
+                request,
+                f'Pagina do evento marcada como {"ativa" if make_active else "inativa"} com sucesso.',
+            )
+
         elif action == 'delete_event':
             event_id = request.POST.get('event_id')
             evento = Evento.objects.filter(pk=event_id).first()
@@ -4070,6 +4086,7 @@ class EventosView(LoginRequiredMixin, View):
             event_type = (request.POST.get('event_type') or '').strip()
             event_location = (request.POST.get('event_location') or '').strip()
             event_description = (request.POST.get('event_description') or '').strip()
+            pagina_ativa = bool(request.POST.get('pagina_ativa'))
             inscricao_publica = bool(request.POST.get('inscricao_publica'))
             mostrar_no_menu_responsavel = bool(request.POST.get('mostrar_no_menu_responsavel'))
             inscricao_valor_modo, inscricao_valor_unitario, inscricao_valor_config = self._parse_inscricao_valor_config_request(request)
@@ -4110,6 +4127,7 @@ class EventosView(LoginRequiredMixin, View):
             evento.event_type = event_type
             evento.event_location = event_location
             evento.event_description = event_description
+            evento.pagina_ativa = pagina_ativa
             evento.inscricao_publica = inscricao_publica
             evento.mostrar_no_menu_responsavel = mostrar_no_menu_responsavel
             evento.event_date = event_date_value
@@ -4124,6 +4142,7 @@ class EventosView(LoginRequiredMixin, View):
                 'event_type',
                 'event_location',
                 'event_description',
+                'pagina_ativa',
                 'inscricao_publica',
                 'mostrar_no_menu_responsavel',
                 'event_date',
@@ -4423,7 +4442,14 @@ class EventoPublicoView(View):
             or access.has_profile(UserAccess.ROLE_DIRETORIA)
         )
 
+    def _can_manage_evento_page(self, request):
+        return bool(request.user.is_authenticated and _has_menu_permission(request, 'eventos'))
+
     def _can_access_page(self, request, evento):
+        if self._can_manage_evento_page(request):
+            return True
+        if not bool(getattr(evento, 'pagina_ativa', True)):
+            return False
         if bool(evento.inscricao_publica):
             return True
         return self._authenticated_profile_allowed(request)
@@ -5929,6 +5955,11 @@ class EventoPublicoView(View):
     def get(self, request, event_id):
         evento = get_object_or_404(Evento, pk=event_id)
         if not self._can_access_page(request, evento):
+            if not bool(getattr(evento, 'pagina_ativa', True)):
+                if request.user.is_authenticated:
+                    messages.error(request, 'A pagina deste evento esta inativa no momento.')
+                    return redirect('accounts:painel')
+                return HttpResponse('A pagina deste evento esta inativa no momento.', status=403)
             if not request.user.is_authenticated:
                 login_url = reverse('accounts:login')
                 next_path = request.get_full_path()
@@ -5945,6 +5976,11 @@ class EventoPublicoView(View):
     def post(self, request, event_id):
         evento = get_object_or_404(Evento, pk=event_id)
         if not self._can_access_page(request, evento):
+            if not bool(getattr(evento, 'pagina_ativa', True)):
+                if request.user.is_authenticated:
+                    messages.error(request, 'A pagina deste evento esta inativa no momento.')
+                    return redirect('accounts:painel')
+                return HttpResponse('A pagina deste evento esta inativa no momento.', status=403)
             if not request.user.is_authenticated:
                 login_url = reverse('accounts:login')
                 next_path = request.get_full_path()
@@ -6036,6 +6072,19 @@ class EventoPublicoView(View):
             messages.success(
                 request,
                 f'Evento marcado como {"publico" if make_public else "privado"} com sucesso.',
+            )
+            return render(request, self.template_name, self._context(request, evento))
+
+        if action == 'toggle_event_page_active':
+            if not can_manage_evento:
+                messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
+                return render(request, self.template_name, self._context(request, evento))
+            make_active = str(request.POST.get('ativo') or '').strip() == '1'
+            evento.pagina_ativa = make_active
+            evento.save(update_fields=['pagina_ativa', 'updated_at'])
+            messages.success(
+                request,
+                f'Pagina do evento marcada como {"ativa" if make_active else "inativa"} com sucesso.',
             )
             return render(request, self.template_name, self._context(request, evento))
 
@@ -6608,7 +6657,7 @@ class EventoPedidoCreatePixApiView(View):
 
     def post(self, request, event_id):
         evento = get_object_or_404(Evento, pk=event_id)
-        if not bool(evento.inscricao_publica) and not self._authenticated_profile_allowed(request):
+        if not EventoPublicoView()._can_access_page(request, evento):
             return JsonResponse({'ok': False, 'error': 'forbidden_profile'}, status=403)
 
         try:
@@ -6923,6 +6972,8 @@ class EventoPedidoStatusApiView(View):
 
     def get(self, request, event_id, pk):
         evento = get_object_or_404(Evento, pk=event_id)
+        if not EventoPublicoView()._can_access_page(request, evento):
+            return JsonResponse({'ok': False, 'error': 'forbidden_profile'}, status=403)
         pedido = get_object_or_404(
             LojaPedido.objects.select_related('responsavel', 'responsavel__user'),
             pk=pk,
