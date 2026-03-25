@@ -38,8 +38,9 @@ class Command(BaseCommand):
 
     def _run_once(self, *, days, max_items):
         cutoff = timezone.now() - timedelta(days=max(1, days))
-        base_qs = (
+        pendentes_qs = (
             LojaPedido.objects
+            .select_related('evento_inscricao')
             .filter(
                 status__in=[LojaPedido.STATUS_PENDENTE, LojaPedido.STATUS_PROCESSANDO],
                 created_at__gte=cutoff,
@@ -48,18 +49,35 @@ class Command(BaseCommand):
             .exclude(mp_payment_id='')
             .order_by('created_at', 'id')
         )
+        reconciliar_cashback_qs = (
+            LojaPedido.objects
+            .select_related('evento_inscricao')
+            .filter(
+                status=LojaPedido.STATUS_PAGO,
+                created_at__gte=cutoff,
+                evento_inscricao__isnull=False,
+                evento_inscricao__cashback_creditado=False,
+            )
+            .order_by('created_at', 'id')
+        )
         if max_items > 0:
-            pedidos = list(base_qs[:max_items])
+            pedidos = list(pendentes_qs[:max_items])
+            remaining = max(0, max_items - len(pedidos))
+            if remaining > 0:
+                reconciliar = list(reconciliar_cashback_qs[:remaining])
+                pedidos.extend(reconciliar)
         else:
-            pedidos = list(base_qs)
+            pedidos = list(pendentes_qs)
+            pedidos.extend(list(reconciliar_cashback_qs))
 
         if not pedidos:
-            self.stdout.write(self.style.WARNING('Nenhum pedido pendente/processando para sincronizar.'))
+            self.stdout.write(self.style.WARNING('Nenhum pedido para sincronizar/reconciliar no periodo informado.'))
             return {
                 'checked': 0,
                 'changed': 0,
                 'approved_now': 0,
                 'failed': 0,
+                'cashback_reconciled': 0,
             }
 
         loja_view = LojaView()
@@ -67,23 +85,46 @@ class Command(BaseCommand):
         changed = 0
         approved_now = 0
         failed = 0
+        cashback_reconciled = 0
 
         for pedido in pedidos:
             checked += 1
             previous_status = pedido.status
             try:
-                payment_data = loja_view._get_mp_payment(str(pedido.mp_payment_id or '').strip())
-                loja_view._sync_pedido_loja_from_mp(pedido, payment_data)
-                pedido.refresh_from_db(fields=['status', 'paid_at'])
-                if pedido.status != previous_status:
-                    changed += 1
-                    self.stdout.write(
-                        self.style.SUCCESS(
-                            f'Pedido #{pedido.id}: {previous_status} -> {pedido.status}'
+                if previous_status in {LojaPedido.STATUS_PENDENTE, LojaPedido.STATUS_PROCESSANDO}:
+                    payment_data = loja_view._get_mp_payment(str(pedido.mp_payment_id or '').strip())
+                    loja_view._sync_pedido_loja_from_mp(pedido, payment_data)
+                    pedido.refresh_from_db(fields=['status', 'paid_at'])
+                    if pedido.status != previous_status:
+                        changed += 1
+                        self.stdout.write(
+                            self.style.SUCCESS(
+                                f'Pedido #{pedido.id}: {previous_status} -> {pedido.status}'
+                            )
                         )
+                    if previous_status != LojaPedido.STATUS_PAGO and pedido.status == LojaPedido.STATUS_PAGO:
+                        approved_now += 1
+                    continue
+
+                if previous_status == LojaPedido.STATUS_PAGO and getattr(pedido, 'evento_inscricao_id', None):
+                    before_creditado = bool(getattr(pedido.evento_inscricao, 'cashback_creditado', False))
+                    loja_view._apply_cashback_after_paid(pedido)
+                    if before_creditado:
+                        continue
+                    after_creditado = (
+                        LojaPedido.objects
+                        .filter(pk=pedido.pk)
+                        .values_list('evento_inscricao__cashback_creditado', flat=True)
+                        .first()
                     )
-                if previous_status != LojaPedido.STATUS_PAGO and pedido.status == LojaPedido.STATUS_PAGO:
-                    approved_now += 1
+                    if bool(after_creditado):
+                        cashback_reconciled += 1
+                        changed += 1
+                        self.stdout.write(
+                            self.style.SUCCESS(
+                                f'Pedido #{pedido.id}: cashback de indicacao reconciliado.'
+                            )
+                        )
             except Exception as exc:  # noqa: BLE001
                 failed += 1
                 self.stdout.write(
@@ -95,6 +136,7 @@ class Command(BaseCommand):
             'changed': changed,
             'approved_now': approved_now,
             'failed': failed,
+            'cashback_reconciled': cashback_reconciled,
         }
 
     def handle(self, *args, **options):
@@ -114,6 +156,7 @@ class Command(BaseCommand):
                         f"checados={result['checked']} "
                         f"alterados={result['changed']} "
                         f"pagos_agora={result['approved_now']} "
+                        f"cashback_reconciliados={result['cashback_reconciled']} "
                         f"falhas={result['failed']}"
                     )
                 )

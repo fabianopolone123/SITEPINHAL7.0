@@ -8502,7 +8502,7 @@ class FinanceiroView(LoginRequiredMixin, View):
         if explicit:
             return explicit
         try:
-            return request.build_absolute_uri('/accounts/financeiro/mp-webhook/')
+            return request.build_absolute_uri(reverse('accounts:financeiro_mp_webhook'))
         except Exception:
             return ''
 
@@ -10380,7 +10380,7 @@ class LojaView(LoginRequiredMixin, View):
         if explicit:
             return explicit
         try:
-            return request.build_absolute_uri('/accounts/loja/mp-webhook/')
+            return request.build_absolute_uri(reverse('accounts:loja_mp_webhook'))
         except Exception:
             return ''
 
@@ -10549,10 +10549,12 @@ class LojaView(LoginRequiredMixin, View):
         if update_fields:
             pedido.save(update_fields=list(dict.fromkeys(update_fields)))
 
+        if mp_status == 'approved':
+            self._apply_cashback_after_paid(pedido)
+
         if mp_status == 'approved' and not was_paid:
             self._apply_stock_deduction_for_paid_order(pedido)
             self._confirm_evento_inscricao_after_paid(pedido)
-            self._apply_cashback_after_paid(pedido)
             if not getattr(pedido, 'evento_inscricao_id', None):
                 self._send_whatsapp_pedido_loja_aprovado(pedido)
 
