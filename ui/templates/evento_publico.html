@@ -1838,6 +1838,7 @@
             Codigo de indicacao (opcional)
             <input
               type="text"
+              id="event-codigo-indicacao"
               name="codigo_indicacao"
               value="{{ form_codigo_indicacao|default:'' }}"
               maxlength="12"
@@ -1847,6 +1848,7 @@
             />
           </label>
           <p class="panel-note" style="margin:0;">Se alguem te indicou, informe o codigo para gerar cashback ao indicador apos pagamento aprovado. Pode digitar em minusculo que o sistema converte automaticamente.</p>
+          <p class="panel-note" id="event-indicacao-feedback" style="margin:.2rem 0 0;">Digite o codigo para confirmar o nome do aventureiro.</p>
         </div>
         <div class="action-row">
           {% if form_edit_registration_id %}
@@ -1990,6 +1992,7 @@
       id="eventPixApiConfig"
       data-create-url="{% url 'accounts:evento_comprar_pix' evento.id %}"
       data-status-url-template="{% url 'accounts:evento_pedido_status' evento.id 0 %}"
+      data-indicacao-lookup-url="{% url 'accounts:evento_indicacao_lookup' evento.id %}"
     ></div>
     <div class="event-pix-modal" id="eventPixModal" hidden aria-hidden="true">
       <div class="event-pix-dialog" role="dialog" aria-modal="true" aria-labelledby="eventPixTitle">
@@ -2087,6 +2090,8 @@
       const closeRegisterSummaryBtn = document.getElementById('close-event-register-summary');
       const togglePublicForm = document.getElementById('toggle-public-form');
       const registerForm = document.getElementById('event-register-form');
+      const indicacaoInput = registerForm ? registerForm.querySelector('input[name="codigo_indicacao"]') : null;
+      const indicacaoFeedbackNode = document.getElementById('event-indicacao-feedback');
       const finalizeAfterSaveInput = document.getElementById('event-finalize-after-save');
       const deleteSelectedInscricoesForm = document.getElementById('event-delete-selected-inscricoes-form');
       const deleteSelectedPasswordInput = document.getElementById('event-delete-selected-password');
@@ -2130,11 +2135,14 @@
       const modeSelectorCloseBtn = document.getElementById('eventModeSelectorClose');
       const PIX_CREATE_URL = pixApiConfig ? String(pixApiConfig.dataset.createUrl || '') : '';
       const PIX_STATUS_URL_TEMPLATE = pixApiConfig ? String(pixApiConfig.dataset.statusUrlTemplate || '') : '';
+      const INDICACAO_LOOKUP_URL = pixApiConfig ? String(pixApiConfig.dataset.indicacaoLookupUrl || '') : '';
       const modeLauncherLinks = Array.from(document.querySelectorAll('[data-open-event-mode]'));
       let pixPedidoAtual = null;
       let pixPollingTimer = null;
       let paidModalShownForPedido = '';
       const pendingStockByPedido = {};
+      let indicacaoLookupTimer = null;
+      let indicacaoLookupController = null;
       if (feeConfigNode) {
         try {
           const parsedFeeConfig = JSON.parse(feeConfigNode.textContent || '{}');
@@ -2155,6 +2163,74 @@
           formInitialByInput = {};
         }
       }
+
+      const normalizeIndicacaoCode = (rawValue) => {
+        return String(rawValue || '')
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, '')
+          .slice(0, 12);
+      };
+
+      const setIndicacaoFeedback = (text, tone) => {
+        if (!indicacaoFeedbackNode) return;
+        indicacaoFeedbackNode.textContent = text || '';
+        const currentTone = String(tone || 'neutral').toLowerCase();
+        if (currentTone === 'success') {
+          indicacaoFeedbackNode.style.color = '#0f766e';
+          return;
+        }
+        if (currentTone === 'error') {
+          indicacaoFeedbackNode.style.color = '#b42318';
+          return;
+        }
+        indicacaoFeedbackNode.style.color = '';
+      };
+
+      const runIndicacaoLookup = async (rawValue) => {
+        if (!indicacaoInput || !INDICACAO_LOOKUP_URL) return;
+        const normalized = normalizeIndicacaoCode(rawValue);
+        if (String(indicacaoInput.value || '') !== normalized) {
+          indicacaoInput.value = normalized;
+        }
+        if (!normalized) {
+          if (indicacaoLookupController) {
+            indicacaoLookupController.abort();
+            indicacaoLookupController = null;
+          }
+          setIndicacaoFeedback('Digite o codigo para confirmar o nome do aventureiro.', 'neutral');
+          return;
+        }
+        if (indicacaoLookupController) {
+          indicacaoLookupController.abort();
+        }
+        indicacaoLookupController = new AbortController();
+        try {
+          const response = await fetch(
+            INDICACAO_LOOKUP_URL + '?codigo=' + encodeURIComponent(normalized),
+            {
+              method: 'GET',
+              headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+              },
+              signal: indicacaoLookupController.signal,
+            }
+          );
+          const payload = await response.json().catch(() => ({}));
+          if (String(indicacaoInput.value || '') !== normalized) return;
+          if (!response.ok || !payload || payload.ok !== true) {
+            setIndicacaoFeedback('Nao foi possivel validar o codigo agora.', 'error');
+            return;
+          }
+          if (payload.found && String(payload.aventureiro_nome || '').trim()) {
+            setIndicacaoFeedback('Codigo valido: ' + String(payload.aventureiro_nome).trim(), 'success');
+            return;
+          }
+          setIndicacaoFeedback('Codigo nao encontrado.', 'error');
+        } catch (error) {
+          if (error && error.name === 'AbortError') return;
+          setIndicacaoFeedback('Nao foi possivel validar o codigo agora.', 'error');
+        }
+      };
       const openModeSelectorModal = (targetUrl) => {
         if (!modeSelectorModal || !modeSelectorFrame) {
           window.location.href = targetUrl;
@@ -3120,6 +3196,27 @@
         registerForm.addEventListener('change', () => {
           updateCheckoutSummary();
         });
+
+        if (indicacaoInput) {
+          const scheduleIndicacaoLookup = () => {
+            if (indicacaoLookupTimer) {
+              window.clearTimeout(indicacaoLookupTimer);
+            }
+            indicacaoLookupTimer = window.setTimeout(() => {
+              runIndicacaoLookup(indicacaoInput.value);
+            }, 260);
+          };
+          indicacaoInput.addEventListener('input', scheduleIndicacaoLookup);
+          indicacaoInput.addEventListener('blur', () => {
+            if (indicacaoLookupTimer) {
+              window.clearTimeout(indicacaoLookupTimer);
+            }
+            runIndicacaoLookup(indicacaoInput.value);
+          });
+          if (String(indicacaoInput.value || '').trim()) {
+            runIndicacaoLookup(indicacaoInput.value);
+          }
+        }
       };
 
       if (cashbackUseInput) {

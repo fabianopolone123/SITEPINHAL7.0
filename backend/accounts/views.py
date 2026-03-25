@@ -6974,6 +6974,44 @@ class EventoPedidoStatusApiView(View):
         })
 
 
+class EventoIndicacaoLookupApiView(View):
+    def get(self, request, event_id):
+        evento = get_object_or_404(Evento, pk=event_id)
+        evento_publico_view = EventoPublicoView()
+        if not evento_publico_view._can_access_page(request, evento):
+            return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+
+        codigo_raw = str(request.GET.get('codigo') or '').strip()
+        loja_view = LojaView()
+        codigo_normalizado = loja_view._normalize_indicacao_code(codigo_raw)
+        if not codigo_normalizado:
+            return JsonResponse({
+                'ok': True,
+                'found': False,
+                'codigo': '',
+                'aventureiro_nome': '',
+                'message': 'Digite um codigo valido.',
+            })
+
+        indicador = loja_view._resolve_indicador_from_code(codigo_normalizado)
+        if not indicador:
+            return JsonResponse({
+                'ok': True,
+                'found': False,
+                'codigo': codigo_normalizado,
+                'aventureiro_nome': '',
+                'message': 'Codigo nao encontrado.',
+            })
+
+        return JsonResponse({
+            'ok': True,
+            'found': True,
+            'codigo': codigo_normalizado,
+            'aventureiro_nome': str(getattr(indicador, 'nome', '') or '').strip(),
+            'message': 'Codigo validado.',
+        })
+
+
 class PresencaView(LoginRequiredMixin, View):
     template_name = 'presenca.html'
 
