@@ -6259,7 +6259,11 @@ class EventoPublicoView(View):
             messages.error(request, fee_error)
             return render(request, self.template_name, self._context(request, evento))
         loja_view = LojaView()
-        codigo_indicacao_input = loja_view._normalize_indicacao_code(request.POST.get('codigo_indicacao'))
+        codigo_indicacao_raw = str(request.POST.get('codigo_indicacao') or '').strip()
+        codigo_indicacao_input = loja_view._normalize_indicacao_code(codigo_indicacao_raw)
+        if codigo_indicacao_raw and not codigo_indicacao_input:
+            messages.error(request, 'Codigo de indicacao invalido. Use apenas letras e numeros.')
+            return render(request, self.template_name, self._context(request, evento, active_mode='inscricao', edit_target_inscricao=edit_target_inscricao))
         indicador_aventureiro = loja_view._resolve_indicador_from_code(codigo_indicacao_input) if codigo_indicacao_input else None
         finalize_after_save = str(request.POST.get('finalize_after_save') or '').strip() == '1'
         inscricao_salva = None
@@ -6272,6 +6276,9 @@ class EventoPublicoView(View):
                     messages.info(request, 'Codigo de indicacao ja creditado e nao pode ser alterado nesta inscricao.')
                 codigo_indicacao_save = codigo_atual
                 indicador_save = edit_target_inscricao.indicador_aventureiro
+            elif codigo_indicacao_save and not indicador_save:
+                messages.error(request, 'Codigo de indicacao invalido. Confira e tente novamente.')
+                return render(request, self.template_name, self._context(request, evento, active_mode='inscricao', edit_target_inscricao=edit_target_inscricao))
             if request.user.is_authenticated and not edit_target_inscricao.responsavel_id:
                 responsavel_edit = LojaView()._ensure_loja_responsavel(request.user, create=False)
                 if responsavel_edit:
@@ -6312,6 +6319,9 @@ class EventoPublicoView(View):
                             messages.info(request, 'Codigo de indicacao ja creditado e nao pode ser alterado nesta inscricao.')
                         codigo_indicacao_save = codigo_atual
                         indicador_save = existing_inscricao.indicador_aventureiro
+                    elif codigo_indicacao_save and not indicador_save:
+                        messages.error(request, 'Codigo de indicacao invalido. Confira e tente novamente.')
+                        return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
                     existing_inscricao.responsavel = responsavel
                     existing_inscricao.dados = dados
                     existing_inscricao.codigo_indicacao_usado = codigo_indicacao_save
@@ -6331,6 +6341,9 @@ class EventoPublicoView(View):
                     messages.success(request, 'Inscricao do evento atualizada com sucesso.')
                 else:
                     created = False
+                    if codigo_indicacao_input and not indicador_aventureiro:
+                        messages.error(request, 'Codigo de indicacao invalido. Confira e tente novamente.')
+                        return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
                     for _attempt in range(10):
                         try:
                             inscricao_salva = EventoInscricao.objects.create(
@@ -6371,6 +6384,9 @@ class EventoPublicoView(View):
                             messages.info(request, 'Codigo de indicacao ja creditado e nao pode ser alterado nesta inscricao.')
                         codigo_indicacao_save = codigo_atual
                         indicador_save = existing_inscricao.indicador_aventureiro
+                    elif codigo_indicacao_save and not indicador_save:
+                        messages.error(request, 'Codigo de indicacao invalido. Confira e tente novamente.')
+                        return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
                     existing_inscricao.dados = dados
                     existing_inscricao.codigo_indicacao_usado = codigo_indicacao_save
                     existing_inscricao.indicador_aventureiro = indicador_save
@@ -6389,6 +6405,9 @@ class EventoPublicoView(View):
                     messages.success(request, 'Inscricao do evento atualizada com sucesso.')
                 else:
                     inscricao_obj = None
+                    if codigo_indicacao_input and not indicador_aventureiro:
+                        messages.error(request, 'Codigo de indicacao invalido. Confira e tente novamente.')
+                        return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
                     for _attempt in range(10):
                         try:
                             inscricao_obj = EventoInscricao.objects.create(
@@ -10265,7 +10284,7 @@ class LojaView(LoginRequiredMixin, View):
         return (
             Aventureiro.objects
             .select_related('responsavel')
-            .filter(codigo_indicacao=normalized)
+            .filter(codigo_indicacao__iexact=normalized)
             .first()
         )
 
