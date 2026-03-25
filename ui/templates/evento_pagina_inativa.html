@@ -93,10 +93,6 @@
       {% if can_manage_evento %}
         <a class="inactive-btn primary" href="{% url 'accounts:eventos' %}">Gerenciar evento</a>
       {% endif %}
-      <button type="button" class="inactive-btn" onclick="window.history.back();">Voltar</button>
-      {% if not request.user.is_authenticated %}
-        <a class="inactive-btn" href="{% url 'accounts:login' %}">Entrar</a>
-      {% endif %}
     </div>
   </section>
 </body>
