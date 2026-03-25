@@ -9035,6 +9035,16 @@ class FinanceiroView(LoginRequiredMixin, View):
             .get('total')
             or Decimal('0.00')
         )
+        total_eventos_inscricoes_pago = (
+            EventoInscricao.objects
+            .filter(confirmada=True)
+            .aggregate(total=Sum('valor_inscricao'))
+            .get('total')
+            or Decimal('0.00')
+        )
+        total_eventos_geral = (
+            Decimal(total_eventos_inscricoes_pago) + Decimal(total_loja_eventos_pago)
+        ).quantize(Decimal('0.01'))
         total_gastos_comprovados = (
             FinanceiroComprovante.objects
             .aggregate(total=Sum('valor'))
@@ -9166,6 +9176,8 @@ class FinanceiroView(LoginRequiredMixin, View):
             'relatorios_total_loja_pago': self._format_currency(total_loja_pago),
             'relatorios_total_loja_eventos_pago': self._format_currency(total_loja_eventos_pago),
             'relatorios_total_loja_geral_pago': self._format_currency(total_loja_geral_pago),
+            'relatorios_total_eventos_inscricoes_pago': self._format_currency(total_eventos_inscricoes_pago),
+            'relatorios_total_eventos_geral': self._format_currency(total_eventos_geral),
             'relatorios_total_gastos_comprovados': self._format_currency(total_gastos_comprovados),
             'relatorios_caixa_bruto': self._format_currency(caixa_bruto),
             'relatorios_caixa_liquido': self._format_currency(caixa_liquido),
