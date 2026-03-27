@@ -292,6 +292,7 @@ class WhatsAppQueue(models.Model):
     TYPE_EVENTO_INSCRICAO = WhatsAppPreference.NOTIFY_EVENTO_INSCRICAO
     TYPE_EVENTO_INSCRICAO_RESPONSAVEL = 'evento_inscricao_responsavel'
     TYPE_EVENTO_INSCRICAO_DIRETORIA = 'evento_inscricao_diretoria'
+    TYPE_COBRANCA_MENSALIDADE = 'cobranca_mensalidade'
     TYPE_GERAL = WhatsAppPreference.NOTIFY_GERAL
     TYPE_TESTE = 'teste'
     TYPE_INDICACAO_CODIGO = 'indicacao_codigo'
@@ -305,6 +306,7 @@ class WhatsAppQueue(models.Model):
         (TYPE_EVENTO_INSCRICAO, 'Nova inscricao de evento'),
         (TYPE_EVENTO_INSCRICAO_RESPONSAVEL, 'Confirmacao de evento (inscrito)'),
         (TYPE_EVENTO_INSCRICAO_DIRETORIA, 'Confirmacao de evento (diretoria)'),
+        (TYPE_COBRANCA_MENSALIDADE, 'Cobranca mensalidade em aberto'),
         (TYPE_GERAL, 'Geral'),
         (TYPE_TESTE, 'Teste'),
         (TYPE_INDICACAO_CODIGO, 'Codigo de indicacao'),
@@ -347,6 +349,7 @@ class WhatsAppTemplate(models.Model):
     TYPE_EVENTO_INSCRICAO = WhatsAppPreference.NOTIFY_EVENTO_INSCRICAO
     TYPE_EVENTO_INSCRICAO_RESPONSAVEL = 'evento_inscricao_responsavel'
     TYPE_EVENTO_INSCRICAO_DIRETORIA = 'evento_inscricao_diretoria'
+    TYPE_COBRANCA_MENSALIDADE = 'cobranca_mensalidade'
     TYPE_TESTE = 'teste'
     TYPE_INDICACAO_CODIGO = 'indicacao_codigo'
 
@@ -359,6 +362,7 @@ class WhatsAppTemplate(models.Model):
         (TYPE_EVENTO_INSCRICAO, 'Nova inscricao de evento'),
         (TYPE_EVENTO_INSCRICAO_RESPONSAVEL, 'Confirmacao de evento (inscrito)'),
         (TYPE_EVENTO_INSCRICAO_DIRETORIA, 'Confirmacao de evento (diretoria)'),
+        (TYPE_COBRANCA_MENSALIDADE, 'Cobranca mensalidade em aberto'),
         (TYPE_TESTE, 'Teste'),
         (TYPE_INDICACAO_CODIGO, 'Codigo de indicacao'),
     ]
@@ -833,6 +837,7 @@ class MensalidadeAventureiro(models.Model):
     tipo = models.CharField('tipo', max_length=16, choices=TIPO_CHOICES, default=TIPO_MENSALIDADE)
     valor = models.DecimalField('valor', max_digits=10, decimal_places=2, default=Decimal('30.00'))
     status = models.CharField('status', max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDENTE)
+    cobranca_whatsapp_enviada_at = models.DateTimeField('cobranca whatsapp enviada em', null=True, blank=True)
     created_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,

@@ -66,6 +66,10 @@
           <textarea name="template_financeiro" form="whatsapp-form" rows="6">{{ financeiro_template|default:'' }}</textarea>
         </label>
         <label class="message-template-card">
+          <span class="message-template-title">Mensagem de Cobranca mensalidade em aberto</span>
+          <textarea name="template_cobranca_mensalidade" form="whatsapp-form" rows="6">{{ cobranca_mensalidade_template|default:'' }}</textarea>
+        </label>
+        <label class="message-template-card">
           <span class="message-template-title">Mensagem de Pedido da loja pago</span>
           <textarea name="template_loja" form="whatsapp-form" rows="6">{{ loja_template|default:'' }}</textarea>
         </label>
@@ -94,6 +98,9 @@
       </p>
       <p class="panel-note">
         Placeholders para pagamento aprovado: <code>{responsavel_nome}</code>, <code>{mensalidades}</code>, <code>{valor_total}</code>, <code>{pagamento_id}</code>, <code>{data_hora}</code>.
+      </p>
+      <p class="panel-note">
+        Placeholders para cobranca em aberto: <code>{responsavel_nome}</code>, <code>{mensalidades_em_aberto}</code>, <code>{valor_total_em_aberto}</code>, <code>{quantidade_cobrancas}</code>, <code>{mes_referencia}</code>, <code>{data_hora}</code>.
       </p>
       <p class="panel-note">
         Placeholders para pedido da loja pago: <code>{responsavel_nome}</code>, <code>{pedido_id}</code>, <code>{pedido_itens}</code>, <code>{valor_total}</code>, <code>{pagamento_id}</code>, <code>{data_hora}</code>.

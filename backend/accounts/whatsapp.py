@@ -47,6 +47,17 @@ DEFAULT_FINANCEIRO_MESSAGE = (
     'Obrigado! 🙏'
 )
 
+DEFAULT_COBRANCA_MENSALIDADE_MESSAGE = (
+    'Cobranca de mensalidades em aberto - Pinhal Junior\n'
+    'Ola, {responsavel_nome}.\n'
+    'Encontramos mensalidades em aberto (mes atual e anteriores):\n'
+    '{mensalidades_em_aberto}\n'
+    'Total em aberto: {valor_total_em_aberto}\n'
+    'Quantidade de cobrancas: {quantidade_cobrancas}\n'
+    'Referencia do envio: {mes_referencia}\n'
+    'Data/Hora: {data_hora}'
+)
+
 DEFAULT_LOJA_MESSAGE = (
     'Pedido da loja pago no Pinhal Junior!\n'
     'Ola, {responsavel_nome}.\n'
@@ -305,6 +316,7 @@ def get_template_message(notification_type):
         WhatsAppTemplate.TYPE_DIRETORIA: DEFAULT_DIRETORIA_MESSAGE,
         WhatsAppTemplate.TYPE_CONFIRMACAO: DEFAULT_CONFIRMACAO_MESSAGE,
         WhatsAppTemplate.TYPE_FINANCEIRO: DEFAULT_FINANCEIRO_MESSAGE,
+        WhatsAppTemplate.TYPE_COBRANCA_MENSALIDADE: DEFAULT_COBRANCA_MENSALIDADE_MESSAGE,
         WhatsAppTemplate.TYPE_LOJA: DEFAULT_LOJA_MESSAGE,
         WhatsAppTemplate.TYPE_EVENTO_INSCRICAO: DEFAULT_EVENTO_INSCRICAO_MESSAGE,
         WhatsAppTemplate.TYPE_EVENTO_INSCRICAO_RESPONSAVEL: DEFAULT_EVENTO_INSCRICAO_RESPONSAVEL_MESSAGE,

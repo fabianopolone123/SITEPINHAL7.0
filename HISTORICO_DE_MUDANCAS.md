@@ -1041,3 +1041,13 @@ ame e label sem quebrar a tela.
 - Suporte a execucao unica ou em loop (`--watch --interval 120`) para rodar a cada 2 minutos sem reenviar confirmacoes repetidas.
 - Relatorios de eventos ajustados para exibir nome amigavel do responsavel em "Ultimos pedidos" e "Ultimas inscricoes", evitando username tecnico `evento_guest_*` quando houver dados da inscricao.
 - Tela de eventos tambem passou a priorizar responsavel_nome/mae/pai nas tabelas de preview.
+
+## 26/03/2026 - Financeiro: cobranca automatica de mensalidades em aberto via WhatsApp
+
+- Adicionado botao Cobrar mensalidades em aberto no Financeiro (aba Mensalidades, perfil administrativo) com campo de pausa entre envios.
+- Envio agora consolida por responsavel: um unico WhatsApp por responsavel, incluindo mensalidades pendentes do mes atual e meses anteriores de todos os filhos.
+- Implementada protecao anti-duplicidade por mensalidade com flag cobranca_whatsapp_enviada_at, evitando reenvio da mesma cobranca.
+- Em falha de envio, a flag e revertida automaticamente para permitir nova tentativa.
+- Reabertura manual da mensalidade para status pendente limpa a flag de cobranca para reenvio controlado.
+- Criado novo tipo de template/fila WhatsApp cobranca_mensalidade, com mensagem padrao configuravel na tela de WhatsApp.
+- Incluida migration 066_mensalidade_cobranca_whatsapp_flag.py para novo campo e novos tipos de notificacao.

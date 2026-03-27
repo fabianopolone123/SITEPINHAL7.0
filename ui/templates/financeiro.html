@@ -39,6 +39,32 @@
     }
     .financeiro-total-selecionado small { color:#64748b; font-weight:500; }
     .financeiro-actions .primary[disabled] { opacity:.8; cursor:not-allowed; }
+    .financeiro-inline-toolbar {
+      margin-top:.75rem;
+      display:flex;
+      flex-wrap:wrap;
+      align-items:flex-end;
+      gap:.65rem;
+      padding:.75rem;
+      border:1px solid #dbeafe;
+      border-radius:12px;
+      background:#f8fbff;
+    }
+    .financeiro-inline-toolbar label {
+      font-size:.86rem;
+      color:#334155;
+      font-weight:600;
+      display:flex;
+      flex-direction:column;
+      gap:.25rem;
+    }
+    .financeiro-inline-toolbar input {
+      width:120px;
+      padding:.55rem .65rem;
+      border:1px solid #cbd5e1;
+      border-radius:10px;
+      background:#fff;
+    }
     .badge-status {
       display:inline-flex; padding:.2rem .55rem; border-radius:999px; font-size:.75rem; font-weight:700;
       background:#fef3c7; color:#92400e; border:1px solid #fcd34d;
@@ -583,6 +609,26 @@
             <button type="submit" class="secondary" name="action" value="gerar_mensalidades_todos" formnovalidate>Gerar para todos</button>
           </div>
         </div>
+      </form>
+      <form method="post" class="financeiro-inline-toolbar">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="enviar_cobranca_mensalidades" />
+        <input type="hidden" name="aventureiro_id" value="{{ selected_aventureiro_id|default:'' }}" />
+        <input type="hidden" name="valor_mensalidade" value="{{ valor_mensalidade|default:'30' }}" />
+        <label for="cobranca_pause_seconds">
+          Pausa entre envios (segundos)
+          <input
+            id="cobranca_pause_seconds"
+            name="cobranca_pause_seconds"
+            type="number"
+            min="0"
+            max="60"
+            step="1"
+            value="{{ cobranca_pause_seconds|default:'4' }}"
+          />
+        </label>
+        <button type="submit" class="secondary">Cobrar mensalidades em aberto</button>
+        <span class="panel-note">Agrupa por responsável e evita envio duplicado da mesma mensalidade.</span>
       </form>
 
       <div class="mensalidades-list">
