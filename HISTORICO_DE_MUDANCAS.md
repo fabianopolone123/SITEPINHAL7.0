@@ -1050,4 +1050,12 @@ ame e label sem quebrar a tela.
 - Em falha de envio, a flag e revertida automaticamente para permitir nova tentativa.
 - Reabertura manual da mensalidade para status pendente limpa a flag de cobranca para reenvio controlado.
 - Criado novo tipo de template/fila WhatsApp cobranca_mensalidade, com mensagem padrao configuravel na tela de WhatsApp.
-- Incluida migration 066_mensalidade_cobranca_whatsapp_flag.py para novo campo e novos tipos de notificacao.
+- Incluida migration 0066_mensalidade_cobranca_whatsapp_flag.py para novo campo e novos tipos de notificacao.
+
+## 09/04/2026 - Financeiro: botao de verificacao geral de pagamentos
+
+- Adicionado botao Verificar pagamentos gerais agora na aba Relatorios do Financeiro.
+- O botao executa reconciliacao manual de pagamentos pendentes/processando para pedidos da loja/eventos e pagamentos de mensalidades.
+- Quando encontra pagamento aprovado no Mercado Pago sem webhook aplicado, o sistema corrige o status para pago na hora.
+- Mensagem de retorno mostra resumo separado por Loja e Mensalidades (checados, alterados, pagos_agora e falhas).
+- Janela padrao da verificacao geral: ultimos 30 dias (ate 500 registros por tipo).

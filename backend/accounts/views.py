@@ -9448,6 +9448,72 @@ class FinanceiroView(LoginRequiredMixin, View):
         command = SyncLojaPagamentosCommand()
         return command._run_once(days=days_value, max_items=max_items_value)
 
+    def _sync_mensalidades_pagamentos_manual(self, days=None, max_items=None):
+        days_value = int(days or self.relatorios_sync_days_default)
+        max_items_value = int(max_items or self.relatorios_sync_max_items_default)
+        days_value = max(1, min(days_value, 180))
+        max_items_value = max(1, min(max_items_value, 1000))
+        cutoff = timezone.now() - timedelta(days=days_value)
+
+        pagamentos_qs = (
+            PagamentoMensalidade.objects
+            .filter(
+                status__in=[PagamentoMensalidade.STATUS_PENDENTE, PagamentoMensalidade.STATUS_PROCESSANDO],
+                created_at__gte=cutoff,
+                mp_payment_id__isnull=False,
+            )
+            .exclude(mp_payment_id='')
+            .order_by('created_at', 'id')
+        )
+        pagamentos = list(pagamentos_qs[:max_items_value])
+        if not pagamentos:
+            return {
+                'checked': 0,
+                'changed': 0,
+                'approved_now': 0,
+                'failed': 0,
+            }
+
+        checked = 0
+        changed = 0
+        approved_now = 0
+        failed = 0
+
+        for pagamento in pagamentos:
+            checked += 1
+            previous_status = pagamento.status
+            try:
+                payment_data = self._get_mp_payment(str(pagamento.mp_payment_id or '').strip())
+                self._sync_pagamento_from_mp(pagamento, payment_data)
+                pagamento.refresh_from_db(fields=['status', 'paid_at'])
+                if pagamento.status != previous_status:
+                    changed += 1
+                if previous_status != PagamentoMensalidade.STATUS_PAGO and pagamento.status == PagamentoMensalidade.STATUS_PAGO:
+                    approved_now += 1
+            except Exception:
+                failed += 1
+
+        return {
+            'checked': checked,
+            'changed': changed,
+            'approved_now': approved_now,
+            'failed': failed,
+        }
+
+    def _sync_pagamentos_geral_manual(self, days=30, max_items=500):
+        loja_result = self._sync_loja_pagamentos_manual(days=days, max_items=max_items)
+        mensalidade_result = self._sync_mensalidades_pagamentos_manual(days=days, max_items=max_items)
+        return {
+            'days': int(days),
+            'max_items': int(max_items),
+            'loja': loja_result,
+            'mensalidades': mensalidade_result,
+            'checked_total': int(loja_result.get('checked', 0)) + int(mensalidade_result.get('checked', 0)),
+            'changed_total': int(loja_result.get('changed', 0)) + int(mensalidade_result.get('changed', 0)),
+            'approved_now_total': int(loja_result.get('approved_now', 0)) + int(mensalidade_result.get('approved_now', 0)),
+            'failed_total': int(loja_result.get('failed', 0)) + int(mensalidade_result.get('failed', 0)),
+        }
+
     def get(self, request):
         guard = self._guard(request)
         if guard:
@@ -9606,6 +9672,30 @@ class FinanceiroView(LoginRequiredMixin, View):
                             f"pagos_agora={result.get('approved_now', 0)} | "
                             f"cashback_reconciliados={result.get('cashback_reconciled', 0)} | "
                             f"falhas={result.get('failed', 0)}"
+                        ),
+                    )
+            elif action == 'sync_pagamentos_geral_manual':
+                try:
+                    result = self._sync_pagamentos_geral_manual(days=30, max_items=500)
+                except Exception as exc:
+                    logger.exception('Falha na sincronizacao manual geral de pagamentos (financeiro).')
+                    messages.error(request, f'Falha ao verificar pagamentos agora. {exc}')
+                else:
+                    loja = result.get('loja', {})
+                    mensalidades = result.get('mensalidades', {})
+                    messages.success(
+                        request,
+                        (
+                            'Verificacao geral concluida: '
+                            f"checados_total={result.get('checked_total', 0)} | "
+                            f"corrigidos_total={result.get('changed_total', 0)} | "
+                            f"pagos_agora_total={result.get('approved_now_total', 0)} | "
+                            f"falhas_total={result.get('failed_total', 0)} | "
+                            f"janela={result.get('days', 0)}d. "
+                            f"[Loja: checados={loja.get('checked', 0)}, alterados={loja.get('changed', 0)}, "
+                            f"pagos_agora={loja.get('approved_now', 0)}, falhas={loja.get('failed', 0)}] "
+                            f"[Mensalidades: checados={mensalidades.get('checked', 0)}, alterados={mensalidades.get('changed', 0)}, "
+                            f"pagos_agora={mensalidades.get('approved_now', 0)}, falhas={mensalidades.get('failed', 0)}]"
                         ),
                     )
             context = self._relatorios_context(comprovante_query, open_comprovante_modal=open_comprovante_modal)

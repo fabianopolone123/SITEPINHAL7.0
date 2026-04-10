@@ -418,7 +418,13 @@
             {% csrf_token %}
             <input type="hidden" name="tab" value="relatorios" />
             <input type="hidden" name="comprovante_q" value="{{ relatorios_comprovante_query|default:'' }}" />
-            <button type="submit" class="secondary" name="action" value="sync_loja_pagamentos_manual">Verificar pagamentos da loja agora</button>
+            <button type="submit" class="primary" name="action" value="sync_pagamentos_geral_manual">Verificar pagamentos gerais agora</button>
+          </form>
+          <form method="post" style="margin:0;">
+            {% csrf_token %}
+            <input type="hidden" name="tab" value="relatorios" />
+            <input type="hidden" name="comprovante_q" value="{{ relatorios_comprovante_query|default:'' }}" />
+            <button type="submit" class="secondary" name="action" value="sync_loja_pagamentos_manual">Verificar so pedidos da loja</button>
           </form>
         </div>
         <form method="get" class="financeiro-report-search">
