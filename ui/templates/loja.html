@@ -15,7 +15,7 @@
     .variacoes-wrap { border:1px solid #e2e8f0; border-radius:12px; padding:.85rem; background:#fafcff; }
     .variacoes-head { display:flex; justify-content:space-between; align-items:center; gap:.75rem; margin-bottom:.75rem; }
     .variacoes-list { display:flex; flex-direction:column; gap:.55rem; }
-    .variacao-row { display:grid; grid-template-columns: 1.2fr .75fr .65fr .9fr 1.2fr auto; gap:.5rem; align-items:center; }
+    .variacao-row { display:grid; grid-template-columns: 1.2fr .75fr .65fr .9fr auto; gap:.5rem; align-items:center; }
     .variacao-row input,
     .variacao-row select { padding:.65rem .7rem; border:1px solid #cbd5e1; border-radius:10px; background:#fff; }
     .variacao-remove { border:1px solid #fecaca; background:#fff1f2; color:#9f1239; border-radius:10px; padding:.6rem .75rem; cursor:pointer; }
@@ -1383,7 +1383,6 @@
                         <option value="0" {% if not var.obrigatoria_compra %}selected{% endif %}>Opcional</option>
                         <option value="1" {% if var.obrigatoria_compra %}selected{% endif %}>Obrigatória compra</option>
                       </select>
-                      <input type="text" name="variacao_orientacoes[]" placeholder="Orientações ao clicar (opcional)" value="{{ var.orientacoes|default:'' }}" />
                       <button type="button" class="variacao-remove">Remover</button>
                     </div>
                   {% endfor %}
@@ -1396,11 +1395,14 @@
                       <option value="0" selected>Opcional</option>
                       <option value="1">Obrigatória compra</option>
                     </select>
-                    <input type="text" name="variacao_orientacoes[]" placeholder="Orientações ao clicar (opcional)" />
                     <button type="button" class="variacao-remove">Remover</button>
                   </div>
                 {% endif %}
               </div>
+              <label style="margin-top:.55rem;">
+                Mensagem de orientação do produto (opcional)
+                <textarea name="orientacoes_produto" rows="2" placeholder="Texto que aparece ao abrir as variações deste produto.">{{ form_data.orientacoes_produto|default:'' }}</textarea>
+              </label>
             </div>
 
             <div class="fotos-wrap" style="margin-top:1rem;">
@@ -1577,6 +1579,10 @@
                         <option value="1" {% if row.produto.permite_multiplas_variacoes %}selected{% endif %}>Múltiplas variações (soma os valores)</option>
                       </select>
                     </label>
+                    <label>
+                      Mensagem de orientação do produto (opcional)
+                      <textarea name="config_orientacoes_produto" rows="2" placeholder="Texto que aparece ao abrir as variações deste produto.">{{ row.orientacoes_produto|default:'' }}</textarea>
+                    </label>
                     <div class="admin-product-variations">
                       {% for v in row.variacoes %}
                         <div class="admin-product-variation">
@@ -1585,17 +1591,13 @@
                             <span>{{ v.nome }}</span>
                             <span>R$ {{ v.valor }}</span>
                           </div>
-                          <div class="admin-product-edit-grid" style="grid-template-columns: 1fr 1fr; margin-top:.35rem;">
+                          <div class="admin-product-edit-grid" style="grid-template-columns: 1fr; margin-top:.35rem;">
                             <label>
                               Obrigatória na compra
                               <select name="config_variacao_obrigatoria_compra[]">
                                 <option value="0" {% if not v.obrigatoria_compra %}selected{% endif %}>Não</option>
                                 <option value="1" {% if v.obrigatoria_compra %}selected{% endif %}>Sim</option>
                               </select>
-                            </label>
-                            <label>
-                              Orientações ao clicar (opcional)
-                              <input type="text" name="config_variacao_orientacoes[]" value="{{ v.orientacoes|default:'' }}" placeholder="Ex.: conferir tamanho antes de comprar" />
                             </label>
                           </div>
                         </div>
@@ -1919,7 +1921,6 @@
         <option value="0" selected>Opcional</option>
         <option value="1">Obrigatória compra</option>
       </select>
-      <input type="text" name="variacao_orientacoes[]" placeholder="Orientações ao clicar (opcional)" />
       <button type="button" class="variacao-remove">Remover</button>
     </div>
   </template>

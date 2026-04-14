@@ -11662,10 +11662,10 @@ class LojaView(LoginRequiredMixin, View):
                 return render(request, self.template_name, context)
 
             permite_multiplas = self._parse_bool(request.POST.get('config_permite_multiplas_variacoes'))
+            orientacoes_produto = str(request.POST.get('config_orientacoes_produto') or '').strip()
             variacao_ids_raw = request.POST.getlist('config_variacao_id[]')
             obrigatoria_compra_raw = request.POST.getlist('config_variacao_obrigatoria_compra[]')
-            orientacoes_raw = request.POST.getlist('config_variacao_orientacoes[]')
-            rows_total = max(len(variacao_ids_raw), len(obrigatoria_compra_raw), len(orientacoes_raw))
+            rows_total = max(len(variacao_ids_raw), len(obrigatoria_compra_raw))
             if rows_total <= 0:
                 messages.error(request, 'Nenhuma variacao enviada para configuracao.')
                 context = self._context()
@@ -11691,10 +11691,9 @@ class LojaView(LoginRequiredMixin, View):
                     context.update(_sidebar_context(request))
                     return render(request, self.template_name, context)
                 obrigatoria_compra = self._parse_bool(obrigatoria_compra_raw[idx] if idx < len(obrigatoria_compra_raw) else '')
-                orientacoes = str(orientacoes_raw[idx] if idx < len(orientacoes_raw) else '').strip()
                 if variacao.ativo and obrigatoria_compra:
                     obrigatorias_hard_count += 1
-                to_update.append((variacao, obrigatoria_compra, orientacoes))
+                to_update.append((variacao, obrigatoria_compra))
 
             if not permite_multiplas and obrigatorias_hard_count > 1:
                 messages.error(
@@ -11708,10 +11707,10 @@ class LojaView(LoginRequiredMixin, View):
             with transaction.atomic():
                 produto.permite_multiplas_variacoes = permite_multiplas
                 produto.save(update_fields=['permite_multiplas_variacoes', 'updated_at'])
-                for variacao, obrigatoria_compra, orientacoes in to_update:
+                for variacao, obrigatoria_compra in to_update:
                     variacao.obrigatoria_compra = bool(obrigatoria_compra)
                     variacao.obrigatoria_visual = False
-                    variacao.orientacoes = orientacoes
+                    variacao.orientacoes = orientacoes_produto
                     variacao.save(update_fields=['obrigatoria_compra', 'obrigatoria_visual', 'orientacoes', 'updated_at'])
 
             messages.success(request, f'Configuracoes de variacoes do produto "{produto.titulo}" atualizadas com sucesso.')
@@ -11739,18 +11738,19 @@ class LojaView(LoginRequiredMixin, View):
 
         titulo = str(request.POST.get('titulo') or '').strip()
         descricao = str(request.POST.get('descricao') or '').strip()
+        orientacoes_produto = str(request.POST.get('orientacoes_produto') or '').strip()
         minimo_pedidos_pagos_raw = str(request.POST.get('minimo_pedidos_pagos') or '').strip()
         permite_multiplas_variacoes_raw = request.POST.get('permite_multiplas_variacoes')
         var_names = request.POST.getlist('variacao_nome[]')
         var_values = request.POST.getlist('variacao_valor[]')
         var_stocks = request.POST.getlist('variacao_estoque[]')
         var_required_hard = request.POST.getlist('variacao_obrigatoria_compra[]')
-        var_orientacoes = request.POST.getlist('variacao_orientacoes[]')
         foto_row_ids = request.POST.getlist('foto_row_id[]')
 
         form_data = {
             'titulo': titulo,
             'descricao': descricao,
+            'orientacoes_produto': orientacoes_produto,
             'minimo_pedidos_pagos': minimo_pedidos_pagos_raw,
             'permite_multiplas_variacoes': self._parse_bool(permite_multiplas_variacoes_raw),
             'variacoes': [],
@@ -11779,23 +11779,21 @@ class LojaView(LoginRequiredMixin, View):
 
         permite_multiplas_variacoes = self._parse_bool(permite_multiplas_variacoes_raw)
         variacoes_parsed = []
-        max_len = max(len(var_names), len(var_values), len(var_stocks), len(var_required_hard), len(var_orientacoes), 1)
+        max_len = max(len(var_names), len(var_values), len(var_stocks), len(var_required_hard), 1)
         for idx in range(max_len):
             nome = (var_names[idx] if idx < len(var_names) else '').strip()
             valor_raw = (var_values[idx] if idx < len(var_values) else '').strip()
             estoque_raw = (var_stocks[idx] if idx < len(var_stocks) else '').strip()
             obrigatoria_compra_raw = (var_required_hard[idx] if idx < len(var_required_hard) else '').strip()
-            orientacoes = (var_orientacoes[idx] if idx < len(var_orientacoes) else '').strip()
             obrigatoria_compra = self._parse_bool(obrigatoria_compra_raw)
             form_data['variacoes'].append({
                 'nome': nome,
                 'valor': valor_raw,
                 'estoque': estoque_raw,
                 'obrigatoria_compra': obrigatoria_compra,
-                'orientacoes': orientacoes,
             })
 
-            if not nome and not valor_raw and not estoque_raw and not obrigatoria_compra and not orientacoes:
+            if not nome and not valor_raw and not estoque_raw and not obrigatoria_compra:
                 continue
             if not nome:
                 messages.error(request, f'Preencha o nome da variação na linha {idx + 1}.')
@@ -11828,7 +11826,6 @@ class LojaView(LoginRequiredMixin, View):
                 'estoque': estoque,
                 'obrigatoria_compra': obrigatoria_compra,
                 'obrigatoria_visual': False,
-                'orientacoes': orientacoes,
             })
 
         if not variacoes_parsed:
@@ -11931,7 +11928,7 @@ class LojaView(LoginRequiredMixin, View):
                     estoque=item['estoque'],
                     obrigatoria_compra=bool(item.get('obrigatoria_compra')),
                     obrigatoria_visual=False,
-                    orientacoes=str(item.get('orientacoes') or '').strip(),
+                    orientacoes=orientacoes_produto,
                 )
                 for item in variacoes_parsed
             ])
