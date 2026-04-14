@@ -15,7 +15,7 @@
     .variacoes-wrap { border:1px solid #e2e8f0; border-radius:12px; padding:.85rem; background:#fafcff; }
     .variacoes-head { display:flex; justify-content:space-between; align-items:center; gap:.75rem; margin-bottom:.75rem; }
     .variacoes-list { display:flex; flex-direction:column; gap:.55rem; }
-    .variacao-row { display:grid; grid-template-columns: 1.2fr .75fr .65fr .9fr .9fr auto; gap:.5rem; align-items:center; }
+    .variacao-row { display:grid; grid-template-columns: 1.2fr .75fr .65fr .9fr 1.2fr auto; gap:.5rem; align-items:center; }
     .variacao-row input,
     .variacao-row select { padding:.65rem .7rem; border:1px solid #cbd5e1; border-radius:10px; background:#fff; }
     .variacao-remove { border:1px solid #fecaca; background:#fff1f2; color:#9f1239; border-radius:10px; padding:.6rem .75rem; cursor:pointer; }
@@ -364,6 +364,42 @@
     .catalog-desc { margin:0; color:#475569; font-size:.9rem; line-height:1.4; }
     .catalog-variations { border:1px solid #e2e8f0; border-radius:12px; padding:.65rem; display:grid; gap:.45rem; background:#fcfdff; }
     .catalog-variations h4 { margin:0; font-size:.88rem; color:#0f172a; }
+    .catalog-variation-collapse {
+      border:1px solid #dbeafe;
+      border-radius:10px;
+      background:#fff;
+      overflow:hidden;
+    }
+    .catalog-variation-collapse summary {
+      list-style:none;
+      cursor:pointer;
+      padding:.58rem .7rem;
+      font-size:.8rem;
+      font-weight:800;
+      color:#1e3a8a;
+      background:linear-gradient(180deg,#f8fbff,#eff6ff);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:.45rem;
+    }
+    .catalog-variation-collapse summary::-webkit-details-marker { display:none; }
+    .catalog-variation-collapse summary::after {
+      content:"+";
+      width:22px;
+      height:22px;
+      border-radius:999px;
+      border:1px solid #bfdbfe;
+      background:#fff;
+      color:#1d4ed8;
+      display:grid;
+      place-items:center;
+      font-size:.86rem;
+      font-weight:900;
+      flex:0 0 auto;
+    }
+    .catalog-variation-collapse[open] summary::after { content:"-"; }
+    .catalog-variation-collapse-body { padding:.6rem; border-top:1px solid #dbeafe; display:grid; gap:.45rem; }
     .catalog-variation-select {
       width:100%;
       padding:.7rem .8rem;
@@ -422,31 +458,15 @@
       font-size:.77rem;
       color:#64748b;
     }
-    .catalog-var-badges {
-      display:flex;
-      flex-wrap:wrap;
-      gap:.3rem;
+    .catalog-var-note {
+      font-size:.68rem;
+      line-height:1.2;
+      color:#64748b;
+      letter-spacing:.01em;
     }
-    .catalog-var-badge {
-      display:inline-flex;
-      align-items:center;
-      border-radius:999px;
-      padding:.12rem .45rem;
-      font-size:.7rem;
-      font-weight:800;
-      border:1px solid #cbd5e1;
-      background:#f8fafc;
-      color:#334155;
-    }
-    .catalog-var-badge.required-hard {
-      border-color:#fbbf24;
-      background:#fffbeb;
+    .catalog-var-note.required-hard {
       color:#92400e;
-    }
-    .catalog-var-badge.required-visual {
-      border-color:#bfdbfe;
-      background:#eff6ff;
-      color:#1e40af;
+      font-weight:800;
     }
     .catalog-buy-row { display:grid; grid-template-columns: 1fr auto; gap:.65rem; align-items:end; }
     .catalog-qty-wrap { display:grid; gap:.25rem; }
@@ -1041,6 +1061,55 @@
       color:#475569;
       min-height:1rem;
     }
+    .orientacao-modal {
+      position:fixed;
+      inset:0;
+      z-index:3000;
+      background:rgba(15,23,42,.52);
+      display:grid;
+      place-items:center;
+      padding:.8rem;
+    }
+    .orientacao-dialog {
+      width:min(100%, 520px);
+      border-radius:14px;
+      background:#fff;
+      border:1px solid #dbeafe;
+      box-shadow:0 28px 70px rgba(15,23,42,.24);
+      overflow:hidden;
+    }
+    .orientacao-head {
+      padding:.8rem .95rem;
+      background:linear-gradient(180deg,#f8fbff,#eef6ff);
+      border-bottom:1px solid #dbeafe;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:.65rem;
+    }
+    .orientacao-title {
+      margin:0;
+      color:#0f172a;
+      font-size:.95rem;
+      font-weight:800;
+    }
+    .orientacao-close {
+      border:1px solid #cbd5e1;
+      background:#fff;
+      color:#334155;
+      border-radius:9px;
+      padding:.42rem .65rem;
+      cursor:pointer;
+      font-weight:700;
+    }
+    .orientacao-body {
+      padding:.95rem;
+      color:#334155;
+      font-size:.92rem;
+      line-height:1.45;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
     @media (max-width: 800px) {
       .loja-form-grid { grid-template-columns: 1fr; }
       .variacao-row { grid-template-columns: 1fr; }
@@ -1078,6 +1147,10 @@
       .image-modal-head { padding:.6rem .7rem; }
       .image-modal-title { font-size:.88rem; }
       .image-modal-body { padding:.45rem; grid-template-columns: 1fr; }
+      .orientacao-modal { padding:.45rem; }
+      .orientacao-dialog { width:min(100%, 96vw); border-radius:12px; }
+      .orientacao-head { padding:.65rem .75rem; }
+      .orientacao-body { padding:.75rem; font-size:.88rem; }
       .image-modal-body img { max-height: 82vh; border-radius: 10px; }
       .image-modal-nav { width:100%; height:40px; }
     }
@@ -1164,65 +1237,65 @@
 
                 <div class="catalog-variations">
                   <h4>Variações</h4>
-                  {% if row.produto.permite_multiplas_variacoes %}
-                    <div class="catalog-variation-list" data-catalog-variation-list data-catalog-multi="1">
-                      {% for v in row.variacoes %}
-                        <label class="catalog-variation-item">
-                          <div class="catalog-variation-item-top">
-                            <div class="catalog-variation-item-left">
-                              <input
-                                type="checkbox"
-                                data-catalog-variation-checkbox
+                  <details class="catalog-variation-collapse" data-catalog-variation-collapse>
+                    <summary>Selecionar variações</summary>
+                    <div class="catalog-variation-collapse-body">
+                      {% if row.produto.permite_multiplas_variacoes %}
+                        <div class="catalog-variation-list" data-catalog-variation-list data-catalog-multi="1">
+                          {% for v in row.variacoes %}
+                            <label class="catalog-variation-item">
+                              <div class="catalog-variation-item-top">
+                                <div class="catalog-variation-item-left">
+                                  <input
+                                    type="checkbox"
+                                    data-catalog-variation-checkbox
+                                    value="{{ v.id }}"
+                                    data-variant-id="{{ v.id }}"
+                                    data-price="{{ v.valor }}"
+                                    data-stock-label="{% if v.estoque is not None %}{{ v.nome }}: estoque {{ v.estoque }}{% endif %}"
+                                    data-required-hard="{% if v.obrigatoria_compra %}1{% else %}0{% endif %}"
+                                    data-orientacoes="{{ v.orientacoes|default:''|escape }}"
+                                  />
+                                  <span class="catalog-var-name">{{ v.nome }}</span>
+                                </div>
+                                <span class="catalog-var-price">+ R$ {{ v.valor }}</span>
+                              </div>
+                              {% if v.obrigatoria_compra %}
+                                <div class="catalog-var-note required-hard">item obrigatório se não tiver</div>
+                              {% endif %}
+                              {% if v.estoque is not None %}
+                                <div class="catalog-var-stock">Estoque: {{ v.estoque }}</div>
+                              {% endif %}
+                            </label>
+                          {% empty %}
+                            <p class="panel-note" style="margin:0;">Sem variações ativas disponíveis.</p>
+                          {% endfor %}
+                        </div>
+                      {% else %}
+                        {% for v in row.variacoes %}
+                          {% if forloop.first %}
+                            <select class="catalog-variation-select" data-catalog-variation-select>
+                              <option value="">Selecione uma variação</option>
+                          {% endif %}
+                              <option
                                 value="{{ v.id }}"
                                 data-variant-id="{{ v.id }}"
                                 data-price="{{ v.valor }}"
-                                data-stock-label="{% if v.estoque is not None %}{{ v.nome }}: estoque {{ v.estoque }}{% endif %}"
+                                data-stock-label="{% if v.estoque is not None %}Estoque: {{ v.estoque }}{% endif %}"
                                 data-required-hard="{% if v.obrigatoria_compra %}1{% else %}0{% endif %}"
-                                data-required-visual="{% if v.obrigatoria_visual %}1{% else %}0{% endif %}"
-                              />
-                              <span class="catalog-var-name">{{ v.nome }}</span>
-                            </div>
-                            <span class="catalog-var-price">+ R$ {{ v.valor }}</span>
-                          </div>
-                          <div class="catalog-var-badges">
-                            {% if v.obrigatoria_compra %}
-                              <span class="catalog-var-badge required-hard">Obrigatória na compra</span>
-                            {% endif %}
-                            {% if v.obrigatoria_visual %}
-                              <span class="catalog-var-badge required-visual">Obrigatória visual</span>
-                            {% endif %}
-                          </div>
-                          {% if v.estoque is not None %}
-                            <div class="catalog-var-stock">Estoque: {{ v.estoque }}</div>
+                                data-orientacoes="{{ v.orientacoes|default:''|escape }}"
+                              >
+                                {{ v.nome }}{% if v.obrigatoria_compra %} [item obrigatório se não tiver]{% endif %}
+                              </option>
+                          {% if forloop.last %}
+                            </select>
                           {% endif %}
-                        </label>
-                      {% empty %}
-                        <p class="panel-note" style="margin:0;">Sem variações ativas disponíveis.</p>
-                      {% endfor %}
+                        {% empty %}
+                          <p class="panel-note" style="margin:0;">Sem variações ativas disponíveis.</p>
+                        {% endfor %}
+                      {% endif %}
                     </div>
-                  {% else %}
-                    {% for v in row.variacoes %}
-                      {% if forloop.first %}
-                        <select class="catalog-variation-select" data-catalog-variation-select>
-                          <option value="">Selecione uma variação</option>
-                      {% endif %}
-                          <option
-                            value="{{ v.id }}"
-                            data-variant-id="{{ v.id }}"
-                            data-price="{{ v.valor }}"
-                            data-stock-label="{% if v.estoque is not None %}Estoque: {{ v.estoque }}{% endif %}"
-                            data-required-hard="{% if v.obrigatoria_compra %}1{% else %}0{% endif %}"
-                            data-required-visual="{% if v.obrigatoria_visual %}1{% else %}0{% endif %}"
-                          >
-                            {{ v.nome }}{% if v.obrigatoria_compra %} [Obrigatória]{% elif v.obrigatoria_visual %} [Obrigatória visual]{% endif %}
-                          </option>
-                      {% if forloop.last %}
-                        </select>
-                      {% endif %}
-                    {% empty %}
-                      <p class="panel-note" style="margin:0;">Sem variações ativas disponíveis.</p>
-                    {% endfor %}
-                  {% endif %}
+                  </details>
                   {% if row.variacoes %}
                     <div class="catalog-variation-stock" data-catalog-stock></div>
                   {% endif %}
@@ -1307,10 +1380,7 @@
                         <option value="0" {% if not var.obrigatoria_compra %}selected{% endif %}>Opcional</option>
                         <option value="1" {% if var.obrigatoria_compra %}selected{% endif %}>Obrigatória compra</option>
                       </select>
-                      <select name="variacao_obrigatoria_visual[]">
-                        <option value="0" {% if not var.obrigatoria_visual %}selected{% endif %}>Sem destaque</option>
-                        <option value="1" {% if var.obrigatoria_visual %}selected{% endif %}>Obrigatória visual</option>
-                      </select>
+                      <input type="text" name="variacao_orientacoes[]" placeholder="Orientações ao clicar (opcional)" value="{{ var.orientacoes|default:'' }}" />
                       <button type="button" class="variacao-remove">Remover</button>
                     </div>
                   {% endfor %}
@@ -1323,10 +1393,7 @@
                       <option value="0" selected>Opcional</option>
                       <option value="1">Obrigatória compra</option>
                     </select>
-                    <select name="variacao_obrigatoria_visual[]">
-                      <option value="0" selected>Sem destaque</option>
-                      <option value="1">Obrigatória visual</option>
-                    </select>
+                    <input type="text" name="variacao_orientacoes[]" placeholder="Orientações ao clicar (opcional)" />
                     <button type="button" class="variacao-remove">Remover</button>
                   </div>
                 {% endif %}
@@ -1474,9 +1541,9 @@
                           <span>•</span>
                           <span>Obrigatória na compra</span>
                         {% endif %}
-                        {% if v.obrigatoria_visual %}
+                        {% if v.orientacoes %}
                           <span>•</span>
-                          <span>Obrigatória visual</span>
+                          <span>Com orientações no clique</span>
                         {% endif %}
                       </div>
                       {% if v.fotos_vinculadas %}
@@ -1524,11 +1591,8 @@
                               </select>
                             </label>
                             <label>
-                              Obrigatória visual
-                              <select name="config_variacao_obrigatoria_visual[]">
-                                <option value="0" {% if not v.obrigatoria_visual %}selected{% endif %}>Não</option>
-                                <option value="1" {% if v.obrigatoria_visual %}selected{% endif %}>Sim</option>
-                              </select>
+                              Orientações ao clicar (opcional)
+                              <input type="text" name="config_variacao_orientacoes[]" value="{{ v.orientacoes|default:'' }}" placeholder="Ex.: conferir tamanho antes de comprar" />
                             </label>
                           </div>
                         </div>
@@ -1832,6 +1896,16 @@
     </div>
   </div>
 
+  <div class="orientacao-modal" id="catalogOrientacaoModal" hidden aria-hidden="true">
+    <div class="orientacao-dialog" role="dialog" aria-modal="true" aria-labelledby="catalogOrientacaoTitle">
+      <div class="orientacao-head">
+        <h3 class="orientacao-title" id="catalogOrientacaoTitle">Orientações da variação</h3>
+        <button type="button" class="orientacao-close" id="catalogOrientacaoClose">Fechar</button>
+      </div>
+      <div class="orientacao-body" id="catalogOrientacaoText"></div>
+    </div>
+  </div>
+
   {% if loja_mode != 'responsavel' %}
   <template id="variacao-template">
     <div class="variacao-row">
@@ -1842,10 +1916,7 @@
         <option value="0" selected>Opcional</option>
         <option value="1">Obrigatória compra</option>
       </select>
-      <select name="variacao_obrigatoria_visual[]">
-        <option value="0" selected>Sem destaque</option>
-        <option value="1">Obrigatória visual</option>
-      </select>
+      <input type="text" name="variacao_orientacoes[]" placeholder="Orientações ao clicar (opcional)" />
       <button type="button" class="variacao-remove">Remover</button>
     </div>
   </template>
@@ -1870,6 +1941,10 @@
       const modalPrev = document.getElementById('catalogImageModalPrev');
       const modalNext = document.getElementById('catalogImageModalNext');
       const modalCounter = document.getElementById('catalogImageModalCounter');
+      const orientacaoModal = document.getElementById('catalogOrientacaoModal');
+      const orientacaoModalClose = document.getElementById('catalogOrientacaoClose');
+      const orientacaoModalTitle = document.getElementById('catalogOrientacaoTitle');
+      const orientacaoModalText = document.getElementById('catalogOrientacaoText');
       const cartOpenBtn = document.getElementById('catalogCartOpenBtn');
       const cartOpenCount = document.getElementById('catalogCartOpenCount');
       const ordersOpenBtn = document.getElementById('catalogOrdersOpenBtn');
@@ -1914,6 +1989,7 @@
       let pixPedidoAtual = null;
       let pixPollingTimer = null;
       let approvedSuccessShownForPedido = '';
+      let lastOrientationKey = '';
 
       function normalizeCartState(raw) {
         const base = (raw && typeof raw === 'object') ? raw : {};
@@ -2490,6 +2566,14 @@
       if (orderSuccessCloseBtn) {
         orderSuccessCloseBtn.addEventListener('click', closeOrderSuccessModal);
       }
+      if (orientacaoModal) {
+        orientacaoModal.addEventListener('click', function (event) {
+          if (event.target === orientacaoModal) closeOrientacaoModal();
+        });
+      }
+      if (orientacaoModalClose) {
+        orientacaoModalClose.addEventListener('click', closeOrientacaoModal);
+      }
       if (pixCopyBtn) {
         pixCopyBtn.addEventListener('click', async function () {
           const text = pixCodeEl ? String(pixCodeEl.value || '') : '';
@@ -2525,6 +2609,10 @@
       }
       document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape') {
+          if (orientacaoModal && !orientacaoModal.hidden) {
+            closeOrientacaoModal();
+            return;
+          }
           if (ordersModal && !ordersModal.hidden) {
             closeOrdersModal();
             return;
@@ -2557,6 +2645,24 @@
         const value = Number(String(raw || '').replace(',', '.'));
         if (Number.isNaN(value)) return 'R$ -';
         return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      }
+
+      function closeOrientacaoModal() {
+        if (!orientacaoModal) return;
+        orientacaoModal.hidden = true;
+        orientacaoModal.setAttribute('aria-hidden', 'true');
+      }
+
+      function openOrientacaoModal(label, message) {
+        const text = String(message || '').trim();
+        if (!orientacaoModal || !orientacaoModalText || !text) return;
+        if (orientacaoModalTitle) {
+          const nome = String(label || '').trim();
+          orientacaoModalTitle.textContent = nome ? ('Orientações - ' + nome) : 'Orientações da variação';
+        }
+        orientacaoModalText.textContent = text;
+        orientacaoModal.hidden = false;
+        orientacaoModal.setAttribute('aria-hidden', 'false');
       }
 
       cards.forEach(function (card) {
@@ -2644,6 +2750,7 @@
                   price: toPriceNumber(input.dataset.price || ''),
                   stockLabel: String(input.dataset.stockLabel || '').trim(),
                   requiredHard: String(input.dataset.requiredHard || '0') === '1',
+                  orientacoes: String(input.dataset.orientacoes || '').trim(),
                 };
               });
           }
@@ -2657,6 +2764,7 @@
             price: toPriceNumber(selected.dataset.price || ''),
             stockLabel: String(selected.dataset.stockLabel || '').trim(),
             requiredHard: String(selected.dataset.requiredHard || '0') === '1',
+            orientacoes: String(selected.dataset.orientacoes || '').trim(),
           }];
         }
 
@@ -2685,6 +2793,15 @@
                 label: String(opt.textContent || 'Variação').trim() || 'Variação',
               };
             });
+        }
+
+        function maybeShowOrientation(label, text, force) {
+          const message = String(text || '').trim();
+          if (!message) return;
+          const key = String(label || '') + '|' + message;
+          if (!force && key === lastOrientationKey) return;
+          lastOrientationKey = key;
+          openOrientacaoModal(label, message);
         }
 
         function updateBySelection() {
@@ -2732,9 +2849,30 @@
           qtyInput.value = String(next);
         }
 
-        if (variationSelect) variationSelect.addEventListener('change', updateBySelection);
+        if (variationSelect) {
+          variationSelect.addEventListener('change', updateBySelection);
+          variationSelect.addEventListener('change', function () {
+            const selected = variationSelect.options.length ? variationSelect.options[variationSelect.selectedIndex] : null;
+            if (!selected || !String(selected.value || '').trim()) return;
+            maybeShowOrientation(
+              String(selected.textContent || 'Variação').trim() || 'Variação',
+              String(selected.dataset.orientacoes || '').trim(),
+              true
+            );
+          });
+        }
         variationCheckboxes.forEach(function (input) {
           input.addEventListener('change', updateBySelection);
+          input.addEventListener('change', function () {
+            if (!input.checked) return;
+            const row = input.closest('.catalog-variation-item');
+            const nameEl = row ? row.querySelector('.catalog-var-name') : null;
+            maybeShowOrientation(
+              String(nameEl ? nameEl.textContent : 'Variação').trim() || 'Variação',
+              String(input.dataset.orientacoes || '').trim(),
+              true
+            );
+          });
         });
         if (btnMinus) btnMinus.addEventListener('click', function () { changeQty(-1); });
         if (btnPlus) btnPlus.addEventListener('click', function () { changeQty(1); });

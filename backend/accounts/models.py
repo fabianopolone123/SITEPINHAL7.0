@@ -996,6 +996,7 @@ class LojaProdutoVariacao(models.Model):
     estoque = models.IntegerField('estoque', null=True, blank=True)
     obrigatoria_compra = models.BooleanField('obrigatória na compra', default=False)
     obrigatoria_visual = models.BooleanField('obrigatória apenas visual', default=False)
+    orientacoes = models.TextField('orientações ao selecionar', blank=True, default='')
     ativo = models.BooleanField('ativo', default=True)
     created_at = models.DateTimeField('criado em', auto_now_add=True)
     updated_at = models.DateTimeField('atualizado em', auto_now=True)
