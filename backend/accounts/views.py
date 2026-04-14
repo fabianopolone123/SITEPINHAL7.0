@@ -10686,6 +10686,9 @@ class LojaView(LoginRequiredMixin, View):
             return None
         return value.quantize(Decimal('0.01'))
 
+    def _parse_bool(self, raw_value):
+        return str(raw_value or '').strip().lower() in {'1', 'true', 'on', 'sim', 'yes'}
+
     def _format_currency(self, value):
         try:
             decimal_value = Decimal(value).quantize(Decimal('0.01'))
@@ -11588,6 +11591,7 @@ class LojaView(LoginRequiredMixin, View):
             descricao_edit = str(request.POST.get('edit_descricao') or '').strip()
             minimo_raw = str(request.POST.get('edit_minimo_pedidos_pagos') or '').strip()
             ativo_edit = str(request.POST.get('edit_ativo') or '').strip().lower() in {'1', 'true', 'on', 'sim', 'yes'}
+            permite_multiplas_edit = self._parse_bool(request.POST.get('edit_permite_multiplas_variacoes'))
 
             if not titulo_edit:
                 messages.error(request, 'Informe o título do produto na edição.')
@@ -11609,12 +11613,100 @@ class LojaView(LoginRequiredMixin, View):
                     context.update(_sidebar_context(request))
                     return render(request, self.template_name, context)
 
+            if not permite_multiplas_edit:
+                obrigatorias_compra_count = (
+                    produto.variacoes
+                    .filter(ativo=True, obrigatoria_compra=True)
+                    .count()
+                )
+                if obrigatorias_compra_count > 1:
+                    messages.error(
+                        request,
+                        'Este produto possui mais de uma variacao obrigatoria na compra. Ative multiplas variacoes ou ajuste as obrigatoriedades.',
+                    )
+                    context = self._context()
+                    context.update(_sidebar_context(request))
+                    return render(request, self.template_name, context)
+
             produto.titulo = titulo_edit
             produto.descricao = descricao_edit
             produto.minimo_pedidos_pagos = minimo_edit
             produto.ativo = ativo_edit
-            produto.save(update_fields=['titulo', 'descricao', 'minimo_pedidos_pagos', 'ativo', 'updated_at'])
+            produto.permite_multiplas_variacoes = permite_multiplas_edit
+            produto.save(update_fields=['titulo', 'descricao', 'minimo_pedidos_pagos', 'ativo', 'permite_multiplas_variacoes', 'updated_at'])
             messages.success(request, f'Produto "{produto.titulo}" atualizado com sucesso.')
+            context = self._context()
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+
+        if action == 'editar_config_variacoes_produto':
+            produto_id_raw = str(request.POST.get('produto_id') or '').strip()
+            produto = (
+                LojaProduto.objects
+                .prefetch_related('variacoes')
+                .filter(pk=produto_id_raw, evento__isnull=True)
+                .first()
+                if produto_id_raw.isdigit() else None
+            )
+            if not produto:
+                messages.error(request, 'Produto nao encontrado para configurar variacoes.')
+                context = self._context()
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            permite_multiplas = self._parse_bool(request.POST.get('config_permite_multiplas_variacoes'))
+            variacao_ids_raw = request.POST.getlist('config_variacao_id[]')
+            obrigatoria_compra_raw = request.POST.getlist('config_variacao_obrigatoria_compra[]')
+            obrigatoria_visual_raw = request.POST.getlist('config_variacao_obrigatoria_visual[]')
+            rows_total = max(len(variacao_ids_raw), len(obrigatoria_compra_raw), len(obrigatoria_visual_raw))
+            if rows_total <= 0:
+                messages.error(request, 'Nenhuma variacao enviada para configuracao.')
+                context = self._context()
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            variacoes_existentes = {int(v.id): v for v in produto.variacoes.all()}
+            to_update = []
+            obrigatorias_hard_count = 0
+
+            for idx in range(rows_total):
+                variacao_id_text = str(variacao_ids_raw[idx] if idx < len(variacao_ids_raw) else '').strip()
+                if not variacao_id_text.isdigit():
+                    messages.error(request, f'Variacao invalida na linha {idx + 1}.')
+                    context = self._context()
+                    context.update(_sidebar_context(request))
+                    return render(request, self.template_name, context)
+                variacao_id = int(variacao_id_text)
+                variacao = variacoes_existentes.get(variacao_id)
+                if not variacao:
+                    messages.error(request, f'A variacao #{variacao_id} nao pertence ao produto informado.')
+                    context = self._context()
+                    context.update(_sidebar_context(request))
+                    return render(request, self.template_name, context)
+                obrigatoria_compra = self._parse_bool(obrigatoria_compra_raw[idx] if idx < len(obrigatoria_compra_raw) else '')
+                obrigatoria_visual = self._parse_bool(obrigatoria_visual_raw[idx] if idx < len(obrigatoria_visual_raw) else '')
+                if variacao.ativo and obrigatoria_compra:
+                    obrigatorias_hard_count += 1
+                to_update.append((variacao, obrigatoria_compra, obrigatoria_visual))
+
+            if not permite_multiplas and obrigatorias_hard_count > 1:
+                messages.error(
+                    request,
+                    'Com multiplas variacoes desativado, so e possivel ter no maximo 1 variacao obrigatoria na compra.',
+                )
+                context = self._context()
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            with transaction.atomic():
+                produto.permite_multiplas_variacoes = permite_multiplas
+                produto.save(update_fields=['permite_multiplas_variacoes', 'updated_at'])
+                for variacao, obrigatoria_compra, obrigatoria_visual in to_update:
+                    variacao.obrigatoria_compra = bool(obrigatoria_compra)
+                    variacao.obrigatoria_visual = bool(obrigatoria_visual)
+                    variacao.save(update_fields=['obrigatoria_compra', 'obrigatoria_visual', 'updated_at'])
+
+            messages.success(request, f'Configuracoes de variacoes do produto "{produto.titulo}" atualizadas com sucesso.')
             context = self._context()
             context.update(_sidebar_context(request))
             return render(request, self.template_name, context)
@@ -11640,15 +11732,19 @@ class LojaView(LoginRequiredMixin, View):
         titulo = str(request.POST.get('titulo') or '').strip()
         descricao = str(request.POST.get('descricao') or '').strip()
         minimo_pedidos_pagos_raw = str(request.POST.get('minimo_pedidos_pagos') or '').strip()
+        permite_multiplas_variacoes_raw = request.POST.get('permite_multiplas_variacoes')
         var_names = request.POST.getlist('variacao_nome[]')
         var_values = request.POST.getlist('variacao_valor[]')
         var_stocks = request.POST.getlist('variacao_estoque[]')
+        var_required_hard = request.POST.getlist('variacao_obrigatoria_compra[]')
+        var_required_visual = request.POST.getlist('variacao_obrigatoria_visual[]')
         foto_row_ids = request.POST.getlist('foto_row_id[]')
 
         form_data = {
             'titulo': titulo,
             'descricao': descricao,
             'minimo_pedidos_pagos': minimo_pedidos_pagos_raw,
+            'permite_multiplas_variacoes': self._parse_bool(permite_multiplas_variacoes_raw),
             'variacoes': [],
             'fotos': [],
         }
@@ -11673,19 +11769,26 @@ class LojaView(LoginRequiredMixin, View):
                 context.update(_sidebar_context(request))
                 return render(request, self.template_name, context)
 
+        permite_multiplas_variacoes = self._parse_bool(permite_multiplas_variacoes_raw)
         variacoes_parsed = []
-        max_len = max(len(var_names), len(var_values), len(var_stocks), 1)
+        max_len = max(len(var_names), len(var_values), len(var_stocks), len(var_required_hard), len(var_required_visual), 1)
         for idx in range(max_len):
             nome = (var_names[idx] if idx < len(var_names) else '').strip()
             valor_raw = (var_values[idx] if idx < len(var_values) else '').strip()
             estoque_raw = (var_stocks[idx] if idx < len(var_stocks) else '').strip()
+            obrigatoria_compra_raw = (var_required_hard[idx] if idx < len(var_required_hard) else '').strip()
+            obrigatoria_visual_raw = (var_required_visual[idx] if idx < len(var_required_visual) else '').strip()
+            obrigatoria_compra = self._parse_bool(obrigatoria_compra_raw)
+            obrigatoria_visual = self._parse_bool(obrigatoria_visual_raw)
             form_data['variacoes'].append({
                 'nome': nome,
                 'valor': valor_raw,
                 'estoque': estoque_raw,
+                'obrigatoria_compra': obrigatoria_compra,
+                'obrigatoria_visual': obrigatoria_visual,
             })
 
-            if not nome and not valor_raw and not estoque_raw:
+            if not nome and not valor_raw and not estoque_raw and not obrigatoria_compra and not obrigatoria_visual:
                 continue
             if not nome:
                 messages.error(request, f'Preencha o nome da variação na linha {idx + 1}.')
@@ -11716,6 +11819,8 @@ class LojaView(LoginRequiredMixin, View):
                 'nome': nome,
                 'valor': valor,
                 'estoque': estoque,
+                'obrigatoria_compra': obrigatoria_compra,
+                'obrigatoria_visual': obrigatoria_visual,
             })
 
         if not variacoes_parsed:
@@ -11723,6 +11828,18 @@ class LojaView(LoginRequiredMixin, View):
             context = self._context(form_data=form_data)
             context.update(_sidebar_context(request))
             return render(request, self.template_name, context)
+        if not permite_multiplas_variacoes:
+            obrigatorias_hard_count = sum(
+                1 for item in variacoes_parsed if bool(item.get('obrigatoria_compra'))
+            )
+            if obrigatorias_hard_count > 1:
+                messages.error(
+                    request,
+                    'Com multiplas variacoes desativado, apenas 1 variacao pode ser obrigatoria na compra.',
+                )
+                context = self._context(form_data=form_data)
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
         variacao_ref_to_parsed_index = {
             item['row_ref']: i for i, item in enumerate(variacoes_parsed)
         }
@@ -11795,6 +11912,7 @@ class LojaView(LoginRequiredMixin, View):
                 titulo=titulo,
                 descricao=descricao,
                 minimo_pedidos_pagos=minimo_pedidos_pagos,
+                permite_multiplas_variacoes=permite_multiplas_variacoes,
                 created_by=request.user,
             )
             LojaProdutoVariacao.objects.bulk_create([
@@ -11803,6 +11921,8 @@ class LojaView(LoginRequiredMixin, View):
                     nome=item['nome'],
                     valor=item['valor'],
                     estoque=item['estoque'],
+                    obrigatoria_compra=bool(item.get('obrigatoria_compra')),
+                    obrigatoria_visual=bool(item.get('obrigatoria_visual')),
                 )
                 for item in variacoes_parsed
             ])

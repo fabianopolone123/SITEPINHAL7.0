@@ -969,6 +969,7 @@ class LojaProduto(models.Model):
         blank=True,
     )
     ativo = models.BooleanField('ativo', default=True)
+    permite_multiplas_variacoes = models.BooleanField('permite selecionar mais de uma variação', default=False)
     created_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -993,6 +994,8 @@ class LojaProdutoVariacao(models.Model):
     nome = models.CharField('variação', max_length=255)
     valor = models.DecimalField('valor', max_digits=10, decimal_places=2)
     estoque = models.IntegerField('estoque', null=True, blank=True)
+    obrigatoria_compra = models.BooleanField('obrigatória na compra', default=False)
+    obrigatoria_visual = models.BooleanField('obrigatória apenas visual', default=False)
     ativo = models.BooleanField('ativo', default=True)
     created_at = models.DateTimeField('criado em', auto_now_add=True)
     updated_at = models.DateTimeField('atualizado em', auto_now=True)

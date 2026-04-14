@@ -15,8 +15,9 @@
     .variacoes-wrap { border:1px solid #e2e8f0; border-radius:12px; padding:.85rem; background:#fafcff; }
     .variacoes-head { display:flex; justify-content:space-between; align-items:center; gap:.75rem; margin-bottom:.75rem; }
     .variacoes-list { display:flex; flex-direction:column; gap:.55rem; }
-    .variacao-row { display:grid; grid-template-columns: 1.4fr .8fr .7fr auto; gap:.5rem; align-items:center; }
-    .variacao-row input { padding:.65rem .7rem; border:1px solid #cbd5e1; border-radius:10px; }
+    .variacao-row { display:grid; grid-template-columns: 1.2fr .75fr .65fr .9fr .9fr auto; gap:.5rem; align-items:center; }
+    .variacao-row input,
+    .variacao-row select { padding:.65rem .7rem; border:1px solid #cbd5e1; border-radius:10px; background:#fff; }
     .variacao-remove { border:1px solid #fecaca; background:#fff1f2; color:#9f1239; border-radius:10px; padding:.6rem .75rem; cursor:pointer; }
     .fotos-wrap { border:1px solid #e2e8f0; border-radius:12px; padding:.85rem; background:#fff; }
     .fotos-head { display:flex; justify-content:space-between; align-items:center; gap:.75rem; margin-bottom:.75rem; }
@@ -225,7 +226,7 @@
     }
     .admin-product-edit-grid {
       display:grid;
-      grid-template-columns: 1fr 220px 120px;
+      grid-template-columns: 1fr 200px 140px 210px;
       gap:.6rem;
       align-items:end;
     }
@@ -376,6 +377,76 @@
       font-size:.8rem;
       color:#64748b;
       min-height:1rem;
+    }
+    .catalog-variation-list {
+      display:grid;
+      gap:.4rem;
+    }
+    .catalog-variation-item {
+      border:1px solid #dbeafe;
+      border-radius:10px;
+      padding:.45rem .55rem;
+      background:#fff;
+      display:grid;
+      gap:.28rem;
+    }
+    .catalog-variation-item-top {
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:.45rem;
+    }
+    .catalog-variation-item-left {
+      display:flex;
+      align-items:flex-start;
+      gap:.45rem;
+      min-width:0;
+    }
+    .catalog-variation-item-left input {
+      margin-top:.1rem;
+    }
+    .catalog-var-name {
+      font-size:.86rem;
+      color:#0f172a;
+      font-weight:700;
+      line-height:1.2;
+      word-break:break-word;
+    }
+    .catalog-var-price {
+      color:#1d4ed8;
+      font-size:.84rem;
+      font-weight:800;
+      white-space:nowrap;
+    }
+    .catalog-var-stock {
+      font-size:.77rem;
+      color:#64748b;
+    }
+    .catalog-var-badges {
+      display:flex;
+      flex-wrap:wrap;
+      gap:.3rem;
+    }
+    .catalog-var-badge {
+      display:inline-flex;
+      align-items:center;
+      border-radius:999px;
+      padding:.12rem .45rem;
+      font-size:.7rem;
+      font-weight:800;
+      border:1px solid #cbd5e1;
+      background:#f8fafc;
+      color:#334155;
+    }
+    .catalog-var-badge.required-hard {
+      border-color:#fbbf24;
+      background:#fffbeb;
+      color:#92400e;
+    }
+    .catalog-var-badge.required-visual {
+      border-color:#bfdbfe;
+      background:#eff6ff;
+      color:#1e40af;
     }
     .catalog-buy-row { display:grid; grid-template-columns: 1fr auto; gap:.65rem; align-items:end; }
     .catalog-qty-wrap { display:grid; gap:.25rem; }
@@ -1018,7 +1089,7 @@
     <header class="painel-header">
       <h2>Loja</h2>
       {% if loja_mode == 'responsavel' %}
-        <p>Escolha os produtos disponíveis, selecione a variação e a quantidade para preparar seu carrinho.</p>
+        <p>Escolha os produtos disponíveis, selecione a(s) variação(ões) e a quantidade para preparar seu carrinho.</p>
       {% else %}
         <p>Cadastre produtos com foto e variações (valor e estoque opcional).</p>
       {% endif %}
@@ -1030,7 +1101,7 @@
           <p data-state="{{ message.tags }}">{{ message }}</p>
         {% empty %}
           {% if loja_mode == 'responsavel' %}
-            <p data-state="info">Selecione um produto, escolha a variação e ajuste a quantidade para validar o catálogo.</p>
+            <p data-state="info">Selecione um produto, escolha a(s) variação(ões) e ajuste a quantidade para validar o catálogo.</p>
           {% else %}
             <p data-state="info">Use o botão Cadastrar produto para adicionar itens da loja.</p>
           {% endif %}
@@ -1093,33 +1164,73 @@
 
                 <div class="catalog-variations">
                   <h4>Variações</h4>
-                  {% for v in row.variacoes %}
-                    {% if forloop.first %}
-                      <select class="catalog-variation-select" data-catalog-variation-select>
-                        <option value="">Selecione uma variação</option>
-                    {% endif %}
-                        <option
-                          value="{{ v.id }}"
-                          data-variant-id="{{ v.id }}"
-                          data-price="{{ v.valor }}"
-                          data-stock-label="{% if v.estoque is not None %}Estoque: {{ v.estoque }}{% endif %}"
-                        >
-                          {{ v.nome }}
-                        </option>
-                    {% if forloop.last %}
-                      </select>
-                    {% endif %}
-                  {% empty %}
-                    <p class="panel-note" style="margin:0;">Sem variações ativas disponíveis.</p>
-                  {% endfor %}
+                  {% if row.produto.permite_multiplas_variacoes %}
+                    <div class="catalog-variation-list" data-catalog-variation-list data-catalog-multi="1">
+                      {% for v in row.variacoes %}
+                        <label class="catalog-variation-item">
+                          <div class="catalog-variation-item-top">
+                            <div class="catalog-variation-item-left">
+                              <input
+                                type="checkbox"
+                                data-catalog-variation-checkbox
+                                value="{{ v.id }}"
+                                data-variant-id="{{ v.id }}"
+                                data-price="{{ v.valor }}"
+                                data-stock-label="{% if v.estoque is not None %}{{ v.nome }}: estoque {{ v.estoque }}{% endif %}"
+                                data-required-hard="{% if v.obrigatoria_compra %}1{% else %}0{% endif %}"
+                                data-required-visual="{% if v.obrigatoria_visual %}1{% else %}0{% endif %}"
+                              />
+                              <span class="catalog-var-name">{{ v.nome }}</span>
+                            </div>
+                            <span class="catalog-var-price">+ R$ {{ v.valor }}</span>
+                          </div>
+                          <div class="catalog-var-badges">
+                            {% if v.obrigatoria_compra %}
+                              <span class="catalog-var-badge required-hard">Obrigatória na compra</span>
+                            {% endif %}
+                            {% if v.obrigatoria_visual %}
+                              <span class="catalog-var-badge required-visual">Obrigatória visual</span>
+                            {% endif %}
+                          </div>
+                          {% if v.estoque is not None %}
+                            <div class="catalog-var-stock">Estoque: {{ v.estoque }}</div>
+                          {% endif %}
+                        </label>
+                      {% empty %}
+                        <p class="panel-note" style="margin:0;">Sem variações ativas disponíveis.</p>
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    {% for v in row.variacoes %}
+                      {% if forloop.first %}
+                        <select class="catalog-variation-select" data-catalog-variation-select>
+                          <option value="">Selecione uma variação</option>
+                      {% endif %}
+                          <option
+                            value="{{ v.id }}"
+                            data-variant-id="{{ v.id }}"
+                            data-price="{{ v.valor }}"
+                            data-stock-label="{% if v.estoque is not None %}Estoque: {{ v.estoque }}{% endif %}"
+                            data-required-hard="{% if v.obrigatoria_compra %}1{% else %}0{% endif %}"
+                            data-required-visual="{% if v.obrigatoria_visual %}1{% else %}0{% endif %}"
+                          >
+                            {{ v.nome }}{% if v.obrigatoria_compra %} [Obrigatória]{% elif v.obrigatoria_visual %} [Obrigatória visual]{% endif %}
+                          </option>
+                      {% if forloop.last %}
+                        </select>
+                      {% endif %}
+                    {% empty %}
+                      <p class="panel-note" style="margin:0;">Sem variações ativas disponíveis.</p>
+                    {% endfor %}
+                  {% endif %}
                   {% if row.variacoes %}
                     <div class="catalog-variation-stock" data-catalog-stock></div>
                   {% endif %}
                 </div>
 
                 <div class="catalog-price-box">
-                  <span class="catalog-price-label">Valor da variação selecionada</span>
-                  <span class="catalog-price-value" data-catalog-price>Selecione uma variação</span>
+                  <span class="catalog-price-label">{% if row.produto.permite_multiplas_variacoes %}Total das variações selecionadas{% else %}Valor da variação selecionada{% endif %}</span>
+                  <span class="catalog-price-value" data-catalog-price>{% if row.produto.permite_multiplas_variacoes %}Selecione uma ou mais variações{% else %}Selecione uma variação{% endif %}</span>
                 </div>
 
                 <div class="catalog-buy-row">
@@ -1171,6 +1282,10 @@
               <div class="panel-note" style="align-self:end;">
                 Ex.: camiseta de atividade só vai para confecção quando atingir 10 pedidos pagos.
               </div>
+              <label class="full" style="display:flex; flex-direction:row; align-items:center; gap:.55rem; font-weight:700;">
+                <input type="checkbox" name="permite_multiplas_variacoes" value="1" {% if form_data.permite_multiplas_variacoes %}checked{% endif %} />
+                Permitir múltiplas variações no mesmo item (soma o valor de cada variação selecionada).
+              </label>
             </div>
 
             <div class="variacoes-wrap" style="margin-top:1rem;">
@@ -1188,6 +1303,14 @@
                       <input type="text" name="variacao_nome[]" placeholder="Variação (ex.: P / Azul)" value="{{ var.nome|default:'' }}" />
                       <input type="text" name="variacao_valor[]" placeholder="Valor" inputmode="decimal" value="{{ var.valor|default:'' }}" />
                       <input type="number" name="variacao_estoque[]" placeholder="Estoque" min="0" value="{{ var.estoque|default:'' }}" />
+                      <select name="variacao_obrigatoria_compra[]">
+                        <option value="0" {% if not var.obrigatoria_compra %}selected{% endif %}>Opcional</option>
+                        <option value="1" {% if var.obrigatoria_compra %}selected{% endif %}>Obrigatória compra</option>
+                      </select>
+                      <select name="variacao_obrigatoria_visual[]">
+                        <option value="0" {% if not var.obrigatoria_visual %}selected{% endif %}>Sem destaque</option>
+                        <option value="1" {% if var.obrigatoria_visual %}selected{% endif %}>Obrigatória visual</option>
+                      </select>
                       <button type="button" class="variacao-remove">Remover</button>
                     </div>
                   {% endfor %}
@@ -1196,6 +1319,14 @@
                     <input type="text" name="variacao_nome[]" placeholder="Variação (ex.: P / Azul)" />
                     <input type="text" name="variacao_valor[]" placeholder="Valor" inputmode="decimal" />
                     <input type="number" name="variacao_estoque[]" placeholder="Estoque" min="0" />
+                    <select name="variacao_obrigatoria_compra[]">
+                      <option value="0" selected>Opcional</option>
+                      <option value="1">Obrigatória compra</option>
+                    </select>
+                    <select name="variacao_obrigatoria_visual[]">
+                      <option value="0" selected>Sem destaque</option>
+                      <option value="1">Obrigatória visual</option>
+                    </select>
                     <button type="button" class="variacao-remove">Remover</button>
                   </div>
                 {% endif %}
@@ -1257,6 +1388,7 @@
                     <span>{{ row.variacoes|length }} variação(ões)</span>
                     {% if row.produto.descricao %}<span>• com descrição</span>{% endif %}
                     {% if row.produto.minimo_pedidos_pagos %}<span>• mínimo {{ row.produto.minimo_pedidos_pagos }} pagos</span>{% endif %}
+                    <span>• {% if row.produto.permite_multiplas_variacoes %}múltiplas variações{% else %}variação única{% endif %}</span>
                   </div>
                 </div>
                 <span class="admin-product-chip">{% if row.produto.ativo %}Ativo{% else %}Inativo{% endif %}</span>
@@ -1306,6 +1438,13 @@
                         <option value="0" {% if not row.produto.ativo %}selected{% endif %}>Inativo</option>
                       </select>
                     </label>
+                    <label>
+                      Variações no item
+                      <select name="edit_permite_multiplas_variacoes">
+                        <option value="0" {% if not row.produto.permite_multiplas_variacoes %}selected{% endif %}>Apenas 1 variação</option>
+                        <option value="1" {% if row.produto.permite_multiplas_variacoes %}selected{% endif %}>Múltiplas variações</option>
+                      </select>
+                    </label>
                   </div>
                   <label>
                     Descrição
@@ -1331,6 +1470,14 @@
                         {% endif %}
                         <span>•</span>
                         <span>{% if v.ativo %}Variação ativa{% else %}Variação inativa{% endif %}</span>
+                        {% if v.obrigatoria_compra %}
+                          <span>•</span>
+                          <span>Obrigatória na compra</span>
+                        {% endif %}
+                        {% if v.obrigatoria_visual %}
+                          <span>•</span>
+                          <span>Obrigatória visual</span>
+                        {% endif %}
                       </div>
                       {% if v.fotos_vinculadas %}
                         <div class="loja-fotos-badge">{{ v.fotos_vinculadas|length }} foto(s) vinculada(s)</div>
@@ -1347,6 +1494,51 @@
                     <p class="panel-note">Sem variações cadastradas.</p>
                   {% endfor %}
                 </div>
+                {% if row.variacoes %}
+                  <form method="post" class="admin-product-edit-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="editar_config_variacoes_produto" />
+                    <input type="hidden" name="produto_id" value="{{ row.produto.id }}" />
+                    <h5>Configuração das variações</h5>
+                    <label>
+                      Como o cliente seleciona
+                      <select name="config_permite_multiplas_variacoes">
+                        <option value="0" {% if not row.produto.permite_multiplas_variacoes %}selected{% endif %}>Apenas uma variação</option>
+                        <option value="1" {% if row.produto.permite_multiplas_variacoes %}selected{% endif %}>Múltiplas variações (soma os valores)</option>
+                      </select>
+                    </label>
+                    <div class="admin-product-variations">
+                      {% for v in row.variacoes %}
+                        <div class="admin-product-variation">
+                          <input type="hidden" name="config_variacao_id[]" value="{{ v.id }}" />
+                          <div class="admin-product-variation-head">
+                            <span>{{ v.nome }}</span>
+                            <span>R$ {{ v.valor }}</span>
+                          </div>
+                          <div class="admin-product-edit-grid" style="grid-template-columns: 1fr 1fr; margin-top:.35rem;">
+                            <label>
+                              Obrigatória na compra
+                              <select name="config_variacao_obrigatoria_compra[]">
+                                <option value="0" {% if not v.obrigatoria_compra %}selected{% endif %}>Não</option>
+                                <option value="1" {% if v.obrigatoria_compra %}selected{% endif %}>Sim</option>
+                              </select>
+                            </label>
+                            <label>
+                              Obrigatória visual
+                              <select name="config_variacao_obrigatoria_visual[]">
+                                <option value="0" {% if not v.obrigatoria_visual %}selected{% endif %}>Não</option>
+                                <option value="1" {% if v.obrigatoria_visual %}selected{% endif %}>Sim</option>
+                              </select>
+                            </label>
+                          </div>
+                        </div>
+                      {% endfor %}
+                    </div>
+                    <div class="admin-product-edit-actions">
+                      <button type="submit" class="admin-primary-btn">Salvar configuração de variações</button>
+                    </div>
+                  </form>
+                {% endif %}
               </div>
             </details>
           {% endfor %}
@@ -1646,6 +1838,14 @@
       <input type="text" name="variacao_nome[]" placeholder="Variação (ex.: P / Azul)" />
       <input type="text" name="variacao_valor[]" placeholder="Valor" inputmode="decimal" />
       <input type="number" name="variacao_estoque[]" placeholder="Estoque" min="0" />
+      <select name="variacao_obrigatoria_compra[]">
+        <option value="0" selected>Opcional</option>
+        <option value="1">Obrigatória compra</option>
+      </select>
+      <select name="variacao_obrigatoria_visual[]">
+        <option value="0" selected>Sem destaque</option>
+        <option value="1">Obrigatória visual</option>
+      </select>
       <button type="button" class="variacao-remove">Remover</button>
     </div>
   </template>
@@ -1724,14 +1924,22 @@
           cashback_aventureiro_id: String(base.cashback_aventureiro_id || '').trim(),
           items: items
             .filter(function (item) {
-              return item && item.key && item.product_id && item.variation_id;
+              const hasSingle = item && item.variation_id;
+              const hasMulti = item && Array.isArray(item.variation_ids) && item.variation_ids.length > 0;
+              return item && item.key && item.product_id && (hasSingle || hasMulti);
             })
             .map(function (item) {
+              const variationIds = Array.isArray(item.variation_ids)
+                ? item.variation_ids.map(function (value) { return String(value || '').trim(); }).filter(Boolean)
+                : [];
+              if (!variationIds.length && item.variation_id) {
+                variationIds.push(String(item.variation_id).trim());
+              }
               return {
                 key: String(item.key),
                 product_id: String(item.product_id),
                 product_title: String(item.product_title || 'Produto'),
-                variation_id: String(item.variation_id),
+                variation_ids: variationIds,
                 variation_label: String(item.variation_label || 'Variação'),
                 unit_price: Number(item.unit_price || 0) || 0,
                 quantity: Math.max(1, parseInt(item.quantity || 1, 10) || 1),
@@ -1980,15 +2188,25 @@
 
       async function createPixPedidoFromCart() {
         if (!PIX_CREATE_URL) throw new Error('URL de criação de pedido não configurada.');
+        const payloadItems = [];
+        (cartState.items || []).forEach(function (item) {
+          const variationIds = Array.isArray(item.variation_ids)
+            ? item.variation_ids.map(function (value) { return String(value || '').trim(); }).filter(Boolean)
+            : [];
+          if (!variationIds.length && item.variation_id) {
+            variationIds.push(String(item.variation_id).trim());
+          }
+          variationIds.forEach(function (variationId) {
+            payloadItems.push({
+              product_id: item.product_id,
+              variation_id: variationId,
+              quantity: item.quantity,
+            });
+          });
+        });
         const payload = {
           payment_method: 'pix',
-          items: (cartState.items || []).map(function (item) {
-            return {
-              product_id: item.product_id,
-              variation_id: item.variation_id,
-              quantity: item.quantity,
-            };
-          }),
+          items: payloadItems,
         };
         if (cartUseCashbackInput && cartUseCashbackInput.checked) {
           payload.usar_cashback = true;
@@ -2348,6 +2566,8 @@
         const fallback = card.querySelector('[data-catalog-main-fallback]');
         const thumbsWrap = card.querySelector('[data-catalog-thumbs]');
         const variationSelect = card.querySelector('[data-catalog-variation-select]');
+        const variationCheckboxes = Array.from(card.querySelectorAll('[data-catalog-variation-checkbox]'));
+        const isMultiMode = variationCheckboxes.length > 0;
         const priceEl = card.querySelector('[data-catalog-price]');
         const stockEl = card.querySelector('[data-catalog-stock]');
         const qtyInput = card.querySelector('[data-catalog-qty]');
@@ -2357,6 +2577,11 @@
         const feedback = card.querySelector('[data-catalog-feedback]');
         const hiddenMedia = card.querySelector('[data-catalog-variant-media]');
         let currentGalleryPhotos = [];
+
+        function toPriceNumber(raw) {
+          const value = Number(String(raw || '').replace(',', '.'));
+          return Number.isFinite(value) ? value : 0;
+        }
 
         function getVariantUrls(variantId) {
           if (!hiddenMedia) return [];
@@ -2406,12 +2631,70 @@
           });
         }
 
-        function updateBySelection() {
+        function getSelectedVariants() {
+          if (isMultiMode) {
+            return variationCheckboxes
+              .filter(function (input) { return !!input.checked && !!String(input.value || '').trim(); })
+              .map(function (input) {
+                const row = input.closest('.catalog-variation-item');
+                const nameEl = row ? row.querySelector('.catalog-var-name') : null;
+                return {
+                  id: String(input.value || '').trim(),
+                  label: String(nameEl ? nameEl.textContent : 'Variação').trim() || 'Variação',
+                  price: toPriceNumber(input.dataset.price || ''),
+                  stockLabel: String(input.dataset.stockLabel || '').trim(),
+                  requiredHard: String(input.dataset.requiredHard || '0') === '1',
+                };
+              });
+          }
           const selected = variationSelect && variationSelect.options.length
             ? variationSelect.options[variationSelect.selectedIndex]
             : null;
-          if (!selected || !String(selected.value || '').trim()) {
-            if (priceEl) priceEl.textContent = 'Selecione uma variação';
+          if (!selected || !String(selected.value || '').trim()) return [];
+          return [{
+            id: String(selected.value || '').trim(),
+            label: String(selected.textContent || 'Variação').trim() || 'Variação',
+            price: toPriceNumber(selected.dataset.price || ''),
+            stockLabel: String(selected.dataset.stockLabel || '').trim(),
+            requiredHard: String(selected.dataset.requiredHard || '0') === '1',
+          }];
+        }
+
+        function getRequiredHardVariants() {
+          if (isMultiMode) {
+            return variationCheckboxes
+              .filter(function (input) { return String(input.dataset.requiredHard || '0') === '1'; })
+              .map(function (input) {
+                const row = input.closest('.catalog-variation-item');
+                const nameEl = row ? row.querySelector('.catalog-var-name') : null;
+                return {
+                  id: String(input.value || '').trim(),
+                  label: String(nameEl ? nameEl.textContent : 'Variação').trim() || 'Variação',
+                };
+              })
+              .filter(function (row) { return !!row.id; });
+          }
+          if (!variationSelect) return [];
+          return Array.from(variationSelect.options)
+            .filter(function (opt) {
+              return !!String(opt.value || '').trim() && String(opt.dataset.requiredHard || '0') === '1';
+            })
+            .map(function (opt) {
+              return {
+                id: String(opt.value || '').trim(),
+                label: String(opt.textContent || 'Variação').trim() || 'Variação',
+              };
+            });
+        }
+
+        function updateBySelection() {
+          const selectedVariants = getSelectedVariants();
+          if (!selectedVariants.length) {
+            if (priceEl) {
+              priceEl.textContent = isMultiMode
+                ? 'Selecione uma ou mais variações'
+                : 'Selecione uma variação';
+            }
             if (stockEl) stockEl.textContent = '';
             const defaultSrc = (mainImage && mainImage.dataset.defaultSrc) || '';
             setMainPhoto(defaultSrc, mainImage ? mainImage.alt : '');
@@ -2419,9 +2702,17 @@
             currentGalleryPhotos = defaultSrc ? [{ url: defaultSrc, alt: (mainImage && mainImage.alt) || 'Foto do produto' }] : [];
             return;
           }
-          if (priceEl) priceEl.textContent = formatPrice(selected.dataset.price || '');
-          if (stockEl) stockEl.textContent = selected.dataset.stockLabel || '';
-          const photos = getVariantUrls(selected.dataset.variantId || selected.value);
+          const totalSelected = selectedVariants.reduce(function (acc, row) {
+            return acc + Number(row.price || 0);
+          }, 0);
+          if (priceEl) priceEl.textContent = formatPrice(totalSelected);
+          if (stockEl) {
+            const stockLabels = selectedVariants
+              .map(function (row) { return row.stockLabel; })
+              .filter(Boolean);
+            stockEl.textContent = stockLabels.join(' | ');
+          }
+          const photos = getVariantUrls(selectedVariants[0].id);
           if (photos.length) {
             setMainPhoto(photos[0].url, photos[0].alt);
             renderThumbs(photos);
@@ -2442,6 +2733,9 @@
         }
 
         if (variationSelect) variationSelect.addEventListener('change', updateBySelection);
+        variationCheckboxes.forEach(function (input) {
+          input.addEventListener('change', updateBySelection);
+        });
         if (btnMinus) btnMinus.addEventListener('click', function () { changeQty(-1); });
         if (btnPlus) btnPlus.addEventListener('click', function () { changeQty(1); });
         if (mainImage) {
@@ -2470,25 +2764,37 @@
         }
         if (addBtn) {
           addBtn.addEventListener('click', function () {
-            const selected = variationSelect && variationSelect.options.length
-              ? variationSelect.options[variationSelect.selectedIndex]
-              : null;
-            if (!selected || !String(selected.value || '').trim()) {
-              if (feedback) feedback.textContent = 'Selecione uma variação para continuar.';
-              if (variationSelect) variationSelect.focus();
+            const selectedVariants = getSelectedVariants();
+            if (!selectedVariants.length) {
+              if (feedback) {
+                feedback.textContent = isMultiMode
+                  ? 'Selecione uma ou mais variações para continuar.'
+                  : 'Selecione uma variação para continuar.';
+              }
+              if (isMultiMode && variationCheckboxes.length) variationCheckboxes[0].focus();
+              if (!isMultiMode && variationSelect) variationSelect.focus();
               return;
             }
-            const varLabel = selected.textContent ? selected.textContent.trim() : 'Variação';
+            const selectedIdsSet = new Set(selectedVariants.map(function (row) { return row.id; }));
+            const requiredHard = getRequiredHardVariants();
+            const missingRequired = requiredHard.filter(function (row) { return !selectedIdsSet.has(row.id); });
+            if (missingRequired.length) {
+              const labels = missingRequired.map(function (row) { return row.label; }).join(', ');
+              if (feedback) feedback.textContent = 'Faltam variações obrigatórias: ' + labels + '.';
+              return;
+            }
+            const varLabel = selectedVariants.map(function (row) { return row.label; }).join(' + ') || 'Variação';
             const qty = qtyInput ? Math.max(1, parseInt(qtyInput.value || '1', 10) || 1) : 1;
-            const variationId = String(selected.value || '');
+            const variationIds = selectedVariants.map(function (row) { return row.id; });
+            const variationIdsForKey = variationIds.slice().sort(function (a, b) { return Number(a) - Number(b); });
             const imageUrl = (mainImage && !mainImage.hidden && mainImage.getAttribute('src')) ? String(mainImage.getAttribute('src')) : '';
             const imageAlt = (mainImage && mainImage.getAttribute('alt')) ? String(mainImage.getAttribute('alt')) : ('Foto de ' + productTitle);
-            const unitPrice = Number(String(selected.dataset.price || '').replace(',', '.')) || 0;
+            const unitPrice = selectedVariants.reduce(function (acc, row) { return acc + Number(row.price || 0); }, 0);
             const cartItem = {
-              key: 'p' + productId + '-v' + variationId,
+              key: 'p' + productId + '-vs' + variationIdsForKey.join('-'),
               product_id: productId,
               product_title: productTitle,
-              variation_id: variationId,
+              variation_ids: variationIds,
               variation_label: varLabel,
               unit_price: unitPrice,
               quantity: qty,
@@ -2605,6 +2911,7 @@
           const rows = list.querySelectorAll('.variacao-row');
           if (rows.length <= 1) {
             rows[0].querySelectorAll('input').forEach(function (input) { input.value = ''; });
+            rows[0].querySelectorAll('select').forEach(function (select) { select.value = '0'; });
             refreshFotoVariationOptions();
             return;
           }
