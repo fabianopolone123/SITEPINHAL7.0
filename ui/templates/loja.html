@@ -1897,7 +1897,7 @@
     </div>
   </div>
 
-  <div class="orientacao-modal" id="catalogOrientacaoModal" hidden aria-hidden="true">
+  <div class="orientacao-modal" id="catalogOrientacaoModal" hidden aria-hidden="true" style="display:none;">
     <div class="orientacao-dialog" role="dialog" aria-modal="true" aria-labelledby="catalogOrientacaoTitle">
       <div class="orientacao-head">
         <h3 class="orientacao-title" id="catalogOrientacaoTitle">Orientações da variação</h3>
@@ -2652,6 +2652,7 @@
         if (!orientacaoModal) return;
         orientacaoModal.hidden = true;
         orientacaoModal.setAttribute('aria-hidden', 'true');
+        orientacaoModal.style.display = 'none';
       }
 
       closeOrientacaoModal();
@@ -2666,6 +2667,7 @@
         orientacaoModalText.textContent = text;
         orientacaoModal.hidden = false;
         orientacaoModal.setAttribute('aria-hidden', 'false');
+        orientacaoModal.style.display = 'grid';
       }
 
       cards.forEach(function (card) {
