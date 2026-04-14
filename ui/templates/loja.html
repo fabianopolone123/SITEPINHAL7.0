@@ -1070,6 +1070,7 @@
       place-items:center;
       padding:.8rem;
     }
+    .orientacao-modal[hidden] { display:none !important; }
     .orientacao-dialog {
       width:min(100%, 520px);
       border-radius:14px;
@@ -2652,6 +2653,8 @@
         orientacaoModal.hidden = true;
         orientacaoModal.setAttribute('aria-hidden', 'true');
       }
+
+      closeOrientacaoModal();
 
       function openOrientacaoModal(label, message) {
         const text = String(message || '').trim();
