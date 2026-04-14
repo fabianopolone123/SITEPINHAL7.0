@@ -11427,6 +11427,12 @@ class LojaView(LoginRequiredMixin, View):
             variacoes = list(produto.variacoes.all())
             if only_active_variacoes:
                 variacoes = [v for v in variacoes if v.ativo]
+            orientacoes_produto = ''
+            for variacao in variacoes:
+                texto = str(getattr(variacao, 'orientacoes', '') or '').strip()
+                if texto:
+                    orientacoes_produto = texto
+                    break
             fotos = sorted(
                 list(produto.fotos.all()),
                 key=lambda item: (item.ordem or 0, item.id or 0),
@@ -11453,6 +11459,7 @@ class LojaView(LoginRequiredMixin, View):
                 'variacoes': variacoes,
                 'fotos': fotos,
                 'capa_foto': capa_foto,
+                'orientacoes_produto': orientacoes_produto,
             })
         return rows
 

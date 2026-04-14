@@ -1238,7 +1238,11 @@
 
                 <div class="catalog-variations">
                   <h4>Variações</h4>
-                  <details class="catalog-variation-collapse" data-catalog-variation-collapse>
+                  <details
+                    class="catalog-variation-collapse"
+                    data-catalog-variation-collapse
+                    data-product-orientacoes="{{ row.orientacoes_produto|default:''|escape }}"
+                  >
                     <summary>Selecionar variações</summary>
                     <div class="catalog-variation-collapse-body">
                       {% if row.produto.permite_multiplas_variacoes %}
@@ -1255,7 +1259,6 @@
                                     data-price="{{ v.valor }}"
                                     data-stock-label="{% if v.estoque is not None %}{{ v.nome }}: estoque {{ v.estoque }}{% endif %}"
                                     data-required-hard="{% if v.obrigatoria_compra %}1{% else %}0{% endif %}"
-                                    data-orientacoes="{{ v.orientacoes|default:''|escape }}"
                                   />
                                   <span class="catalog-var-name">{{ v.nome }}</span>
                                 </div>
@@ -1284,7 +1287,6 @@
                                 data-price="{{ v.valor }}"
                                 data-stock-label="{% if v.estoque is not None %}Estoque: {{ v.estoque }}{% endif %}"
                                 data-required-hard="{% if v.obrigatoria_compra %}1{% else %}0{% endif %}"
-                                data-orientacoes="{{ v.orientacoes|default:''|escape }}"
                               >
                                 {{ v.nome }}{% if v.obrigatoria_compra %} [item obrigatório se não tiver]{% endif %}
                               </option>
@@ -1990,7 +1992,6 @@
       let pixPedidoAtual = null;
       let pixPollingTimer = null;
       let approvedSuccessShownForPedido = '';
-      let lastOrientationKey = '';
 
       function normalizeCartState(raw) {
         const base = (raw && typeof raw === 'object') ? raw : {};
@@ -2686,6 +2687,7 @@
         const btnPlus = card.querySelector('[data-qty-plus]');
         const addBtn = card.querySelector('[data-catalog-add-btn]');
         const feedback = card.querySelector('[data-catalog-feedback]');
+        const variationCollapse = card.querySelector('[data-catalog-variation-collapse]');
         const hiddenMedia = card.querySelector('[data-catalog-variant-media]');
         let currentGalleryPhotos = [];
 
@@ -2755,7 +2757,6 @@
                   price: toPriceNumber(input.dataset.price || ''),
                   stockLabel: String(input.dataset.stockLabel || '').trim(),
                   requiredHard: String(input.dataset.requiredHard || '0') === '1',
-                  orientacoes: String(input.dataset.orientacoes || '').trim(),
                 };
               });
           }
@@ -2769,7 +2770,6 @@
             price: toPriceNumber(selected.dataset.price || ''),
             stockLabel: String(selected.dataset.stockLabel || '').trim(),
             requiredHard: String(selected.dataset.requiredHard || '0') === '1',
-            orientacoes: String(selected.dataset.orientacoes || '').trim(),
           }];
         }
 
@@ -2798,15 +2798,6 @@
                 label: String(opt.textContent || 'Variação').trim() || 'Variação',
               };
             });
-        }
-
-        function maybeShowOrientation(label, text, force) {
-          const message = String(text || '').trim();
-          if (!message) return;
-          const key = String(label || '') + '|' + message;
-          if (!force && key === lastOrientationKey) return;
-          lastOrientationKey = key;
-          openOrientacaoModal(label, message);
         }
 
         function updateBySelection() {
@@ -2856,29 +2847,18 @@
 
         if (variationSelect) {
           variationSelect.addEventListener('change', updateBySelection);
-          variationSelect.addEventListener('change', function () {
-            const selected = variationSelect.options.length ? variationSelect.options[variationSelect.selectedIndex] : null;
-            if (!selected || !String(selected.value || '').trim()) return;
-            maybeShowOrientation(
-              String(selected.textContent || 'Variação').trim() || 'Variação',
-              String(selected.dataset.orientacoes || '').trim(),
-              true
-            );
-          });
         }
         variationCheckboxes.forEach(function (input) {
           input.addEventListener('change', updateBySelection);
-          input.addEventListener('change', function () {
-            if (!input.checked) return;
-            const row = input.closest('.catalog-variation-item');
-            const nameEl = row ? row.querySelector('.catalog-var-name') : null;
-            maybeShowOrientation(
-              String(nameEl ? nameEl.textContent : 'Variação').trim() || 'Variação',
-              String(input.dataset.orientacoes || '').trim(),
-              true
-            );
-          });
         });
+        if (variationCollapse) {
+          variationCollapse.addEventListener('toggle', function () {
+            if (!variationCollapse.open) return;
+            const orientacaoProduto = String(variationCollapse.dataset.productOrientacoes || '').trim();
+            if (!orientacaoProduto) return;
+            openOrientacaoModal(productTitle, orientacaoProduto);
+          });
+        }
         if (btnMinus) btnMinus.addEventListener('click', function () { changeQty(-1); });
         if (btnPlus) btnPlus.addEventListener('click', function () { changeQty(1); });
         if (mainImage) {
