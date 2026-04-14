@@ -11718,6 +11718,86 @@ class LojaView(LoginRequiredMixin, View):
             context.update(_sidebar_context(request))
             return render(request, self.template_name, context)
 
+        if action == 'editar_fotos_produto':
+            produto_id_raw = str(request.POST.get('produto_id') or '').strip()
+            produto = (
+                LojaProduto.objects
+                .prefetch_related('variacoes', 'fotos')
+                .filter(pk=produto_id_raw, evento__isnull=True)
+                .first()
+                if produto_id_raw.isdigit() else None
+            )
+            if not produto:
+                messages.error(request, 'Produto nao encontrado para editar fotos.')
+                context = self._context()
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            variacoes = list(produto.variacoes.order_by('id'))
+            if not variacoes:
+                messages.error(request, 'Cadastre ao menos uma variacao antes de adicionar fotos.')
+                context = self._context()
+                context.update(_sidebar_context(request))
+                return render(request, self.template_name, context)
+
+            fotos_map = {int(f.id): f for f in produto.fotos.all()}
+            foto_ids_raw = request.POST.getlist('foto_id[]')
+            novas_fotos = [f for f in request.FILES.getlist('novas_fotos[]') if f]
+            removidas = 0
+            atualizadas = 0
+            adicionadas = 0
+
+            with transaction.atomic():
+                for foto_id_raw in foto_ids_raw:
+                    foto_id_text = str(foto_id_raw or '').strip()
+                    if not foto_id_text.isdigit():
+                        continue
+                    foto = fotos_map.get(int(foto_id_text))
+                    if not foto:
+                        continue
+                    remove_flag = self._parse_bool(request.POST.get(f'foto_remove__{foto.id}'))
+                    nova_foto = request.FILES.get(f'foto_replace__{foto.id}')
+                    if remove_flag:
+                        foto.delete()
+                        removidas += 1
+                        continue
+                    if nova_foto:
+                        foto.foto = nova_foto
+                        foto.save(update_fields=['foto', 'updated_at'])
+                        atualizadas += 1
+
+                if novas_fotos:
+                    ordem_base = (
+                        produto.fotos.order_by('-ordem').values_list('ordem', flat=True).first()
+                    )
+                    ordem_atual = int(ordem_base or 0)
+                    variacao_base = variacoes[0]
+                    for arquivo in novas_fotos:
+                        ordem_atual += 1
+                        foto_obj = LojaProdutoFoto.objects.create(
+                            produto=produto,
+                            variacao=variacao_base,
+                            todas_variacoes=True,
+                            foto=arquivo,
+                            ordem=ordem_atual,
+                        )
+                        foto_obj.variacoes_vinculadas.set(variacoes)
+                        adicionadas += 1
+
+            if not (removidas or atualizadas or adicionadas):
+                messages.info(request, 'Nenhuma alteracao de foto foi enviada.')
+            else:
+                messages.success(
+                    request,
+                    (
+                        f'Fotos atualizadas para "{produto.titulo}": '
+                        f'{atualizadas} trocada(s), {adicionadas} adicionada(s), {removidas} removida(s).'
+                    ),
+                )
+            context = self._context()
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+
         if action == 'toggle_entrega_pedido':
             pedido_id_raw = str(request.POST.get('pedido_id') or '').strip()
             pedido = LojaPedido.objects.filter(pk=pedido_id_raw).first() if pedido_id_raw.isdigit() else None

@@ -299,6 +299,33 @@
       gap:.4rem;
       flex-wrap:wrap;
     }
+    .admin-photo-editor-grid {
+      display:grid;
+      gap:.55rem;
+    }
+    .admin-photo-row {
+      border:1px solid #dbeafe;
+      border-radius:10px;
+      background:#fff;
+      padding:.55rem;
+      display:grid;
+      grid-template-columns: 74px 1fr;
+      gap:.6rem;
+      align-items:start;
+    }
+    .admin-photo-thumb {
+      width:74px;
+      height:74px;
+      object-fit:cover;
+      border-radius:8px;
+      border:1px solid #dbeafe;
+      background:#f8fafc;
+      display:block;
+    }
+    .admin-photo-fields {
+      display:grid;
+      gap:.45rem;
+    }
     @media (max-width: 800px) {
       .admin-product-row summary {
         grid-template-columns: 46px minmax(0,1fr) auto;
@@ -315,6 +342,15 @@
       .admin-product-thumb {
         width:46px;
         height:46px;
+      }
+      .admin-photo-row {
+        grid-template-columns: 1fr;
+      }
+      .admin-photo-thumb {
+        width:100%;
+        height:auto;
+        max-height:200px;
+        object-fit:contain;
       }
       .admin-loja-panel summary {
         padding:.75rem .8rem;
@@ -1527,6 +1563,46 @@
                   </div>
                 </form>
 
+                <form method="post" enctype="multipart/form-data" class="admin-product-edit-form">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="editar_fotos_produto" />
+                  <input type="hidden" name="produto_id" value="{{ row.produto.id }}" />
+                  <h5>Fotos do produto</h5>
+                  <p class="panel-note" style="margin:0;">Você pode trocar fotos já cadastradas, remover e adicionar novas fotos.</p>
+                  {% if row.fotos %}
+                    <div class="admin-photo-editor-grid">
+                      {% for foto in row.fotos %}
+                        <div class="admin-photo-row">
+                          <a href="{{ foto.foto.url }}" target="_blank" rel="noopener">
+                            <img src="{{ foto.foto.url }}" alt="Foto do produto {{ row.produto.titulo }}" class="admin-photo-thumb" />
+                          </a>
+                          <div class="admin-photo-fields">
+                            <input type="hidden" name="foto_id[]" value="{{ foto.id }}" />
+                            <label>
+                              Trocar esta foto
+                              <input type="file" name="foto_replace__{{ foto.id }}" accept="image/*" />
+                            </label>
+                            <label style="display:flex; align-items:center; gap:.45rem; font-weight:700;">
+                              <input type="checkbox" name="foto_remove__{{ foto.id }}" value="1" />
+                              Remover esta foto
+                            </label>
+                          </div>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <p class="panel-note" style="margin:0;">Sem fotos cadastradas ainda.</p>
+                  {% endif %}
+                  <label>
+                    Adicionar novas fotos
+                    <input type="file" name="novas_fotos[]" accept="image/*" multiple />
+                  </label>
+                  <p class="panel-note" style="margin:0;">As novas fotos serão vinculadas automaticamente a todas as variações do produto.</p>
+                  <div class="admin-product-edit-actions">
+                    <button type="submit" class="admin-primary-btn">Salvar fotos</button>
+                  </div>
+                </form>
+
                 <div class="admin-product-variations">
                   {% for v in row.variacoes %}
                     <div class="admin-product-variation">
@@ -2691,6 +2767,8 @@
         const variationCollapse = card.querySelector('[data-catalog-variation-collapse]');
         const hiddenMedia = card.querySelector('[data-catalog-variant-media]');
         let currentGalleryPhotos = [];
+        let autoSlideTimer = null;
+        let autoSlideIndex = 0;
 
         function toPriceNumber(raw) {
           const value = Number(String(raw || '').replace(',', '.'));
@@ -2707,6 +2785,22 @@
               alt: node.getAttribute('data-photo-alt') || 'Foto do produto',
             };
           }).filter(function (item) { return item.url; });
+        }
+
+        function getAllVariantUrls() {
+          if (!hiddenMedia) return [];
+          const seen = new Set();
+          const out = [];
+          Array.from(hiddenMedia.querySelectorAll('[data-photo-url]')).forEach(function (node) {
+            const url = String(node.getAttribute('data-photo-url') || '').trim();
+            if (!url || seen.has(url)) return;
+            seen.add(url);
+            out.push({
+              url: url,
+              alt: String(node.getAttribute('data-photo-alt') || 'Foto do produto'),
+            });
+          });
+          return out;
         }
 
         function setMainPhoto(url, alt) {
@@ -2738,11 +2832,32 @@
             img.alt = photo.alt || ('Foto ' + (idx + 1));
             btn.appendChild(img);
             btn.addEventListener('click', function () {
+              autoSlideIndex = idx;
               setMainPhoto(photo.url, photo.alt);
               openImageModalGallery(photos, idx);
             });
             thumbsWrap.appendChild(btn);
           });
+        }
+
+        function stopAutoSlide() {
+          if (autoSlideTimer) {
+            clearInterval(autoSlideTimer);
+            autoSlideTimer = null;
+          }
+        }
+
+        function startAutoSlide(photos) {
+          stopAutoSlide();
+          if (!Array.isArray(photos) || photos.length < 2) return;
+          autoSlideIndex = 0;
+          autoSlideTimer = setInterval(function () {
+            if (!photos.length) return;
+            autoSlideIndex = (autoSlideIndex + 1) % photos.length;
+            const photo = photos[autoSlideIndex];
+            if (!photo) return;
+            setMainPhoto(photo.url, photo.alt);
+          }, 2000);
         }
 
         function getSelectedVariants() {
@@ -2810,10 +2925,20 @@
                 : 'Selecione uma variação';
             }
             if (stockEl) stockEl.textContent = '';
-            const defaultSrc = (mainImage && mainImage.dataset.defaultSrc) || '';
-            setMainPhoto(defaultSrc, mainImage ? mainImage.alt : '');
-            renderThumbs([]);
-            currentGalleryPhotos = defaultSrc ? [{ url: defaultSrc, alt: (mainImage && mainImage.alt) || 'Foto do produto' }] : [];
+            const allPhotos = getAllVariantUrls();
+            if (allPhotos.length) {
+              autoSlideIndex = 0;
+              setMainPhoto(allPhotos[0].url, allPhotos[0].alt);
+              renderThumbs(allPhotos);
+              currentGalleryPhotos = allPhotos.slice();
+              startAutoSlide(currentGalleryPhotos);
+            } else {
+              stopAutoSlide();
+              const defaultSrc = (mainImage && mainImage.dataset.defaultSrc) || '';
+              setMainPhoto(defaultSrc, mainImage ? mainImage.alt : '');
+              renderThumbs([]);
+              currentGalleryPhotos = defaultSrc ? [{ url: defaultSrc, alt: (mainImage && mainImage.alt) || 'Foto do produto' }] : [];
+            }
             return;
           }
           const totalSelected = selectedVariants.reduce(function (acc, row) {
@@ -2831,10 +2956,12 @@
             setMainPhoto(photos[0].url, photos[0].alt);
             renderThumbs(photos);
             currentGalleryPhotos = photos.slice();
+            startAutoSlide(currentGalleryPhotos);
           } else {
             const defaultSrc = (mainImage && mainImage.dataset.defaultSrc) || '';
             setMainPhoto(defaultSrc, mainImage ? mainImage.alt : '');
             renderThumbs([]);
+            stopAutoSlide();
             currentGalleryPhotos = defaultSrc ? [{ url: defaultSrc, alt: (mainImage && mainImage.alt) || 'Foto do produto' }] : [];
           }
         }
