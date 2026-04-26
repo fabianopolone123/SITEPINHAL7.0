@@ -58,13 +58,15 @@
       flex-direction:column;
       gap:.25rem;
     }
-    .financeiro-inline-toolbar input {
-      width:120px;
+    .financeiro-inline-toolbar input,
+    .financeiro-inline-toolbar select {
+      width:220px;
       padding:.55rem .65rem;
       border:1px solid #cbd5e1;
       border-radius:10px;
       background:#fff;
     }
+    .financeiro-inline-toolbar input { width:120px; }
     .badge-status {
       display:inline-flex; padding:.2rem .55rem; border-radius:999px; font-size:.75rem; font-weight:700;
       background:#fef3c7; color:#92400e; border:1px solid #fcd34d;
@@ -634,6 +636,17 @@
         <input type="hidden" name="action" value="enviar_cobranca_mensalidades" />
         <input type="hidden" name="aventureiro_id" value="{{ selected_aventureiro_id|default:'' }}" />
         <input type="hidden" name="valor_mensalidade" value="{{ valor_mensalidade|default:'30' }}" />
+        <label for="cobranca_aventureiro_id">
+          Cobrar aventureiro
+          <select id="cobranca_aventureiro_id" name="cobranca_aventureiro_id">
+            <option value="">Todos com mensalidade em aberto</option>
+            {% for av in aventureiros %}
+              <option value="{{ av.pk }}"{% if selected_aventureiro_id == av.pk|stringformat:'s' %} selected{% endif %}>
+                {{ av.nome }}{% if av.responsavel and av.responsavel.user %} (Resp.: {{ av.responsavel.user.username }}){% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </label>
         <label for="cobranca_pause_seconds">
           Pausa entre envios (segundos)
           <input
@@ -899,6 +912,7 @@
       const seletorValorTela = document.getElementById('valor_mensalidade');
       const cobrancaForm = document.getElementById('cobrancaMensalidadesForm');
       const cobrancaPauseInput = document.getElementById('cobranca_pause_seconds');
+      const cobrancaAventureiroSelect = document.getElementById('cobranca_aventureiro_id');
       const cobrancaModal = document.getElementById('cobrancaMensalidadesModal');
       const cobrancaResumo = document.getElementById('cobrancaMensalidadesResumo');
       const cobrancaList = document.getElementById('cobrancaMensalidadesList');
@@ -1064,12 +1078,19 @@
         if (cobrancaCancelarBtn) cobrancaCancelarBtn.disabled = false;
         renderCobrancaList();
         try {
-          const payload = await postCobrancaAction('preview_cobranca_mensalidades', {});
+          const selectedAventureiroId = cobrancaAventureiroSelect ? String(cobrancaAventureiroSelect.value || '').trim() : '';
+          const selectedAventureiroLabel = cobrancaAventureiroSelect && cobrancaAventureiroSelect.selectedIndex > 0
+            ? String(cobrancaAventureiroSelect.options[cobrancaAventureiroSelect.selectedIndex].textContent || '').trim()
+            : '';
+          const payload = await postCobrancaAction('preview_cobranca_mensalidades', {
+            cobranca_aventureiro_id: selectedAventureiroId,
+          });
           cobrancaGroups = payload.groups || [];
           if (cobrancaResumo) {
             cobrancaResumo.textContent =
               String(payload.total_responsaveis || 0) + ' responsável(is) e ' +
-              String(payload.total_mensalidades || 0) + ' mensalidade(s) serão avaliados para envio.';
+              String(payload.total_mensalidades || 0) + ' mensalidade(s) serão avaliados para envio' +
+              (selectedAventureiroLabel ? ' de ' + selectedAventureiroLabel + '.' : '.');
           }
           updateCobrancaProgress(0, cobrancaGroups.length, 'Aguardando confirmação.');
           renderCobrancaList();
@@ -1096,6 +1117,7 @@
         if (cobrancaEnviarBtn) cobrancaEnviarBtn.disabled = true;
         if (cobrancaCancelarBtn) cobrancaCancelarBtn.disabled = true;
         const pauseSeconds = cobrancaPauseInput ? Math.max(0, parseInt(cobrancaPauseInput.value || '0', 10) || 0) : 0;
+        const selectedAventureiroId = cobrancaAventureiroSelect ? String(cobrancaAventureiroSelect.value || '').trim() : '';
         let sent = 0;
         let failed = 0;
         let skipped = 0;
@@ -1106,6 +1128,7 @@
           try {
             const result = await postCobrancaAction('enviar_cobranca_mensalidade_responsavel', {
               responsavel_id: group.responsavel_id,
+              cobranca_aventureiro_id: selectedAventureiroId,
             });
             if (result.ok) {
               sent += 1;

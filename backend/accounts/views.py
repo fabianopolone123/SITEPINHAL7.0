@@ -8569,9 +8569,9 @@ class FinanceiroView(LoginRequiredMixin, View):
             or '-'
         ).strip()
 
-    def _cobranca_mensalidades_groups(self):
+    def _cobranca_mensalidades_groups(self, aventureiro_id=None):
         hoje = timezone.localdate()
-        pendentes = list(
+        pendentes_qs = (
             MensalidadeAventureiro.objects
             .filter(
                 status=MensalidadeAventureiro.STATUS_PENDENTE,
@@ -8588,6 +8588,10 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'mes_referencia',
             )
         )
+        aventureiro_id_text = str(aventureiro_id or '').strip()
+        if aventureiro_id_text.isdigit():
+            pendentes_qs = pendentes_qs.filter(aventureiro_id=int(aventureiro_id_text))
+        pendentes = list(pendentes_qs)
         grouped = {}
         for item in pendentes:
             aventureiro = getattr(item, 'aventureiro', None)
@@ -8637,10 +8641,11 @@ class FinanceiroView(LoginRequiredMixin, View):
             })
         return groups
 
-    def _cobranca_mensalidades_preview_payload(self):
-        groups = self._cobranca_mensalidades_groups()
+    def _cobranca_mensalidades_preview_payload(self, aventureiro_id=None):
+        groups = self._cobranca_mensalidades_groups(aventureiro_id=aventureiro_id)
         return {
             'ok': True,
+            'aventureiro_id': str(aventureiro_id or '').strip(),
             'total_responsaveis': len(groups),
             'total_mensalidades': sum(group.get('itens_count') or 0 for group in groups),
             'groups': [
@@ -8658,10 +8663,10 @@ class FinanceiroView(LoginRequiredMixin, View):
             ],
         }
 
-    def _send_whatsapp_cobranca_group(self, responsavel_id):
+    def _send_whatsapp_cobranca_group(self, responsavel_id, aventureiro_id=None):
         group = next(
             (
-                item for item in self._cobranca_mensalidades_groups()
+                item for item in self._cobranca_mensalidades_groups(aventureiro_id=aventureiro_id)
                 if str(item.get('responsavel_id')) == str(responsavel_id)
             ),
             None,
@@ -8791,8 +8796,8 @@ class FinanceiroView(LoginRequiredMixin, View):
             'failed_mensalidades': len(locked_items),
         }
 
-    def _send_whatsapp_cobranca_mensalidades(self, pause_seconds=4):
-        groups = self._cobranca_mensalidades_groups()
+    def _send_whatsapp_cobranca_mensalidades(self, pause_seconds=4, aventureiro_id=None):
+        groups = self._cobranca_mensalidades_groups(aventureiro_id=aventureiro_id)
         if not groups:
             return {
                 'total_responsaveis': 0,
@@ -8818,7 +8823,7 @@ class FinanceiroView(LoginRequiredMixin, View):
         pause_seconds = int(max(0, min(int(pause_seconds), 60)))
 
         for group in groups:
-            result = self._send_whatsapp_cobranca_group(group.get('responsavel_id'))
+            result = self._send_whatsapp_cobranca_group(group.get('responsavel_id'), aventureiro_id=aventureiro_id)
             if result.get('status') == 'sem_usuario':
                 skipped_sem_usuario_responsaveis += 1
             elif result.get('status') == 'sem_telefone':
@@ -9849,19 +9854,23 @@ class FinanceiroView(LoginRequiredMixin, View):
         aventureiro_id = str(request.POST.get('aventureiro_id') or '').strip()
         valor_input = str(request.POST.get('valor_mensalidade') or '30').strip()
         pause_input = str(request.POST.get('cobranca_pause_seconds') or '4').strip()
+        cobranca_aventureiro_id = str(request.POST.get('cobranca_aventureiro_id') or '').strip()
         if action == 'preview_cobranca_mensalidades':
-            return JsonResponse(self._cobranca_mensalidades_preview_payload())
+            return JsonResponse(self._cobranca_mensalidades_preview_payload(aventureiro_id=cobranca_aventureiro_id))
 
         if action == 'enviar_cobranca_mensalidade_responsavel':
             responsavel_id = str(request.POST.get('responsavel_id') or '').strip()
             if not responsavel_id.isdigit():
                 return JsonResponse({'ok': False, 'status': 'invalid', 'message': 'Responsavel invalido.'}, status=400)
-            return JsonResponse(self._send_whatsapp_cobranca_group(responsavel_id))
+            return JsonResponse(self._send_whatsapp_cobranca_group(responsavel_id, aventureiro_id=cobranca_aventureiro_id))
 
         if action == 'enviar_cobranca_mensalidades':
             pause_seconds = self._parse_pause_seconds(pause_input, default_seconds=4)
             try:
-                result = self._send_whatsapp_cobranca_mensalidades(pause_seconds=pause_seconds)
+                result = self._send_whatsapp_cobranca_mensalidades(
+                    pause_seconds=pause_seconds,
+                    aventureiro_id=cobranca_aventureiro_id,
+                )
             except Exception:
                 logger.exception('Falha ao enviar cobranca automatica de mensalidades.')
                 messages.error(request, 'Nao foi possivel concluir o envio das cobrancas agora.')

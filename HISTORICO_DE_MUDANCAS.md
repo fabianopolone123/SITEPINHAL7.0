@@ -1088,3 +1088,8 @@ ame e label sem quebrar a tela.
 - O botao Cobrar mensalidades em aberto passou a abrir uma janela suspensa com previa dos responsaveis e mensalidades que serao cobrados.
 - O envio agora acontece responsavel por responsavel via requisicoes AJAX, atualizando progresso, status individual, enviados, ignorados e falhas.
 - Mantido o envio para todas as mensalidades pendentes do mes atual e anteriores, com pausa configuravel entre responsaveis.
+
+## 26/04/2026 - Financeiro: cobranca WhatsApp por aventureiro
+
+- Adicionado filtro opcional para cobrar um aventureiro especifico na rotina de mensalidades em aberto por WhatsApp.
+- A previa do modal e o envio individual respeitam o aventureiro selecionado, mantendo a opcao de cobrar todos.
