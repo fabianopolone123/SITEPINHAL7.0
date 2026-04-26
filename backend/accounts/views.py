@@ -2981,6 +2981,19 @@ class MeuAventureiroDetalheView(LoginRequiredMixin, View):
             'back_label': 'Voltar para meus dados',
             'can_edit': True,
         }
+        financeiro_responsavel = aventureiro.financeiro_responsavel or aventureiro.responsavel
+        financeiro_user = getattr(financeiro_responsavel, 'user', None) if financeiro_responsavel else None
+        financeiro_helper = FinanceiroView()
+        financeiro_phone = financeiro_helper._resolve_user_whatsapp_phone(financeiro_user) if financeiro_user else ''
+        context.update({
+            'can_manage_financeiro_responsavel': False,
+            'financeiro_responsavel_atual': financeiro_responsavel,
+            'financeiro_responsavel_nome': financeiro_helper._responsavel_display_name(financeiro_responsavel, financeiro_user) if financeiro_responsavel else '-',
+            'financeiro_responsavel_phone': financeiro_phone,
+            'financeiro_responsavel_phone_valid': bool(financeiro_phone),
+            'financeiro_responsavel_is_custom': bool(aventureiro.financeiro_responsavel_id),
+            'financeiro_responsavel_rows': [],
+        })
         context.update(_build_aventureiro_saude_display(aventureiro))
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
@@ -3104,6 +3117,39 @@ class AventureirosGeraisView(LoginRequiredMixin, View):
 class AventureiroGeralDetalheView(LoginRequiredMixin, View):
     template_name = 'meus_dados_aventureiro.html'
 
+    def _financeiro_helper(self):
+        return FinanceiroView()
+
+    def _financeiro_responsavel_rows(self):
+        helper = self._financeiro_helper()
+        rows = []
+        for responsavel in Responsavel.objects.select_related('user').order_by('responsavel_nome', 'user__username'):
+            user = getattr(responsavel, 'user', None)
+            phone_number = helper._resolve_user_whatsapp_phone(user) if user else ''
+            rows.append({
+                'id': responsavel.pk,
+                'nome': helper._responsavel_display_name(responsavel, user),
+                'username': user.username if user else '',
+                'phone_number': phone_number,
+                'has_valid_phone': bool(phone_number),
+            })
+        return rows
+
+    def _financeiro_responsavel_context(self, aventureiro, can_manage=False):
+        helper = self._financeiro_helper()
+        responsavel_financeiro = aventureiro.financeiro_responsavel or aventureiro.responsavel
+        user = getattr(responsavel_financeiro, 'user', None) if responsavel_financeiro else None
+        phone_number = helper._resolve_user_whatsapp_phone(user) if user else ''
+        return {
+            'can_manage_financeiro_responsavel': bool(can_manage),
+            'financeiro_responsavel_atual': responsavel_financeiro,
+            'financeiro_responsavel_nome': helper._responsavel_display_name(responsavel_financeiro, user) if responsavel_financeiro else '-',
+            'financeiro_responsavel_phone': phone_number,
+            'financeiro_responsavel_phone_valid': bool(phone_number),
+            'financeiro_responsavel_is_custom': bool(aventureiro.financeiro_responsavel_id),
+            'financeiro_responsavel_rows': self._financeiro_responsavel_rows() if can_manage else [],
+        }
+
     def get(self, request, pk):
         has_aventureiros = _has_menu_permission(request, 'aventureiros')
         has_usuarios = _has_menu_permission(request, 'usuarios')
@@ -3118,9 +3164,60 @@ class AventureiroGeralDetalheView(LoginRequiredMixin, View):
             'back_label': 'Voltar para aventureiros' if has_aventureiros else 'Voltar para usuários',
             'can_edit': False,
         }
+        context.update(self._financeiro_responsavel_context(aventureiro, can_manage=has_usuarios))
         context.update(_build_aventureiro_saude_display(aventureiro))
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
+
+    def post(self, request, pk):
+        if not _has_menu_permission(request, 'usuarios'):
+            messages.error(request, 'Seu perfil nao possui permissao para alterar responsavel financeiro.')
+            return redirect('accounts:painel')
+
+        aventureiro = get_object_or_404(Aventureiro, pk=pk)
+        action = str(request.POST.get('action') or '').strip()
+        if action != 'set_financeiro_responsavel':
+            messages.error(request, 'Acao invalida.')
+            return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
+
+        helper = self._financeiro_helper()
+        responsavel_id = str(request.POST.get('financeiro_responsavel_id') or '').strip()
+        if not responsavel_id:
+            responsavel = aventureiro.responsavel
+            user = getattr(responsavel, 'user', None)
+            phone_number = helper._resolve_user_whatsapp_phone(user) if user else ''
+            if not phone_number:
+                messages.error(request, 'O responsavel principal nao possui telefone WhatsApp valido para receber cobrancas.')
+                return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
+            aventureiro.financeiro_responsavel = None
+            aventureiro.save(update_fields=['financeiro_responsavel'])
+            messages.success(request, 'Responsavel financeiro voltou para o responsavel principal do aventureiro.')
+            return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
+
+        if not responsavel_id.isdigit():
+            messages.error(request, 'Responsavel financeiro invalido.')
+            return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
+
+        responsavel = Responsavel.objects.select_related('user').filter(pk=int(responsavel_id)).first()
+        if not responsavel:
+            messages.error(request, 'Responsavel financeiro nao encontrado.')
+            return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
+        user = getattr(responsavel, 'user', None)
+        if not user:
+            messages.error(request, 'O responsavel escolhido nao possui usuario vinculado.')
+            return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
+        phone_number = helper._resolve_user_whatsapp_phone(user)
+        if not phone_number:
+            messages.error(request, 'O responsavel escolhido nao possui telefone WhatsApp valido.')
+            return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
+
+        aventureiro.financeiro_responsavel = responsavel
+        aventureiro.save(update_fields=['financeiro_responsavel'])
+        messages.success(
+            request,
+            f'Responsavel financeiro definido para {helper._responsavel_display_name(responsavel, user)} ({phone_number}).',
+        )
+        return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
 
 
 class EventosView(LoginRequiredMixin, View):
@@ -8580,7 +8677,13 @@ class FinanceiroView(LoginRequiredMixin, View):
                 Q(ano_referencia__lt=hoje.year)
                 | Q(ano_referencia=hoje.year, mes_referencia__lte=hoje.month)
             )
-            .select_related('aventureiro', 'aventureiro__responsavel', 'aventureiro__responsavel__user')
+            .select_related(
+                'aventureiro',
+                'aventureiro__responsavel',
+                'aventureiro__responsavel__user',
+                'aventureiro__financeiro_responsavel',
+                'aventureiro__financeiro_responsavel__user',
+            )
             .order_by(
                 'aventureiro__responsavel__user__username',
                 'aventureiro__nome',
@@ -8595,7 +8698,11 @@ class FinanceiroView(LoginRequiredMixin, View):
         grouped = {}
         for item in pendentes:
             aventureiro = getattr(item, 'aventureiro', None)
-            responsavel = getattr(aventureiro, 'responsavel', None) if aventureiro else None
+            responsavel = (
+                getattr(aventureiro, 'financeiro_responsavel', None)
+                or getattr(aventureiro, 'responsavel', None)
+                if aventureiro else None
+            )
             if not responsavel:
                 continue
             bucket = grouped.setdefault(

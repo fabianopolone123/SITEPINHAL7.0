@@ -157,6 +157,13 @@ class Diretoria(models.Model):
 
 class Aventureiro(models.Model):
     responsavel = models.ForeignKey(Responsavel, on_delete=models.CASCADE, related_name='aventures')
+    financeiro_responsavel = models.ForeignKey(
+        Responsavel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='aventures_financeiro',
+    )
     nome = models.CharField('nome completo', max_length=255)
     sexo = models.CharField('sexo', max_length=32, blank=True)
     nascimento = models.DateField('data de nascimento', null=True, blank=True)

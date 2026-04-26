@@ -17,6 +17,10 @@
     .av-badge-sim { color:#166534; font-weight:700; }
     .av-badge-nao { color:#991b1b; font-weight:700; }
     .av-note { color:#64748b; }
+    .av-financeiro-form { display:grid; gap:.65rem; max-width:720px; }
+    .av-financeiro-form label { display:grid; gap:.3rem; color:#334155; font-weight:700; }
+    .av-financeiro-form select { width:100%; padding:.7rem .8rem; border:1px solid #cbd5e1; border-radius:10px; background:#fff; }
+    .av-financeiro-actions { display:flex; justify-content:flex-end; }
     @media (max-width: 900px) {
       .av-grid { grid-template-columns: 1fr; }
     }
@@ -29,6 +33,16 @@
       <h2>{{ aventureiro.nome }}</h2>
       <p><a href="{% url back_url_name %}">{{ back_label }}</a></p>
     </header>
+
+    <section class="painel-card">
+      <div class="status" aria-live="polite">
+        {% for message in messages %}
+          <p data-state="{{ message.tags }}">{{ message }}</p>
+        {% empty %}
+          <p data-state="info">Cadastro completo do aventureiro.</p>
+        {% endfor %}
+      </div>
+    </section>
 
     <section class="painel-card">
       {% if aventureiro.foto %}
@@ -64,6 +78,54 @@
           </ul>
         </section>
       </div>
+    </section>
+
+    <section class="painel-card">
+      <h3>Responsável financeiro</h3>
+      <p>
+        Atual:
+        <strong>{{ financeiro_responsavel_nome|default:"-" }}</strong>
+        {% if financeiro_responsavel_is_custom %}
+          <span class="av-note">(definido manualmente)</span>
+        {% else %}
+          <span class="av-note">(responsável principal)</span>
+        {% endif %}
+      </p>
+      <p>
+        WhatsApp:
+        {% if financeiro_responsavel_phone_valid %}
+          <span class="av-badge-sim">{{ financeiro_responsavel_phone }}</span>
+        {% else %}
+          <span class="av-badge-nao">Telefone inválido ou ausente</span>
+        {% endif %}
+      </p>
+
+      {% if can_manage_financeiro_responsavel %}
+        <form method="post" class="av-financeiro-form">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="set_financeiro_responsavel" />
+          <label for="financeiro_responsavel_id">
+            Definir responsável financeiro
+            <select id="financeiro_responsavel_id" name="financeiro_responsavel_id">
+              <option value="">Usar responsável principal do aventureiro</option>
+              {% for row in financeiro_responsavel_rows %}
+                <option
+                  value="{{ row.id }}"
+                  {% if financeiro_responsavel_is_custom and financeiro_responsavel_atual and financeiro_responsavel_atual.pk == row.id %}selected{% endif %}
+                  {% if not row.has_valid_phone %}disabled{% endif %}
+                >
+                  {{ row.nome }}{% if row.username %} ({{ row.username }}){% endif %}
+                  - {% if row.has_valid_phone %}WhatsApp {{ row.phone_number }}{% else %}sem WhatsApp válido{% endif %}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+          <p class="av-note">Só é possível salvar responsável financeiro com WhatsApp válido.</p>
+          <div class="av-financeiro-actions">
+            <button type="submit" class="primary">Salvar responsável financeiro</button>
+          </div>
+        </form>
+      {% endif %}
     </section>
 
     <section class="painel-card">

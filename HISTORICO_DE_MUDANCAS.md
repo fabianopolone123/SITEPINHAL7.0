@@ -1093,3 +1093,10 @@ ame e label sem quebrar a tela.
 
 - Adicionado filtro opcional para cobrar um aventureiro especifico na rotina de mensalidades em aberto por WhatsApp.
 - A previa do modal e o envio individual respeitam o aventureiro selecionado, mantendo a opcao de cobrar todos.
+
+## 26/04/2026 - Usuarios: responsavel financeiro por aventureiro
+
+- Adicionado campo de responsavel financeiro no cadastro do aventureiro, com migracao propria.
+- A tela de cadastro completo do aventureiro permite definir o responsavel financeiro quando acessada pelo menu Usuarios.
+- O salvamento valida se o responsavel escolhido possui usuario e telefone WhatsApp valido antes de gravar.
+- A cobranca de mensalidades por WhatsApp passa a usar o responsavel financeiro do aventureiro quando configurado, mantendo fallback para o responsavel principal.
