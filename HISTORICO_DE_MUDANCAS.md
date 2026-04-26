@@ -1059,3 +1059,9 @@ ame e label sem quebrar a tela.
 - Quando encontra pagamento aprovado no Mercado Pago sem webhook aplicado, o sistema corrige o status para pago na hora.
 - Mensagem de retorno mostra resumo separado por Loja e Mensalidades (checados, alterados, pagos_agora e falhas).
 - Janela padrao da verificacao geral: ultimos 30 dias (ate 500 registros por tipo).
+
+## 26/04/2026 - Loja: obrigatoriedade visual em multiplas variacoes
+
+- Removido o bloqueio que exigia selecionar todas as variacoes marcadas como obrigatorias antes de adicionar um produto ao carrinho.
+- Mantida a marcacao visual de item obrigatorio no catalogo, sem impedir a compra quando o responsavel escolher apenas parte das variacoes.
+

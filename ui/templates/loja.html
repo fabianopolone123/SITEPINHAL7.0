@@ -2889,33 +2889,6 @@
           }];
         }
 
-        function getRequiredHardVariants() {
-          if (isMultiMode) {
-            return variationCheckboxes
-              .filter(function (input) { return String(input.dataset.requiredHard || '0') === '1'; })
-              .map(function (input) {
-                const row = input.closest('.catalog-variation-item');
-                const nameEl = row ? row.querySelector('.catalog-var-name') : null;
-                return {
-                  id: String(input.value || '').trim(),
-                  label: String(nameEl ? nameEl.textContent : 'Variação').trim() || 'Variação',
-                };
-              })
-              .filter(function (row) { return !!row.id; });
-          }
-          if (!variationSelect) return [];
-          return Array.from(variationSelect.options)
-            .filter(function (opt) {
-              return !!String(opt.value || '').trim() && String(opt.dataset.requiredHard || '0') === '1';
-            })
-            .map(function (opt) {
-              return {
-                id: String(opt.value || '').trim(),
-                label: String(opt.textContent || 'Variação').trim() || 'Variação',
-              };
-            });
-        }
-
         function updateBySelection() {
           const selectedVariants = getSelectedVariants();
           if (!selectedVariants.length) {
@@ -3024,14 +2997,6 @@
               }
               if (isMultiMode && variationCheckboxes.length) variationCheckboxes[0].focus();
               if (!isMultiMode && variationSelect) variationSelect.focus();
-              return;
-            }
-            const selectedIdsSet = new Set(selectedVariants.map(function (row) { return row.id; }));
-            const requiredHard = getRequiredHardVariants();
-            const missingRequired = requiredHard.filter(function (row) { return !selectedIdsSet.has(row.id); });
-            if (missingRequired.length) {
-              const labels = missingRequired.map(function (row) { return row.label; }).join(', ');
-              if (feedback) feedback.textContent = 'Faltam variações obrigatórias: ' + labels + '.';
               return;
             }
             const varLabel = selectedVariants.map(function (row) { return row.label; }).join(' + ') || 'Variação';
