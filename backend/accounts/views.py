@@ -2981,19 +2981,7 @@ class MeuAventureiroDetalheView(LoginRequiredMixin, View):
             'back_label': 'Voltar para meus dados',
             'can_edit': True,
         }
-        financeiro_responsavel = aventureiro.financeiro_responsavel or aventureiro.responsavel
-        financeiro_user = getattr(financeiro_responsavel, 'user', None) if financeiro_responsavel else None
-        financeiro_helper = FinanceiroView()
-        financeiro_phone = financeiro_helper._resolve_user_whatsapp_phone(financeiro_user) if financeiro_user else ''
-        context.update({
-            'can_manage_financeiro_responsavel': False,
-            'financeiro_responsavel_atual': financeiro_responsavel,
-            'financeiro_responsavel_nome': financeiro_helper._responsavel_display_name(financeiro_responsavel, financeiro_user) if financeiro_responsavel else '-',
-            'financeiro_responsavel_phone': financeiro_phone,
-            'financeiro_responsavel_phone_valid': bool(financeiro_phone),
-            'financeiro_responsavel_is_custom': bool(aventureiro.financeiro_responsavel_id),
-            'financeiro_responsavel_rows': [],
-        })
+        context.update(AventureiroGeralDetalheView()._financeiro_responsavel_context(aventureiro, can_manage=False))
         context.update(_build_aventureiro_saude_display(aventureiro))
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
@@ -3120,34 +3108,68 @@ class AventureiroGeralDetalheView(LoginRequiredMixin, View):
     def _financeiro_helper(self):
         return FinanceiroView()
 
-    def _financeiro_responsavel_rows(self):
-        helper = self._financeiro_helper()
+    def _financeiro_contato_options(self, aventureiro):
+        responsavel = getattr(aventureiro, 'responsavel', None)
+        if not responsavel:
+            return []
+        raw_options = [
+            ('responsavel_celular', responsavel.responsavel_nome or 'Responsavel principal', responsavel.responsavel_celular),
+            ('mae_celular', responsavel.mae_nome or 'Mae', responsavel.mae_celular),
+            ('pai_celular', responsavel.pai_nome or 'Pai', responsavel.pai_celular),
+            ('responsavel_telefone', responsavel.responsavel_nome or 'Responsavel principal', responsavel.responsavel_telefone),
+            ('mae_telefone', responsavel.mae_nome or 'Mae', responsavel.mae_telefone),
+            ('pai_telefone', responsavel.pai_nome or 'Pai', responsavel.pai_telefone),
+        ]
         rows = []
-        for responsavel in Responsavel.objects.select_related('user').order_by('responsavel_nome', 'user__username'):
-            user = getattr(responsavel, 'user', None)
-            phone_number = helper._resolve_user_whatsapp_phone(user) if user else ''
+        seen = set()
+        for key, nome, raw_phone in raw_options:
+            normalized = normalize_phone_number(raw_phone or '')
+            if not raw_phone and not normalized:
+                continue
+            dedupe_key = normalized or f'{key}:{raw_phone}'
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
             rows.append({
-                'id': responsavel.pk,
-                'nome': helper._responsavel_display_name(responsavel, user),
-                'username': user.username if user else '',
-                'phone_number': phone_number,
-                'has_valid_phone': bool(phone_number),
+                'key': key,
+                'nome': nome,
+                'raw_phone': raw_phone or '',
+                'phone_number': normalized,
+                'has_valid_phone': bool(normalized),
             })
         return rows
 
+    def _financeiro_selected_contact(self, aventureiro):
+        options = self._financeiro_contato_options(aventureiro)
+        selected_key = str(getattr(aventureiro, 'financeiro_responsavel_contato', '') or '').strip()
+        selected = next((item for item in options if item['key'] == selected_key), None)
+        if selected:
+            return selected
+        valid = next((item for item in options if item['has_valid_phone']), None)
+        if valid:
+            return valid
+        return options[0] if options else {
+            'key': '',
+            'nome': '-',
+            'raw_phone': '',
+            'phone_number': '',
+            'has_valid_phone': False,
+        }
+
     def _financeiro_responsavel_context(self, aventureiro, can_manage=False):
         helper = self._financeiro_helper()
-        responsavel_financeiro = aventureiro.financeiro_responsavel or aventureiro.responsavel
+        responsavel_financeiro = aventureiro.responsavel
         user = getattr(responsavel_financeiro, 'user', None) if responsavel_financeiro else None
-        phone_number = helper._resolve_user_whatsapp_phone(user) if user else ''
+        selected_contact = self._financeiro_selected_contact(aventureiro)
         return {
             'can_manage_financeiro_responsavel': bool(can_manage),
             'financeiro_responsavel_atual': responsavel_financeiro,
-            'financeiro_responsavel_nome': helper._responsavel_display_name(responsavel_financeiro, user) if responsavel_financeiro else '-',
-            'financeiro_responsavel_phone': phone_number,
-            'financeiro_responsavel_phone_valid': bool(phone_number),
-            'financeiro_responsavel_is_custom': bool(aventureiro.financeiro_responsavel_id),
-            'financeiro_responsavel_rows': self._financeiro_responsavel_rows() if can_manage else [],
+            'financeiro_responsavel_nome': selected_contact.get('nome') or helper._responsavel_display_name(responsavel_financeiro, user),
+            'financeiro_responsavel_phone': selected_contact.get('phone_number') or selected_contact.get('raw_phone') or '',
+            'financeiro_responsavel_phone_valid': bool(selected_contact.get('phone_number')),
+            'financeiro_responsavel_is_custom': bool(aventureiro.financeiro_responsavel_contato),
+            'financeiro_responsavel_contato': selected_contact.get('key') or '',
+            'financeiro_responsavel_rows': self._financeiro_contato_options(aventureiro) if can_manage else [],
         }
 
     def get(self, request, pk):
@@ -3180,42 +3202,28 @@ class AventureiroGeralDetalheView(LoginRequiredMixin, View):
             messages.error(request, 'Acao invalida.')
             return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
 
-        helper = self._financeiro_helper()
-        responsavel_id = str(request.POST.get('financeiro_responsavel_id') or '').strip()
-        if not responsavel_id:
-            responsavel = aventureiro.responsavel
-            user = getattr(responsavel, 'user', None)
-            phone_number = helper._resolve_user_whatsapp_phone(user) if user else ''
-            if not phone_number:
-                messages.error(request, 'O responsavel principal nao possui telefone WhatsApp valido para receber cobrancas.')
-                return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
-            aventureiro.financeiro_responsavel = None
-            aventureiro.save(update_fields=['financeiro_responsavel'])
-            messages.success(request, 'Responsavel financeiro voltou para o responsavel principal do aventureiro.')
+        contato_key = str(request.POST.get('financeiro_responsavel_contato') or '').strip()
+        options = self._financeiro_contato_options(aventureiro)
+        if contato_key == '__auto__':
+            selected = next((item for item in options if item['has_valid_phone']), None)
+        elif not contato_key:
+            selected = self._financeiro_selected_contact(aventureiro)
+        else:
+            selected = next((item for item in options if item['key'] == contato_key), None)
+
+        if not selected:
+            messages.error(request, 'Contato financeiro invalido para este aventureiro.')
+            return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
+        if not selected.get('phone_number'):
+            messages.error(request, 'O contato financeiro escolhido nao possui telefone WhatsApp valido.')
             return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
 
-        if not responsavel_id.isdigit():
-            messages.error(request, 'Responsavel financeiro invalido.')
-            return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
-
-        responsavel = Responsavel.objects.select_related('user').filter(pk=int(responsavel_id)).first()
-        if not responsavel:
-            messages.error(request, 'Responsavel financeiro nao encontrado.')
-            return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
-        user = getattr(responsavel, 'user', None)
-        if not user:
-            messages.error(request, 'O responsavel escolhido nao possui usuario vinculado.')
-            return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
-        phone_number = helper._resolve_user_whatsapp_phone(user)
-        if not phone_number:
-            messages.error(request, 'O responsavel escolhido nao possui telefone WhatsApp valido.')
-            return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
-
-        aventureiro.financeiro_responsavel = responsavel
-        aventureiro.save(update_fields=['financeiro_responsavel'])
+        aventureiro.financeiro_responsavel = None
+        aventureiro.financeiro_responsavel_contato = '' if contato_key == '__auto__' else (selected.get('key') or '')
+        aventureiro.save(update_fields=['financeiro_responsavel', 'financeiro_responsavel_contato'])
         messages.success(
             request,
-            f'Responsavel financeiro definido para {helper._responsavel_display_name(responsavel, user)} ({phone_number}).',
+            f"Responsavel financeiro definido para {selected.get('nome') or 'contato'} ({selected.get('phone_number')}).",
         )
         return redirect('accounts:aventureiro_geral', pk=aventureiro.pk)
 
@@ -8696,19 +8704,23 @@ class FinanceiroView(LoginRequiredMixin, View):
             pendentes_qs = pendentes_qs.filter(aventureiro_id=int(aventureiro_id_text))
         pendentes = list(pendentes_qs)
         grouped = {}
+        contato_helper = AventureiroGeralDetalheView()
         for item in pendentes:
             aventureiro = getattr(item, 'aventureiro', None)
-            responsavel = (
-                getattr(aventureiro, 'financeiro_responsavel', None)
-                or getattr(aventureiro, 'responsavel', None)
-                if aventureiro else None
-            )
+            responsavel = getattr(aventureiro, 'responsavel', None) if aventureiro else None
             if not responsavel:
                 continue
+            contato = contato_helper._financeiro_selected_contact(aventureiro)
+            contato_phone = contato.get('phone_number') or ''
+            contato_nome = contato.get('nome') or self._responsavel_display_name(responsavel, getattr(responsavel, 'user', None))
+            group_key = f"{responsavel.pk}:{contato.get('key') or 'auto'}:{contato_phone or 'sem_telefone'}"
             bucket = grouped.setdefault(
-                responsavel.pk,
+                group_key,
                 {
                     'responsavel': responsavel,
+                    'group_id': group_key,
+                    'recipient_name': contato_nome,
+                    'recipient_phone': contato_phone,
                     'item_ids': [],
                 },
             )
@@ -8719,14 +8731,14 @@ class FinanceiroView(LoginRequiredMixin, View):
         for group in grouped.values():
             responsavel = group['responsavel']
             responsavel_user = getattr(responsavel, 'user', None)
-            phone_number = self._resolve_user_whatsapp_phone(responsavel_user) if responsavel_user else ''
+            phone_number = group.get('recipient_phone') or ''
             items = list(group.get('items') or [])
             total_em_aberto = sum((item.valor for item in items), Decimal('0.00')).quantize(Decimal('0.01'))
             groups.append({
                 'responsavel': responsavel,
                 'responsavel_user': responsavel_user,
-                'responsavel_id': responsavel.pk,
-                'responsavel_nome': self._responsavel_display_name(responsavel, responsavel_user),
+                'responsavel_id': group.get('group_id') or str(responsavel.pk),
+                'responsavel_nome': group.get('recipient_name') or self._responsavel_display_name(responsavel, responsavel_user),
                 'phone_number': phone_number,
                 'has_user': bool(responsavel_user),
                 'has_phone': bool(phone_number),
@@ -8802,7 +8814,7 @@ class FinanceiroView(LoginRequiredMixin, View):
             }
 
         WhatsAppPreference.objects.get_or_create(user=responsavel_user)
-        phone_number = self._resolve_user_whatsapp_phone(responsavel_user)
+        phone_number = group.get('phone_number') or ''
         if not phone_number:
             return {
                 'ok': False,
@@ -9967,7 +9979,7 @@ class FinanceiroView(LoginRequiredMixin, View):
 
         if action == 'enviar_cobranca_mensalidade_responsavel':
             responsavel_id = str(request.POST.get('responsavel_id') or '').strip()
-            if not responsavel_id.isdigit():
+            if not responsavel_id:
                 return JsonResponse({'ok': False, 'status': 'invalid', 'message': 'Responsavel invalido.'}, status=400)
             return JsonResponse(self._send_whatsapp_cobranca_group(responsavel_id, aventureiro_id=cobranca_aventureiro_id))
 

@@ -164,6 +164,7 @@ class Aventureiro(models.Model):
         blank=True,
         related_name='aventures_financeiro',
     )
+    financeiro_responsavel_contato = models.CharField('contato financeiro', max_length=32, blank=True)
     nome = models.CharField('nome completo', max_length=255)
     sexo = models.CharField('sexo', max_length=32, blank=True)
     nascimento = models.DateField('data de nascimento', null=True, blank=True)

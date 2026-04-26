@@ -104,17 +104,17 @@
         <form method="post" class="av-financeiro-form">
           {% csrf_token %}
           <input type="hidden" name="action" value="set_financeiro_responsavel" />
-          <label for="financeiro_responsavel_id">
+          <label for="financeiro_responsavel_contato">
             Definir responsável financeiro
-            <select id="financeiro_responsavel_id" name="financeiro_responsavel_id">
-              <option value="">Usar responsável principal do aventureiro</option>
+            <select id="financeiro_responsavel_contato" name="financeiro_responsavel_contato">
+              <option value="__auto__">Usar primeiro telefone valido do cadastro</option>
               {% for row in financeiro_responsavel_rows %}
                 <option
-                  value="{{ row.id }}"
-                  {% if financeiro_responsavel_is_custom and financeiro_responsavel_atual and financeiro_responsavel_atual.pk == row.id %}selected{% endif %}
+                  value="{{ row.key }}"
+                  {% if financeiro_responsavel_contato == row.key %}selected{% endif %}
                   {% if not row.has_valid_phone %}disabled{% endif %}
                 >
-                  {{ row.nome }}{% if row.username %} ({{ row.username }}){% endif %}
+                  {{ row.nome }}
                   - {% if row.has_valid_phone %}WhatsApp {{ row.phone_number }}{% else %}sem WhatsApp válido{% endif %}
                 </option>
               {% endfor %}

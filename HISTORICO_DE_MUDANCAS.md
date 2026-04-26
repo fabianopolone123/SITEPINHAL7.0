@@ -1100,3 +1100,9 @@ ame e label sem quebrar a tela.
 - A tela de cadastro completo do aventureiro permite definir o responsavel financeiro quando acessada pelo menu Usuarios.
 - O salvamento valida se o responsavel escolhido possui usuario e telefone WhatsApp valido antes de gravar.
 - A cobranca de mensalidades por WhatsApp passa a usar o responsavel financeiro do aventureiro quando configurado, mantendo fallback para o responsavel principal.
+
+## 26/04/2026 - Usuarios: responsavel financeiro limitado ao cadastro do aventureiro
+
+- Corrigida a selecao de responsavel financeiro para listar apenas contatos do proprio cadastro do aventureiro: responsavel principal, mae e pai.
+- Opcoes sem WhatsApp valido ficam desabilitadas, mantendo a validacao no backend antes de salvar.
+- A cobranca WhatsApp usa o contato financeiro escolhido no cadastro do aventureiro, agrupando por telefone/contato selecionado.
