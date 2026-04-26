@@ -8540,6 +8540,35 @@ class FinanceiroView(LoginRequiredMixin, View):
         value = max(0.0, min(value, 60.0))
         return int(round(value))
 
+    def _resolve_user_whatsapp_phone(self, user):
+        if not user:
+            return ''
+        candidates = []
+        pref = getattr(user, 'whatsapp_preference', None)
+        if pref and getattr(pref, 'phone_number', ''):
+            candidates.append(pref.phone_number)
+        fallback_phone = resolve_user_phone(user)
+        if fallback_phone:
+            candidates.append(fallback_phone)
+        for raw_phone in candidates:
+            phone_number = normalize_phone_number(raw_phone)
+            if phone_number:
+                return phone_number
+        return ''
+
+    def _responsavel_display_name(self, responsavel, user=None):
+        if not responsavel:
+            return getattr(user, 'username', '') or '-'
+        user = user or getattr(responsavel, 'user', None)
+        return (
+            responsavel.responsavel_nome
+            or responsavel.mae_nome
+            or responsavel.pai_nome
+            or (user.get_full_name() if user else '')
+            or (user.username if user else '')
+            or '-'
+        ).strip()
+
     def _send_whatsapp_cobranca_mensalidades(self, pause_seconds=4):
         hoje = timezone.localdate()
         pendentes = list(
@@ -8598,6 +8627,7 @@ class FinanceiroView(LoginRequiredMixin, View):
         skipped_sem_usuario_responsaveis = 0
         skipped_sem_telefone_responsaveis = 0
         skipped_ja_cobradas_responsaveis = 0
+        skipped_sem_telefone_labels = []
 
         template = get_template_message(WhatsAppTemplate.TYPE_COBRANCA_MENSALIDADE)
         mes_referencia_label = f'{self._month_label(hoje.month)}/{hoje.year}'
@@ -8611,9 +8641,10 @@ class FinanceiroView(LoginRequiredMixin, View):
                 continue
 
             pref, _ = WhatsAppPreference.objects.get_or_create(user=responsavel_user)
-            phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(responsavel_user))
+            phone_number = self._resolve_user_whatsapp_phone(responsavel_user)
             if not phone_number:
                 skipped_sem_telefone_responsaveis += 1
+                skipped_sem_telefone_labels.append(self._responsavel_display_name(responsavel, responsavel_user))
                 continue
 
             locked_items = []
@@ -8639,13 +8670,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                     cobranca_whatsapp_enviada_at__isnull=True,
                 ).update(cobranca_whatsapp_enviada_at=claimed_at)
 
-            responsavel_nome = (
-                responsavel.responsavel_nome
-                or responsavel.mae_nome
-                or responsavel.pai_nome
-                or responsavel_user.get_full_name()
-                or responsavel_user.username
-            ).strip()
+            responsavel_nome = self._responsavel_display_name(responsavel, responsavel_user)
             total_em_aberto = sum((item.valor for item in locked_items), Decimal('0.00')).quantize(Decimal('0.01'))
             itens_text = '\n'.join(
                 f"- {item.aventureiro.nome} - {item.get_tipo_display()} - {self._month_label(item.mes_referencia)}/{item.ano_referencia} ({self._format_currency(item.valor)})"
@@ -8703,6 +8728,7 @@ class FinanceiroView(LoginRequiredMixin, View):
             'failed_mensalidades': failed_mensalidades,
             'skipped_sem_usuario_responsaveis': skipped_sem_usuario_responsaveis,
             'skipped_sem_telefone_responsaveis': skipped_sem_telefone_responsaveis,
+            'skipped_sem_telefone_labels': skipped_sem_telefone_labels[:10],
             'skipped_ja_cobradas_responsaveis': skipped_ja_cobradas_responsaveis,
             'pause_seconds': pause_seconds,
         }
@@ -9736,6 +9762,12 @@ class FinanceiroView(LoginRequiredMixin, View):
                             f"pausa={result.get('pause_seconds', 0)}s"
                         ),
                     )
+                    sem_telefone_labels = result.get('skipped_sem_telefone_labels') or []
+                    if sem_telefone_labels:
+                        messages.warning(
+                            request,
+                            'Responsaveis sem telefone WhatsApp valido: ' + ', '.join(sem_telefone_labels),
+                        )
         elif action == 'gerar_mensalidades':
             aventureiro = Aventureiro.objects.filter(pk=aventureiro_id).select_related('responsavel', 'responsavel__user').first()
             if not aventureiro:

@@ -1071,3 +1071,8 @@ ame e label sem quebrar a tela.
 - Adicionada confirmacao antes de enviar cobrancas de mensalidades em aberto por WhatsApp.
 - Ajustada renderizacao de templates WhatsApp para nao abortar o envio quando houver placeholder ausente ou template malformado.
 - Validado que a cobranca continua usando mensalidades pendentes do mes atual e anteriores, agrupadas por responsavel.
+
+## 26/04/2026 - Financeiro: diagnostico de telefone na cobranca WhatsApp
+
+- A cobranca de mensalidades agora tenta usar o telefone do cadastro do responsavel quando a preferencia WhatsApp estiver vazia ou invalida.
+- O retorno da cobranca passa a listar os responsaveis sem telefone WhatsApp valido para facilitar correcao na producao.
