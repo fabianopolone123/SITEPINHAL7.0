@@ -12591,17 +12591,29 @@ class UsuarioDetalheView(LoginRequiredMixin, View):
 class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
     template_name = 'usuario_permissoes_editar.html'
     merge_lookup_limit = 200
+    responsavel_phone_fields = (
+        'responsavel_celular',
+        'mae_celular',
+        'pai_celular',
+        'responsavel_telefone',
+        'mae_telefone',
+        'pai_telefone',
+    )
 
     def _responsavel_phone_options(self, responsavel):
         if not responsavel:
             return []
+        labels = {
+            'responsavel_celular': 'Celular do responsavel',
+            'mae_celular': 'Celular da mae',
+            'pai_celular': 'Celular do pai',
+            'responsavel_telefone': 'Telefone do responsavel',
+            'mae_telefone': 'Telefone da mae',
+            'pai_telefone': 'Telefone do pai',
+        }
         options = [
-            ('responsavel_celular', 'Celular do responsavel', responsavel.responsavel_celular),
-            ('mae_celular', 'Celular da mae', responsavel.mae_celular),
-            ('pai_celular', 'Celular do pai', responsavel.pai_celular),
-            ('responsavel_telefone', 'Telefone do responsavel', responsavel.responsavel_telefone),
-            ('mae_telefone', 'Telefone da mae', responsavel.mae_telefone),
-            ('pai_telefone', 'Telefone do pai', responsavel.pai_telefone),
+            (field_name, labels[field_name], getattr(responsavel, field_name, ''))
+            for field_name in self.responsavel_phone_fields
         ]
         rows = []
         for key, label, raw_value in options:
@@ -12777,6 +12789,70 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
                 request,
                 f'Unificação concluída: "{source_user.username}" foi incorporado em "{target_user.username}".',
             )
+            return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
+
+        if action == 'update_responsavel_phones':
+            responsavel = getattr(target_user, 'responsavel', None)
+            if not responsavel:
+                messages.error(request, 'Este usuario nao possui cadastro de responsavel.')
+                return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
+
+            old_options = self._responsavel_phone_options(responsavel)
+            old_normalized_by_field = {
+                item['key']: item['normalized']
+                for item in old_options
+                if item['normalized']
+            }
+            posted_values = {}
+            for field_name in self.responsavel_phone_fields:
+                value = str(request.POST.get(field_name) or '').strip()
+                if len(value) > 32:
+                    messages.error(request, 'Um dos telefones ultrapassa 32 caracteres.')
+                    return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
+                posted_values[field_name] = value
+
+            pref = WhatsAppPreference.objects.filter(user=target_user).first()
+            old_pref_phone = normalize_phone_number(pref.phone_number) if pref and pref.phone_number else ''
+            matched_pref_field = next(
+                (
+                    field_name for field_name, normalized in old_normalized_by_field.items()
+                    if old_pref_phone and normalized == old_pref_phone
+                ),
+                '',
+            )
+
+            changed_fields = []
+            for field_name, value in posted_values.items():
+                if getattr(responsavel, field_name, '') != value:
+                    setattr(responsavel, field_name, value)
+                    changed_fields.append(field_name)
+
+            if changed_fields:
+                responsavel.save(update_fields=changed_fields)
+
+            new_options = self._responsavel_phone_options(responsavel)
+            valid_count = sum(1 for item in new_options if item['is_valid'])
+            if matched_pref_field:
+                pref, _ = WhatsAppPreference.objects.get_or_create(user=target_user)
+                matched_option = next((item for item in new_options if item['key'] == matched_pref_field), None)
+                pref.phone_number = matched_option['normalized'] if matched_option and matched_option['is_valid'] else ''
+                pref.save(update_fields=['phone_number', 'updated_at'])
+
+            record_audit(
+                action='Alteracao telefones responsavel',
+                user=request.user,
+                request=request,
+                location='Usuarios',
+                details=(
+                    f'Usuario "{target_user.username}" | '
+                    f'Campos={",".join(changed_fields) or "-"} | '
+                    f'Telefones WhatsApp validos={valid_count}'
+                ),
+            )
+            if valid_count:
+                messages.success(request, f'Telefones atualizados. {valid_count} telefone(s) valido(s) para WhatsApp.')
+            else:
+                messages.warning(request, 'Telefones atualizados, mas nenhum numero ficou valido para WhatsApp. Confira DDD e numero.')
             return redirect('accounts:editar_usuario_permissoes', pk=target_user.pk)
 
         if action == 'save_whatsapp_phone':

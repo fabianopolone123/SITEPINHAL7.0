@@ -1106,3 +1106,9 @@ ame e label sem quebrar a tela.
 - Corrigida a selecao de responsavel financeiro para listar apenas contatos do proprio cadastro do aventureiro: responsavel principal, mae e pai.
 - Opcoes sem WhatsApp valido ficam desabilitadas, mantendo a validacao no backend antes de salvar.
 - A cobranca WhatsApp usa o contato financeiro escolhido no cadastro do aventureiro, agrupando por telefone/contato selecionado.
+
+## 26/04/2026 - Usuarios: edicao de telefones do responsavel
+
+- A tela Editar permissoes/WhatsApp agora permite ao diretor corrigir os telefones do cadastro do responsavel.
+- O salvamento altera somente os campos de telefone/celular do pai, mae e responsavel legal.
+- A tela indica quais numeros ficaram validos para WhatsApp e mantem a preferencia de WhatsApp atualizada quando o telefone escolhido e corrigido.

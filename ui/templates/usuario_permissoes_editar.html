@@ -6,6 +6,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Editar permissões</title>
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <style>
+    .usuario-phones-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: .75rem;
+    }
+    .usuario-phone-field {
+      display: grid;
+      gap: .35rem;
+    }
+    .usuario-phone-field small {
+      color: #64748b;
+      font-weight: 600;
+    }
+    .usuario-phone-valid {
+      color: #166534;
+    }
+    .usuario-phone-invalid {
+      color: #991b1b;
+    }
+  </style>
 </head>
 <body class="painel-page">
   {% include '_painel_sidebar.html' %}
@@ -40,6 +61,39 @@
     </form>
 
     {% if show_whatsapp_selector %}
+    <form method="post" class="login-card form-card">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="update_responsavel_phones" />
+      <h3>Telefones do responsavel</h3>
+      <p>Edite somente os telefones do cadastro do responsavel. Use DDD para o WhatsApp ficar valido.</p>
+
+      <div class="usuario-phones-grid">
+        {% for item in responsavel_whatsapp_options %}
+          <label class="usuario-phone-field">
+            {{ item.label }}
+            <input
+              type="text"
+              name="{{ item.key }}"
+              value="{{ item.raw_value }}"
+              maxlength="32"
+              placeholder="DDD + numero"
+            />
+            {% if item.raw_value %}
+              {% if item.is_valid %}
+                <small class="usuario-phone-valid">WhatsApp valido: {{ item.normalized }}</small>
+              {% else %}
+                <small class="usuario-phone-invalid">Invalido para WhatsApp. Confira DDD e numero.</small>
+              {% endif %}
+            {% else %}
+              <small>Sem numero cadastrado.</small>
+            {% endif %}
+          </label>
+        {% endfor %}
+      </div>
+
+      <button type="submit" class="secondary">Salvar telefones</button>
+    </form>
+
     <form method="post" class="login-card form-card">
       {% csrf_token %}
       <input type="hidden" name="action" value="save_whatsapp_phone" />
