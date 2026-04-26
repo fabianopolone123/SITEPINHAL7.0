@@ -8575,7 +8575,6 @@ class FinanceiroView(LoginRequiredMixin, View):
             MensalidadeAventureiro.objects
             .filter(
                 status=MensalidadeAventureiro.STATUS_PENDENTE,
-                cobranca_whatsapp_enviada_at__isnull=True,
             )
             .filter(
                 Q(ano_referencia__lt=hoje.year)
@@ -8599,7 +8598,6 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'failed_mensalidades': 0,
                 'skipped_sem_usuario_responsaveis': 0,
                 'skipped_sem_telefone_responsaveis': 0,
-                'skipped_ja_cobradas_responsaveis': 0,
                 'pause_seconds': int(pause_seconds),
             }
 
@@ -8626,7 +8624,6 @@ class FinanceiroView(LoginRequiredMixin, View):
         failed_mensalidades = 0
         skipped_sem_usuario_responsaveis = 0
         skipped_sem_telefone_responsaveis = 0
-        skipped_ja_cobradas_responsaveis = 0
         skipped_sem_telefone_labels = []
 
         template = get_template_message(WhatsAppTemplate.TYPE_COBRANCA_MENSALIDADE)
@@ -8656,18 +8653,15 @@ class FinanceiroView(LoginRequiredMixin, View):
                     .filter(
                         pk__in=(group.get('item_ids') or []),
                         status=MensalidadeAventureiro.STATUS_PENDENTE,
-                        cobranca_whatsapp_enviada_at__isnull=True,
                     )
                     .select_related('aventureiro')
                     .order_by('aventureiro__nome', 'ano_referencia', 'mes_referencia')
                 )
                 if not locked_items:
-                    skipped_ja_cobradas_responsaveis += 1
                     continue
                 claimed_at = timezone.now()
                 MensalidadeAventureiro.objects.filter(
                     pk__in=[item.pk for item in locked_items],
-                    cobranca_whatsapp_enviada_at__isnull=True,
                 ).update(cobranca_whatsapp_enviada_at=claimed_at)
 
             responsavel_nome = self._responsavel_display_name(responsavel, responsavel_user)
@@ -8729,7 +8723,6 @@ class FinanceiroView(LoginRequiredMixin, View):
             'skipped_sem_usuario_responsaveis': skipped_sem_usuario_responsaveis,
             'skipped_sem_telefone_responsaveis': skipped_sem_telefone_responsaveis,
             'skipped_sem_telefone_labels': skipped_sem_telefone_labels[:10],
-            'skipped_ja_cobradas_responsaveis': skipped_ja_cobradas_responsaveis,
             'pause_seconds': pause_seconds,
         }
 
@@ -9746,7 +9739,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                 if result.get('total_mensalidades', 0) <= 0:
                     messages.info(
                         request,
-                        'Nenhuma mensalidade pendente (mes atual e anteriores) sem cobranca enviada foi encontrada.',
+                        'Nenhuma mensalidade pendente (mes atual e anteriores) foi encontrada.',
                     )
                 else:
                     messages.success(
@@ -9757,7 +9750,6 @@ class FinanceiroView(LoginRequiredMixin, View):
                             f"mensalidades_notificadas={result.get('sent_mensalidades', 0)} | "
                             f"sem_telefone={result.get('skipped_sem_telefone_responsaveis', 0)} | "
                             f"sem_usuario={result.get('skipped_sem_usuario_responsaveis', 0)} | "
-                            f"ja_cobradas={result.get('skipped_ja_cobradas_responsaveis', 0)} | "
                             f"falhas={result.get('failed_responsaveis', 0)} | "
                             f"pausa={result.get('pause_seconds', 0)}s"
                         ),

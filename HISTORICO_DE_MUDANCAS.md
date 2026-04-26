@@ -1076,3 +1076,9 @@ ame e label sem quebrar a tela.
 
 - A cobranca de mensalidades agora tenta usar o telefone do cadastro do responsavel quando a preferencia WhatsApp estiver vazia ou invalida.
 - O retorno da cobranca passa a listar os responsaveis sem telefone WhatsApp valido para facilitar correcao na producao.
+
+## 26/04/2026 - Financeiro: permitir recobranca WhatsApp
+
+- Removida a restricao que impedia reenviar cobranca WhatsApp para mensalidades que ja haviam sido cobradas antes.
+- A cobranca em massa agora considera todas as mensalidades pendentes do mes atual e anteriores, mantendo agrupamento por responsavel.
+- Atualizado o texto da tela e o resumo do envio para remover o contador de ja cobradas.
