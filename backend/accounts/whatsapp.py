@@ -303,11 +303,19 @@ def queue_stats():
 
 
 def render_message(template, payload):
+    class SafePayload(dict):
+        def __missing__(self, key):
+            return ''
+
     base = (template or '').strip() or DEFAULT_CADASTRO_MESSAGE
+    safe_payload = SafePayload({
+        key: '' if value is None else value
+        for key, value in (payload or {}).items()
+    })
     try:
-        return base.format(**payload)
+        return base.format_map(safe_payload)
     except Exception:  # noqa: BLE001
-        return DEFAULT_CADASTRO_MESSAGE.format(**payload)
+        return base
 
 
 def get_template_message(notification_type):

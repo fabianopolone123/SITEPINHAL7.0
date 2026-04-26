@@ -1065,3 +1065,9 @@ ame e label sem quebrar a tela.
 - Removido o bloqueio que exigia selecionar todas as variacoes marcadas como obrigatorias antes de adicionar um produto ao carrinho.
 - Mantida a marcacao visual de item obrigatorio no catalogo, sem impedir a compra quando o responsavel escolher apenas parte das variacoes.
 
+
+## 26/04/2026 - Financeiro: confirmacao e robustez na cobranca WhatsApp
+
+- Adicionada confirmacao antes de enviar cobrancas de mensalidades em aberto por WhatsApp.
+- Ajustada renderizacao de templates WhatsApp para nao abortar o envio quando houver placeholder ausente ou template malformado.
+- Validado que a cobranca continua usando mensalidades pendentes do mes atual e anteriores, agrupadas por responsavel.

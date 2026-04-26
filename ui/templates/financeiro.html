@@ -616,7 +616,7 @@
           </div>
         </div>
       </form>
-      <form method="post" class="financeiro-inline-toolbar">
+      <form method="post" class="financeiro-inline-toolbar" id="cobrancaMensalidadesForm">
         {% csrf_token %}
         <input type="hidden" name="action" value="enviar_cobranca_mensalidades" />
         <input type="hidden" name="aventureiro_id" value="{{ selected_aventureiro_id|default:'' }}" />
@@ -866,6 +866,8 @@
       const excluirBtn = document.getElementById('mensalidadeModalExcluir');
       const toggleStatusBtn = document.getElementById('mensalidadeModalToggleStatus');
       const seletorValorTela = document.getElementById('valor_mensalidade');
+      const cobrancaForm = document.getElementById('cobrancaMensalidadesForm');
+      const cobrancaPauseInput = document.getElementById('cobranca_pause_seconds');
 
       function openModal(trigger) {
         idInput.value = trigger.dataset.id || '';
@@ -934,6 +936,20 @@
         toggleStatusBtn.addEventListener('click', function () {
           actionInput.value = statusInput.value === 'paga' ? 'marcar_mensalidade_pendente' : 'marcar_mensalidade_paga';
           valorInput.required = false;
+        });
+      }
+
+      if (cobrancaForm) {
+        cobrancaForm.addEventListener('submit', function (event) {
+          const pauseSeconds = cobrancaPauseInput ? String(cobrancaPauseInput.value || '0').trim() : '0';
+          const confirmed = window.confirm(
+            'Deseja enviar cobranca de mensalidades em aberto por WhatsApp agora?\n\n' +
+            'O sistema vai enviar para responsaveis com mensalidades pendentes do mes atual e anteriores. ' +
+            'Pausa entre envios: ' + (pauseSeconds || '0') + ' segundo(s).'
+          );
+          if (!confirmed) {
+            event.preventDefault();
+          }
         });
       }
     })();
