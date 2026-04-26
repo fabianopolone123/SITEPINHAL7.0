@@ -8569,7 +8569,7 @@ class FinanceiroView(LoginRequiredMixin, View):
             or '-'
         ).strip()
 
-    def _send_whatsapp_cobranca_mensalidades(self, pause_seconds=4):
+    def _cobranca_mensalidades_groups(self):
         hoje = timezone.localdate()
         pendentes = list(
             MensalidadeAventureiro.objects
@@ -8588,19 +8588,6 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'mes_referencia',
             )
         )
-        if not pendentes:
-            return {
-                'total_responsaveis': 0,
-                'total_mensalidades': 0,
-                'sent_responsaveis': 0,
-                'sent_mensalidades': 0,
-                'failed_responsaveis': 0,
-                'failed_mensalidades': 0,
-                'skipped_sem_usuario_responsaveis': 0,
-                'skipped_sem_telefone_responsaveis': 0,
-                'pause_seconds': int(pause_seconds),
-            }
-
         grouped = {}
         for item in pendentes:
             aventureiro = getattr(item, 'aventureiro', None)
@@ -8615,8 +8602,210 @@ class FinanceiroView(LoginRequiredMixin, View):
                 },
             )
             bucket['item_ids'].append(item.pk)
+            bucket.setdefault('items', []).append(item)
 
-        groups = list(grouped.values())
+        groups = []
+        for group in grouped.values():
+            responsavel = group['responsavel']
+            responsavel_user = getattr(responsavel, 'user', None)
+            phone_number = self._resolve_user_whatsapp_phone(responsavel_user) if responsavel_user else ''
+            items = list(group.get('items') or [])
+            total_em_aberto = sum((item.valor for item in items), Decimal('0.00')).quantize(Decimal('0.01'))
+            groups.append({
+                'responsavel': responsavel,
+                'responsavel_user': responsavel_user,
+                'responsavel_id': responsavel.pk,
+                'responsavel_nome': self._responsavel_display_name(responsavel, responsavel_user),
+                'phone_number': phone_number,
+                'has_user': bool(responsavel_user),
+                'has_phone': bool(phone_number),
+                'item_ids': list(group.get('item_ids') or []),
+                'items': items,
+                'total_em_aberto': total_em_aberto,
+                'total_em_aberto_fmt': self._format_currency(total_em_aberto),
+                'itens_count': len(items),
+                'itens_preview': [
+                    {
+                        'mensalidade_id': item.pk,
+                        'aventureiro_nome': item.aventureiro.nome,
+                        'tipo': item.get_tipo_display(),
+                        'competencia': f'{self._month_label(item.mes_referencia)}/{item.ano_referencia}',
+                        'valor': self._format_currency(item.valor),
+                    }
+                    for item in items
+                ],
+            })
+        return groups
+
+    def _cobranca_mensalidades_preview_payload(self):
+        groups = self._cobranca_mensalidades_groups()
+        return {
+            'ok': True,
+            'total_responsaveis': len(groups),
+            'total_mensalidades': sum(group.get('itens_count') or 0 for group in groups),
+            'groups': [
+                {
+                    'responsavel_id': group['responsavel_id'],
+                    'responsavel_nome': group['responsavel_nome'],
+                    'phone_number': group['phone_number'],
+                    'has_user': group['has_user'],
+                    'has_phone': group['has_phone'],
+                    'itens_count': group['itens_count'],
+                    'total_em_aberto': group['total_em_aberto_fmt'],
+                    'itens_preview': group['itens_preview'],
+                }
+                for group in groups
+            ],
+        }
+
+    def _send_whatsapp_cobranca_group(self, responsavel_id):
+        group = next(
+            (
+                item for item in self._cobranca_mensalidades_groups()
+                if str(item.get('responsavel_id')) == str(responsavel_id)
+            ),
+            None,
+        )
+        if not group:
+            return {
+                'ok': False,
+                'status': 'skipped',
+                'message': 'Nao ha mensalidades pendentes elegiveis para este responsavel.',
+                'sent_mensalidades': 0,
+                'failed_mensalidades': 0,
+            }
+
+        responsavel = group['responsavel']
+        responsavel_user = group['responsavel_user']
+        responsavel_nome = group['responsavel_nome']
+        if not responsavel_user:
+            return {
+                'ok': False,
+                'status': 'sem_usuario',
+                'message': 'Responsavel sem usuario vinculado.',
+                'responsavel_id': group['responsavel_id'],
+                'responsavel_nome': responsavel_nome,
+                'sent_mensalidades': 0,
+                'failed_mensalidades': 0,
+            }
+
+        WhatsAppPreference.objects.get_or_create(user=responsavel_user)
+        phone_number = self._resolve_user_whatsapp_phone(responsavel_user)
+        if not phone_number:
+            return {
+                'ok': False,
+                'status': 'sem_telefone',
+                'message': 'Responsavel sem telefone WhatsApp valido.',
+                'responsavel_id': group['responsavel_id'],
+                'responsavel_nome': responsavel_nome,
+                'sent_mensalidades': 0,
+                'failed_mensalidades': 0,
+            }
+
+        locked_items = []
+        claimed_at = None
+        with transaction.atomic():
+            locked_items = list(
+                MensalidadeAventureiro.objects
+                .select_for_update()
+                .filter(
+                    pk__in=(group.get('item_ids') or []),
+                    status=MensalidadeAventureiro.STATUS_PENDENTE,
+                )
+                .select_related('aventureiro')
+                .order_by('aventureiro__nome', 'ano_referencia', 'mes_referencia')
+            )
+            if not locked_items:
+                return {
+                    'ok': False,
+                    'status': 'skipped',
+                    'message': 'As mensalidades deste responsavel nao estao mais pendentes.',
+                    'responsavel_id': group['responsavel_id'],
+                    'responsavel_nome': responsavel_nome,
+                    'sent_mensalidades': 0,
+                    'failed_mensalidades': 0,
+                }
+            claimed_at = timezone.now()
+            MensalidadeAventureiro.objects.filter(pk__in=[item.pk for item in locked_items]).update(
+                cobranca_whatsapp_enviada_at=claimed_at
+            )
+
+        hoje = timezone.localdate()
+        template = get_template_message(WhatsAppTemplate.TYPE_COBRANCA_MENSALIDADE)
+        total_em_aberto = sum((item.valor for item in locked_items), Decimal('0.00')).quantize(Decimal('0.01'))
+        itens_text = '\n'.join(
+            f"- {item.aventureiro.nome} - {item.get_tipo_display()} - {self._month_label(item.mes_referencia)}/{item.ano_referencia} ({self._format_currency(item.valor)})"
+            for item in locked_items
+        )
+        message_text = render_message(template, {
+            'responsavel_nome': responsavel_nome or responsavel_user.username,
+            'mensalidades_em_aberto': itens_text,
+            'valor_total_em_aberto': self._format_currency(total_em_aberto),
+            'quantidade_cobrancas': str(len(locked_items)),
+            'mes_referencia': f'{self._month_label(hoje.month)}/{hoje.year}',
+            'data_hora': timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M:%S'),
+        })
+
+        queue_item = WhatsAppQueue.objects.create(
+            user=responsavel_user,
+            phone_number=phone_number,
+            notification_type=WhatsAppQueue.TYPE_COBRANCA_MENSALIDADE,
+            message_text=message_text,
+            status=WhatsAppQueue.STATUS_PENDING,
+        )
+        success, provider_id, error_message = send_wapi_text(phone_number, message_text)
+        queue_item.attempts = 1
+        if success:
+            queue_item.status = WhatsAppQueue.STATUS_SENT
+            queue_item.provider_message_id = provider_id
+            queue_item.sent_at = timezone.now()
+            queue_item.last_error = ''
+            queue_item.save(update_fields=['status', 'attempts', 'provider_message_id', 'sent_at', 'last_error'])
+            return {
+                'ok': True,
+                'status': 'sent',
+                'message': 'Enviado',
+                'responsavel_id': group['responsavel_id'],
+                'responsavel_nome': responsavel_nome,
+                'phone_number': phone_number,
+                'sent_mensalidades': len(locked_items),
+                'failed_mensalidades': 0,
+            }
+
+        queue_item.status = WhatsAppQueue.STATUS_FAILED
+        queue_item.last_error = error_message
+        queue_item.save(update_fields=['status', 'attempts', 'provider_message_id', 'sent_at', 'last_error'])
+        if claimed_at:
+            MensalidadeAventureiro.objects.filter(
+                pk__in=[item.pk for item in locked_items],
+                cobranca_whatsapp_enviada_at=claimed_at,
+            ).update(cobranca_whatsapp_enviada_at=None)
+        return {
+            'ok': False,
+            'status': 'failed',
+            'message': error_message or 'Falha no envio.',
+            'responsavel_id': group['responsavel_id'],
+            'responsavel_nome': responsavel_nome,
+            'phone_number': phone_number,
+            'sent_mensalidades': 0,
+            'failed_mensalidades': len(locked_items),
+        }
+
+    def _send_whatsapp_cobranca_mensalidades(self, pause_seconds=4):
+        groups = self._cobranca_mensalidades_groups()
+        if not groups:
+            return {
+                'total_responsaveis': 0,
+                'total_mensalidades': 0,
+                'sent_responsaveis': 0,
+                'sent_mensalidades': 0,
+                'failed_responsaveis': 0,
+                'failed_mensalidades': 0,
+                'skipped_sem_usuario_responsaveis': 0,
+                'skipped_sem_telefone_responsaveis': 0,
+                'pause_seconds': int(pause_seconds),
+            }
+
         total_mensalidades = sum(len(group.get('item_ids') or []) for group in groups)
         sent_responsaveis = 0
         sent_mensalidades = 0
@@ -8626,89 +8815,21 @@ class FinanceiroView(LoginRequiredMixin, View):
         skipped_sem_telefone_responsaveis = 0
         skipped_sem_telefone_labels = []
 
-        template = get_template_message(WhatsAppTemplate.TYPE_COBRANCA_MENSALIDADE)
-        mes_referencia_label = f'{self._month_label(hoje.month)}/{hoje.year}'
         pause_seconds = int(max(0, min(int(pause_seconds), 60)))
 
         for group in groups:
-            responsavel = group['responsavel']
-            responsavel_user = getattr(responsavel, 'user', None)
-            if not responsavel_user:
+            result = self._send_whatsapp_cobranca_group(group.get('responsavel_id'))
+            if result.get('status') == 'sem_usuario':
                 skipped_sem_usuario_responsaveis += 1
-                continue
-
-            pref, _ = WhatsAppPreference.objects.get_or_create(user=responsavel_user)
-            phone_number = self._resolve_user_whatsapp_phone(responsavel_user)
-            if not phone_number:
+            elif result.get('status') == 'sem_telefone':
                 skipped_sem_telefone_responsaveis += 1
-                skipped_sem_telefone_labels.append(self._responsavel_display_name(responsavel, responsavel_user))
-                continue
-
-            locked_items = []
-            claimed_at = None
-            with transaction.atomic():
-                locked_items = list(
-                    MensalidadeAventureiro.objects
-                    .select_for_update()
-                    .filter(
-                        pk__in=(group.get('item_ids') or []),
-                        status=MensalidadeAventureiro.STATUS_PENDENTE,
-                    )
-                    .select_related('aventureiro')
-                    .order_by('aventureiro__nome', 'ano_referencia', 'mes_referencia')
-                )
-                if not locked_items:
-                    continue
-                claimed_at = timezone.now()
-                MensalidadeAventureiro.objects.filter(
-                    pk__in=[item.pk for item in locked_items],
-                ).update(cobranca_whatsapp_enviada_at=claimed_at)
-
-            responsavel_nome = self._responsavel_display_name(responsavel, responsavel_user)
-            total_em_aberto = sum((item.valor for item in locked_items), Decimal('0.00')).quantize(Decimal('0.01'))
-            itens_text = '\n'.join(
-                f"- {item.aventureiro.nome} - {item.get_tipo_display()} - {self._month_label(item.mes_referencia)}/{item.ano_referencia} ({self._format_currency(item.valor)})"
-                for item in locked_items
-            )
-            payload = {
-                'responsavel_nome': responsavel_nome or responsavel_user.username,
-                'mensalidades_em_aberto': itens_text,
-                'valor_total_em_aberto': self._format_currency(total_em_aberto),
-                'quantidade_cobrancas': str(len(locked_items)),
-                'mes_referencia': mes_referencia_label,
-                'data_hora': timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M:%S'),
-            }
-            message_text = render_message(template, payload)
-
-            queue_item = WhatsAppQueue.objects.create(
-                user=responsavel_user,
-                phone_number=phone_number,
-                notification_type=WhatsAppQueue.TYPE_COBRANCA_MENSALIDADE,
-                message_text=message_text,
-                status=WhatsAppQueue.STATUS_PENDING,
-            )
-            success, provider_id, error_message = send_wapi_text(phone_number, message_text)
-            queue_item.attempts = 1
-            if success:
-                queue_item.status = WhatsAppQueue.STATUS_SENT
-                queue_item.provider_message_id = provider_id
-                queue_item.sent_at = timezone.now()
-                queue_item.last_error = ''
+                skipped_sem_telefone_labels.append(result.get('responsavel_nome') or '-')
+            elif result.get('ok'):
                 sent_responsaveis += 1
-                sent_mensalidades += len(locked_items)
-            else:
-                queue_item.status = WhatsAppQueue.STATUS_FAILED
-                queue_item.last_error = error_message
+                sent_mensalidades += int(result.get('sent_mensalidades') or 0)
+            elif result.get('status') == 'failed':
                 failed_responsaveis += 1
-                failed_mensalidades += len(locked_items)
-                if claimed_at:
-                    MensalidadeAventureiro.objects.filter(
-                        pk__in=[item.pk for item in locked_items],
-                        cobranca_whatsapp_enviada_at=claimed_at,
-                    ).update(cobranca_whatsapp_enviada_at=None)
-            queue_item.save(
-                update_fields=['status', 'attempts', 'provider_message_id', 'sent_at', 'last_error']
-            )
+                failed_mensalidades += int(result.get('failed_mensalidades') or 0)
 
             if pause_seconds > 0:
                 time.sleep(pause_seconds)
@@ -9728,6 +9849,15 @@ class FinanceiroView(LoginRequiredMixin, View):
         aventureiro_id = str(request.POST.get('aventureiro_id') or '').strip()
         valor_input = str(request.POST.get('valor_mensalidade') or '30').strip()
         pause_input = str(request.POST.get('cobranca_pause_seconds') or '4').strip()
+        if action == 'preview_cobranca_mensalidades':
+            return JsonResponse(self._cobranca_mensalidades_preview_payload())
+
+        if action == 'enviar_cobranca_mensalidade_responsavel':
+            responsavel_id = str(request.POST.get('responsavel_id') or '').strip()
+            if not responsavel_id.isdigit():
+                return JsonResponse({'ok': False, 'status': 'invalid', 'message': 'Responsavel invalido.'}, status=400)
+            return JsonResponse(self._send_whatsapp_cobranca_group(responsavel_id))
+
         if action == 'enviar_cobranca_mensalidades':
             pause_seconds = self._parse_pause_seconds(pause_input, default_seconds=4)
             try:

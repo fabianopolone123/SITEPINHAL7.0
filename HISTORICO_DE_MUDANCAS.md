@@ -1082,3 +1082,9 @@ ame e label sem quebrar a tela.
 - Removida a restricao que impedia reenviar cobranca WhatsApp para mensalidades que ja haviam sido cobradas antes.
 - A cobranca em massa agora considera todas as mensalidades pendentes do mes atual e anteriores, mantendo agrupamento por responsavel.
 - Atualizado o texto da tela e o resumo do envio para remover o contador de ja cobradas.
+
+## 26/04/2026 - Financeiro: modal de progresso na cobranca WhatsApp
+
+- O botao Cobrar mensalidades em aberto passou a abrir uma janela suspensa com previa dos responsaveis e mensalidades que serao cobrados.
+- O envio agora acontece responsavel por responsavel via requisicoes AJAX, atualizando progresso, status individual, enviados, ignorados e falhas.
+- Mantido o envio para todas as mensalidades pendentes do mes atual e anteriores, com pausa configuravel entre responsaveis.
