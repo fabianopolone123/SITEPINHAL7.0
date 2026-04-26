@@ -786,8 +786,10 @@
       <textarea id="pixPagamentoCodigo" class="pix-code-box" readonly>{% if responsavel_pix_pagamento %}{{ responsavel_pix_pagamento.pix_code }}{% endif %}</textarea>
       <div class="modal-actions">
         <button type="button" class="ghost" id="pixPagamentoCopiar">Copiar código</button>
+        <button type="button" class="primary" id="pixPagamentoAvisar">Avisei o pagamento</button>
         <button type="button" class="ghost" id="pixPagamentoFechar">Fechar</button>
       </div>
+      <p class="panel-note" id="pixPagamentoMensagem">Depois de pagar, clique em "Avisei o pagamento" para consultar o Mercado Pago na hora.</p>
       {% if responsavel_pix_pagamento %}
       <div
         id="pixPagamentoData"
@@ -1241,6 +1243,8 @@
       const pixCodigo = document.getElementById('pixPagamentoCodigo');
       const btnFechar = document.getElementById('pixPagamentoFechar');
       const btnCopiar = document.getElementById('pixPagamentoCopiar');
+      const btnAvisar = document.getElementById('pixPagamentoAvisar');
+      const pixMensagem = document.getElementById('pixPagamentoMensagem');
       let pollHandle = null;
       let pagamentoAprovado = pixStatus ? pixStatus.classList.contains('is-paid') : false;
 
@@ -1261,20 +1265,39 @@
         }
       }
 
-      async function refreshPixStatus() {
-        if (!pixData) return;
+      async function refreshPixStatus(showFeedback) {
+        if (!pixData) return false;
+        if (showFeedback && pixMensagem) {
+          pixMensagem.textContent = 'Consultando pagamento no Mercado Pago...';
+        }
         try {
           const response = await fetch(pixData.dataset.statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
           const payload = await response.json();
-          if (!payload || !payload.ok) return;
+          if (!payload || !payload.ok) {
+            if (showFeedback && pixMensagem) {
+              pixMensagem.textContent = (payload && payload.message) ? payload.message : 'Nao foi possivel consultar o pagamento agora.';
+            }
+            return false;
+          }
           pixStatus.textContent = payload.status_label || 'Aguardando pagamento';
           pixStatus.classList.toggle('is-paid', !!payload.is_paid);
           if (payload.is_paid) {
             pagamentoAprovado = true;
             stopPolling();
+            if (pixMensagem) {
+              pixMensagem.textContent = 'Pagamento confirmado. As mensalidades ja foram marcadas como pagas.';
+            }
+            return true;
           }
+          if (showFeedback && pixMensagem) {
+            pixMensagem.textContent = 'Pagamento ainda nao confirmado pelo Mercado Pago. Aguarde alguns segundos e tente novamente.';
+          }
+          return false;
         } catch (_err) {
-          // mantém silencioso para não poluir a UI do responsável.
+          if (showFeedback && pixMensagem) {
+            pixMensagem.textContent = 'Falha ao consultar o Mercado Pago agora. Tente novamente em alguns segundos.';
+          }
+          return false;
         }
       }
 
@@ -1300,10 +1323,20 @@
           }
         });
       }
+      if (btnAvisar) {
+        btnAvisar.addEventListener('click', async function () {
+          if (pagamentoAprovado) return;
+          btnAvisar.disabled = true;
+          await refreshPixStatus(true);
+          if (!pagamentoAprovado) {
+            btnAvisar.disabled = false;
+          }
+        });
+      }
 
       if (pixModal && pixModal.classList.contains('is-open') && pixData) {
-        refreshPixStatus();
-        pollHandle = window.setInterval(refreshPixStatus, 7000);
+        refreshPixStatus(false);
+        pollHandle = window.setInterval(function () { refreshPixStatus(false); }, 7000);
       }
     })();
   </script>

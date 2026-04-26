@@ -1112,3 +1112,9 @@ ame e label sem quebrar a tela.
 - A tela Editar permissoes/WhatsApp agora permite ao diretor corrigir os telefones do cadastro do responsavel.
 - O salvamento altera somente os campos de telefone/celular do pai, mae e responsavel legal.
 - A tela indica quais numeros ficaram validos para WhatsApp e mantem a preferencia de WhatsApp atualizada quando o telefone escolhido e corrigido.
+
+## 26/04/2026 - Financeiro: botao para verificar Pix pago
+
+- Adicionado o botao Avisei o pagamento na janela do QR Code Pix de mensalidades.
+- O clique consulta o Mercado Pago imediatamente e usa a mesma sincronizacao que marca mensalidades como pagas quando o pagamento esta aprovado.
+- A janela passa a mostrar retorno claro quando o pagamento foi confirmado, ainda esta pendente ou houve falha na consulta.

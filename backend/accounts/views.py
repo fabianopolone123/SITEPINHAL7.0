@@ -10172,22 +10172,27 @@ class PagamentoMensalidadeStatusApiView(LoginRequiredMixin, View):
                 return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
 
         view = FinanceiroView()
+        checked_mp = False
+        check_error = ''
         if pagamento.mp_payment_id and pagamento.status != PagamentoMensalidade.STATUS_PAGO:
             try:
                 payment_data = view._get_mp_payment(pagamento.mp_payment_id)
                 view._sync_pagamento_from_mp(pagamento, payment_data)
                 pagamento.refresh_from_db()
-            except Exception:
-                pass
+                checked_mp = True
+            except Exception as exc:
+                check_error = str(exc)
 
         return JsonResponse({
-            'ok': True,
+            'ok': not bool(check_error),
             'pagamento_id': pagamento.pk,
             'status': pagamento.status,
             'status_label': view._mp_status_label(pagamento),
             'mp_status': pagamento.mp_status,
             'mp_status_detail': pagamento.mp_status_detail,
             'is_paid': pagamento.status == PagamentoMensalidade.STATUS_PAGO,
+            'checked_mp': checked_mp,
+            'message': check_error or '',
         })
 
 
