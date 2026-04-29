@@ -9,6 +9,12 @@ Arquivo oficial de registro das entregas concluidas.
 - Padrao de commit adotado no projeto:
   - `<arquivo_principal>: <descricao objetiva>`
 
+## 29/04/2026 - Loja: WhatsApp para comprador
+
+- Confirmacao de pedido pago da loja agora envia WhatsApp tambem para o responsavel comprador.
+- Mantido envio adicional para contatos Diretor/Diretoria marcados na coluna "Pedido loja pago".
+- Texto do painel WhatsApp atualizado para refletir a nova regra de notificacao.
+
 ## Fase 1 - Base do sistema (03/02/2026 a 04/02/2026)
 
 - Login, registro e formularios iniciais de responsavel/aventureiro.

@@ -11613,6 +11613,8 @@ class LojaView(LoginRequiredMixin, View):
             seen_phones.add(phone_number)
             recipients.append((user, phone_number))
 
+        add_recipient(responsavel_user)
+
         extras = (
             UserAccess.objects
             .select_related('user')
