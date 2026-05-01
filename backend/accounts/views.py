@@ -12664,7 +12664,7 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
                 evento_inscricao__isnull=True,
             )
             .select_related('responsavel', 'responsavel__user')
-            .prefetch_related('itens__variacao', 'itens__aventureiro')
+            .prefetch_related('responsavel__aventures', 'itens__variacao', 'itens__aventureiro')
         )
         if selected_product_ids:
             pedidos_qs = pedidos_qs.filter(itens__produto_id__in=selected_product_ids).distinct()
@@ -12695,16 +12695,22 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
                 row = produtos.setdefault(key, {'quantidade': 0, 'total': Decimal('0.00'), 'aventureiros': []})
                 row['quantidade'] += quantidade
                 row['total'] += Decimal(item.valor_total or Decimal('0.00'))
+                relatorio_por_aventureiro = getattr(item.variacao, 'relatorio_exibir_aventureiro', False)
                 aventureiro_nome = str(item.aventureiro_nome or getattr(item.aventureiro, 'nome', '') or '').strip()
-                if aventureiro_nome and (
-                    getattr(item.variacao, 'relatorio_exibir_aventureiro', False)
-                    or aventureiro_nome
-                ):
+                if relatorio_por_aventureiro and not aventureiro_nome:
+                    responsavel_pedido = getattr(pedido, 'responsavel', None)
+                    if responsavel_pedido:
+                        try:
+                            aventureiro_fallback = responsavel_pedido.aventures.order_by('nome', 'id').first()
+                        except Exception:
+                            aventureiro_fallback = None
+                        aventureiro_nome = str(getattr(aventureiro_fallback, 'nome', '') or '').strip()
+                if aventureiro_nome and relatorio_por_aventureiro:
                     row['aventureiros'].append(aventureiro_nome)
                 itens_rows.append({
                     'produto': item.produto_titulo or '-',
                     'variacao': item.variacao_nome or '-',
-                    'aventureiro_nome': aventureiro_nome,
+                    'aventureiro_nome': aventureiro_nome if relatorio_por_aventureiro else '',
                     'quantidade': item.quantidade,
                     'unitario': self._format_currency(item.valor_unitario),
                     'total': self._format_currency(item.valor_total),
