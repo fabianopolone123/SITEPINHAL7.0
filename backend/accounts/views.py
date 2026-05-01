@@ -12498,7 +12498,7 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
         )
         return bytes(pdf)
 
-    def _build_pdf(self, *, resumo, produtos_rows, pedidos_rows, generated_at, generated_by):
+    def _build_pdf(self, *, resumo, produtos_rows, pedidos_rows, generated_at, generated_by, filtro_produtos=''):
         pages = []
         commands, y = self._pdf_new_page(pages, generated_at=generated_at, generated_by=generated_by)
 
@@ -12515,6 +12515,16 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
             self._pdf_text(commands, x + 10, y - 18, label, size=8, bold=True, color='#475569')
             self._pdf_text(commands, x + 10, y - 38, str(value), size=13, bold=True, color='#0f172a')
         y -= 76
+
+        if filtro_produtos:
+            filtro_lines = self._pdf_wrap(f'Filtro aplicado: {filtro_produtos}', 92)
+            box_height = 18 + (len(filtro_lines) * 10)
+            self._pdf_rect(commands, 36, y - box_height, 523, box_height, fill='#fff7ed', stroke='#fed7aa')
+            text_y = y - 16
+            for line in filtro_lines:
+                self._pdf_text(commands, 48, text_y, line, size=8, bold=True, color='#9a3412')
+                text_y -= 10
+            y -= box_height + 22
 
         self._pdf_text(commands, 36, y, 'Vendas por produto e variacao', size=13, bold=True)
         y -= 18
@@ -12598,7 +12608,20 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
         if guard:
             return guard
 
-        pedidos = list(
+        requested_product_ids = []
+        for raw_id in request.GET.getlist('produto_ids'):
+            text = str(raw_id or '').strip()
+            if text.isdigit():
+                requested_product_ids.append(int(text))
+        selected_products = list(
+            LojaProduto.objects
+            .filter(pk__in=requested_product_ids, evento__isnull=True)
+            .order_by('titulo')
+        )
+        selected_product_ids = {produto.pk for produto in selected_products}
+        filtro_produtos = ', '.join(produto.titulo for produto in selected_products)
+
+        pedidos_qs = (
             LojaPedido.objects
             .filter(
                 status=LojaPedido.STATUS_PAGO,
@@ -12607,35 +12630,36 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
             )
             .select_related('responsavel', 'responsavel__user')
             .prefetch_related('itens')
-            .order_by('-paid_at', '-created_at', '-id')
         )
-        total_vendas = sum((pedido.valor_total or Decimal('0.00')) for pedido in pedidos)
+        if selected_product_ids:
+            pedidos_qs = pedidos_qs.filter(itens__produto_id__in=selected_product_ids).distinct()
+        pedidos = list(pedidos_qs.order_by('-paid_at', '-created_at', '-id'))
+
+        total_vendas = Decimal('0.00')
         total_itens = 0
         produtos = {}
+        pedidos_rows = []
         for pedido in pedidos:
-            for item in pedido.itens.all():
+            itens_do_relatorio = [
+                item for item in pedido.itens.all()
+                if not selected_product_ids or item.produto_id in selected_product_ids
+            ]
+            if not itens_do_relatorio:
+                continue
+            pedido_total_relatorio = (
+                sum((item.valor_total or Decimal('0.00')) for item in itens_do_relatorio)
+                if selected_product_ids else
+                (pedido.valor_total or Decimal('0.00'))
+            )
+            total_vendas += Decimal(pedido_total_relatorio or Decimal('0.00'))
+            itens_rows = []
+            for item in itens_do_relatorio:
                 quantidade = int(item.quantidade or 0)
                 total_itens += quantidade
                 key = (item.produto_titulo or '-', item.variacao_nome or '-')
                 row = produtos.setdefault(key, {'quantidade': 0, 'total': Decimal('0.00')})
                 row['quantidade'] += quantidade
                 row['total'] += Decimal(item.valor_total or Decimal('0.00'))
-
-        ticket_medio = (Decimal(total_vendas) / len(pedidos)).quantize(Decimal('0.01')) if pedidos else Decimal('0.00')
-        now_label = timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M:%S')
-        produtos_rows = []
-        for (produto, variacao), row in sorted(produtos.items(), key=lambda item: (-item[1]['total'], item[0][0])):
-            produtos_rows.append({
-                'produto': produto,
-                'variacao': variacao,
-                'quantidade': row['quantidade'],
-                'total': self._format_currency(row['total']),
-            })
-
-        pedidos_rows = []
-        for pedido in pedidos:
-            itens_rows = []
-            for item in pedido.itens.all():
                 itens_rows.append({
                     'produto': item.produto_titulo or '-',
                     'variacao': item.variacao_nome or '-',
@@ -12646,7 +12670,7 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
             pedidos_rows.append({
                 'id': pedido.id,
                 'responsavel': self._responsavel_nome(pedido),
-                'total': self._format_currency(pedido.valor_total),
+                'total': self._format_currency(pedido_total_relatorio),
                 'pago_em': self._local_datetime(pedido.paid_at),
                 'criado_em': self._local_datetime(pedido.created_at),
                 'entrega': 'Entregue' if pedido.entregue else 'Nao entregue',
@@ -12654,8 +12678,19 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
                 'itens': itens_rows,
             })
 
+        ticket_medio = (Decimal(total_vendas) / len(pedidos_rows)).quantize(Decimal('0.01')) if pedidos_rows else Decimal('0.00')
+        now_label = timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M:%S')
+        produtos_rows = []
+        for (produto, variacao), row in sorted(produtos.items(), key=lambda item: (-item[1]['total'], item[0][0])):
+            produtos_rows.append({
+                'produto': produto,
+                'variacao': variacao,
+                'quantidade': row['quantidade'],
+                'total': self._format_currency(row['total']),
+            })
+
         resumo = {
-            'pedidos_pagos': str(len(pedidos)),
+            'pedidos_pagos': str(len(pedidos_rows)),
             'total_vendas': self._format_currency(total_vendas),
             'itens_vendidos': str(total_itens),
             'ticket_medio': self._format_currency(ticket_medio),
@@ -12668,6 +12703,7 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
                 pedidos_rows=pedidos_rows,
                 generated_at=now_label,
                 generated_by=request.user.get_full_name() or request.user.username,
+                filtro_produtos=filtro_produtos,
             ),
             content_type='application/pdf',
         )

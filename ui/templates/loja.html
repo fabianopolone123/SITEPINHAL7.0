@@ -1694,15 +1694,29 @@
     </section>
 
     <section class="painel-card loja-grid">
-      <div class="cart-toolbar" style="justify-content:space-between; align-items:center;">
+      <form class="cart-toolbar" style="justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap;" method="get" action="{% url 'accounts:loja_relatorio_pedidos_pagos_pdf' %}" target="_blank">
         <div>
           <h3 style="margin:0;">Relatórios da loja</h3>
           <p class="panel-note" style="margin:.25rem 0 0;">Gera um PDF detalhado somente com pedidos pagos da loja interna.</p>
+          <p class="panel-note" style="margin:.25rem 0 0;">Se não marcar nenhum produto, o relatório considera todos os produtos.</p>
         </div>
-        <a class="admin-primary-btn" href="{% url 'accounts:loja_relatorio_pedidos_pagos_pdf' %}" target="_blank" rel="noopener">
+        <div style="min-width:min(100%, 420px); flex:1;">
+          <strong style="display:block; margin-bottom:.4rem;">Filtrar produtos no PDF</strong>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:.35rem .75rem; max-height:150px; overflow:auto; border:1px solid #dbeafe; border-radius:12px; padding:.7rem; background:#f8fbff;">
+            {% for row in produtos %}
+              <label style="display:flex; align-items:flex-start; gap:.4rem; font-size:.85rem; color:#0f172a;">
+                <input type="checkbox" name="produto_ids" value="{{ row.produto.id }}" />
+                <span>{{ row.produto.titulo }}</span>
+              </label>
+            {% empty %}
+              <span class="panel-note">Nenhum produto cadastrado para filtrar.</span>
+            {% endfor %}
+          </div>
+        </div>
+        <button type="submit" class="admin-primary-btn">
           Gerar PDF de pedidos pagos
-        </a>
-      </div>
+        </button>
+      </form>
     </section>
 
     <section class="painel-card loja-grid">
