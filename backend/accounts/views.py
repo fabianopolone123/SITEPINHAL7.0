@@ -12389,6 +12389,28 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
             return value
         return value[:max(0, max_chars - 3)].rstrip() + '...'
 
+    def _pdf_wrap(self, text, width):
+        value = str(text or '').strip() or '-'
+        words = value.split()
+        if not words:
+            return ['-']
+        lines = []
+        current = ''
+        for word in words:
+            candidate = f'{current} {word}'.strip()
+            if len(candidate) <= width:
+                current = candidate
+                continue
+            if current:
+                lines.append(current)
+            while len(word) > width:
+                lines.append(word[:width])
+                word = word[width:]
+            current = word
+        if current:
+            lines.append(current)
+        return lines or ['-']
+
     def _pdf_text(self, commands, x, y, text, *, size=10, bold=False, color='#0f172a'):
         r, g, b = self._pdf_color(color)
         font = 'F2' if bold else 'F1'
@@ -12504,16 +12526,24 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
 
         if produtos_rows:
             for row in produtos_rows:
-                if y < 90:
+                produto_lines = self._pdf_wrap(row['produto'], 62)
+                variacao_lines = self._pdf_wrap(row['variacao'], 62)
+                row_height = 14 + (len(produto_lines) + len(variacao_lines)) * 10
+                if y - row_height < 70:
                     commands, y = self._pdf_new_page(pages, generated_at=generated_at, generated_by=generated_by)
                     self._pdf_text(commands, 36, y, 'Vendas por produto e variacao (continuacao)', size=13, bold=True)
                     y -= 22
                 self._pdf_line(commands, 36, y - 4, 559, y - 4)
-                self._pdf_text(commands, 44, y + 3, self._pdf_clip(row['produto'], 52), size=8, bold=True)
-                self._pdf_text(commands, 44, y - 10, self._pdf_clip(row['variacao'], 58), size=8, color='#64748b')
+                text_y = y + 3
+                for line in produto_lines:
+                    self._pdf_text(commands, 44, text_y, line, size=8, bold=True)
+                    text_y -= 10
+                for line in variacao_lines:
+                    self._pdf_text(commands, 44, text_y, line, size=8, color='#64748b')
+                    text_y -= 10
                 self._pdf_text(commands, 397, y - 3, str(row['quantidade']), size=9, bold=True)
                 self._pdf_text(commands, 460, y - 3, row['total'], size=9, bold=True, color='#047857')
-                y -= 28
+                y -= row_height
         else:
             self._pdf_text(commands, 44, y, 'Nenhum produto pago encontrado.', size=9, color='#64748b')
             y -= 20
@@ -12528,7 +12558,10 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
             self._pdf_rect(commands, 36, y - 34, 523, 34, fill='#f8fafc', stroke='#cbd5e1')
             self._pdf_text(commands, 48, y - 20, 'Nenhum pedido pago encontrado no periodo.', size=9, color='#64748b')
         for row in pedidos_rows:
-            item_height = max(1, len(row['itens'])) * 16
+            for item in row['itens']:
+                item['pdf_nome_lines'] = self._pdf_wrap(f'{item["produto"]} - {item["variacao"]}', 48)
+                item['pdf_height'] = max(18, len(item['pdf_nome_lines']) * 10 + 8)
+            item_height = sum(item['pdf_height'] for item in row['itens']) or 18
             box_height = 64 + item_height
             if y - box_height < 58:
                 commands, y = self._pdf_new_page(pages, generated_at=generated_at, generated_by=generated_by)
@@ -12548,11 +12581,14 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
             y -= 17
             for item in row['itens']:
                 self._pdf_line(commands, 48, y + 9, 548, y + 9, color='#eef2f7')
-                self._pdf_text(commands, 52, y, self._pdf_clip(f'{item["produto"]} - {item["variacao"]}', 58), size=8)
+                line_y = y
+                for line in item['pdf_nome_lines']:
+                    self._pdf_text(commands, 52, line_y, line, size=8)
+                    line_y -= 10
                 self._pdf_text(commands, 352, y, f'qtd {item["quantidade"]}', size=8, color='#475569')
                 self._pdf_text(commands, 410, y, f'unit {item["unitario"]}', size=8, color='#475569')
                 self._pdf_text(commands, 500, y, item['total'], size=8, bold=True)
-                y -= 16
+                y -= item['pdf_height']
             y -= 18
 
         return self._build_pdf_from_pages(pages)
