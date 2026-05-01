@@ -497,7 +497,7 @@
             <div class="financeiro-report-card is-featured is-result">
               <strong>Total liquido geral</strong>
               <span>{{ relatorios_total_geral_liquido }}</span>
-              <p class="financeiro-report-note">Soma dos liquidos de mensalidades, loja e eventos.</p>
+              <p class="financeiro-report-note">Soma dos liquidos de mensalidades, loja e eventos ja descontando taxa de {{ relatorios_taxa_transacao_percentual }}.</p>
             </div>
           </div>
         </section>
@@ -520,8 +520,12 @@
                 <strong>Gastos<small>Marcados para caixa liquido</small></strong>
                 <span>{{ relatorios_total_gastos_caixa_liquido }}</span>
               </div>
+              <div class="financeiro-origin-row is-cost">
+                <strong>Taxas<small>Banco {{ relatorios_taxa_transacao_percentual }} sobre o bruto</small></strong>
+                <span>{{ relatorios_total_taxas_mensalidades }}</span>
+              </div>
               <div class="financeiro-origin-row is-liquid">
-                <strong>Liquido<small>Saldo atual de mensalidades</small></strong>
+                <strong>Liquido<small>Bruto - gastos - taxas</small></strong>
                 <span>{{ relatorios_caixa_liquido }}</span>
               </div>
             </div>
@@ -536,8 +540,12 @@
                 <strong>Gastos<small>Marcados para loja geral</small></strong>
                 <span>{{ relatorios_total_gastos_loja_geral }}</span>
               </div>
+              <div class="financeiro-origin-row is-cost">
+                <strong>Taxas<small>Banco {{ relatorios_taxa_transacao_percentual }} sobre o bruto</small></strong>
+                <span>{{ relatorios_total_taxas_loja_geral }}</span>
+              </div>
               <div class="financeiro-origin-row is-liquid">
-                <strong>Liquido<small>Saldo atual da loja</small></strong>
+                <strong>Liquido<small>Bruto - gastos - taxas</small></strong>
                 <span>{{ relatorios_resultado_loja_geral }}</span>
               </div>
             </div>
@@ -556,8 +564,12 @@
                 <strong>Gastos<small>Marcados para eventos</small></strong>
                 <span>{{ relatorios_total_gastos_eventos }}</span>
               </div>
+              <div class="financeiro-origin-row is-cost">
+                <strong>Taxas<small>Banco {{ relatorios_taxa_transacao_percentual }} sobre o bruto</small></strong>
+                <span>{{ relatorios_total_taxas_eventos }}</span>
+              </div>
               <div class="financeiro-origin-row is-liquid">
-                <strong>Liquido<small>Saldo atual de eventos</small></strong>
+                <strong>Liquido<small>Bruto - gastos - taxas</small></strong>
                 <span>{{ relatorios_resultado_eventos }}</span>
               </div>
             </div>
@@ -578,6 +590,12 @@
               <p class="financeiro-report-note">Mensalidades: {{ relatorios_total_gastos_caixa_liquido }}</p>
               <p class="financeiro-report-note">Loja: {{ relatorios_total_gastos_loja_geral }}</p>
               <p class="financeiro-report-note">Eventos: {{ relatorios_total_gastos_eventos }}</p>
+            </div>
+            <div class="financeiro-report-card is-cost">
+              <strong>Total taxas banco</strong>
+              <span>{{ relatorios_total_taxas_transacao }}</span>
+              <p class="financeiro-report-note">Taxa aplicada: {{ relatorios_taxa_transacao_percentual }} sobre cada entrada bruta paga.</p>
+              <p class="financeiro-report-note">Mensalidades: {{ relatorios_total_taxas_mensalidades }} | Loja: {{ relatorios_total_taxas_loja_geral }} | Eventos: {{ relatorios_total_taxas_eventos }}</p>
             </div>
           </div>
         </section>

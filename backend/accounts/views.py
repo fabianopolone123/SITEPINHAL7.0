@@ -9591,10 +9591,29 @@ class FinanceiroView(LoginRequiredMixin, View):
             .get('total')
             or Decimal('0.00')
         )
+        taxa_transacao_percentual = Decimal('0.01')
+        total_taxas_mensalidades = (
+            Decimal(total_mensalidades_pago) * taxa_transacao_percentual
+        ).quantize(Decimal('0.01'))
+        total_taxas_loja_geral = (
+            Decimal(total_loja_geral_pago) * taxa_transacao_percentual
+        ).quantize(Decimal('0.01'))
+        total_taxas_eventos = (
+            Decimal(total_eventos_geral) * taxa_transacao_percentual
+        ).quantize(Decimal('0.01'))
+        total_taxas_transacao = (
+            Decimal(total_taxas_mensalidades) + Decimal(total_taxas_loja_geral) + Decimal(total_taxas_eventos)
+        ).quantize(Decimal('0.01'))
         caixa_bruto = (Decimal(total_mensalidades_pago) + Decimal(total_loja_pago)).quantize(Decimal('0.01'))
-        caixa_liquido = (Decimal(total_mensalidades_pago) - Decimal(total_gastos_caixa_liquido)).quantize(Decimal('0.01'))
-        resultado_loja_geral = (Decimal(total_loja_geral_pago) - Decimal(total_gastos_loja_geral)).quantize(Decimal('0.01'))
-        resultado_eventos = (Decimal(total_eventos_geral) - Decimal(total_gastos_eventos)).quantize(Decimal('0.01'))
+        caixa_liquido = (
+            Decimal(total_mensalidades_pago) - Decimal(total_gastos_caixa_liquido) - Decimal(total_taxas_mensalidades)
+        ).quantize(Decimal('0.01'))
+        resultado_loja_geral = (
+            Decimal(total_loja_geral_pago) - Decimal(total_gastos_loja_geral) - Decimal(total_taxas_loja_geral)
+        ).quantize(Decimal('0.01'))
+        resultado_eventos = (
+            Decimal(total_eventos_geral) - Decimal(total_gastos_eventos) - Decimal(total_taxas_eventos)
+        ).quantize(Decimal('0.01'))
         total_geral_bruto = (
             Decimal(total_mensalidades_pago) + Decimal(total_loja_geral_pago) + Decimal(total_eventos_geral)
         ).quantize(Decimal('0.01'))
@@ -9746,6 +9765,11 @@ class FinanceiroView(LoginRequiredMixin, View):
             'relatorios_total_gastos_eventos': self._format_currency(total_gastos_eventos),
             'relatorios_resultado_loja_geral': self._format_currency(resultado_loja_geral),
             'relatorios_resultado_eventos': self._format_currency(resultado_eventos),
+            'relatorios_taxa_transacao_percentual': '1%',
+            'relatorios_total_taxas_mensalidades': self._format_currency(total_taxas_mensalidades),
+            'relatorios_total_taxas_loja_geral': self._format_currency(total_taxas_loja_geral),
+            'relatorios_total_taxas_eventos': self._format_currency(total_taxas_eventos),
+            'relatorios_total_taxas_transacao': self._format_currency(total_taxas_transacao),
             'relatorios_total_geral_bruto': self._format_currency(total_geral_bruto),
             'relatorios_total_geral_liquido': self._format_currency(total_geral_liquido),
             'relatorios_caixa_bruto': self._format_currency(caixa_bruto),
