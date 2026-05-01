@@ -11788,6 +11788,7 @@ class LojaView(LoginRequiredMixin, View):
                 itens_rows.append({
                     'produto_titulo': item.produto_titulo,
                     'variacao_nome': item.variacao_nome,
+                    'aventureiro_nome': item.aventureiro_nome or '',
                     'quantidade': item.quantidade,
                     'valor_unitario_fmt': self._format_currency(item.valor_unitario),
                     'valor_total_fmt': self._format_currency(item.valor_total),
@@ -11845,6 +11846,7 @@ class LojaView(LoginRequiredMixin, View):
                     itens_rows.append({
                         'produto_titulo': item.produto_titulo,
                         'variacao_nome': item.variacao_nome,
+                        'aventureiro_nome': item.aventureiro_nome or '',
                         'quantidade': item.quantidade,
                         'valor_unitario_fmt': self._format_currency(item.valor_unitario),
                         'valor_total_fmt': self._format_currency(item.valor_total),
@@ -11864,6 +11866,7 @@ class LojaView(LoginRequiredMixin, View):
             'responsavel_catalogo_tem_produtos': bool(rows),
             'meus_pedidos_rows': meus_pedidos,
             'cashback_rows': cashback_rows,
+            'catalog_aventureiros': list(responsavel.aventures.order_by('nome')) if responsavel else [],
             'loja_buyer_label': 'Professor' if _get_active_profile(request) == UserAccess.ROLE_PROFESSOR else 'Responsavel',
         }
 
@@ -11998,9 +12001,12 @@ class LojaView(LoginRequiredMixin, View):
                     context.update(_sidebar_context(request))
                     return render(request, self.template_name, context)
                 obrigatoria_compra = self._parse_bool(obrigatoria_compra_raw[idx] if idx < len(obrigatoria_compra_raw) else '')
+                relatorio_exibir_aventureiro = self._parse_bool(
+                    request.POST.get(f'config_variacao_relatorio_aventureiro_{variacao_id}')
+                )
                 if variacao.ativo and obrigatoria_compra:
                     obrigatorias_hard_count += 1
-                to_update.append((variacao, obrigatoria_compra))
+                to_update.append((variacao, obrigatoria_compra, relatorio_exibir_aventureiro))
 
             if not permite_multiplas and obrigatorias_hard_count > 1:
                 messages.error(
@@ -12014,11 +12020,18 @@ class LojaView(LoginRequiredMixin, View):
             with transaction.atomic():
                 produto.permite_multiplas_variacoes = permite_multiplas
                 produto.save(update_fields=['permite_multiplas_variacoes', 'updated_at'])
-                for variacao, obrigatoria_compra in to_update:
+                for variacao, obrigatoria_compra, relatorio_exibir_aventureiro in to_update:
                     variacao.obrigatoria_compra = bool(obrigatoria_compra)
                     variacao.obrigatoria_visual = False
                     variacao.orientacoes = orientacoes_produto
-                    variacao.save(update_fields=['obrigatoria_compra', 'obrigatoria_visual', 'orientacoes', 'updated_at'])
+                    variacao.relatorio_exibir_aventureiro = bool(relatorio_exibir_aventureiro)
+                    variacao.save(update_fields=[
+                        'obrigatoria_compra',
+                        'obrigatoria_visual',
+                        'orientacoes',
+                        'relatorio_exibir_aventureiro',
+                        'updated_at',
+                    ])
 
             messages.success(request, f'Configuracoes de variacoes do produto "{produto.titulo}" atualizadas com sucesso.')
             context = self._context()
@@ -12132,6 +12145,7 @@ class LojaView(LoginRequiredMixin, View):
         var_values = request.POST.getlist('variacao_valor[]')
         var_stocks = request.POST.getlist('variacao_estoque[]')
         var_required_hard = request.POST.getlist('variacao_obrigatoria_compra[]')
+        var_report_aventureiro = request.POST.getlist('variacao_relatorio_aventureiro[]')
         foto_row_ids = request.POST.getlist('foto_row_id[]')
 
         form_data = {
@@ -12166,21 +12180,24 @@ class LojaView(LoginRequiredMixin, View):
 
         permite_multiplas_variacoes = self._parse_bool(permite_multiplas_variacoes_raw)
         variacoes_parsed = []
-        max_len = max(len(var_names), len(var_values), len(var_stocks), len(var_required_hard), 1)
+        max_len = max(len(var_names), len(var_values), len(var_stocks), len(var_required_hard), len(var_report_aventureiro), 1)
         for idx in range(max_len):
             nome = (var_names[idx] if idx < len(var_names) else '').strip()
             valor_raw = (var_values[idx] if idx < len(var_values) else '').strip()
             estoque_raw = (var_stocks[idx] if idx < len(var_stocks) else '').strip()
             obrigatoria_compra_raw = (var_required_hard[idx] if idx < len(var_required_hard) else '').strip()
+            relatorio_aventureiro_raw = (var_report_aventureiro[idx] if idx < len(var_report_aventureiro) else '').strip()
             obrigatoria_compra = self._parse_bool(obrigatoria_compra_raw)
+            relatorio_exibir_aventureiro = self._parse_bool(relatorio_aventureiro_raw)
             form_data['variacoes'].append({
                 'nome': nome,
                 'valor': valor_raw,
                 'estoque': estoque_raw,
                 'obrigatoria_compra': obrigatoria_compra,
+                'relatorio_exibir_aventureiro': relatorio_exibir_aventureiro,
             })
 
-            if not nome and not valor_raw and not estoque_raw and not obrigatoria_compra:
+            if not nome and not valor_raw and not estoque_raw and not obrigatoria_compra and not relatorio_exibir_aventureiro:
                 continue
             if not nome:
                 messages.error(request, f'Preencha o nome da variação na linha {idx + 1}.')
@@ -12213,6 +12230,7 @@ class LojaView(LoginRequiredMixin, View):
                 'estoque': estoque,
                 'obrigatoria_compra': obrigatoria_compra,
                 'obrigatoria_visual': False,
+                'relatorio_exibir_aventureiro': relatorio_exibir_aventureiro,
             })
 
         if not variacoes_parsed:
@@ -12315,6 +12333,7 @@ class LojaView(LoginRequiredMixin, View):
                     estoque=item['estoque'],
                     obrigatoria_compra=bool(item.get('obrigatoria_compra')),
                     obrigatoria_visual=False,
+                    relatorio_exibir_aventureiro=bool(item.get('relatorio_exibir_aventureiro')),
                     orientacoes=orientacoes_produto,
                 )
                 for item in variacoes_parsed
@@ -12538,7 +12557,15 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
             for row in produtos_rows:
                 produto_lines = self._pdf_wrap(row['produto'], 62)
                 variacao_lines = self._pdf_wrap(row['variacao'], 62)
-                row_height = 14 + (len(produto_lines) + len(variacao_lines)) * 10
+                aventureiros_lines = []
+                aventureiros = row.get('aventureiros') or []
+                if aventureiros:
+                    nomes_unicos = []
+                    for nome in aventureiros:
+                        if nome and nome not in nomes_unicos:
+                            nomes_unicos.append(nome)
+                    aventureiros_lines = self._pdf_wrap('Aventureiros: ' + ', '.join(nomes_unicos), 62)
+                row_height = 14 + (len(produto_lines) + len(variacao_lines) + len(aventureiros_lines)) * 10
                 if y - row_height < 70:
                     commands, y = self._pdf_new_page(pages, generated_at=generated_at, generated_by=generated_by)
                     self._pdf_text(commands, 36, y, 'Vendas por produto e variacao (continuacao)', size=13, bold=True)
@@ -12550,6 +12577,9 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
                     text_y -= 10
                 for line in variacao_lines:
                     self._pdf_text(commands, 44, text_y, line, size=8, color='#64748b')
+                    text_y -= 10
+                for line in aventureiros_lines:
+                    self._pdf_text(commands, 44, text_y, line, size=8, color='#0f766e')
                     text_y -= 10
                 self._pdf_text(commands, 397, y - 3, str(row['quantidade']), size=9, bold=True)
                 self._pdf_text(commands, 460, y - 3, row['total'], size=9, bold=True, color='#047857')
@@ -12569,7 +12599,10 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
             self._pdf_text(commands, 48, y - 20, 'Nenhum pedido pago encontrado no periodo.', size=9, color='#64748b')
         for row in pedidos_rows:
             for item in row['itens']:
-                item['pdf_nome_lines'] = self._pdf_wrap(f'{item["produto"]} - {item["variacao"]}', 48)
+                item_label = f'{item["produto"]} - {item["variacao"]}'
+                if item.get('aventureiro_nome'):
+                    item_label += f' | Aventureiro: {item["aventureiro_nome"]}'
+                item['pdf_nome_lines'] = self._pdf_wrap(item_label, 48)
                 item['pdf_height'] = max(18, len(item['pdf_nome_lines']) * 10 + 8)
             item_height = sum(item['pdf_height'] for item in row['itens']) or 18
             box_height = 64 + item_height
@@ -12629,7 +12662,7 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
                 evento_inscricao__isnull=True,
             )
             .select_related('responsavel', 'responsavel__user')
-            .prefetch_related('itens')
+            .prefetch_related('itens__variacao', 'itens__aventureiro')
         )
         if selected_product_ids:
             pedidos_qs = pedidos_qs.filter(itens__produto_id__in=selected_product_ids).distinct()
@@ -12657,12 +12690,19 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
                 quantidade = int(item.quantidade or 0)
                 total_itens += quantidade
                 key = (item.produto_titulo or '-', item.variacao_nome or '-')
-                row = produtos.setdefault(key, {'quantidade': 0, 'total': Decimal('0.00')})
+                row = produtos.setdefault(key, {'quantidade': 0, 'total': Decimal('0.00'), 'aventureiros': []})
                 row['quantidade'] += quantidade
                 row['total'] += Decimal(item.valor_total or Decimal('0.00'))
+                aventureiro_nome = str(item.aventureiro_nome or getattr(item.aventureiro, 'nome', '') or '').strip()
+                if aventureiro_nome and (
+                    getattr(item.variacao, 'relatorio_exibir_aventureiro', False)
+                    or aventureiro_nome
+                ):
+                    row['aventureiros'].append(aventureiro_nome)
                 itens_rows.append({
                     'produto': item.produto_titulo or '-',
                     'variacao': item.variacao_nome or '-',
+                    'aventureiro_nome': aventureiro_nome,
                     'quantidade': item.quantidade,
                     'unitario': self._format_currency(item.valor_unitario),
                     'total': self._format_currency(item.valor_total),
@@ -12687,6 +12727,7 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
                 'variacao': variacao,
                 'quantidade': row['quantidade'],
                 'total': self._format_currency(row['total']),
+                'aventureiros': row.get('aventureiros') or [],
             })
 
         resumo = {
@@ -12745,6 +12786,7 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
                 return JsonResponse({'ok': False, 'error': 'invalid_item', 'message': f'Item {idx} inválido.'}, status=400)
             produto_id = str(item.get('product_id') or '').strip()
             variacao_id = str(item.get('variation_id') or '').strip()
+            aventureiro_id_raw = str(item.get('aventureiro_id') or '').strip()
             quantity_raw = item.get('quantity')
             if not (produto_id.isdigit() and variacao_id.isdigit()):
                 return JsonResponse({'ok': False, 'error': 'invalid_item_ids', 'message': f'Produto/variação inválidos no item {idx}.'}, status=400)
@@ -12769,6 +12811,34 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
             )
             if not variacao:
                 return JsonResponse({'ok': False, 'error': 'variation_not_found', 'message': f'Variação inválida ou inativa no item {idx}.'}, status=400)
+
+            aventureiro_item = None
+            aventureiro_nome = ''
+            if getattr(variacao, 'relatorio_exibir_aventureiro', False):
+                if quantity != 1:
+                    return JsonResponse({
+                        'ok': False,
+                        'error': 'report_aventureiro_quantity',
+                        'message': f'A variacao "{variacao.nome}" precisa ser adicionada 1 por vez para identificar o aventureiro.',
+                    }, status=400)
+                if not aventureiro_id_raw.isdigit():
+                    return JsonResponse({
+                        'ok': False,
+                        'error': 'report_aventureiro_required',
+                        'message': f'Selecione o aventureiro para a variacao "{variacao.nome}".',
+                    }, status=400)
+                aventureiro_item = (
+                    Aventureiro.objects
+                    .filter(pk=int(aventureiro_id_raw), responsavel=responsavel)
+                    .first()
+                )
+                if not aventureiro_item:
+                    return JsonResponse({
+                        'ok': False,
+                        'error': 'report_aventureiro_invalid',
+                        'message': f'Aventureiro invalido para a variacao "{variacao.nome}".',
+                    }, status=400)
+                aventureiro_nome = aventureiro_item.nome
 
             unit_price = Decimal(variacao.valor).quantize(Decimal('0.01'))
             line_total = (unit_price * quantity).quantize(Decimal('0.01'))
@@ -12814,6 +12884,8 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
                 'valor_unitario': unit_price,
                 'valor_total': line_total,
                 'foto_url': foto_url,
+                'aventureiro': aventureiro_item,
+                'aventureiro_nome': aventureiro_nome,
             })
             total += line_total
 
@@ -12852,8 +12924,10 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
                         pedido=pedido,
                         produto=item['produto'],
                         variacao=item['variacao'],
+                        aventureiro=item['aventureiro'],
                         produto_titulo=item['produto_titulo'],
                         variacao_nome=item['variacao_nome'],
+                        aventureiro_nome=item['aventureiro_nome'],
                         quantidade=item['quantidade'],
                         valor_unitario=item['valor_unitario'],
                         valor_total=item['valor_total'],

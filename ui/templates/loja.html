@@ -1295,6 +1295,7 @@
                                     data-price="{{ v.valor }}"
                                     data-stock-label="{% if v.estoque is not None %}{{ v.nome }}: estoque {{ v.estoque }}{% endif %}"
                                     data-required-hard="{% if v.obrigatoria_compra %}1{% else %}0{% endif %}"
+                                    data-report-aventureiro="{% if v.relatorio_exibir_aventureiro %}1{% else %}0{% endif %}"
                                   />
                                   <span class="catalog-var-name">{{ v.nome }}</span>
                                 </div>
@@ -1323,6 +1324,7 @@
                                 data-price="{{ v.valor }}"
                                 data-stock-label="{% if v.estoque is not None %}Estoque: {{ v.estoque }}{% endif %}"
                                 data-required-hard="{% if v.obrigatoria_compra %}1{% else %}0{% endif %}"
+                                data-report-aventureiro="{% if v.relatorio_exibir_aventureiro %}1{% else %}0{% endif %}"
                               >
                                 {{ v.nome }}{% if v.obrigatoria_compra %} [item obrigatório se não tiver]{% endif %}
                               </option>
@@ -1338,6 +1340,19 @@
                   {% if row.variacoes %}
                     <div class="catalog-variation-stock" data-catalog-stock></div>
                   {% endif %}
+                </div>
+
+                <div class="catalog-aventureiro-report" data-catalog-aventureiro-wrap hidden>
+                  <label>
+                    <span class="catalog-label">Aventureiro desta variação</span>
+                    <select class="catalog-variation-select" data-catalog-aventureiro-select>
+                      <option value="">Selecione o aventureiro</option>
+                      {% for av in catalog_aventureiros %}
+                        <option value="{{ av.id }}" data-name="{{ av.nome }}">{{ av.nome }}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
+                  <p class="panel-note" style="margin:.35rem 0 0;">Essa variação foi marcada para sair no relatório por aventureiro. Adicione 1 por vez.</p>
                 </div>
 
                 <div class="catalog-price-box">
@@ -1419,6 +1434,10 @@
                         <option value="0" {% if not var.obrigatoria_compra %}selected{% endif %}>Opcional</option>
                         <option value="1" {% if var.obrigatoria_compra %}selected{% endif %}>Obrigatória compra</option>
                       </select>
+                      <select name="variacao_relatorio_aventureiro[]">
+                        <option value="0" {% if not var.relatorio_exibir_aventureiro %}selected{% endif %}>PDF normal</option>
+                        <option value="1" {% if var.relatorio_exibir_aventureiro %}selected{% endif %}>PDF com aventureiro</option>
+                      </select>
                       <button type="button" class="variacao-remove">Remover</button>
                     </div>
                   {% endfor %}
@@ -1430,6 +1449,10 @@
                     <select name="variacao_obrigatoria_compra[]">
                       <option value="0" selected>Opcional</option>
                       <option value="1">Obrigatória compra</option>
+                    </select>
+                    <select name="variacao_relatorio_aventureiro[]">
+                      <option value="0" selected>PDF normal</option>
+                      <option value="1">PDF com aventureiro</option>
                     </select>
                     <button type="button" class="variacao-remove">Remover</button>
                   </div>
@@ -1675,6 +1698,15 @@
                                 <option value="1" {% if v.obrigatoria_compra %}selected{% endif %}>Sim</option>
                               </select>
                             </label>
+                            <label style="display:flex; flex-direction:row; align-items:center; gap:.45rem;">
+                              <input
+                                type="checkbox"
+                                name="config_variacao_relatorio_aventureiro_{{ v.id }}"
+                                value="1"
+                                {% if v.relatorio_exibir_aventureiro %}checked{% endif %}
+                              />
+                              Mostrar nomes dos aventureiros abaixo desta variação no PDF
+                            </label>
                           </div>
                         </div>
                       {% endfor %}
@@ -1784,6 +1816,7 @@
                           <div class="order-item-main">
                             <strong>{{ item.produto_titulo }}</strong>
                             <div class="order-item-sub">Variação: {{ item.variacao_nome }}</div>
+                            {% if item.aventureiro_nome %}<div class="order-item-sub">Aventureiro: {{ item.aventureiro_nome }}</div>{% endif %}
                             <div class="order-item-sub">Quantidade: {{ item.quantidade }}</div>
                           </div>
                           <div class="order-item-values">
@@ -1913,6 +1946,7 @@
                       <div class="order-item-main">
                         <strong>{{ item.produto_titulo }}</strong>
                         <div class="order-item-sub">Variação: {{ item.variacao_nome }}</div>
+                        {% if item.aventureiro_nome %}<div class="order-item-sub">Aventureiro: {{ item.aventureiro_nome }}</div>{% endif %}
                         <div class="order-item-sub">Quantidade: {{ item.quantidade }}</div>
                       </div>
                       <div class="order-item-values">
@@ -2023,6 +2057,10 @@
         <option value="0" selected>Opcional</option>
         <option value="1">Obrigatória compra</option>
       </select>
+      <select name="variacao_relatorio_aventureiro[]">
+        <option value="0" selected>PDF normal</option>
+        <option value="1">PDF com aventureiro</option>
+      </select>
       <button type="button" class="variacao-remove">Remover</button>
     </div>
   </template>
@@ -2122,6 +2160,9 @@
                 product_title: String(item.product_title || 'Produto'),
                 variation_ids: variationIds,
                 variation_label: String(item.variation_label || 'Variação'),
+                aventureiro_id: String(item.aventureiro_id || '').trim(),
+                aventureiro_nome: String(item.aventureiro_nome || '').trim(),
+                report_aventureiro: !!item.report_aventureiro,
                 unit_price: Number(item.unit_price || 0) || 0,
                 quantity: Math.max(1, parseInt(item.quantity || 1, 10) || 1),
                 image_url: String(item.image_url || ''),
@@ -2229,6 +2270,7 @@
             + '<div class="cart-item-main">'
             +   '<strong>' + escapeHtml(item.product_title) + '</strong>'
             +   '<div class="cart-item-meta">Variação: ' + escapeHtml(item.variation_label) + '</div>'
+            +   (item.aventureiro_nome ? '<div class="cart-item-meta">Aventureiro: ' + escapeHtml(item.aventureiro_nome) + '</div>' : '')
             +   '<div class="cart-item-meta">Unitário: ' + formatPriceNumber(item.unit_price) + '</div>'
             +   '<div class="cart-item-subtotal">Subtotal: ' + formatPriceNumber(Number(item.unit_price) * Number(item.quantity)) + '</div>'
             + '</div>'
@@ -2382,6 +2424,7 @@
               product_id: item.product_id,
               variation_id: variationId,
               quantity: item.quantity,
+              aventureiro_id: item.aventureiro_id || '',
             });
           });
         });
@@ -2448,10 +2491,15 @@
       function upsertCartItem(item) {
         const existing = cartState.items.find(function (row) { return row.key === item.key; });
         if (existing) {
-          existing.quantity = Math.max(1, Number(existing.quantity || 1) + Number(item.quantity || 1));
+          existing.quantity = item.report_aventureiro
+            ? 1
+            : Math.max(1, Number(existing.quantity || 1) + Number(item.quantity || 1));
           existing.unit_price = Number(item.unit_price || existing.unit_price || 0);
           existing.image_url = item.image_url || existing.image_url || '';
           existing.image_alt = item.image_alt || existing.image_alt || 'Foto do produto';
+          existing.aventureiro_id = item.aventureiro_id || existing.aventureiro_id || '';
+          existing.aventureiro_nome = item.aventureiro_nome || existing.aventureiro_nome || '';
+          existing.report_aventureiro = !!(item.report_aventureiro || existing.report_aventureiro);
         } else {
           cartState.items.push(item);
         }
@@ -2462,6 +2510,7 @@
       function updateCartItemQty(itemKey, delta) {
         const item = cartState.items.find(function (row) { return row.key === itemKey; });
         if (!item) return;
+        if (item.report_aventureiro && delta > 0) return;
         item.quantity = Math.max(1, Number(item.quantity || 1) + delta);
         saveCartState();
         renderCart();
@@ -2792,6 +2841,8 @@
         const feedback = card.querySelector('[data-catalog-feedback]');
         const variationCollapse = card.querySelector('[data-catalog-variation-collapse]');
         const hiddenMedia = card.querySelector('[data-catalog-variant-media]');
+        const aventureiroWrap = card.querySelector('[data-catalog-aventureiro-wrap]');
+        const aventureiroSelect = card.querySelector('[data-catalog-aventureiro-select]');
         let currentGalleryPhotos = [];
         let autoSlideTimer = null;
         let autoSlideIndex = 0;
@@ -2899,6 +2950,7 @@
                   price: toPriceNumber(input.dataset.price || ''),
                   stockLabel: String(input.dataset.stockLabel || '').trim(),
                   requiredHard: String(input.dataset.requiredHard || '0') === '1',
+                  reportAventureiro: String(input.dataset.reportAventureiro || '0') === '1',
                 };
               });
           }
@@ -2912,6 +2964,7 @@
             price: toPriceNumber(selected.dataset.price || ''),
             stockLabel: String(selected.dataset.stockLabel || '').trim(),
             requiredHard: String(selected.dataset.requiredHard || '0') === '1',
+            reportAventureiro: String(selected.dataset.reportAventureiro || '0') === '1',
           }];
         }
 
@@ -2923,6 +2976,8 @@
                 ? 'Selecione uma ou mais variações'
                 : 'Selecione uma variação';
             }
+            if (aventureiroWrap) aventureiroWrap.hidden = true;
+            if (aventureiroSelect) aventureiroSelect.value = '';
             if (stockEl) stockEl.textContent = '';
             const allPhotos = getAllVariantUrls();
             if (allPhotos.length) {
@@ -2943,6 +2998,9 @@
           const totalSelected = selectedVariants.reduce(function (acc, row) {
             return acc + Number(row.price || 0);
           }, 0);
+          const needsAventureiro = selectedVariants.some(function (row) { return !!row.reportAventureiro; });
+          if (aventureiroWrap) aventureiroWrap.hidden = !needsAventureiro;
+          if (!needsAventureiro && aventureiroSelect) aventureiroSelect.value = '';
           if (priceEl) priceEl.textContent = formatPrice(totalSelected);
           if (stockEl) {
             const stockLabels = selectedVariants
@@ -3027,17 +3085,37 @@
             }
             const varLabel = selectedVariants.map(function (row) { return row.label; }).join(' + ') || 'Variação';
             const qty = qtyInput ? Math.max(1, parseInt(qtyInput.value || '1', 10) || 1) : 1;
+            const needsAventureiro = selectedVariants.some(function (row) { return !!row.reportAventureiro; });
+            let aventureiroId = '';
+            let aventureiroNome = '';
+            if (needsAventureiro) {
+              if (qty !== 1) {
+                if (feedback) feedback.textContent = 'Para esta variação, adicione 1 por vez e selecione o aventureiro.';
+                return;
+              }
+              if (!aventureiroSelect || !String(aventureiroSelect.value || '').trim()) {
+                if (feedback) feedback.textContent = 'Selecione o aventureiro desta variação antes de adicionar.';
+                if (aventureiroSelect) aventureiroSelect.focus();
+                return;
+              }
+              const selectedAventureiro = aventureiroSelect.options[aventureiroSelect.selectedIndex];
+              aventureiroId = String(aventureiroSelect.value || '').trim();
+              aventureiroNome = String((selectedAventureiro && (selectedAventureiro.dataset.name || selectedAventureiro.textContent)) || '').trim();
+            }
             const variationIds = selectedVariants.map(function (row) { return row.id; });
             const variationIdsForKey = variationIds.slice().sort(function (a, b) { return Number(a) - Number(b); });
             const imageUrl = (mainImage && !mainImage.hidden && mainImage.getAttribute('src')) ? String(mainImage.getAttribute('src')) : '';
             const imageAlt = (mainImage && mainImage.getAttribute('alt')) ? String(mainImage.getAttribute('alt')) : ('Foto de ' + productTitle);
             const unitPrice = selectedVariants.reduce(function (acc, row) { return acc + Number(row.price || 0); }, 0);
             const cartItem = {
-              key: 'p' + productId + '-vs' + variationIdsForKey.join('-'),
+              key: 'p' + productId + '-vs' + variationIdsForKey.join('-') + (aventureiroId ? '-av' + aventureiroId : ''),
               product_id: productId,
               product_title: productTitle,
               variation_ids: variationIds,
               variation_label: varLabel,
+              aventureiro_id: aventureiroId,
+              aventureiro_nome: aventureiroNome,
+              report_aventureiro: needsAventureiro,
               unit_price: unitPrice,
               quantity: qty,
               image_url: imageUrl,
