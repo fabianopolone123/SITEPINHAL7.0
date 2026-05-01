@@ -135,13 +135,55 @@
       display:grid;
       grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
       gap:.75rem;
+      margin:.7rem 0 1.1rem;
+    }
+    .financeiro-report-groups {
+      display:grid;
+      gap:1rem;
       margin:1rem 0 1.1rem;
+    }
+    .financeiro-report-group {
+      border:1px solid #dbeafe;
+      border-radius:16px;
+      background:#fbfdff;
+      padding:.85rem;
+    }
+    .financeiro-report-group-head {
+      display:flex;
+      justify-content:space-between;
+      gap:.75rem;
+      align-items:flex-end;
+      flex-wrap:wrap;
+      margin:0 0 .7rem;
+    }
+    .financeiro-report-group-head h3 {
+      margin:0;
+      font-size:1rem;
+      color:#0f172a;
+    }
+    .financeiro-report-group-head p {
+      margin:.15rem 0 0;
+      color:#64748b;
+      font-size:.84rem;
     }
     .financeiro-report-card {
       border:1px solid #dbeafe;
       border-radius:14px;
       background:linear-gradient(180deg, #ffffff, #f8fbff);
       padding:.95rem 1rem;
+    }
+    .financeiro-report-card.is-featured {
+      min-height:126px;
+      background:linear-gradient(135deg, #eff6ff, #ffffff);
+      border-color:#bfdbfe;
+    }
+    .financeiro-report-card.is-result {
+      background:linear-gradient(180deg, #ecfdf5, #ffffff);
+      border-color:#bbf7d0;
+    }
+    .financeiro-report-card.is-cost {
+      background:linear-gradient(180deg, #fff7ed, #ffffff);
+      border-color:#fed7aa;
     }
     .financeiro-report-card strong {
       display:block;
@@ -155,6 +197,9 @@
       font-weight:800;
       color:#0f172a;
     }
+    .financeiro-report-card.is-featured span { font-size:1.65rem; }
+    .financeiro-report-card.is-result span { color:#047857; }
+    .financeiro-report-card.is-cost span { color:#b45309; }
     .financeiro-report-note {
       margin:.25rem 0 0;
       color:#64748b;
@@ -392,48 +437,93 @@
         </div>
       </div>
       {% elif active_financeiro_tab == 'relatorios' %}
-      <div class="financeiro-report-cards">
-        <div class="financeiro-report-card">
-          <strong>Caixa bruto</strong>
-          <span>{{ relatorios_caixa_bruto }}</span>
-          <p class="financeiro-report-note">Soma de mensalidades pagas + pedidos da loja pagos.</p>
-        </div>
-        <div class="financeiro-report-card">
-          <strong>Caixa liquido</strong>
-          <span>{{ relatorios_caixa_liquido }}</span>
-          <p class="financeiro-report-note">Mensalidades pagas menos gastos marcados para caixa liquido.</p>
-        </div>
-        <div class="financeiro-report-card">
-          <strong>Total mensalidades pagas</strong>
-          <span>{{ relatorios_total_mensalidades_pago }}</span>
-          <p class="financeiro-report-note">Entra no saldo liquido.</p>
-        </div>
-        <div class="financeiro-report-card">
-          <strong>Total loja pago</strong>
-          <span>{{ relatorios_total_loja_pago }}</span>
-          <p class="financeiro-report-note">Entra no bruto, mas nao soma no liquido (eventos + loja geral).</p>
-        </div>
-        <div class="financeiro-report-card">
-          <strong>Total eventos (geral)</strong>
-          <span>{{ relatorios_total_eventos_geral }}</span>
-          <p class="financeiro-report-note">Inscricoes confirmadas + pedidos pagos de eventos (informativo).</p>
-          <p class="financeiro-report-note">Inscricoes: {{ relatorios_total_eventos_inscricoes_pago }} | Pedidos evento: {{ relatorios_total_loja_eventos_pago }}</p>
-        </div>
-        <div class="financeiro-report-card">
-          <strong>Resultado loja geral</strong>
-          <span>{{ relatorios_resultado_loja_geral }}</span>
-          <p class="financeiro-report-note">Pedidos da loja geral pagos menos gastos marcados para loja.</p>
-        </div>
-        <div class="financeiro-report-card">
-          <strong>Resultado eventos</strong>
-          <span>{{ relatorios_resultado_eventos }}</span>
-          <p class="financeiro-report-note">Total eventos menos gastos marcados para eventos.</p>
-        </div>
-        <div class="financeiro-report-card">
-          <strong>Total gastos comprovados</strong>
-          <span>{{ relatorios_total_gastos_comprovados }}</span>
-          <p class="financeiro-report-note">Caixa: {{ relatorios_total_gastos_caixa_liquido }} | Loja: {{ relatorios_total_gastos_loja_geral }} | Eventos: {{ relatorios_total_gastos_eventos }}</p>
-        </div>
+      <div class="financeiro-report-groups">
+        <section class="financeiro-report-group">
+          <div class="financeiro-report-group-head">
+            <div>
+              <h3>Visao geral</h3>
+              <p>Resumo rapido do que entrou e do saldo que realmente fica no caixa principal.</p>
+            </div>
+          </div>
+          <div class="financeiro-report-cards">
+            <div class="financeiro-report-card is-featured">
+              <strong>Caixa bruto</strong>
+              <span>{{ relatorios_caixa_bruto }}</span>
+              <p class="financeiro-report-note">Total de entradas pagas: mensalidades + pedidos da loja.</p>
+            </div>
+            <div class="financeiro-report-card is-featured is-result">
+              <strong>Caixa liquido atual</strong>
+              <span>{{ relatorios_caixa_liquido }}</span>
+              <p class="financeiro-report-note">Mensalidades pagas menos gastos marcados para caixa liquido.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="financeiro-report-group">
+          <div class="financeiro-report-group-head">
+            <div>
+              <h3>Entradas brutas</h3>
+              <p>Valores pagos antes de descontar custos específicos.</p>
+            </div>
+          </div>
+          <div class="financeiro-report-cards">
+            <div class="financeiro-report-card">
+              <strong>Mensalidades pagas</strong>
+              <span>{{ relatorios_total_mensalidades_pago }}</span>
+              <p class="financeiro-report-note">Entra no caixa liquido principal.</p>
+            </div>
+            <div class="financeiro-report-card">
+              <strong>Loja paga</strong>
+              <span>{{ relatorios_total_loja_pago }}</span>
+              <p class="financeiro-report-note">Pedidos pagos da loja geral + pedidos pagos de eventos.</p>
+            </div>
+            <div class="financeiro-report-card">
+              <strong>Eventos pagos</strong>
+              <span>{{ relatorios_total_eventos_geral }}</span>
+              <p class="financeiro-report-note">Inscricoes: {{ relatorios_total_eventos_inscricoes_pago }}</p>
+              <p class="financeiro-report-note">Pedidos evento: {{ relatorios_total_loja_eventos_pago }}</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="financeiro-report-group">
+          <div class="financeiro-report-group-head">
+            <div>
+              <h3>Saldos depois dos abatimentos</h3>
+              <p>Mostra quanto sobra em cada origem depois dos gastos classificados.</p>
+            </div>
+          </div>
+          <div class="financeiro-report-cards">
+            <div class="financeiro-report-card is-result">
+              <strong>Resultado loja geral</strong>
+              <span>{{ relatorios_resultado_loja_geral }}</span>
+              <p class="financeiro-report-note">Loja geral paga menos gastos marcados para loja.</p>
+            </div>
+            <div class="financeiro-report-card is-result">
+              <strong>Resultado eventos</strong>
+              <span>{{ relatorios_resultado_eventos }}</span>
+              <p class="financeiro-report-note">Eventos pagos menos gastos marcados para eventos.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="financeiro-report-group">
+          <div class="financeiro-report-group-head">
+            <div>
+              <h3>Gastos comprovados</h3>
+              <p>Custos cadastrados e separados pela conta onde abatem.</p>
+            </div>
+          </div>
+          <div class="financeiro-report-cards">
+            <div class="financeiro-report-card is-cost">
+              <strong>Total gastos</strong>
+              <span>{{ relatorios_total_gastos_comprovados }}</span>
+              <p class="financeiro-report-note">Caixa liquido: {{ relatorios_total_gastos_caixa_liquido }}</p>
+              <p class="financeiro-report-note">Loja geral: {{ relatorios_total_gastos_loja_geral }}</p>
+              <p class="financeiro-report-note">Eventos: {{ relatorios_total_gastos_eventos }}</p>
+            </div>
+          </div>
+        </section>
       </div>
 
       <div class="financeiro-report-toolbar">
