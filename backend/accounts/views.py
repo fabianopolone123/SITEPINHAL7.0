@@ -9683,6 +9683,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'nome': gasto.nome,
                 'valor': self._format_currency(gasto.valor),
                 'destino': gasto.get_destino_display(),
+                'destino_value': destino,
                 'created_at': timezone.localtime(gasto.created_at).strftime('%d/%m/%Y %H:%M'),
                 'created_by': gasto.created_by.username if gasto.created_by else '-',
                 'comprovante_url': gasto.comprovante.url if getattr(gasto, 'comprovante', None) else '',
@@ -9948,12 +9949,12 @@ class FinanceiroView(LoginRequiredMixin, View):
             action = str(request.POST.get('action') or '').strip()
             comprovante_query = str(request.POST.get('comprovante_q') or '').strip()
             open_comprovante_modal = False
+            destinos_validos = {choice[0] for choice in FinanceiroComprovante.DESTINO_CHOICES}
             if action == 'add_financeiro_comprovante':
                 nome = str(request.POST.get('comprovante_nome') or '').strip()
                 valor = self._parse_valor_positive(request.POST.get('comprovante_valor'))
                 destino = str(request.POST.get('comprovante_destino') or '').strip()
                 comprovante = request.FILES.get('comprovante_arquivo')
-                destinos_validos = {choice[0] for choice in FinanceiroComprovante.DESTINO_CHOICES}
                 if destino not in destinos_validos:
                     destino = FinanceiroComprovante.DESTINO_CAIXA_LIQUIDO
                 if not nome:
@@ -9971,6 +9972,17 @@ class FinanceiroView(LoginRequiredMixin, View):
                         created_by=request.user,
                     )
                     messages.success(request, 'Comprovante de gasto cadastrado com sucesso.')
+            elif action == 'update_financeiro_comprovante_destino':
+                comprovante_id = str(request.POST.get('comprovante_id') or '').strip()
+                destino = str(request.POST.get('comprovante_destino') or '').strip()
+                if not comprovante_id.isdigit() or destino not in destinos_validos:
+                    messages.error(request, 'Nao foi possivel atualizar o destino do comprovante.')
+                else:
+                    updated = FinanceiroComprovante.objects.filter(pk=int(comprovante_id)).update(destino=destino)
+                    if updated:
+                        messages.success(request, 'Destino do comprovante atualizado com sucesso.')
+                    else:
+                        messages.error(request, 'Comprovante nao encontrado.')
             elif action == 'sync_loja_pagamentos_manual':
                 try:
                     result = self._sync_loja_pagamentos_manual()

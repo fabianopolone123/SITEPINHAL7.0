@@ -485,7 +485,21 @@
                     <td>{{ row.created_at }}</td>
                     <td>{{ row.nome }}</td>
                     <td>{{ row.valor }}</td>
-                    <td>{{ row.destino }}</td>
+                    <td>
+                      <form method="post" style="display:flex; gap:.35rem; align-items:center; flex-wrap:wrap; margin:0;">
+                        {% csrf_token %}
+                        <input type="hidden" name="tab" value="relatorios" />
+                        <input type="hidden" name="action" value="update_financeiro_comprovante_destino" />
+                        <input type="hidden" name="comprovante_q" value="{{ relatorios_comprovante_query|default:'' }}" />
+                        <input type="hidden" name="comprovante_id" value="{{ row.id }}" />
+                        <select name="comprovante_destino" aria-label="Abater em">
+                          <option value="caixa_liquido" {% if row.destino_value == 'caixa_liquido' %}selected{% endif %}>Caixa liquido / mensalidades</option>
+                          <option value="loja_geral" {% if row.destino_value == 'loja_geral' %}selected{% endif %}>Loja geral</option>
+                          <option value="eventos" {% if row.destino_value == 'eventos' %}selected{% endif %}>Eventos</option>
+                        </select>
+                        <button type="submit" class="secondary" style="padding:.45rem .7rem;">Salvar</button>
+                      </form>
+                    </td>
                     <td>{{ row.created_by }}</td>
                     <td>
                       {% if row.comprovante_url %}
