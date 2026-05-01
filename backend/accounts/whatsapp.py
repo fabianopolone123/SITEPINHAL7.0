@@ -59,7 +59,18 @@ DEFAULT_COBRANCA_MENSALIDADE_MESSAGE = (
 )
 
 DEFAULT_LOJA_MESSAGE = (
-    'Pedido da loja pago no Pinhal Junior!\n'
+    'Novo pedido pago na loja do Pinhal Junior!\n'
+    'Responsavel: {responsavel_nome}\n'
+    'Pedido: {pedido_id}\n'
+    'Itens:\n'
+    '{pedido_itens}\n'
+    'Total pago: {valor_total}\n'
+    'Pagamento: {pagamento_id}\n'
+    'Data/Hora: {data_hora}'
+)
+
+DEFAULT_LOJA_COMPRADOR_MESSAGE = (
+    'Seu pedido da loja foi confirmado!\n'
     'Ola, {responsavel_nome}.\n'
     'Seu pedido foi pago com sucesso.\n'
     'Pedido: {pedido_id}\n'
@@ -326,6 +337,7 @@ def get_template_message(notification_type):
         WhatsAppTemplate.TYPE_FINANCEIRO: DEFAULT_FINANCEIRO_MESSAGE,
         WhatsAppTemplate.TYPE_COBRANCA_MENSALIDADE: DEFAULT_COBRANCA_MENSALIDADE_MESSAGE,
         WhatsAppTemplate.TYPE_LOJA: DEFAULT_LOJA_MESSAGE,
+        WhatsAppTemplate.TYPE_LOJA_COMPRADOR: DEFAULT_LOJA_COMPRADOR_MESSAGE,
         WhatsAppTemplate.TYPE_EVENTO_INSCRICAO: DEFAULT_EVENTO_INSCRICAO_MESSAGE,
         WhatsAppTemplate.TYPE_EVENTO_INSCRICAO_RESPONSAVEL: DEFAULT_EVENTO_INSCRICAO_RESPONSAVEL_MESSAGE,
         WhatsAppTemplate.TYPE_EVENTO_INSCRICAO_DIRETORIA: DEFAULT_EVENTO_INSCRICAO_DIRETORIA_MESSAGE,

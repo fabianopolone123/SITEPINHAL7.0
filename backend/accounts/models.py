@@ -297,6 +297,7 @@ class WhatsAppQueue(models.Model):
     TYPE_CONFIRMACAO = WhatsAppPreference.NOTIFY_CONFIRMACAO
     TYPE_FINANCEIRO = WhatsAppPreference.NOTIFY_FINANCEIRO
     TYPE_LOJA = WhatsAppPreference.NOTIFY_LOJA
+    TYPE_LOJA_COMPRADOR = 'loja_comprador'
     TYPE_EVENTO_INSCRICAO = WhatsAppPreference.NOTIFY_EVENTO_INSCRICAO
     TYPE_EVENTO_INSCRICAO_RESPONSAVEL = 'evento_inscricao_responsavel'
     TYPE_EVENTO_INSCRICAO_DIRETORIA = 'evento_inscricao_diretoria'
@@ -311,6 +312,7 @@ class WhatsAppQueue(models.Model):
         (TYPE_CONFIRMACAO, 'Confirmação'),
         (TYPE_FINANCEIRO, 'Financeiro'),
         (TYPE_LOJA, 'Loja'),
+        (TYPE_LOJA_COMPRADOR, 'Loja comprador'),
         (TYPE_EVENTO_INSCRICAO, 'Nova inscricao de evento'),
         (TYPE_EVENTO_INSCRICAO_RESPONSAVEL, 'Confirmacao de evento (inscrito)'),
         (TYPE_EVENTO_INSCRICAO_DIRETORIA, 'Confirmacao de evento (diretoria)'),
@@ -354,6 +356,7 @@ class WhatsAppTemplate(models.Model):
     TYPE_CONFIRMACAO = WhatsAppPreference.NOTIFY_CONFIRMACAO
     TYPE_FINANCEIRO = WhatsAppPreference.NOTIFY_FINANCEIRO
     TYPE_LOJA = WhatsAppPreference.NOTIFY_LOJA
+    TYPE_LOJA_COMPRADOR = 'loja_comprador'
     TYPE_EVENTO_INSCRICAO = WhatsAppPreference.NOTIFY_EVENTO_INSCRICAO
     TYPE_EVENTO_INSCRICAO_RESPONSAVEL = 'evento_inscricao_responsavel'
     TYPE_EVENTO_INSCRICAO_DIRETORIA = 'evento_inscricao_diretoria'
@@ -367,6 +370,7 @@ class WhatsAppTemplate(models.Model):
         (TYPE_CONFIRMACAO, 'Confirmação'),
         (TYPE_FINANCEIRO, 'Financeiro'),
         (TYPE_LOJA, 'Loja'),
+        (TYPE_LOJA_COMPRADOR, 'Loja comprador'),
         (TYPE_EVENTO_INSCRICAO, 'Nova inscricao de evento'),
         (TYPE_EVENTO_INSCRICAO_RESPONSAVEL, 'Confirmacao de evento (inscrito)'),
         (TYPE_EVENTO_INSCRICAO_DIRETORIA, 'Confirmacao de evento (diretoria)'),

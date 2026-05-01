@@ -1694,6 +1694,18 @@
     </section>
 
     <section class="painel-card loja-grid">
+      <div class="cart-toolbar" style="justify-content:space-between; align-items:center;">
+        <div>
+          <h3 style="margin:0;">Relatórios da loja</h3>
+          <p class="panel-note" style="margin:.25rem 0 0;">Gera um PDF detalhado somente com pedidos pagos da loja interna.</p>
+        </div>
+        <a class="admin-primary-btn" href="{% url 'accounts:loja_relatorio_pedidos_pagos_pdf' %}" target="_blank" rel="noopener">
+          Gerar PDF de pedidos pagos
+        </a>
+      </div>
+    </section>
+
+    <section class="painel-card loja-grid">
       <details class="admin-loja-panel">
         <summary>
           <span>Pedidos</span>

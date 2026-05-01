@@ -7,6 +7,7 @@ import unicodedata
 import hashlib
 import hmac
 import logging
+import textwrap
 import time
 from random import randint
 from decimal import Decimal, InvalidOperation
@@ -8218,6 +8219,7 @@ class WhatsAppView(LoginRequiredMixin, View):
             'financeiro_template': get_template_message(WhatsAppTemplate.TYPE_FINANCEIRO),
             'cobranca_mensalidade_template': get_template_message(WhatsAppTemplate.TYPE_COBRANCA_MENSALIDADE),
             'loja_template': get_template_message(WhatsAppTemplate.TYPE_LOJA),
+            'loja_comprador_template': get_template_message(WhatsAppTemplate.TYPE_LOJA_COMPRADOR),
             'evento_inscricao_responsavel_template': get_template_message(
                 WhatsAppTemplate.TYPE_EVENTO_INSCRICAO_RESPONSAVEL
             ),
@@ -8315,6 +8317,10 @@ class WhatsAppView(LoginRequiredMixin, View):
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_LOJA,
             defaults={'message_text': request.POST.get('template_loja', '').strip()},
+        )
+        WhatsAppTemplate.objects.update_or_create(
+            notification_type=WhatsAppTemplate.TYPE_LOJA_COMPRADOR,
+            defaults={'message_text': request.POST.get('template_loja_comprador', '').strip()},
         )
         WhatsAppTemplate.objects.update_or_create(
             notification_type=WhatsAppTemplate.TYPE_EVENTO_INSCRICAO_RESPONSAVEL,
@@ -11600,20 +11606,25 @@ class LojaView(LoginRequiredMixin, View):
             'pagamento_id': pedido.mp_payment_id or f'Pedido #{pedido.pk}',
             'data_hora': timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M:%S'),
         }
-        message_text = render_message(get_template_message(WhatsAppTemplate.TYPE_LOJA), payload)
+        comprador_message_text = render_message(
+            get_template_message(WhatsAppTemplate.TYPE_LOJA_COMPRADOR),
+            payload,
+        )
+        diretoria_message_text = render_message(get_template_message(WhatsAppTemplate.TYPE_LOJA), payload)
 
-        recipients = []
+        comprador_recipients = []
+        diretoria_recipients = []
         seen_phones = set()
 
-        def add_recipient(user):
+        def add_recipient(user, target):
             pref, _ = WhatsAppPreference.objects.get_or_create(user=user)
             phone_number = normalize_phone_number(pref.phone_number or resolve_user_phone(user))
             if not phone_number or phone_number in seen_phones:
                 return
             seen_phones.add(phone_number)
-            recipients.append((user, phone_number))
+            target.append((user, phone_number))
 
-        add_recipient(responsavel_user)
+        add_recipient(responsavel_user, comprador_recipients)
 
         extras = (
             UserAccess.objects
@@ -11624,19 +11635,27 @@ class LojaView(LoginRequiredMixin, View):
         for access in extras:
             if not (access.has_profile(UserAccess.ROLE_DIRETORIA) or access.has_profile(UserAccess.ROLE_DIRETOR)):
                 continue
-            add_recipient(access.user)
+            add_recipient(access.user, diretoria_recipients)
 
-        if not recipients:
+        if not comprador_recipients and not diretoria_recipients:
             pedido.whatsapp_notified_at = timezone.now()
             pedido.save(update_fields=['whatsapp_notified_at', 'updated_at'])
             return
 
         sent_any = False
-        for user, phone_number in recipients:
+        send_jobs = [
+            (user, phone_number, WhatsAppQueue.TYPE_LOJA_COMPRADOR, comprador_message_text)
+            for user, phone_number in comprador_recipients
+        ]
+        send_jobs.extend(
+            (user, phone_number, WhatsAppQueue.TYPE_LOJA, diretoria_message_text)
+            for user, phone_number in diretoria_recipients
+        )
+        for user, phone_number, notification_type, message_text in send_jobs:
             queue_item = WhatsAppQueue.objects.create(
                 user=user,
                 phone_number=phone_number,
-                notification_type=WhatsAppQueue.TYPE_LOJA,
+                notification_type=notification_type,
                 message_text=message_text,
                 status=WhatsAppQueue.STATUS_PENDING,
             )
@@ -12323,6 +12342,179 @@ class LojaView(LoginRequiredMixin, View):
         context = self._context()
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
+
+
+class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
+    def _guard(self, request):
+        if not _has_menu_permission(request, 'loja'):
+            messages.error(request, 'Seu perfil nÃ£o possui permissÃ£o para acessar Loja.')
+            return redirect('accounts:painel')
+        if _get_active_profile(request) in {UserAccess.ROLE_RESPONSAVEL, UserAccess.ROLE_PROFESSOR}:
+            messages.error(request, 'Relatorio de pedidos pagos disponivel apenas para a gestao da loja.')
+            return redirect('accounts:loja')
+        return None
+
+    def _format_currency(self, value):
+        return LojaView()._format_currency(value)
+
+    def _responsavel_nome(self, pedido):
+        responsavel = pedido.responsavel
+        user = responsavel.user if responsavel else None
+        return (
+            (responsavel.responsavel_nome if responsavel else '')
+            or (responsavel.mae_nome if responsavel else '')
+            or (responsavel.pai_nome if responsavel else '')
+            or (user.get_full_name() if user else '')
+            or (user.username if user else '')
+            or '-'
+        ).strip()
+
+    def _local_datetime(self, value):
+        if not value:
+            return '-'
+        return timezone.localtime(value).strftime('%d/%m/%Y %H:%M')
+
+    def _pdf_escape(self, text):
+        return str(text or '').replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
+
+    def _wrap_pdf_lines(self, lines, width=112):
+        wrapped = []
+        for line in lines:
+            text = str(line or '')
+            if not text:
+                wrapped.append('')
+                continue
+            parts = textwrap.wrap(text, width=width, replace_whitespace=False) or ['']
+            wrapped.extend(parts)
+        return wrapped
+
+    def _build_pdf(self, lines):
+        wrapped_lines = self._wrap_pdf_lines(lines)
+        lines_per_page = 54
+        pages = [
+            wrapped_lines[index:index + lines_per_page]
+            for index in range(0, len(wrapped_lines), lines_per_page)
+        ] or [[]]
+
+        max_id = 3 + (len(pages) * 2)
+        objects = {}
+        page_ids = []
+        content_ids = []
+        for index, page_lines in enumerate(pages):
+            page_id = 4 + (index * 2)
+            content_id = page_id + 1
+            page_ids.append(page_id)
+            content_ids.append(content_id)
+            commands = ['BT', '/F1 10 Tf', '42 800 Td', '13 TL']
+            for line in page_lines:
+                commands.append(f'({self._pdf_escape(line)}) Tj')
+                commands.append('T*')
+            commands.append('ET')
+            stream = '\n'.join(commands).encode('latin-1', errors='replace')
+            objects[content_id] = (
+                f'<< /Length {len(stream)} >>\nstream\n'.encode('latin-1')
+                + stream
+                + b'\nendstream'
+            )
+            objects[page_id] = (
+                f'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] '
+                f'/Resources << /Font << /F1 3 0 R >> >> /Contents {content_id} 0 R >>'
+            ).encode('latin-1')
+
+        kids = ' '.join(f'{page_id} 0 R' for page_id in page_ids)
+        objects[1] = b'<< /Type /Catalog /Pages 2 0 R >>'
+        objects[2] = f'<< /Type /Pages /Kids [{kids}] /Count {len(page_ids)} >>'.encode('latin-1')
+        objects[3] = b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
+
+        pdf = bytearray(b'%PDF-1.4\n')
+        offsets = [0]
+        for object_id in range(1, max_id + 1):
+            offsets.append(len(pdf))
+            pdf.extend(f'{object_id} 0 obj\n'.encode('latin-1'))
+            pdf.extend(objects[object_id])
+            pdf.extend(b'\nendobj\n')
+        xref_offset = len(pdf)
+        pdf.extend(f'xref\n0 {max_id + 1}\n'.encode('latin-1'))
+        pdf.extend(b'0000000000 65535 f \n')
+        for offset in offsets[1:]:
+            pdf.extend(f'{offset:010d} 00000 n \n'.encode('latin-1'))
+        pdf.extend(
+            f'trailer\n<< /Size {max_id + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF'.encode('latin-1')
+        )
+        return bytes(pdf)
+
+    def get(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+
+        pedidos = list(
+            LojaPedido.objects
+            .filter(
+                status=LojaPedido.STATUS_PAGO,
+                evento__isnull=True,
+                evento_inscricao__isnull=True,
+            )
+            .select_related('responsavel', 'responsavel__user')
+            .prefetch_related('itens')
+            .order_by('-paid_at', '-created_at', '-id')
+        )
+        total_vendas = sum((pedido.valor_total or Decimal('0.00')) for pedido in pedidos)
+        total_itens = 0
+        produtos = {}
+        for pedido in pedidos:
+            for item in pedido.itens.all():
+                quantidade = int(item.quantidade or 0)
+                total_itens += quantidade
+                key = (item.produto_titulo or '-', item.variacao_nome or '-')
+                row = produtos.setdefault(key, {'quantidade': 0, 'total': Decimal('0.00')})
+                row['quantidade'] += quantidade
+                row['total'] += Decimal(item.valor_total or Decimal('0.00'))
+
+        ticket_medio = (Decimal(total_vendas) / len(pedidos)).quantize(Decimal('0.01')) if pedidos else Decimal('0.00')
+        now_label = timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M:%S')
+        lines = [
+            'RELATORIO DE PEDIDOS PAGOS - LOJA INTERNA',
+            f'Gerado em: {now_label}',
+            f'Gerado por: {request.user.get_full_name() or request.user.username}',
+            '',
+            'RESUMO',
+            f'Pedidos pagos: {len(pedidos)}',
+            f'Itens vendidos: {total_itens}',
+            f'Total em vendas: {self._format_currency(total_vendas)}',
+            f'Ticket medio: {self._format_currency(ticket_medio)}',
+            '',
+            'VENDAS POR PRODUTO / VARIACAO',
+        ]
+        if produtos:
+            for (produto, variacao), row in sorted(produtos.items(), key=lambda item: (-item[1]['total'], item[0][0])):
+                lines.append(
+                    f'- {produto} | {variacao} | qtd {row["quantidade"]} | total {self._format_currency(row["total"])}'
+                )
+        else:
+            lines.append('- Nenhum produto pago encontrado.')
+
+        lines.extend(['', 'PEDIDOS DETALHADOS'])
+        for pedido in pedidos:
+            lines.append('')
+            lines.append(
+                f'Pedido #{pedido.id} | Responsavel: {self._responsavel_nome(pedido)} | '
+                f'Total: {self._format_currency(pedido.valor_total)} | Pago em: {self._local_datetime(pedido.paid_at)}'
+            )
+            lines.append(
+                f'Criado em: {self._local_datetime(pedido.created_at)} | '
+                f'Pagamento MP: {pedido.mp_payment_id or "-"} | Entrega: {"Entregue" if pedido.entregue else "Nao entregue"}'
+            )
+            for item in pedido.itens.all():
+                lines.append(
+                    f'  - {item.produto_titulo} | {item.variacao_nome} | qtd {item.quantidade} | '
+                    f'unit {self._format_currency(item.valor_unitario)} | total {self._format_currency(item.valor_total)}'
+                )
+
+        response = HttpResponse(self._build_pdf(lines), content_type='application/pdf')
+        filename = timezone.localtime(timezone.now()).strftime('relatorio-loja-pedidos-pagos-%Y%m%d-%H%M.pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
 
 
 class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):

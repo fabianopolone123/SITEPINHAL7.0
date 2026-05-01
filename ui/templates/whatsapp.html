@@ -70,8 +70,12 @@
           <textarea name="template_cobranca_mensalidade" form="whatsapp-form" rows="6">{{ cobranca_mensalidade_template|default:'' }}</textarea>
         </label>
         <label class="message-template-card">
-          <span class="message-template-title">Mensagem de Pedido da loja pago</span>
+          <span class="message-template-title">Mensagem de Pedido da loja pago (diretoria)</span>
           <textarea name="template_loja" form="whatsapp-form" rows="6">{{ loja_template|default:'' }}</textarea>
+        </label>
+        <label class="message-template-card">
+          <span class="message-template-title">Mensagem de Pedido da loja pago (comprador)</span>
+          <textarea name="template_loja_comprador" form="whatsapp-form" rows="6">{{ loja_comprador_template|default:'' }}</textarea>
         </label>
         <label class="message-template-card">
           <span class="message-template-title">Mensagem de Confirmacao de evento (inscrito)</span>
@@ -103,7 +107,7 @@
         Placeholders para cobranca em aberto: <code>{responsavel_nome}</code>, <code>{mensalidades_em_aberto}</code>, <code>{valor_total_em_aberto}</code>, <code>{quantidade_cobrancas}</code>, <code>{mes_referencia}</code>, <code>{data_hora}</code>.
       </p>
       <p class="panel-note">
-        Placeholders para pedido da loja pago: <code>{responsavel_nome}</code>, <code>{pedido_id}</code>, <code>{pedido_itens}</code>, <code>{valor_total}</code>, <code>{pagamento_id}</code>, <code>{data_hora}</code>.
+        Placeholders para pedido da loja pago (diretoria e comprador): <code>{responsavel_nome}</code>, <code>{pedido_id}</code>, <code>{pedido_itens}</code>, <code>{valor_total}</code>, <code>{pagamento_id}</code>, <code>{data_hora}</code>.
       </p>
       <p class="panel-note">
         Placeholders para confirmacao de evento (inscrito e diretoria): <code>{evento_nome}</code>, <code>{evento_data}</code>, <code>{evento_horario}</code>, <code>{evento_local}</code>, <code>{codigo_inscricao}</code>, <code>{responsavel_nome}</code>, <code>{responsavel_cpf}</code>, <code>{responsavel_whatsapp}</code>, <code>{status_inscricao}</code>, <code>{status_pagamento}</code>, <code>{pedido_id}</code>, <code>{pagamento_id}</code>, <code>{valor_inscricao}</code>, <code>{valor_total_pago}</code>, <code>{origem_notificacao}</code>, <code>{data_hora}</code>.
