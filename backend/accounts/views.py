@@ -7,7 +7,6 @@ import unicodedata
 import hashlib
 import hmac
 import logging
-import textwrap
 import time
 from random import randint
 from decimal import Decimal, InvalidOperation
@@ -12375,41 +12374,77 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
         return timezone.localtime(value).strftime('%d/%m/%Y %H:%M')
 
     def _pdf_escape(self, text):
-        return str(text or '').replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
+        value = str(text or '')
+        return value.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
 
-    def _wrap_pdf_lines(self, lines, width=112):
-        wrapped = []
-        for line in lines:
-            text = str(line or '')
-            if not text:
-                wrapped.append('')
-                continue
-            parts = textwrap.wrap(text, width=width, replace_whitespace=False) or ['']
-            wrapped.extend(parts)
-        return wrapped
+    def _pdf_color(self, hex_color):
+        hex_text = str(hex_color or '').strip().lstrip('#')
+        if len(hex_text) != 6:
+            hex_text = '000000'
+        return tuple(int(hex_text[index:index + 2], 16) / 255 for index in (0, 2, 4))
 
-    def _build_pdf(self, lines):
-        wrapped_lines = self._wrap_pdf_lines(lines)
-        lines_per_page = 54
-        pages = [
-            wrapped_lines[index:index + lines_per_page]
-            for index in range(0, len(wrapped_lines), lines_per_page)
-        ] or [[]]
+    def _pdf_clip(self, text, max_chars):
+        value = str(text or '').strip()
+        if len(value) <= max_chars:
+            return value
+        return value[:max(0, max_chars - 3)].rstrip() + '...'
 
-        max_id = 3 + (len(pages) * 2)
-        objects = {}
+    def _pdf_text(self, commands, x, y, text, *, size=10, bold=False, color='#0f172a'):
+        r, g, b = self._pdf_color(color)
+        font = 'F2' if bold else 'F1'
+        commands.append(
+            f'q {r:.3f} {g:.3f} {b:.3f} rg BT /{font} {size} Tf {x:.2f} {y:.2f} Td ({self._pdf_escape(text)}) Tj ET Q'
+        )
+
+    def _pdf_rect(self, commands, x, y, w, h, *, fill=None, stroke='#dbe4f0', line_width=0.8):
+        if fill:
+            fr, fg, fb = self._pdf_color(fill)
+            sr, sg, sb = self._pdf_color(stroke)
+            commands.append(
+                f'q {line_width:.2f} w {fr:.3f} {fg:.3f} {fb:.3f} rg {sr:.3f} {sg:.3f} {sb:.3f} RG {x:.2f} {y:.2f} {w:.2f} {h:.2f} re B Q'
+            )
+        else:
+            sr, sg, sb = self._pdf_color(stroke)
+            commands.append(
+                f'q {line_width:.2f} w {sr:.3f} {sg:.3f} {sb:.3f} RG {x:.2f} {y:.2f} {w:.2f} {h:.2f} re S Q'
+            )
+
+    def _pdf_line(self, commands, x1, y1, x2, y2, *, color='#e2e8f0', line_width=0.8):
+        r, g, b = self._pdf_color(color)
+        commands.append(f'q {line_width:.2f} w {r:.3f} {g:.3f} {b:.3f} RG {x1:.2f} {y1:.2f} m {x2:.2f} {y2:.2f} l S Q')
+
+    def _pdf_footer(self, commands, page_number):
+        self._pdf_line(commands, 36, 34, 559, 34, color='#cbd5e1')
+        self._pdf_text(commands, 36, 20, 'Pinhal Junior - Relatorio da loja interna', size=8, color='#64748b')
+        self._pdf_text(commands, 520, 20, f'Pagina {page_number}', size=8, color='#64748b')
+
+    def _pdf_header(self, commands, *, generated_at, generated_by, page_number):
+        self._pdf_rect(commands, 36, 768, 523, 44, fill='#0f172a', stroke='#0f172a')
+        self._pdf_text(commands, 52, 795, 'Relatorio de pedidos pagos', size=17, bold=True, color='#ffffff')
+        self._pdf_text(commands, 52, 779, 'Loja interna do clube', size=9, color='#dbeafe')
+        self._pdf_text(commands, 390, 795, f'Gerado em {generated_at}', size=8, color='#e2e8f0')
+        self._pdf_text(commands, 390, 781, f'Por {self._pdf_clip(generated_by, 26)}', size=8, color='#e2e8f0')
+        self._pdf_footer(commands, page_number)
+
+    def _pdf_new_page(self, pages, *, generated_at, generated_by):
+        commands = []
+        page_number = len(pages) + 1
+        self._pdf_header(commands, generated_at=generated_at, generated_by=generated_by, page_number=page_number)
+        pages.append(commands)
+        return commands, 742
+
+    def _build_pdf_from_pages(self, pages):
+        max_id = 4 + (len(pages) * 2)
+        objects = {
+            1: b'<< /Type /Catalog /Pages 2 0 R >>',
+            3: b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+            4: b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>',
+        }
         page_ids = []
-        content_ids = []
-        for index, page_lines in enumerate(pages):
-            page_id = 4 + (index * 2)
+        for index, commands in enumerate(pages):
+            page_id = 5 + (index * 2)
             content_id = page_id + 1
             page_ids.append(page_id)
-            content_ids.append(content_id)
-            commands = ['BT', '/F1 10 Tf', '42 800 Td', '13 TL']
-            for line in page_lines:
-                commands.append(f'({self._pdf_escape(line)}) Tj')
-                commands.append('T*')
-            commands.append('ET')
             stream = '\n'.join(commands).encode('latin-1', errors='replace')
             objects[content_id] = (
                 f'<< /Length {len(stream)} >>\nstream\n'.encode('latin-1')
@@ -12418,13 +12453,11 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
             )
             objects[page_id] = (
                 f'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] '
-                f'/Resources << /Font << /F1 3 0 R >> >> /Contents {content_id} 0 R >>'
+                f'/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents {content_id} 0 R >>'
             ).encode('latin-1')
 
         kids = ' '.join(f'{page_id} 0 R' for page_id in page_ids)
-        objects[1] = b'<< /Type /Catalog /Pages 2 0 R >>'
         objects[2] = f'<< /Type /Pages /Kids [{kids}] /Count {len(page_ids)} >>'.encode('latin-1')
-        objects[3] = b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
 
         pdf = bytearray(b'%PDF-1.4\n')
         offsets = [0]
@@ -12442,6 +12475,87 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
             f'trailer\n<< /Size {max_id + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF'.encode('latin-1')
         )
         return bytes(pdf)
+
+    def _build_pdf(self, *, resumo, produtos_rows, pedidos_rows, generated_at, generated_by):
+        pages = []
+        commands, y = self._pdf_new_page(pages, generated_at=generated_at, generated_by=generated_by)
+
+        card_width = 123
+        cards = [
+            ('Pedidos pagos', resumo['pedidos_pagos'], '#eff6ff'),
+            ('Total em vendas', resumo['total_vendas'], '#ecfdf5'),
+            ('Itens vendidos', resumo['itens_vendidos'], '#fff7ed'),
+            ('Ticket medio', resumo['ticket_medio'], '#f8fafc'),
+        ]
+        for index, (label, value, fill) in enumerate(cards):
+            x = 36 + (index * 133)
+            self._pdf_rect(commands, x, y - 50, card_width, 50, fill=fill, stroke='#cbd5e1')
+            self._pdf_text(commands, x + 10, y - 18, label, size=8, bold=True, color='#475569')
+            self._pdf_text(commands, x + 10, y - 38, str(value), size=13, bold=True, color='#0f172a')
+        y -= 76
+
+        self._pdf_text(commands, 36, y, 'Vendas por produto e variacao', size=13, bold=True)
+        y -= 18
+        self._pdf_rect(commands, 36, y - 18, 523, 20, fill='#f1f5f9', stroke='#cbd5e1')
+        self._pdf_text(commands, 44, y - 11, 'Produto / variacao', size=8, bold=True, color='#334155')
+        self._pdf_text(commands, 392, y - 11, 'Qtd.', size=8, bold=True, color='#334155')
+        self._pdf_text(commands, 460, y - 11, 'Total', size=8, bold=True, color='#334155')
+        y -= 22
+
+        if produtos_rows:
+            for row in produtos_rows:
+                if y < 90:
+                    commands, y = self._pdf_new_page(pages, generated_at=generated_at, generated_by=generated_by)
+                    self._pdf_text(commands, 36, y, 'Vendas por produto e variacao (continuacao)', size=13, bold=True)
+                    y -= 22
+                self._pdf_line(commands, 36, y - 4, 559, y - 4)
+                self._pdf_text(commands, 44, y + 3, self._pdf_clip(row['produto'], 52), size=8, bold=True)
+                self._pdf_text(commands, 44, y - 10, self._pdf_clip(row['variacao'], 58), size=8, color='#64748b')
+                self._pdf_text(commands, 397, y - 3, str(row['quantidade']), size=9, bold=True)
+                self._pdf_text(commands, 460, y - 3, row['total'], size=9, bold=True, color='#047857')
+                y -= 28
+        else:
+            self._pdf_text(commands, 44, y, 'Nenhum produto pago encontrado.', size=9, color='#64748b')
+            y -= 20
+
+        y -= 10
+        if y < 140:
+            commands, y = self._pdf_new_page(pages, generated_at=generated_at, generated_by=generated_by)
+        self._pdf_text(commands, 36, y, 'Pedidos detalhados', size=13, bold=True)
+        y -= 22
+
+        if not pedidos_rows:
+            self._pdf_rect(commands, 36, y - 34, 523, 34, fill='#f8fafc', stroke='#cbd5e1')
+            self._pdf_text(commands, 48, y - 20, 'Nenhum pedido pago encontrado no periodo.', size=9, color='#64748b')
+        for row in pedidos_rows:
+            item_height = max(1, len(row['itens'])) * 16
+            box_height = 64 + item_height
+            if y - box_height < 58:
+                commands, y = self._pdf_new_page(pages, generated_at=generated_at, generated_by=generated_by)
+                self._pdf_text(commands, 36, y, 'Pedidos detalhados (continuacao)', size=13, bold=True)
+                y -= 22
+
+            self._pdf_rect(commands, 36, y - box_height, 523, box_height, fill='#ffffff', stroke='#cbd5e1')
+            self._pdf_rect(commands, 36, y - 28, 523, 28, fill='#f8fafc', stroke='#cbd5e1')
+            self._pdf_text(commands, 48, y - 18, f'Pedido #{row["id"]} - {self._pdf_clip(row["responsavel"], 46)}', size=10, bold=True)
+            self._pdf_text(commands, 444, y - 18, row['total'], size=10, bold=True, color='#047857')
+            y -= 43
+            self._pdf_text(commands, 48, y, f'Pago em: {row["pago_em"]}', size=8, color='#475569')
+            self._pdf_text(commands, 190, y, f'Criado em: {row["criado_em"]}', size=8, color='#475569')
+            self._pdf_text(commands, 340, y, f'Entrega: {row["entrega"]}', size=8, color='#475569')
+            y -= 14
+            self._pdf_text(commands, 48, y, f'Mercado Pago: {self._pdf_clip(row["mp_payment_id"], 55)}', size=8, color='#64748b')
+            y -= 17
+            for item in row['itens']:
+                self._pdf_line(commands, 48, y + 9, 548, y + 9, color='#eef2f7')
+                self._pdf_text(commands, 52, y, self._pdf_clip(f'{item["produto"]} - {item["variacao"]}', 58), size=8)
+                self._pdf_text(commands, 352, y, f'qtd {item["quantidade"]}', size=8, color='#475569')
+                self._pdf_text(commands, 410, y, f'unit {item["unitario"]}', size=8, color='#475569')
+                self._pdf_text(commands, 500, y, item['total'], size=8, bold=True)
+                y -= 16
+            y -= 18
+
+        return self._build_pdf_from_pages(pages)
 
     def get(self, request):
         guard = self._guard(request)
@@ -12473,45 +12587,54 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
 
         ticket_medio = (Decimal(total_vendas) / len(pedidos)).quantize(Decimal('0.01')) if pedidos else Decimal('0.00')
         now_label = timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M:%S')
-        lines = [
-            'RELATORIO DE PEDIDOS PAGOS - LOJA INTERNA',
-            f'Gerado em: {now_label}',
-            f'Gerado por: {request.user.get_full_name() or request.user.username}',
-            '',
-            'RESUMO',
-            f'Pedidos pagos: {len(pedidos)}',
-            f'Itens vendidos: {total_itens}',
-            f'Total em vendas: {self._format_currency(total_vendas)}',
-            f'Ticket medio: {self._format_currency(ticket_medio)}',
-            '',
-            'VENDAS POR PRODUTO / VARIACAO',
-        ]
-        if produtos:
-            for (produto, variacao), row in sorted(produtos.items(), key=lambda item: (-item[1]['total'], item[0][0])):
-                lines.append(
-                    f'- {produto} | {variacao} | qtd {row["quantidade"]} | total {self._format_currency(row["total"])}'
-                )
-        else:
-            lines.append('- Nenhum produto pago encontrado.')
+        produtos_rows = []
+        for (produto, variacao), row in sorted(produtos.items(), key=lambda item: (-item[1]['total'], item[0][0])):
+            produtos_rows.append({
+                'produto': produto,
+                'variacao': variacao,
+                'quantidade': row['quantidade'],
+                'total': self._format_currency(row['total']),
+            })
 
-        lines.extend(['', 'PEDIDOS DETALHADOS'])
+        pedidos_rows = []
         for pedido in pedidos:
-            lines.append('')
-            lines.append(
-                f'Pedido #{pedido.id} | Responsavel: {self._responsavel_nome(pedido)} | '
-                f'Total: {self._format_currency(pedido.valor_total)} | Pago em: {self._local_datetime(pedido.paid_at)}'
-            )
-            lines.append(
-                f'Criado em: {self._local_datetime(pedido.created_at)} | '
-                f'Pagamento MP: {pedido.mp_payment_id or "-"} | Entrega: {"Entregue" if pedido.entregue else "Nao entregue"}'
-            )
+            itens_rows = []
             for item in pedido.itens.all():
-                lines.append(
-                    f'  - {item.produto_titulo} | {item.variacao_nome} | qtd {item.quantidade} | '
-                    f'unit {self._format_currency(item.valor_unitario)} | total {self._format_currency(item.valor_total)}'
-                )
+                itens_rows.append({
+                    'produto': item.produto_titulo or '-',
+                    'variacao': item.variacao_nome or '-',
+                    'quantidade': item.quantidade,
+                    'unitario': self._format_currency(item.valor_unitario),
+                    'total': self._format_currency(item.valor_total),
+                })
+            pedidos_rows.append({
+                'id': pedido.id,
+                'responsavel': self._responsavel_nome(pedido),
+                'total': self._format_currency(pedido.valor_total),
+                'pago_em': self._local_datetime(pedido.paid_at),
+                'criado_em': self._local_datetime(pedido.created_at),
+                'entrega': 'Entregue' if pedido.entregue else 'Nao entregue',
+                'mp_payment_id': pedido.mp_payment_id or '-',
+                'itens': itens_rows,
+            })
 
-        response = HttpResponse(self._build_pdf(lines), content_type='application/pdf')
+        resumo = {
+            'pedidos_pagos': str(len(pedidos)),
+            'total_vendas': self._format_currency(total_vendas),
+            'itens_vendidos': str(total_itens),
+            'ticket_medio': self._format_currency(ticket_medio),
+        }
+
+        response = HttpResponse(
+            self._build_pdf(
+                resumo=resumo,
+                produtos_rows=produtos_rows,
+                pedidos_rows=pedidos_rows,
+                generated_at=now_label,
+                generated_by=request.user.get_full_name() or request.user.username,
+            ),
+            content_type='application/pdf',
+        )
         filename = timezone.localtime(timezone.now()).strftime('relatorio-loja-pedidos-pagos-%Y%m%d-%H%M.pdf')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
