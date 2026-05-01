@@ -9595,6 +9595,12 @@ class FinanceiroView(LoginRequiredMixin, View):
         caixa_liquido = (Decimal(total_mensalidades_pago) - Decimal(total_gastos_caixa_liquido)).quantize(Decimal('0.01'))
         resultado_loja_geral = (Decimal(total_loja_geral_pago) - Decimal(total_gastos_loja_geral)).quantize(Decimal('0.01'))
         resultado_eventos = (Decimal(total_eventos_geral) - Decimal(total_gastos_eventos)).quantize(Decimal('0.01'))
+        total_geral_bruto = (
+            Decimal(total_mensalidades_pago) + Decimal(total_loja_geral_pago) + Decimal(total_eventos_geral)
+        ).quantize(Decimal('0.01'))
+        total_geral_liquido = (
+            Decimal(caixa_liquido) + Decimal(resultado_loja_geral) + Decimal(resultado_eventos)
+        ).quantize(Decimal('0.01'))
 
         mensalidades_rows = []
         extrato_entries = []
@@ -9740,6 +9746,8 @@ class FinanceiroView(LoginRequiredMixin, View):
             'relatorios_total_gastos_eventos': self._format_currency(total_gastos_eventos),
             'relatorios_resultado_loja_geral': self._format_currency(resultado_loja_geral),
             'relatorios_resultado_eventos': self._format_currency(resultado_eventos),
+            'relatorios_total_geral_bruto': self._format_currency(total_geral_bruto),
+            'relatorios_total_geral_liquido': self._format_currency(total_geral_liquido),
             'relatorios_caixa_bruto': self._format_currency(caixa_bruto),
             'relatorios_caixa_liquido': self._format_currency(caixa_liquido),
             'relatorios_comprovante_query': comprovante_query,
