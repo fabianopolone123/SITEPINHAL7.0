@@ -168,9 +168,9 @@ class PagamentoMensalidadeAdmin(admin.ModelAdmin):
 
 @admin.register(FinanceiroComprovante)
 class FinanceiroComprovanteAdmin(admin.ModelAdmin):
-    list_display = ('id', 'nome', 'valor', 'created_by', 'created_at')
+    list_display = ('id', 'nome', 'valor', 'destino', 'created_by', 'created_at')
     search_fields = ('nome', 'created_by__username')
-    list_filter = ('created_at',)
+    list_filter = ('destino', 'created_at')
     autocomplete_fields = ('created_by',)
     readonly_fields = ('created_at', 'updated_at')
 

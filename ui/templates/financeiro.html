@@ -401,7 +401,7 @@
         <div class="financeiro-report-card">
           <strong>Caixa liquido</strong>
           <span>{{ relatorios_caixa_liquido }}</span>
-          <p class="financeiro-report-note">Mensalidades pagas menos gastos comprovados do clube.</p>
+          <p class="financeiro-report-note">Mensalidades pagas menos gastos marcados para caixa liquido.</p>
         </div>
         <div class="financeiro-report-card">
           <strong>Total mensalidades pagas</strong>
@@ -420,9 +420,19 @@
           <p class="financeiro-report-note">Inscricoes: {{ relatorios_total_eventos_inscricoes_pago }} | Pedidos evento: {{ relatorios_total_loja_eventos_pago }}</p>
         </div>
         <div class="financeiro-report-card">
+          <strong>Resultado loja geral</strong>
+          <span>{{ relatorios_resultado_loja_geral }}</span>
+          <p class="financeiro-report-note">Pedidos da loja geral pagos menos gastos marcados para loja.</p>
+        </div>
+        <div class="financeiro-report-card">
+          <strong>Resultado eventos</strong>
+          <span>{{ relatorios_resultado_eventos }}</span>
+          <p class="financeiro-report-note">Total eventos menos gastos marcados para eventos.</p>
+        </div>
+        <div class="financeiro-report-card">
           <strong>Total gastos comprovados</strong>
           <span>{{ relatorios_total_gastos_comprovados }}</span>
-          <p class="financeiro-report-note">Abate diretamente o saldo liquido.</p>
+          <p class="financeiro-report-note">Caixa: {{ relatorios_total_gastos_caixa_liquido }} | Loja: {{ relatorios_total_gastos_loja_geral }} | Eventos: {{ relatorios_total_gastos_eventos }}</p>
         </div>
       </div>
 
@@ -463,6 +473,7 @@
                   <th>Data/hora</th>
                   <th>Nome</th>
                   <th>Valor</th>
+                  <th>Abate em</th>
                   <th>Cadastrado por</th>
                   <th>Arquivo</th>
                 </tr>
@@ -474,6 +485,7 @@
                     <td>{{ row.created_at }}</td>
                     <td>{{ row.nome }}</td>
                     <td>{{ row.valor }}</td>
+                    <td>{{ row.destino }}</td>
                     <td>{{ row.created_by }}</td>
                     <td>
                       {% if row.comprovante_url %}
@@ -805,7 +817,7 @@
   <div class="modal-backdrop{% if relatorios_open_comprovante_modal %} is-open{% endif %}" id="financeiroComprovanteModal" aria-hidden="{% if relatorios_open_comprovante_modal %}false{% else %}true{% endif %}">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="financeiroComprovanteModalTitle">
       <h3 id="financeiroComprovanteModalTitle">Novo comprovante de gasto</h3>
-      <p>Cadastre gastos do clube para abater o saldo liquido e registrar no extrato.</p>
+      <p>Cadastre gastos do clube e escolha em qual conta esse valor vai abater.</p>
       <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         <input type="hidden" name="tab" value="relatorios" />
@@ -815,6 +827,12 @@
         <input id="comprovanteNome" type="text" name="comprovante_nome" required />
         <label for="comprovanteValor">Valor</label>
         <input id="comprovanteValor" type="text" name="comprovante_valor" inputmode="decimal" placeholder="0,00" required />
+        <label for="comprovanteDestino">Abater em</label>
+        <select id="comprovanteDestino" name="comprovante_destino" required>
+          <option value="caixa_liquido">Caixa liquido / mensalidades</option>
+          <option value="loja_geral">Loja geral</option>
+          <option value="eventos">Eventos</option>
+        </select>
         <label for="comprovanteArquivo">Arquivo do comprovante (opcional)</label>
         <input id="comprovanteArquivo" type="file" name="comprovante_arquivo" />
         <div class="modal-actions">

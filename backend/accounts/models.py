@@ -651,8 +651,23 @@ class EventoCusto(models.Model):
 
 
 class FinanceiroComprovante(models.Model):
+    DESTINO_CAIXA_LIQUIDO = 'caixa_liquido'
+    DESTINO_LOJA_GERAL = 'loja_geral'
+    DESTINO_EVENTOS = 'eventos'
+    DESTINO_CHOICES = (
+        (DESTINO_CAIXA_LIQUIDO, 'Caixa liquido / mensalidades'),
+        (DESTINO_LOJA_GERAL, 'Loja geral'),
+        (DESTINO_EVENTOS, 'Eventos'),
+    )
+
     nome = models.CharField('nome do gasto', max_length=255)
     valor = models.DecimalField('valor', max_digits=10, decimal_places=2)
+    destino = models.CharField(
+        'abater em',
+        max_length=32,
+        choices=DESTINO_CHOICES,
+        default=DESTINO_CAIXA_LIQUIDO,
+    )
     comprovante = models.FileField(
         'comprovante',
         upload_to=financeiro_comprovante_upload_to,

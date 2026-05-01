@@ -9570,8 +9570,31 @@ class FinanceiroView(LoginRequiredMixin, View):
             .get('total')
             or Decimal('0.00')
         )
+        total_gastos_caixa_liquido = (
+            FinanceiroComprovante.objects
+            .filter(destino=FinanceiroComprovante.DESTINO_CAIXA_LIQUIDO)
+            .aggregate(total=Sum('valor'))
+            .get('total')
+            or Decimal('0.00')
+        )
+        total_gastos_loja_geral = (
+            FinanceiroComprovante.objects
+            .filter(destino=FinanceiroComprovante.DESTINO_LOJA_GERAL)
+            .aggregate(total=Sum('valor'))
+            .get('total')
+            or Decimal('0.00')
+        )
+        total_gastos_eventos = (
+            FinanceiroComprovante.objects
+            .filter(destino=FinanceiroComprovante.DESTINO_EVENTOS)
+            .aggregate(total=Sum('valor'))
+            .get('total')
+            or Decimal('0.00')
+        )
         caixa_bruto = (Decimal(total_mensalidades_pago) + Decimal(total_loja_pago)).quantize(Decimal('0.01'))
-        caixa_liquido = (Decimal(total_mensalidades_pago) - Decimal(total_gastos_comprovados)).quantize(Decimal('0.01'))
+        caixa_liquido = (Decimal(total_mensalidades_pago) - Decimal(total_gastos_caixa_liquido)).quantize(Decimal('0.01'))
+        resultado_loja_geral = (Decimal(total_loja_geral_pago) - Decimal(total_gastos_loja_geral)).quantize(Decimal('0.01'))
+        resultado_eventos = (Decimal(total_eventos_geral) - Decimal(total_gastos_eventos)).quantize(Decimal('0.01'))
 
         mensalidades_rows = []
         extrato_entries = []
@@ -9644,21 +9667,34 @@ class FinanceiroView(LoginRequiredMixin, View):
 
         comprovantes_rows = []
         for gasto in comprovantes_gasto:
+            destino = getattr(gasto, 'destino', '') or FinanceiroComprovante.DESTINO_CAIXA_LIQUIDO
+            impacta_liquido = destino == FinanceiroComprovante.DESTINO_CAIXA_LIQUIDO
+            if destino == FinanceiroComprovante.DESTINO_LOJA_GERAL:
+                impacto_custom = 'Abate resultado da loja'
+                tipo_gasto = 'Gasto loja'
+            elif destino == FinanceiroComprovante.DESTINO_EVENTOS:
+                impacto_custom = 'Abate resultado de eventos'
+                tipo_gasto = 'Gasto evento'
+            else:
+                impacto_custom = 'Entra no liquido'
+                tipo_gasto = 'Gasto caixa'
             comprovantes_rows.append({
                 'id': gasto.pk,
                 'nome': gasto.nome,
                 'valor': self._format_currency(gasto.valor),
+                'destino': gasto.get_destino_display(),
                 'created_at': timezone.localtime(gasto.created_at).strftime('%d/%m/%Y %H:%M'),
                 'created_by': gasto.created_by.username if gasto.created_by else '-',
                 'comprovante_url': gasto.comprovante.url if getattr(gasto, 'comprovante', None) else '',
             })
             extrato_entries.append({
                 'created_at': gasto.created_at,
-                'tipo': 'Gasto comprovado',
+                'tipo': tipo_gasto,
                 'descricao': gasto.nome,
                 'valor': (-Decimal(gasto.valor)).quantize(Decimal('0.01')),
-                'impacto_liquido': (-Decimal(gasto.valor)).quantize(Decimal('0.01')),
-                'impacta_liquido': True,
+                'impacto_liquido': (-Decimal(gasto.valor)).quantize(Decimal('0.01')) if impacta_liquido else Decimal('0.00'),
+                'impacta_liquido': impacta_liquido,
+                'impacto_label_custom': impacto_custom,
             })
 
         sorted_entries = sorted(
@@ -9698,6 +9734,11 @@ class FinanceiroView(LoginRequiredMixin, View):
             'relatorios_total_eventos_inscricoes_pago': self._format_currency(total_eventos_inscricoes_pago),
             'relatorios_total_eventos_geral': self._format_currency(total_eventos_geral),
             'relatorios_total_gastos_comprovados': self._format_currency(total_gastos_comprovados),
+            'relatorios_total_gastos_caixa_liquido': self._format_currency(total_gastos_caixa_liquido),
+            'relatorios_total_gastos_loja_geral': self._format_currency(total_gastos_loja_geral),
+            'relatorios_total_gastos_eventos': self._format_currency(total_gastos_eventos),
+            'relatorios_resultado_loja_geral': self._format_currency(resultado_loja_geral),
+            'relatorios_resultado_eventos': self._format_currency(resultado_eventos),
             'relatorios_caixa_bruto': self._format_currency(caixa_bruto),
             'relatorios_caixa_liquido': self._format_currency(caixa_liquido),
             'relatorios_comprovante_query': comprovante_query,
@@ -9910,7 +9951,11 @@ class FinanceiroView(LoginRequiredMixin, View):
             if action == 'add_financeiro_comprovante':
                 nome = str(request.POST.get('comprovante_nome') or '').strip()
                 valor = self._parse_valor_positive(request.POST.get('comprovante_valor'))
+                destino = str(request.POST.get('comprovante_destino') or '').strip()
                 comprovante = request.FILES.get('comprovante_arquivo')
+                destinos_validos = {choice[0] for choice in FinanceiroComprovante.DESTINO_CHOICES}
+                if destino not in destinos_validos:
+                    destino = FinanceiroComprovante.DESTINO_CAIXA_LIQUIDO
                 if not nome:
                     open_comprovante_modal = True
                     messages.error(request, 'Informe o nome do gasto para salvar o comprovante.')
@@ -9921,6 +9966,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                     FinanceiroComprovante.objects.create(
                         nome=nome,
                         valor=valor,
+                        destino=destino,
                         comprovante=comprovante,
                         created_by=request.user,
                     )
