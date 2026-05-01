@@ -11860,13 +11860,15 @@ class LojaView(LoginRequiredMixin, View):
                     'itens_total': total_itens,
                     'itens_rows': itens_rows,
                 })
+        catalog_aventureiros = list(responsavel.aventures.order_by('nome', 'id')) if responsavel else []
         return {
             'loja_mode': 'responsavel',
             'catalog_rows': rows,
             'responsavel_catalogo_tem_produtos': bool(rows),
             'meus_pedidos_rows': meus_pedidos,
             'cashback_rows': cashback_rows,
-            'catalog_aventureiros': list(responsavel.aventures.order_by('nome')) if responsavel else [],
+            'catalog_aventureiros': catalog_aventureiros,
+            'catalog_aventureiro_auto': catalog_aventureiros[0] if catalog_aventureiros else None,
             'loja_buyer_label': 'Professor' if _get_active_profile(request) == UserAccess.ROLE_PROFESSOR else 'Responsavel',
         }
 
@@ -12786,7 +12788,6 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
                 return JsonResponse({'ok': False, 'error': 'invalid_item', 'message': f'Item {idx} inválido.'}, status=400)
             produto_id = str(item.get('product_id') or '').strip()
             variacao_id = str(item.get('variation_id') or '').strip()
-            aventureiro_id_raw = str(item.get('aventureiro_id') or '').strip()
             quantity_raw = item.get('quantity')
             if not (produto_id.isdigit() and variacao_id.isdigit()):
                 return JsonResponse({'ok': False, 'error': 'invalid_item_ids', 'message': f'Produto/variação inválidos no item {idx}.'}, status=400)
@@ -12821,22 +12822,17 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
                         'error': 'report_aventureiro_quantity',
                         'message': f'A variacao "{variacao.nome}" precisa ser adicionada 1 por vez para identificar o aventureiro.',
                     }, status=400)
-                if not aventureiro_id_raw.isdigit():
-                    return JsonResponse({
-                        'ok': False,
-                        'error': 'report_aventureiro_required',
-                        'message': f'Selecione o aventureiro para a variacao "{variacao.nome}".',
-                    }, status=400)
                 aventureiro_item = (
                     Aventureiro.objects
-                    .filter(pk=int(aventureiro_id_raw), responsavel=responsavel)
+                    .filter(responsavel=responsavel)
+                    .order_by('nome', 'id')
                     .first()
                 )
                 if not aventureiro_item:
                     return JsonResponse({
                         'ok': False,
-                        'error': 'report_aventureiro_invalid',
-                        'message': f'Aventureiro invalido para a variacao "{variacao.nome}".',
+                        'error': 'report_aventureiro_required',
+                        'message': f'O responsavel nao possui aventureiro vinculado para identificar a variacao "{variacao.nome}".',
                     }, status=400)
                 aventureiro_nome = aventureiro_item.nome
 

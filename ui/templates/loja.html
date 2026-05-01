@@ -1342,17 +1342,22 @@
                   {% endif %}
                 </div>
 
-                <div class="catalog-aventureiro-report" data-catalog-aventureiro-wrap hidden>
-                  <label>
-                    <span class="catalog-label">Aventureiro desta variação</span>
-                    <select class="catalog-variation-select" data-catalog-aventureiro-select>
-                      <option value="">Selecione o aventureiro</option>
-                      {% for av in catalog_aventureiros %}
-                        <option value="{{ av.id }}" data-name="{{ av.nome }}">{{ av.nome }}</option>
-                      {% endfor %}
-                    </select>
-                  </label>
-                  <p class="panel-note" style="margin:.35rem 0 0;">Essa variação foi marcada para sair no relatório por aventureiro. Adicione 1 por vez.</p>
+                <div
+                  class="catalog-aventureiro-report"
+                  data-catalog-aventureiro-wrap
+                  data-auto-aventureiro-id="{% if catalog_aventureiro_auto %}{{ catalog_aventureiro_auto.id }}{% endif %}"
+                  data-auto-aventureiro-name="{% if catalog_aventureiro_auto %}{{ catalog_aventureiro_auto.nome }}{% endif %}"
+                  hidden
+                >
+                  <span class="catalog-label">Aventureiro usado no relatorio</span>
+                  <p class="panel-note" style="margin:.25rem 0 0;">
+                    {% if catalog_aventureiro_auto %}
+                      <strong data-catalog-aventureiro-name>{{ catalog_aventureiro_auto.nome }}</strong>
+                    {% else %}
+                      <strong data-catalog-aventureiro-name>Nenhum aventureiro vinculado ao responsavel.</strong>
+                    {% endif %}
+                  </p>
+                  <p class="panel-note" style="margin:.35rem 0 0;">Essa variação foi marcada para sair no relatório por aventureiro. O nome sera puxado automaticamente pelo perfil comprador. Adicione 1 por vez.</p>
                 </div>
 
                 <div class="catalog-price-box">
@@ -2842,7 +2847,8 @@
         const variationCollapse = card.querySelector('[data-catalog-variation-collapse]');
         const hiddenMedia = card.querySelector('[data-catalog-variant-media]');
         const aventureiroWrap = card.querySelector('[data-catalog-aventureiro-wrap]');
-        const aventureiroSelect = card.querySelector('[data-catalog-aventureiro-select]');
+        const autoAventureiroId = aventureiroWrap ? String(aventureiroWrap.dataset.autoAventureiroId || '').trim() : '';
+        const autoAventureiroName = aventureiroWrap ? String(aventureiroWrap.dataset.autoAventureiroName || '').trim() : '';
         let currentGalleryPhotos = [];
         let autoSlideTimer = null;
         let autoSlideIndex = 0;
@@ -2977,7 +2983,6 @@
                 : 'Selecione uma variação';
             }
             if (aventureiroWrap) aventureiroWrap.hidden = true;
-            if (aventureiroSelect) aventureiroSelect.value = '';
             if (stockEl) stockEl.textContent = '';
             const allPhotos = getAllVariantUrls();
             if (allPhotos.length) {
@@ -3000,7 +3005,6 @@
           }, 0);
           const needsAventureiro = selectedVariants.some(function (row) { return !!row.reportAventureiro; });
           if (aventureiroWrap) aventureiroWrap.hidden = !needsAventureiro;
-          if (!needsAventureiro && aventureiroSelect) aventureiroSelect.value = '';
           if (priceEl) priceEl.textContent = formatPrice(totalSelected);
           if (stockEl) {
             const stockLabels = selectedVariants
@@ -3090,17 +3094,15 @@
             let aventureiroNome = '';
             if (needsAventureiro) {
               if (qty !== 1) {
-                if (feedback) feedback.textContent = 'Para esta variação, adicione 1 por vez e selecione o aventureiro.';
+                if (feedback) feedback.textContent = 'Para esta variação, adicione 1 por vez.';
                 return;
               }
-              if (!aventureiroSelect || !String(aventureiroSelect.value || '').trim()) {
-                if (feedback) feedback.textContent = 'Selecione o aventureiro desta variação antes de adicionar.';
-                if (aventureiroSelect) aventureiroSelect.focus();
+              if (!autoAventureiroId) {
+                if (feedback) feedback.textContent = 'Este responsavel nao possui aventureiro vinculado para identificar esta variação.';
                 return;
               }
-              const selectedAventureiro = aventureiroSelect.options[aventureiroSelect.selectedIndex];
-              aventureiroId = String(aventureiroSelect.value || '').trim();
-              aventureiroNome = String((selectedAventureiro && (selectedAventureiro.dataset.name || selectedAventureiro.textContent)) || '').trim();
+              aventureiroId = autoAventureiroId;
+              aventureiroNome = autoAventureiroName;
             }
             const variationIds = selectedVariants.map(function (row) { return row.id; });
             const variationIdsForKey = variationIds.slice().sort(function (a, b) { return Number(a) - Number(b); });
