@@ -12480,8 +12480,8 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
         max_id = 4 + (len(pages) * 2)
         objects = {
             1: b'<< /Type /Catalog /Pages 2 0 R >>',
-            3: b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-            4: b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>',
+            3: b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+            4: b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
         }
         page_ids = []
         for index, commands in enumerate(pages):
