@@ -233,7 +233,7 @@
                     <span class="users-status-badge {% if not item.user.is_active or not item.responsavel_ativo %}is-inactive{% endif %}">
                       {% if item.user.is_active and item.responsavel_ativo %}Ativo{% else %}Inativo{% endif %}
                     </span>
-                    {% if not item.responsavel_ativo %}<small class="users-muted-note">Fora das cobrancas.</small>{% endif %}
+                    {% if not item.responsavel_ativo %}<small class="users-muted-note">Usuario inativo.</small>{% endif %}
                   </td>
                   <td>
                     <a class="users-action-link" href="{% url 'accounts:usuario_detalhe' item.user.pk %}">
@@ -250,10 +250,10 @@
                         <input type="hidden" name="responsavel_id" value="{{ item.responsavel.pk }}" />
                         {% if item.responsavel_ativo %}
                           <input type="hidden" name="ativo" value="0" />
-                          <button type="submit" class="users-action-button is-danger">Inativar cobrancas</button>
+                          <button type="submit" class="users-action-button is-danger">Inativar usuario</button>
                         {% else %}
                           <input type="hidden" name="ativo" value="1" />
-                          <button type="submit" class="users-action-button is-success">Ativar cobrancas</button>
+                          <button type="submit" class="users-action-button is-success">Ativar usuario</button>
                         {% endif %}
                       </form>
                     {% endif %}
