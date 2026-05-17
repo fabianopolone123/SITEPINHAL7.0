@@ -105,6 +105,7 @@ class Responsavel(models.Model):
     cep = models.CharField('CEP', max_length=16, blank=True)
     estado = models.CharField('estado', max_length=32, blank=True)
     signature = models.ImageField('assinatura do responsável', upload_to='signatures/responsavel', null=True, blank=True)
+    ativo = models.BooleanField('ativo', default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property
@@ -191,6 +192,7 @@ class Aventureiro(models.Model):
     assinatura = models.ImageField('assinatura do aventureiro', upload_to='signatures/aventura', null=True, blank=True)
     codigo_indicacao = models.CharField('codigo de indicacao', max_length=12, unique=True, blank=True, db_index=True)
     cashback_saldo = models.DecimalField('saldo cashback', max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    ativo = models.BooleanField('ativo', default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     @staticmethod

@@ -20,13 +20,15 @@ from .models import (
 
 @admin.register(Responsavel)
 class ResponsavelAdmin(admin.ModelAdmin):
-    list_display = ('user', 'responsavel_nome', 'cidade', 'created_at')
+    list_display = ('user', 'responsavel_nome', 'cidade', 'ativo', 'created_at')
+    list_filter = ('ativo',)
     search_fields = ('user__username', 'pai_nome', 'responsavel_nome')
 
 
 @admin.register(Aventureiro)
 class AventureiroAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'responsavel', 'serie', 'created_at')
+    list_display = ('nome', 'responsavel', 'serie', 'ativo', 'created_at')
+    list_filter = ('ativo',)
     search_fields = ('nome', 'responsavel__user__username')
 
 

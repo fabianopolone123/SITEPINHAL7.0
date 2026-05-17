@@ -7669,6 +7669,7 @@ class UsuariosView(LoginRequiredMixin, View):
                 'nome_completo': display['nome_completo'],
                 'foto_url': display['foto_url'],
                 'responsavel': responsavel,
+                'responsavel_ativo': bool(getattr(responsavel, 'ativo', True)) if responsavel else True,
                 'diretoria': diretoria,
                 'perfis_display': perfis_display,
             })
@@ -7697,6 +7698,8 @@ class UsuariosView(LoginRequiredMixin, View):
                 'foto_url': av.foto.url if av.foto else '',
                 'responsavel_nome': responsavel_nome,
                 'serie': av.serie or '-',
+                'ativo': bool(getattr(av, 'ativo', True)),
+                'responsavel_ativo': bool(getattr(av.responsavel, 'ativo', True)),
             })
 
         can_copy_relacao = _has_menu_permission(request, 'usuarios')
@@ -7771,6 +7774,51 @@ class UsuariosView(LoginRequiredMixin, View):
         }
         context.update(_sidebar_context(request))
         return render(request, self.template_name, context)
+
+    def post(self, request):
+        if not _has_menu_permission(request, 'usuarios'):
+            messages.error(request, 'Seu perfil nÃ£o possui permissÃ£o para acessar usuÃ¡rios.')
+            return redirect('accounts:painel')
+
+        action = str(request.POST.get('action') or '').strip()
+        selected_grupo = str(request.POST.get('grupo') or request.GET.get('grupo') or 'responsaveis').strip().lower()
+        if selected_grupo not in {'diretoria', 'responsaveis', 'aventureiros'}:
+            selected_grupo = 'responsaveis'
+
+        if action == 'toggle_responsavel_ativo':
+            responsavel_id = str(request.POST.get('responsavel_id') or '').strip()
+            ativo = str(request.POST.get('ativo') or '').strip() == '1'
+            responsavel = (
+                Responsavel.objects.select_related('user').filter(pk=int(responsavel_id)).first()
+                if responsavel_id.isdigit()
+                else None
+            )
+            if not responsavel:
+                messages.error(request, 'Responsavel nao encontrado.')
+            else:
+                responsavel.ativo = ativo
+                responsavel.save(update_fields=['ativo'])
+                status = 'ativado' if ativo else 'inativado'
+                messages.success(request, f'Responsavel {responsavel.user.username} {status} com sucesso.')
+        elif action == 'toggle_aventureiro_ativo':
+            aventureiro_id = str(request.POST.get('aventureiro_id') or '').strip()
+            ativo = str(request.POST.get('ativo') or '').strip() == '1'
+            aventureiro = (
+                Aventureiro.objects.select_related('responsavel', 'responsavel__user').filter(pk=int(aventureiro_id)).first()
+                if aventureiro_id.isdigit()
+                else None
+            )
+            if not aventureiro:
+                messages.error(request, 'Aventureiro nao encontrado.')
+            else:
+                aventureiro.ativo = ativo
+                aventureiro.save(update_fields=['ativo'])
+                status = 'ativado' if ativo else 'inativado'
+                messages.success(request, f'Aventureiro {aventureiro.nome} {status} com sucesso.')
+        else:
+            messages.error(request, 'Acao invalida.')
+
+        return redirect(f'{reverse("accounts:usuarios")}?grupo={selected_grupo}')
 
 
 class PermissoesView(LoginRequiredMixin, View):
@@ -8685,6 +8733,8 @@ class FinanceiroView(LoginRequiredMixin, View):
             MensalidadeAventureiro.objects
             .filter(
                 status=MensalidadeAventureiro.STATUS_PENDENTE,
+                aventureiro__ativo=True,
+                aventureiro__responsavel__ativo=True,
             )
             .filter(
                 Q(ano_referencia__lt=hoje.year)
@@ -8840,6 +8890,8 @@ class FinanceiroView(LoginRequiredMixin, View):
                 .filter(
                     pk__in=(group.get('item_ids') or []),
                     status=MensalidadeAventureiro.STATUS_PENDENTE,
+                    aventureiro__ativo=True,
+                    aventureiro__responsavel__ativo=True,
                 )
                 .select_related('aventureiro')
                 .order_by('aventureiro__nome', 'ano_referencia', 'mes_referencia')
@@ -8980,6 +9032,7 @@ class FinanceiroView(LoginRequiredMixin, View):
         return list(
             Aventureiro.objects
             .select_related('responsavel', 'responsavel__user')
+            .filter(ativo=True, responsavel__ativo=True)
             .order_by('nome')
         )
 
@@ -9340,6 +9393,8 @@ class FinanceiroView(LoginRequiredMixin, View):
             MensalidadeAventureiro.objects
             .filter(
                 aventureiro__responsavel=responsavel,
+                aventureiro__ativo=True,
+                aventureiro__responsavel__ativo=True,
                 status=MensalidadeAventureiro.STATUS_PENDENTE,
             )
         )
@@ -9362,7 +9417,7 @@ class FinanceiroView(LoginRequiredMixin, View):
         if responsavel:
             aventureiros = list(
                 Aventureiro.objects
-                .filter(responsavel=responsavel)
+                .filter(responsavel=responsavel, ativo=True, responsavel__ativo=True)
                 .order_by('nome')
             )
             cashback_rows = LojaView()._cashback_rows_for_responsavel(responsavel)
@@ -9424,7 +9479,11 @@ class FinanceiroView(LoginRequiredMixin, View):
         return {
             'financeiro_mode': 'responsavel',
             'responsavel_rows': rows,
-            'responsavel_tem_aventureiros': bool(getattr(request.user, 'responsavel', None) and request.user.responsavel.aventures.exists()),
+            'responsavel_tem_aventureiros': bool(
+                getattr(request.user, 'responsavel', None)
+                and getattr(request.user.responsavel, 'ativo', True)
+                and request.user.responsavel.aventures.filter(ativo=True).exists()
+            ),
             'responsavel_incluir_ano_todo': bool(incluir_ano_todo),
             'mes_atual_label': self._month_label(hoje.month),
             'ano_atual': hoje.year,
@@ -10117,6 +10176,8 @@ class FinanceiroView(LoginRequiredMixin, View):
             aventureiro = Aventureiro.objects.filter(pk=aventureiro_id).select_related('responsavel', 'responsavel__user').first()
             if not aventureiro:
                 messages.error(request, 'Selecione um aventureiro para gerar mensalidades.')
+            elif not getattr(aventureiro, 'ativo', True) or not getattr(aventureiro.responsavel, 'ativo', True):
+                messages.error(request, 'Este aventureiro ou responsavel esta inativo. Nao e possivel gerar novas cobrancas.')
             else:
                 valor = self._parse_valor(valor_input)
                 if valor is None:

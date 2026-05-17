@@ -45,7 +45,7 @@ class ResponsavelForm(forms.ModelForm):
 
     class Meta:
         model = Responsavel
-        exclude = ('user', 'signature', 'created_at')
+        exclude = ('user', 'signature', 'ativo', 'created_at')
 
     def clean(self):
         cleaned = super().clean()
@@ -109,7 +109,7 @@ class AventureiroForm(forms.ModelForm):
 
     class Meta:
         model = Aventureiro
-        exclude = ('responsavel', 'assinatura', 'created_at')
+        exclude = ('responsavel', 'assinatura', 'ativo', 'created_at')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -243,7 +243,7 @@ class AventureiroForm(forms.ModelForm):
 class ResponsavelDadosForm(forms.ModelForm):
     class Meta:
         model = Responsavel
-        exclude = ('user', 'signature', 'created_at')
+        exclude = ('user', 'signature', 'ativo', 'created_at')
 
 
 class AventureiroDadosForm(forms.ModelForm):
