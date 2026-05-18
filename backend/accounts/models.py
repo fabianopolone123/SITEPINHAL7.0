@@ -754,6 +754,15 @@ class EventoInscricao(models.Model):
     cashback_creditado_valor = models.DecimalField('valor cashback creditado', max_digits=10, decimal_places=2, default=Decimal('0.00'))
     cashback_usado_valor = models.DecimalField('valor cashback usado', max_digits=10, decimal_places=2, default=Decimal('0.00'))
     confirmada = models.BooleanField('inscricao confirmada por pagamento', default=True)
+    cancelada = models.BooleanField('inscricao cancelada', default=False)
+    cancelada_at = models.DateTimeField('cancelada em', null=True, blank=True)
+    cancelada_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='eventos_inscricoes_canceladas',
+    )
     quer_comprar_itens = models.BooleanField('quer comprar itens', default=False)
     created_at = models.DateTimeField('criado em', auto_now_add=True)
     updated_at = models.DateTimeField('atualizado em', auto_now=True)

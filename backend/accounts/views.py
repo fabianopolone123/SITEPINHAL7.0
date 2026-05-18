@@ -3497,6 +3497,7 @@ class EventosView(LoginRequiredMixin, View):
                 item['evento_id']: item['total']
                 for item in (
                     EventoInscricao.objects
+                    .filter(confirmada=True, cancelada=False)
                     .values('evento_id')
                     .annotate(total=Count('id'))
                 )
@@ -3535,6 +3536,7 @@ class EventosView(LoginRequiredMixin, View):
                 item['evento_id']: item['valor_total']
                 for item in (
                     EventoInscricao.objects
+                    .filter(confirmada=True, cancelada=False)
                     .values('evento_id')
                     .annotate(valor_total=Sum('valor_inscricao'))
                 )
@@ -3573,7 +3575,7 @@ class EventosView(LoginRequiredMixin, View):
                     })
                 inscricoes = list(
                     EventoInscricao.objects
-                    .filter(evento=evento)
+                    .filter(evento=evento, confirmada=True, cancelada=False)
                     .select_related('user', 'responsavel', 'responsavel__user')
                     .order_by('-created_at')[:20]
                 )
@@ -4584,7 +4586,7 @@ class EventoPublicoView(View):
         if request.user.is_authenticated:
             return (
                 EventoInscricao.objects
-                .filter(evento=evento, user=request.user)
+                .filter(evento=evento, user=request.user, cancelada=False)
                 .order_by('-created_at')
                 .first()
             )
@@ -4594,7 +4596,7 @@ class EventoPublicoView(View):
             return None
         return (
             EventoInscricao.objects
-            .filter(pk=inscricao_id, evento=evento, user__isnull=True)
+            .filter(pk=inscricao_id, evento=evento, user__isnull=True, cancelada=False)
             .first()
         )
 
@@ -5238,7 +5240,10 @@ class EventoPublicoView(View):
                 status_pagamento = 'Pendente'
         elif Decimal(valor_inscricao).quantize(Decimal('0.01')) > 0:
             status_pagamento = 'Pendente'
-        status_inscricao = 'Confirmada' if bool(getattr(inscricao, 'confirmada', False)) else 'Aguardando pagamento'
+        if bool(getattr(inscricao, 'cancelada', False)):
+            status_inscricao = 'Cancelada'
+        else:
+            status_inscricao = 'Confirmada' if bool(getattr(inscricao, 'confirmada', False)) else 'Aguardando pagamento'
 
         payload = {
             'evento_nome': str(getattr(evento, 'name', '') or f'Evento {evento.id}'),
@@ -5654,7 +5659,7 @@ class EventoPublicoView(View):
 
         base_qs = (
             EventoInscricao.objects
-            .filter(evento=evento, confirmada=True)
+            .filter(evento=evento, confirmada=True, cancelada=False)
             .select_related('user', 'responsavel', 'responsavel__user', 'indicador_aventureiro')
             .order_by('-created_at')
         )
@@ -5819,7 +5824,7 @@ class EventoPublicoView(View):
             if posted_edit_id.isdigit():
                 posted_target = (
                     EventoInscricao.objects
-                    .filter(pk=int(posted_edit_id), evento=evento)
+                    .filter(pk=int(posted_edit_id), evento=evento, cancelada=False)
                     .select_related('responsavel', 'responsavel__user', 'user')
                     .first()
                 )
@@ -5901,7 +5906,7 @@ class EventoPublicoView(View):
             try:
                 inscricoes_base_qs = (
                     EventoInscricao.objects
-                    .filter(evento=evento, confirmada=True)
+                    .filter(evento=evento, confirmada=True, cancelada=False)
                     .select_related('user', 'responsavel', 'responsavel__user')
                     .order_by('-created_at')
                 )
@@ -6160,7 +6165,7 @@ class EventoPublicoView(View):
                 )
             target_inscricao = (
                 EventoInscricao.objects
-                .filter(pk=int(inscricao_id_raw), evento=evento)
+                .filter(pk=int(inscricao_id_raw), evento=evento, cancelada=False)
                 .select_related('responsavel', 'responsavel__user', 'user')
                 .first()
             )
@@ -6252,14 +6257,14 @@ class EventoPublicoView(View):
             messages.success(request, 'Custo do evento removido com sucesso.')
             return render(request, self.template_name, self._context(request, evento))
 
-        if action == 'delete_selected_registrations':
+        if action in {'delete_selected_registrations', 'cancel_selected_registrations'}:
             if not can_manage_evento:
                 messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
                 return render(request, self.template_name, self._context(request, evento))
 
             provided_password = str(request.POST.get('delete_password') or '').strip()
             if provided_password != str(self.delete_inscricao_password):
-                messages.error(request, 'Senha incorreta para excluir inscricoes.')
+                messages.error(request, 'Senha incorreta para cancelar inscricoes.')
                 return render(request, self.template_name, self._context(request, evento))
 
             raw_ids = request.POST.getlist('inscricao_ids[]')
@@ -6270,42 +6275,66 @@ class EventoPublicoView(View):
                     selected_ids.append(int(raw_text))
             selected_ids = sorted(set(selected_ids))
             if not selected_ids:
-                messages.error(request, 'Selecione ao menos uma inscricao para excluir.')
+                messages.error(request, 'Selecione ao menos uma inscricao para cancelar.')
                 return render(request, self.template_name, self._context(request, evento))
 
-            deleted_total, _ = EventoInscricao.objects.filter(
+            cancelled_total = EventoInscricao.objects.filter(
                 evento=evento,
                 pk__in=selected_ids,
-            ).delete()
-            if deleted_total <= 0:
-                messages.error(request, 'Nenhuma inscricao foi excluida.')
+                cancelada=False,
+            ).update(
+                confirmada=False,
+                cancelada=True,
+                cancelada_at=timezone.now(),
+                cancelada_by=request.user if request.user.is_authenticated else None,
+            )
+            if cancelled_total <= 0:
+                messages.error(request, 'Nenhuma inscricao foi cancelada.')
             else:
-                messages.success(request, f'{deleted_total} inscricao(oes) excluida(s) com sucesso.')
+                messages.success(
+                    request,
+                    f'{cancelled_total} inscricao(oes) cancelada(s). O valor saiu do saldo do evento.',
+                )
             return render(request, self.template_name, self._context(request, evento))
 
         if action == 'delete_registration':
             provided_password = str(request.POST.get('delete_password') or '').strip()
             if provided_password != str(self.delete_inscricao_password):
-                messages.error(request, 'Senha incorreta para excluir a inscricao.')
+                messages.error(request, 'Senha incorreta para cancelar a inscricao.')
                 return render(request, self.template_name, self._context(request, evento))
 
-            deleted_total = 0
+            cancelled_total = 0
             if request.user.is_authenticated:
-                deleted_total, _ = EventoInscricao.objects.filter(evento=evento, user=request.user).delete()
+                cancelled_total = EventoInscricao.objects.filter(
+                    evento=evento,
+                    user=request.user,
+                    cancelada=False,
+                ).update(
+                    confirmada=False,
+                    cancelada=True,
+                    cancelada_at=timezone.now(),
+                    cancelada_by=request.user,
+                )
             else:
                 inscricao = self._current_inscricao(request, evento)
                 if inscricao:
-                    deleted_total, _ = EventoInscricao.objects.filter(
+                    cancelled_total = EventoInscricao.objects.filter(
                         pk=inscricao.pk,
                         evento=evento,
                         user__isnull=True,
-                    ).delete()
+                        cancelada=False,
+                    ).update(
+                        confirmada=False,
+                        cancelada=True,
+                        cancelada_at=timezone.now(),
+                        cancelada_by=None,
+                    )
                 request.session.pop(_evento_public_inscricao_session_key(evento.id), None)
 
-            if deleted_total <= 0:
-                messages.error(request, 'Nenhuma inscricao encontrada para excluir.')
+            if cancelled_total <= 0:
+                messages.error(request, 'Nenhuma inscricao encontrada para cancelar.')
             else:
-                messages.success(request, 'Inscricao excluida com sucesso.')
+                messages.success(request, 'Inscricao cancelada com sucesso.')
             return render(request, self.template_name, self._context(request, evento))
 
         if action != 'register_event':
@@ -6320,7 +6349,7 @@ class EventoPublicoView(View):
                 return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
             edit_target_inscricao = (
                 EventoInscricao.objects
-                .filter(pk=int(edit_registration_id_raw), evento=evento)
+                .filter(pk=int(edit_registration_id_raw), evento=evento, cancelada=False)
                 .select_related('responsavel', 'responsavel__user', 'user')
                 .first()
             )
@@ -6475,7 +6504,7 @@ class EventoPublicoView(View):
                 responsavel = LojaView()._ensure_loja_responsavel(request.user, create=False)
                 existing_inscricao = (
                     EventoInscricao.objects
-                    .filter(evento=evento, user=request.user)
+                    .filter(evento=evento, user=request.user, cancelada=False)
                     .order_by('-created_at')
                     .first()
                 )
@@ -6541,7 +6570,7 @@ class EventoPublicoView(View):
                 if str(existing_id or '').isdigit():
                     existing_inscricao = (
                         EventoInscricao.objects
-                        .filter(pk=int(existing_id), evento=evento, user__isnull=True)
+                        .filter(pk=int(existing_id), evento=evento, user__isnull=True, cancelada=False)
                         .first()
                     )
                 if existing_inscricao:
@@ -6792,7 +6821,7 @@ class EventoPedidoCreatePixApiView(View):
                 return JsonResponse({'ok': False, 'error': 'invalid_registration', 'message': 'Inscricao invalida para pagamento.'}, status=400)
             requested_inscricao = (
                 EventoInscricao.objects
-                .filter(pk=int(requested_inscricao_raw), evento=evento)
+                .filter(pk=int(requested_inscricao_raw), evento=evento, cancelada=False)
                 .select_related('responsavel', 'responsavel__user', 'user')
                 .first()
             )
@@ -6804,7 +6833,7 @@ class EventoPedidoCreatePixApiView(View):
         elif request.user.is_authenticated:
             inscricao = (
                 EventoInscricao.objects
-                .filter(evento=evento, user=request.user)
+                .filter(evento=evento, user=request.user, cancelada=False)
                 .order_by('-created_at')
                 .first()
             )
@@ -6814,7 +6843,7 @@ class EventoPedidoCreatePixApiView(View):
             if inscricao_id:
                 inscricao = (
                     EventoInscricao.objects
-                    .filter(pk=inscricao_id, evento=evento, user__isnull=True)
+                    .filter(pk=inscricao_id, evento=evento, user__isnull=True, cancelada=False)
                     .first()
                 )
 
@@ -9615,7 +9644,7 @@ class FinanceiroView(LoginRequiredMixin, View):
         )
         total_eventos_inscricoes_pago = (
             EventoInscricao.objects
-            .filter(confirmada=True)
+            .filter(confirmada=True, cancelada=False)
             .aggregate(total=Sum('valor_inscricao'))
             .get('total')
             or Decimal('0.00')
@@ -11497,6 +11526,8 @@ class LojaView(LoginRequiredMixin, View):
         )
         if not inscricao:
             return
+        if getattr(inscricao, 'cancelada', False):
+            return
         if not inscricao.confirmada:
             inscricao.confirmada = True
             inscricao.save(update_fields=['confirmada', 'updated_at'])
@@ -11537,7 +11568,7 @@ class LojaView(LoginRequiredMixin, View):
                 .filter(pk=pedido.evento_inscricao_id)
                 .first()
             )
-            if not inscricao or inscricao.cashback_creditado:
+            if not inscricao or inscricao.cashback_creditado or getattr(inscricao, 'cancelada', False):
                 return
 
             codigo = self._normalize_indicacao_code(inscricao.codigo_indicacao_usado)

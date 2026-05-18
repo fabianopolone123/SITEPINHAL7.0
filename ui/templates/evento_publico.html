@@ -1549,7 +1549,7 @@
           {% if inscritos_detalhes %}
             <form method="post" id="event-delete-selected-inscricoes-form">
               {% csrf_token %}
-              <input type="hidden" name="action" value="delete_selected_registrations" />
+              <input type="hidden" name="action" value="cancel_selected_registrations" />
               <input type="hidden" name="delete_password" id="event-delete-selected-password" value="" />
               <div class="table-scroll">
                 <table class="users-table">
@@ -1603,7 +1603,7 @@
                 </table>
               </div>
               <div class="action-row" style="margin-top:0.75rem;">
-                <button type="submit" class="secondary">Excluir selecionadas</button>
+                <button type="submit" class="secondary">Cancelar selecionadas</button>
               </div>
             </form>
           {% else %}
@@ -3721,10 +3721,10 @@
           const selected = getInscricaoCheckboxes().filter((box) => box.checked);
           if (!selected.length) {
             event.preventDefault();
-            window.alert('Selecione ao menos uma inscricao para excluir.');
+            window.alert('Selecione ao menos uma inscricao para cancelar.');
             return;
           }
-          const provided = window.prompt('Digite a senha para excluir inscricoes:');
+          const provided = window.prompt('Digite a senha para cancelar inscricoes:');
           if (provided === null) {
             event.preventDefault();
             return;
@@ -3735,7 +3735,7 @@
             window.alert('Senha incorreta.');
             return;
           }
-          if (!window.confirm('Confirma excluir ' + selected.length + ' inscricao(oes) selecionada(s)?')) {
+          if (!window.confirm('Confirma cancelar ' + selected.length + ' inscricao(oes) selecionada(s)? O valor sera removido do saldo do evento.')) {
             event.preventDefault();
             return;
           }

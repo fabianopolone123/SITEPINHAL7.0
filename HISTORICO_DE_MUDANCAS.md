@@ -9,6 +9,13 @@ Arquivo oficial de registro das entregas concluidas.
 - Padrao de commit adotado no projeto:
   - `<arquivo_principal>: <descricao objetiva>`
 
+## 18/05/2026 - Eventos: cancelamento de inscricao com estorno no saldo
+
+- Adicionada baixa logica para inscricoes de eventos, registrando cancelamento, data e usuario responsavel.
+- O diretor agora cancela inscricoes selecionadas na gestao do evento, com senha 1580, sem apagar o historico.
+- Inscricoes canceladas deixam de compor os totais, relatorios, consultas e saldo do evento.
+- A confirmacao posterior de pagamento nao reativa inscricoes que ja foram canceladas.
+
 ## 29/04/2026 - Loja: WhatsApp para comprador
 
 - Confirmacao de pedido pago da loja agora envia WhatsApp tambem para o responsavel comprador.
