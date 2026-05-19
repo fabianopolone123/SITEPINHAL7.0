@@ -1837,6 +1837,7 @@
                                 <th>Status</th>
                                 <th>Forma</th>
                                 <th>Total</th>
+                                <th>Entrega</th>
                                 <th>Itens</th>
                                 <th>Data</th>
                               </tr>
@@ -1848,6 +1849,18 @@
                                   <td>{{ ped.status }}</td>
                                   <td>{{ ped.forma_pagamento }}</td>
                                   <td>{{ ped.valor_total }}</td>
+                                  <td>
+                                    {% if ped.entregue %}
+                                      <span class="event-metric-pill">Entregue</span>
+                                    {% else %}
+                                      <form method="post" style="margin:0;" data-mark-delivered-form>
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="marcar_pedido_evento_entregue" />
+                                        <input type="hidden" name="pedido_id" value="{{ ped.id }}" />
+                                        <button type="submit" class="secondary">Marcar entregue</button>
+                                      </form>
+                                    {% endif %}
+                                  </td>
                                   <td>
                                     {% for ped_item in ped.itens %}
                                       <div>{{ ped_item.descricao }} - {{ ped_item.valor_total }}</div>
@@ -1931,6 +1944,13 @@
                               <select name="sale_status" required>
                                 <option value="pago">Pago</option>
                                 <option value="pendente">Nao pago</option>
+                              </select>
+                            </label>
+                            <label>
+                              <span>Entrega</span>
+                              <select name="sale_delivered">
+                                <option value="0">Nao entregar agora</option>
+                                <option value="1">Ja entregar agora</option>
                               </select>
                             </label>
                             <button type="submit" class="primary">Concluir venda</button>
@@ -4182,6 +4202,14 @@
         });
       };
       initAttendantSaleForms();
+
+      Array.from(document.querySelectorAll('[data-mark-delivered-form]')).forEach((form) => {
+        form.addEventListener('submit', (event) => {
+          if (!window.confirm('Confirmar que este pedido foi entregue?')) {
+            event.preventDefault();
+          }
+        });
+      });
 
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;

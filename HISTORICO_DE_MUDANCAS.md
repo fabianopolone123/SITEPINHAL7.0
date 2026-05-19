@@ -16,6 +16,8 @@ Arquivo oficial de registro das entregas concluidas.
 - O atendente pode registrar venda manual de itens do evento vinculada a inscricao.
 - A venda manual aceita Pix, Dinheiro ou Cartao e pode ser marcada como paga ou pendente.
 - Vendas pagas entram no extrato do evento/financeiro e baixam estoque dos itens vendidos.
+- Pedidos exibidos na consulta do atendente podem ser marcados como entregues.
+- Nova venda manual pode ser finalizada ja marcada como entregue.
 
 ## 18/05/2026 - Eventos: cancelamento de inscricao com estorno no saldo
 

@@ -6071,6 +6071,8 @@ class EventoPublicoView(View):
                             'status': ped.get_status_display(),
                             'forma_pagamento': ped.get_forma_pagamento_display(),
                             'valor_total': self._format_currency(ped.valor_total or Decimal('0.00')),
+                            'entregue': bool(ped.entregue),
+                            'entrega_label': 'Entregue' if ped.entregue else 'Nao entregue',
                             'created_at': ped.created_at,
                             'paid_at': ped.paid_at,
                             'itens': itens_rows,
@@ -6183,6 +6185,23 @@ class EventoPublicoView(View):
             self._context(request, evento, active_mode=requested_mode),
         )
 
+    def _handle_marcar_pedido_evento_entregue(self, request, evento):
+        pedido_id_raw = str(request.POST.get('pedido_id') or '').strip()
+        pedido = (
+            LojaPedido.objects
+            .filter(pk=int(pedido_id_raw), evento=evento)
+            .first()
+            if pedido_id_raw.isdigit()
+            else None
+        )
+        if not pedido:
+            messages.error(request, 'Pedido do evento nao encontrado.')
+            return render(request, self.template_name, self._context(request, evento))
+        pedido.entregue = True
+        pedido.save(update_fields=['entregue', 'updated_at'])
+        messages.success(request, f'Pedido #{pedido.pk} marcado como entregue.')
+        return render(request, self.template_name, self._context(request, evento))
+
     def _handle_registrar_venda_evento_atendente(self, request, evento):
         inscricao_id_raw = str(request.POST.get('sale_inscricao_id') or '').strip()
         if not inscricao_id_raw.isdigit():
@@ -6213,6 +6232,7 @@ class EventoPublicoView(View):
             messages.error(request, 'Informe se a venda esta paga ou pendente.')
             return render(request, self.template_name, self._context(request, evento))
         is_paid = sale_status == LojaPedido.STATUS_PAGO
+        sale_delivered = str(request.POST.get('sale_delivered') or '').strip() == '1'
 
         raw_variacao_ids = request.POST.getlist('sale_variacao_ids[]') or request.POST.getlist('sale_variacao_ids')
         raw_quantities = request.POST.getlist('sale_quantities[]') or request.POST.getlist('sale_quantities')
@@ -6312,6 +6332,7 @@ class EventoPublicoView(View):
                     valor_total=total.quantize(Decimal('0.01')),
                     status=LojaPedido.STATUS_PAGO if is_paid else LojaPedido.STATUS_PENDENTE,
                     paid_at=timezone.now() if is_paid else None,
+                    entregue=sale_delivered,
                     created_by=request.user if request.user.is_authenticated else None,
                 )
                 LojaPedidoItem.objects.bulk_create([
@@ -6367,6 +6388,12 @@ class EventoPublicoView(View):
                 messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
                 return render(request, self.template_name, self._context(request, evento))
             return self._handle_registrar_venda_evento_atendente(request, evento)
+
+        if action == 'marcar_pedido_evento_entregue':
+            if not can_manage_evento:
+                messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
+                return render(request, self.template_name, self._context(request, evento))
+            return self._handle_marcar_pedido_evento_entregue(request, evento)
 
         if action == 'consultar_inscricao':
             termo = str(request.POST.get('consulta_termo') or '').strip()
