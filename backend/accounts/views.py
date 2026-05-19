@@ -6059,11 +6059,24 @@ class EventoPublicoView(View):
                     for ped in linked:
                         itens_rows = []
                         for ped_item in ped.itens.all():
+                            quantidade_item = int(ped_item.quantidade or 0)
+                            quantidade_entregue = int(getattr(ped_item, 'quantidade_entregue', 0) or 0)
+                            if quantidade_entregue < 0:
+                                quantidade_entregue = 0
+                            if quantidade_item >= 0 and quantidade_entregue > quantidade_item:
+                                quantidade_entregue = quantidade_item
+                            entrega_controlavel = bool(ped_item.produto_id or ped_item.variacao_id)
                             itens_rows.append({
+                                'id': ped_item.id,
                                 'descricao': (
                                     f'{ped_item.quantidade}x {ped_item.produto_titulo}'
                                     + (f' ({ped_item.variacao_nome})' if ped_item.variacao_nome else '')
                                 ),
+                                'quantidade': quantidade_item,
+                                'quantidade_entregue': quantidade_entregue,
+                                'quantidade_pendente': max(0, quantidade_item - quantidade_entregue),
+                                'entrega_controlavel': entrega_controlavel,
+                                'entrega_completa': bool(entrega_controlavel and quantidade_item > 0 and quantidade_entregue >= quantidade_item),
                                 'valor_total': self._format_currency(ped_item.valor_total or Decimal('0.00')),
                             })
                         pedidos_detalhes.append({
@@ -6197,9 +6210,83 @@ class EventoPublicoView(View):
         if not pedido:
             messages.error(request, 'Pedido do evento nao encontrado.')
             return render(request, self.template_name, self._context(request, evento))
-        pedido.entregue = True
-        pedido.save(update_fields=['entregue', 'updated_at'])
+        with transaction.atomic():
+            pedido = LojaPedido.objects.select_for_update().filter(pk=pedido.pk).first()
+            itens = list(pedido.itens.select_for_update().all())
+            for item in itens:
+                if not (item.produto_id or item.variacao_id):
+                    continue
+                item.quantidade_entregue = int(item.quantidade or 0)
+                item.save(update_fields=['quantidade_entregue', 'updated_at'])
+            pedido.entregue = True
+            pedido.save(update_fields=['entregue', 'updated_at'])
         messages.success(request, f'Pedido #{pedido.pk} marcado como entregue.')
+        return render(request, self.template_name, self._context(request, evento))
+
+    def _sync_pedido_entregue_por_itens(self, pedido):
+        if not pedido:
+            return
+        itens = list(pedido.itens.all())
+        itens_controlaveis = [item for item in itens if item.produto_id or item.variacao_id]
+        if not itens_controlaveis:
+            return
+        all_entregues = all(
+            int(getattr(item, 'quantidade_entregue', 0) or 0) >= int(item.quantidade or 0)
+            for item in itens_controlaveis
+        )
+        if bool(pedido.entregue) == bool(all_entregues):
+            return
+        pedido.entregue = bool(all_entregues)
+        pedido.save(update_fields=['entregue', 'updated_at'])
+
+    def _handle_ajustar_entrega_item_evento(self, request, evento):
+        item_id_raw = str(request.POST.get('pedido_item_id') or '').strip()
+        operacao = str(request.POST.get('delivery_operation') or '').strip().lower()
+        quantidade_raw = str(request.POST.get('delivery_quantity') or '1').strip()
+        if not item_id_raw.isdigit():
+            messages.error(request, 'Item do pedido nao encontrado.')
+            return render(request, self.template_name, self._context(request, evento))
+        try:
+            quantidade_ajuste = int(quantidade_raw)
+        except (TypeError, ValueError):
+            quantidade_ajuste = 1
+        if quantidade_ajuste <= 0:
+            quantidade_ajuste = 1
+        if operacao not in {'add', 'subtract'}:
+            messages.error(request, 'Operacao de entrega invalida.')
+            return render(request, self.template_name, self._context(request, evento))
+
+        with transaction.atomic():
+            pedido_item = (
+                LojaPedidoItem.objects
+                .select_for_update()
+                .select_related('pedido')
+                .filter(pk=int(item_id_raw), pedido__evento=evento)
+                .first()
+            )
+            if not pedido_item:
+                messages.error(request, 'Item do pedido nao encontrado neste evento.')
+                return render(request, self.template_name, self._context(request, evento))
+            if not (pedido_item.produto_id or pedido_item.variacao_id):
+                messages.error(request, 'Este item nao exige controle de entrega.')
+                return render(request, self.template_name, self._context(request, evento))
+            quantidade_total = max(0, int(pedido_item.quantidade or 0))
+            quantidade_atual = max(0, int(getattr(pedido_item, 'quantidade_entregue', 0) or 0))
+            if operacao == 'add':
+                nova_quantidade = min(quantidade_total, quantidade_atual + quantidade_ajuste)
+                verbo = 'entregue'
+            else:
+                nova_quantidade = max(0, quantidade_atual - quantidade_ajuste)
+                verbo = 'retirada da entrega'
+            pedido_item.quantidade_entregue = nova_quantidade
+            pedido_item.save(update_fields=['quantidade_entregue', 'updated_at'])
+            pedido = pedido_item.pedido
+            self._sync_pedido_entregue_por_itens(pedido)
+
+        messages.success(
+            request,
+            f'Entrega do item ajustada: {nova_quantidade}/{quantidade_total} unidade(s) {verbo}(s).',
+        )
         return render(request, self.template_name, self._context(request, evento))
 
     def _handle_registrar_venda_evento_atendente(self, request, evento):
@@ -6343,6 +6430,7 @@ class EventoPublicoView(View):
                         produto_titulo=item['produto_titulo'],
                         variacao_nome=item['variacao_nome'],
                         quantidade=item['quantidade'],
+                        quantidade_entregue=item['quantidade'] if sale_delivered else 0,
                         valor_unitario=item['valor_unitario'],
                         valor_total=item['valor_total'],
                         foto_url=item['foto_url'],
@@ -6394,6 +6482,12 @@ class EventoPublicoView(View):
                 messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
                 return render(request, self.template_name, self._context(request, evento))
             return self._handle_marcar_pedido_evento_entregue(request, evento)
+
+        if action == 'ajustar_entrega_item_evento':
+            if not can_manage_evento:
+                messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
+                return render(request, self.template_name, self._context(request, evento))
+            return self._handle_ajustar_entrega_item_evento(request, evento)
 
         if action == 'consultar_inscricao':
             termo = str(request.POST.get('consulta_termo') or '').strip()
@@ -12702,8 +12796,17 @@ class LojaView(LoginRequiredMixin, View):
                 context = self._context()
                 context.update(_sidebar_context(request))
                 return render(request, self.template_name, context)
-            pedido.entregue = not bool(pedido.entregue)
-            pedido.save(update_fields=['entregue', 'updated_at'])
+            novo_status_entrega = not bool(pedido.entregue)
+            with transaction.atomic():
+                pedido = LojaPedido.objects.select_for_update().filter(pk=pedido.pk).first()
+                itens = list(pedido.itens.select_for_update().all())
+                for item in itens:
+                    if not (item.produto_id or item.variacao_id):
+                        continue
+                    item.quantidade_entregue = int(item.quantidade or 0) if novo_status_entrega else 0
+                    item.save(update_fields=['quantidade_entregue', 'updated_at'])
+                pedido.entregue = novo_status_entrega
+                pedido.save(update_fields=['entregue', 'updated_at'])
             messages.success(
                 request,
                 f'Pedido #{pedido.pk} marcado como {"entregue" if pedido.entregue else "não entregue"}.'

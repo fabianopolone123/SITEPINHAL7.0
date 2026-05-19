@@ -1169,6 +1169,7 @@ class LojaPedidoItem(models.Model):
     variacao_nome = models.CharField('variação (snapshot)', max_length=255)
     aventureiro_nome = models.CharField('aventureiro (snapshot)', max_length=255, blank=True)
     quantidade = models.PositiveIntegerField('quantidade')
+    quantidade_entregue = models.PositiveIntegerField('quantidade entregue', default=0)
     valor_unitario = models.DecimalField('valor unitário', max_digits=10, decimal_places=2)
     valor_total = models.DecimalField('valor total', max_digits=10, decimal_places=2)
     foto_url = models.TextField('foto URL (snapshot)', blank=True)

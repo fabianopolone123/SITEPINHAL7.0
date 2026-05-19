@@ -636,6 +636,47 @@
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       align-items: end;
     }
+    .event-delivery-line {
+      display: grid;
+      gap: 0.25rem;
+      padding: 0.2rem 0;
+    }
+    .event-delivery-status {
+      color: #334155;
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+    .event-delivery-status.is-complete {
+      color: #166534;
+    }
+    .event-delivery-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .event-delivery-controls input {
+      width: 58px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 0.28rem 0.35rem;
+      font-size: 0.78rem;
+    }
+    .event-delivery-mini-btn {
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      background: #fff;
+      color: #1d4ed8;
+      font-size: 0.76rem;
+      font-weight: 800;
+      padding: 0.26rem 0.42rem;
+      line-height: 1.1;
+      cursor: pointer;
+    }
+    .event-delivery-mini-btn.is-minus {
+      border-color: #fecaca;
+      color: #b91c1c;
+    }
     .event-cost-form {
       border: 1px solid #dbeafe;
       border-radius: 12px;
@@ -1853,17 +1894,44 @@
                                     {% if ped.entregue %}
                                       <span class="event-metric-pill">Entregue</span>
                                     {% else %}
-                                      <form method="post" style="margin:0;" data-mark-delivered-form>
-                                        {% csrf_token %}
-                                        <input type="hidden" name="action" value="marcar_pedido_evento_entregue" />
-                                        <input type="hidden" name="pedido_id" value="{{ ped.id }}" />
-                                        <button type="submit" class="secondary">Marcar entregue</button>
-                                      </form>
+                                      <span class="event-metric-pill">Parcial/pendente</span>
                                     {% endif %}
                                   </td>
                                   <td>
                                     {% for ped_item in ped.itens %}
-                                      <div>{{ ped_item.descricao }} - {{ ped_item.valor_total }}</div>
+                                      <div class="event-delivery-line">
+                                        <div>{{ ped_item.descricao }} - {{ ped_item.valor_total }}</div>
+                                        {% if ped_item.entrega_controlavel %}
+                                          <div class="event-delivery-status {% if ped_item.entrega_completa %}is-complete{% endif %}">
+                                            Entregue: {{ ped_item.quantidade_entregue }}/{{ ped_item.quantidade }}
+                                            {% if ped_item.quantidade_pendente %}| Pendente: {{ ped_item.quantidade_pendente }}{% endif %}
+                                          </div>
+                                          <div class="event-delivery-controls">
+                                            {% if ped_item.quantidade_pendente %}
+                                              <form method="post" data-item-delivery-form>
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="ajustar_entrega_item_evento" />
+                                                <input type="hidden" name="pedido_item_id" value="{{ ped_item.id }}" />
+                                                <input type="hidden" name="delivery_operation" value="add" />
+                                                <input type="number" name="delivery_quantity" value="1" min="1" max="{{ ped_item.quantidade_pendente }}" />
+                                                <button type="submit" class="event-delivery-mini-btn">+ entregar</button>
+                                              </form>
+                                            {% endif %}
+                                            {% if ped_item.quantidade_entregue %}
+                                              <form method="post" data-item-delivery-form>
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="ajustar_entrega_item_evento" />
+                                                <input type="hidden" name="pedido_item_id" value="{{ ped_item.id }}" />
+                                                <input type="hidden" name="delivery_operation" value="subtract" />
+                                                <input type="number" name="delivery_quantity" value="1" min="1" max="{{ ped_item.quantidade_entregue }}" />
+                                                <button type="submit" class="event-delivery-mini-btn is-minus">- retirar</button>
+                                              </form>
+                                            {% endif %}
+                                          </div>
+                                        {% else %}
+                                          <div class="event-delivery-status">Sem entrega fisica</div>
+                                        {% endif %}
+                                      </div>
                                     {% empty %}
                                       -
                                     {% endfor %}
@@ -4206,6 +4274,18 @@
       Array.from(document.querySelectorAll('[data-mark-delivered-form]')).forEach((form) => {
         form.addEventListener('submit', (event) => {
           if (!window.confirm('Confirmar que este pedido foi entregue?')) {
+            event.preventDefault();
+          }
+        });
+      });
+      Array.from(document.querySelectorAll('[data-item-delivery-form]')).forEach((form) => {
+        form.addEventListener('submit', (event) => {
+          const operationInput = form.querySelector('input[name="delivery_operation"]');
+          const operation = operationInput ? String(operationInput.value || '') : '';
+          const message = operation === 'subtract'
+            ? 'Confirmar retirada desta quantidade da entrega?'
+            : 'Confirmar entrega desta quantidade do item?';
+          if (!window.confirm(message)) {
             event.preventDefault();
           }
         });
