@@ -5899,6 +5899,7 @@ class EventoPublicoView(View):
         inscricoes_preview_rows = []
         pedidos_preview_rows = []
         inscritos_detalhes = []
+        atendente_produtos = []
         inscricoes_canceladas_count = 0
         inscricoes_canceladas_valor_total = Decimal('0.00')
         inscricoes_canceladas_valor_total_fmt = self._format_currency(Decimal('0.00'))
@@ -5908,6 +5909,28 @@ class EventoPublicoView(View):
         lucro_liquido = Decimal('0.00')
         if can_manage_evento:
             try:
+                for produto_row in produtos:
+                    produto_obj = produto_row.get('produto') if isinstance(produto_row, dict) else None
+                    if not produto_obj:
+                        continue
+                    for variacao in (produto_row.get('variacoes') or []):
+                        estoque_raw = ''
+                        estoque_label = 'Sem limite'
+                        if variacao.estoque is not None:
+                            estoque_raw = str(int(variacao.estoque))
+                            estoque_label = f'Estoque: {int(variacao.estoque)}'
+                        atendente_produtos.append({
+                            'produto_id': produto_obj.id,
+                            'variacao_id': variacao.id,
+                            'label': f'{produto_obj.titulo} - {variacao.nome}',
+                            'produto_titulo': produto_obj.titulo,
+                            'variacao_nome': variacao.nome,
+                            'valor': str(Decimal(variacao.valor).quantize(Decimal('0.01'))),
+                            'valor_fmt': self._format_currency(variacao.valor),
+                            'estoque_raw': estoque_raw,
+                            'estoque_label': estoque_label,
+                            'disabled': bool(variacao.estoque is not None and int(variacao.estoque) <= 0),
+                        })
                 inscricoes_base_qs = (
                     EventoInscricao.objects
                     .filter(evento=evento, confirmada=True, cancelada=False)
@@ -6014,7 +6037,10 @@ class EventoPublicoView(View):
                 )
                 pedidos_by_responsavel = {}
                 pedidos_by_user = {}
+                pedidos_by_inscricao = {}
                 for ped in pedidos_lookup_qs:
+                    if ped.evento_inscricao_id:
+                        pedidos_by_inscricao.setdefault(ped.evento_inscricao_id, []).append(ped)
                     if ped.responsavel_id:
                         pedidos_by_responsavel.setdefault(ped.responsavel_id, []).append(ped)
                     user_id = ped.responsavel.user_id if ped.responsavel_id else None
@@ -6022,13 +6048,33 @@ class EventoPublicoView(View):
                         pedidos_by_user.setdefault(user_id, []).append(ped)
 
                 for inscricao in list(inscricoes_base_qs[:300]):
-                    linked = []
+                    linked = pedidos_by_inscricao.get(inscricao.id, [])
                     if inscricao.responsavel_id:
-                        linked = pedidos_by_responsavel.get(inscricao.responsavel_id, [])
+                        linked = linked or pedidos_by_responsavel.get(inscricao.responsavel_id, [])
                     elif inscricao.user_id:
-                        linked = pedidos_by_user.get(inscricao.user_id, [])
+                        linked = linked or pedidos_by_user.get(inscricao.user_id, [])
                     dados_obj = inscricao.dados if isinstance(inscricao.dados, dict) else {}
                     criancas_info = self._criancas_info_from_inscricao(inscricao, evento=evento)
+                    pedidos_detalhes = []
+                    for ped in linked:
+                        itens_rows = []
+                        for ped_item in ped.itens.all():
+                            itens_rows.append({
+                                'descricao': (
+                                    f'{ped_item.quantidade}x {ped_item.produto_titulo}'
+                                    + (f' ({ped_item.variacao_nome})' if ped_item.variacao_nome else '')
+                                ),
+                                'valor_total': self._format_currency(ped_item.valor_total or Decimal('0.00')),
+                            })
+                        pedidos_detalhes.append({
+                            'id': ped.id,
+                            'status': ped.get_status_display(),
+                            'forma_pagamento': ped.get_forma_pagamento_display(),
+                            'valor_total': self._format_currency(ped.valor_total or Decimal('0.00')),
+                            'created_at': ped.created_at,
+                            'paid_at': ped.paid_at,
+                            'itens': itens_rows,
+                        })
                     inscritos_detalhes.append({
                         'id': inscricao.id,
                         'codigo': inscricao.codigo_inscricao or '-',
@@ -6038,6 +6084,7 @@ class EventoPublicoView(View):
                         'criancas_linhas': criancas_info.get('linhas', []),
                         'criancas_total': int(criancas_info.get('total', 0) or 0),
                         'pedidos_loja': self._pedidos_summary_for_inscrito(linked),
+                        'pedidos_detalhes': pedidos_detalhes,
                         'dados_resumo': self._dados_resumo(dados_obj),
                         'dados_json': json.dumps(dados_obj, ensure_ascii=False, indent=2) if dados_obj else '',
                         'valor_inscricao_fmt': self._format_currency(
@@ -6095,6 +6142,7 @@ class EventoPublicoView(View):
                 getattr(evento, 'inscricao_valor_unitario', Decimal('0.00')) or Decimal('0.00')
             ),
             'can_manage_evento': can_manage_evento,
+            'atendente_produtos': atendente_produtos,
             'inscricoes_count': inscricoes_count,
             'inscricoes_canceladas_count': inscricoes_canceladas_count,
             'pedidos_count': pedidos_count,
@@ -6135,6 +6183,171 @@ class EventoPublicoView(View):
             self._context(request, evento, active_mode=requested_mode),
         )
 
+    def _handle_registrar_venda_evento_atendente(self, request, evento):
+        inscricao_id_raw = str(request.POST.get('sale_inscricao_id') or '').strip()
+        if not inscricao_id_raw.isdigit():
+            messages.error(request, 'Inscricao invalida para registrar venda.')
+            return render(request, self.template_name, self._context(request, evento))
+        inscricao = (
+            EventoInscricao.objects
+            .filter(pk=int(inscricao_id_raw), evento=evento, confirmada=True, cancelada=False)
+            .select_related('responsavel', 'responsavel__user', 'user')
+            .first()
+        )
+        if not inscricao:
+            messages.error(request, 'Inscricao nao encontrada ou nao confirmada neste evento.')
+            return render(request, self.template_name, self._context(request, evento))
+
+        forma_pagamento = str(request.POST.get('sale_payment_method') or '').strip().lower()
+        formas_validas = {
+            LojaPedido.FORMA_PAGAMENTO_PIX,
+            LojaPedido.FORMA_PAGAMENTO_DINHEIRO,
+            LojaPedido.FORMA_PAGAMENTO_CARTAO,
+        }
+        if forma_pagamento not in formas_validas:
+            messages.error(request, 'Forma de pagamento invalida para venda do evento.')
+            return render(request, self.template_name, self._context(request, evento))
+
+        sale_status = str(request.POST.get('sale_status') or '').strip().lower()
+        if sale_status not in {LojaPedido.STATUS_PAGO, LojaPedido.STATUS_PENDENTE}:
+            messages.error(request, 'Informe se a venda esta paga ou pendente.')
+            return render(request, self.template_name, self._context(request, evento))
+        is_paid = sale_status == LojaPedido.STATUS_PAGO
+
+        raw_variacao_ids = request.POST.getlist('sale_variacao_ids[]') or request.POST.getlist('sale_variacao_ids')
+        raw_quantities = request.POST.getlist('sale_quantities[]') or request.POST.getlist('sale_quantities')
+        if not raw_variacao_ids or len(raw_variacao_ids) != len(raw_quantities):
+            messages.error(request, 'Adicione ao menos um item valido na venda.')
+            return render(request, self.template_name, self._context(request, evento))
+
+        qty_by_variacao = {}
+        for raw_variacao_id, raw_qty in zip(raw_variacao_ids, raw_quantities):
+            variacao_text = str(raw_variacao_id or '').strip()
+            if not variacao_text.isdigit():
+                continue
+            try:
+                qty = int(raw_qty)
+            except (TypeError, ValueError):
+                qty = 0
+            if qty <= 0:
+                continue
+            variacao_id = int(variacao_text)
+            qty_by_variacao[variacao_id] = qty_by_variacao.get(variacao_id, 0) + qty
+
+        if not qty_by_variacao:
+            messages.error(request, 'Adicione ao menos um item valido na venda.')
+            return render(request, self.template_name, self._context(request, evento))
+
+        try:
+            with transaction.atomic():
+                variacoes = {
+                    variacao.id: variacao
+                    for variacao in (
+                        LojaProdutoVariacao.objects
+                        .select_for_update()
+                        .select_related('produto')
+                        .filter(
+                            id__in=list(qty_by_variacao.keys()),
+                            ativo=True,
+                            produto__ativo=True,
+                            produto__evento=evento,
+                        )
+                    )
+                }
+                if len(variacoes) != len(qty_by_variacao):
+                    messages.error(request, 'Um ou mais itens nao pertencem a este evento ou estao inativos.')
+                    return render(request, self.template_name, self._context(request, evento))
+
+                total = Decimal('0.00')
+                pedido_items = []
+                for variacao_id, qty in qty_by_variacao.items():
+                    variacao = variacoes.get(variacao_id)
+                    if not variacao:
+                        continue
+                    if variacao.estoque is not None and qty > int(variacao.estoque):
+                        messages.error(
+                            request,
+                            f'Estoque insuficiente para {variacao.produto.titulo} - {variacao.nome}. '
+                            f'Disponivel: {max(0, int(variacao.estoque))}.',
+                        )
+                        return render(request, self.template_name, self._context(request, evento))
+                    valor_unitario = Decimal(variacao.valor or Decimal('0.00')).quantize(Decimal('0.01'))
+                    valor_total = (valor_unitario * qty).quantize(Decimal('0.01'))
+                    total += valor_total
+                    foto_url = ''
+                    if getattr(variacao.produto, 'foto', None):
+                        try:
+                            foto_url = variacao.produto.foto.url
+                        except Exception:
+                            foto_url = ''
+                    pedido_items.append({
+                        'produto': variacao.produto,
+                        'variacao': variacao,
+                        'produto_titulo': variacao.produto.titulo,
+                        'variacao_nome': variacao.nome,
+                        'quantidade': qty,
+                        'valor_unitario': valor_unitario,
+                        'valor_total': valor_total,
+                        'foto_url': foto_url,
+                    })
+
+                if total <= 0:
+                    messages.error(request, 'O total da venda precisa ser maior que zero.')
+                    return render(request, self.template_name, self._context(request, evento))
+
+                responsavel = inscricao.responsavel
+                if not responsavel:
+                    responsavel, guest_error = EventoPedidoCreatePixApiView()._guest_responsavel_from_inscricao(inscricao, evento)
+                    if guest_error:
+                        messages.error(request, guest_error)
+                        return render(request, self.template_name, self._context(request, evento))
+                    inscricao.responsavel = responsavel
+                    inscricao.save(update_fields=['responsavel', 'updated_at'])
+
+                pedido = LojaPedido.objects.create(
+                    responsavel=responsavel,
+                    evento=evento,
+                    evento_inscricao=inscricao,
+                    forma_pagamento=forma_pagamento,
+                    valor_total=total.quantize(Decimal('0.01')),
+                    status=LojaPedido.STATUS_PAGO if is_paid else LojaPedido.STATUS_PENDENTE,
+                    paid_at=timezone.now() if is_paid else None,
+                    created_by=request.user if request.user.is_authenticated else None,
+                )
+                LojaPedidoItem.objects.bulk_create([
+                    LojaPedidoItem(
+                        pedido=pedido,
+                        produto=item['produto'],
+                        variacao=item['variacao'],
+                        produto_titulo=item['produto_titulo'],
+                        variacao_nome=item['variacao_nome'],
+                        quantidade=item['quantidade'],
+                        valor_unitario=item['valor_unitario'],
+                        valor_total=item['valor_total'],
+                        foto_url=item['foto_url'],
+                    )
+                    for item in pedido_items
+                ])
+
+                if is_paid:
+                    for variacao_id, qty in qty_by_variacao.items():
+                        variacao = variacoes.get(variacao_id)
+                        if not variacao or variacao.estoque is None:
+                            continue
+                        variacao.estoque = max(0, int(variacao.estoque) - int(qty))
+                        variacao.save(update_fields=['estoque', 'updated_at'])
+        except Exception:
+            logger.exception('Falha ao registrar venda manual no evento id=%s.', evento.id)
+            messages.error(request, 'Nao foi possivel registrar a venda agora.')
+            return render(request, self.template_name, self._context(request, evento))
+
+        status_label = 'paga' if is_paid else 'pendente'
+        messages.success(
+            request,
+            f'Venda #{pedido.id} registrada como {status_label} no valor de {self._format_currency(total)}.',
+        )
+        return render(request, self.template_name, self._context(request, evento))
+
     def post(self, request, event_id):
         evento = get_object_or_404(Evento, pk=event_id)
         if not self._can_access_page(request, evento):
@@ -6148,6 +6361,12 @@ class EventoPublicoView(View):
             return redirect('accounts:painel')
         action = str(request.POST.get('action') or '').strip()
         can_manage_evento = bool(request.user.is_authenticated and _has_menu_permission(request, 'eventos'))
+
+        if action == 'registrar_venda_evento_atendente':
+            if not can_manage_evento:
+                messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
+                return render(request, self.template_name, self._context(request, evento))
+            return self._handle_registrar_venda_evento_atendente(request, evento)
 
         if action == 'consultar_inscricao':
             termo = str(request.POST.get('consulta_termo') or '').strip()
@@ -9911,9 +10130,9 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'created_at': pedido.paid_at or pedido.created_at,
                 'tipo': 'Pedido evento pago' if evento_nome else 'Pedido loja pago',
                 'descricao': (
-                    f'Pedido #{pedido.pk} - {responsavel_nome} | Evento: {evento_nome}'
+                    f'Pedido #{pedido.pk} - {responsavel_nome} | Evento: {evento_nome} | Forma: {pedido.get_forma_pagamento_display()}'
                     if evento_nome
-                    else f'Pedido #{pedido.pk} - {responsavel_nome}'
+                    else f'Pedido #{pedido.pk} - {responsavel_nome} | Forma: {pedido.get_forma_pagamento_display()}'
                 ),
                 'valor': Decimal(pedido.valor_total).quantize(Decimal('0.01')),
                 'impacto_liquido': Decimal('0.00'),

@@ -514,6 +514,128 @@
     .event-report-modal .users-table {
       min-width: 860px;
     }
+    .event-consulta-layout {
+      display: grid;
+      grid-template-columns: minmax(240px, 320px) 1fr;
+      gap: 0.9rem;
+      align-items: start;
+    }
+    .event-consulta-list {
+      display: grid;
+      gap: 0.45rem;
+      max-height: 68vh;
+      overflow: auto;
+      padding-right: 0.25rem;
+    }
+    .event-consulta-person {
+      border: 1px solid #dbeafe;
+      border-radius: 12px;
+      background: #f8fbff;
+      color: #0f172a;
+      padding: 0.65rem 0.7rem;
+      text-align: left;
+      cursor: pointer;
+      display: grid;
+      gap: 0.2rem;
+    }
+    .event-consulta-person.is-active {
+      border-color: #2563eb;
+      background: #eff6ff;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+    }
+    .event-consulta-person strong {
+      color: #1d4ed8;
+      font-size: 0.85rem;
+    }
+    .event-consulta-detail {
+      border: 1px solid #dbeafe;
+      border-radius: 14px;
+      background: #fff;
+      padding: 0.85rem;
+      display: grid;
+      gap: 0.85rem;
+    }
+    .event-consulta-detail[hidden] {
+      display: none !important;
+    }
+    .event-consulta-summary {
+      display: grid;
+      gap: 0.45rem;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .event-consulta-box {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 0.65rem;
+    }
+    .event-consulta-box strong,
+    .event-sale-form label > span {
+      display: block;
+      color: #334155;
+      font-size: 0.78rem;
+      font-weight: 800;
+      margin-bottom: 0.2rem;
+    }
+    .event-sale-form {
+      border: 1px solid #bfdbfe;
+      border-radius: 14px;
+      background: #f8fbff;
+      padding: 0.85rem;
+      display: grid;
+      gap: 0.75rem;
+    }
+    .event-sale-grid {
+      display: grid;
+      gap: 0.6rem;
+      grid-template-columns: minmax(220px, 1fr) minmax(90px, 120px) auto;
+      align-items: end;
+    }
+    .event-sale-grid select,
+    .event-sale-grid input,
+    .event-sale-final select {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 0.58rem 0.65rem;
+      background: #fff;
+      color: #0f172a;
+      font: inherit;
+    }
+    .event-sale-cart {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .event-sale-cart table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .event-sale-cart th,
+    .event-sale-cart td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 0.48rem;
+      text-align: left;
+      font-size: 0.88rem;
+    }
+    .event-sale-cart tr:last-child td {
+      border-bottom: 0;
+    }
+    .event-sale-total {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      align-items: center;
+      color: #0f172a;
+      font-weight: 900;
+    }
+    .event-sale-final {
+      display: grid;
+      gap: 0.6rem;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      align-items: end;
+    }
     .event-cost-form {
       border: 1px solid #dbeafe;
       border-radius: 12px;
@@ -1082,6 +1204,18 @@
       .event-cost-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
+      .event-consulta-layout {
+        grid-template-columns: 1fr;
+      }
+      .event-consulta-list {
+        max-height: 260px;
+      }
+      .event-sale-grid {
+        grid-template-columns: 1fr 120px;
+      }
+      .event-sale-grid button {
+        grid-column: 1 / -1;
+      }
     }
     @media (max-width: 768px) {
       .event-step .action-row > * {
@@ -1126,6 +1260,12 @@
         min-width: 640px;
       }
       .event-cost-grid {
+        grid-template-columns: 1fr;
+      }
+      .event-sale-grid {
+        grid-template-columns: 1fr;
+      }
+      .event-consulta-summary {
         grid-template-columns: 1fr;
       }
       .event-register-code {
@@ -1532,6 +1672,7 @@
             <button type="submit" class="secondary">{% if evento.inscricao_publica %}Tornar privado{% else %}Tornar publico{% endif %}</button>
           </form>
           <button type="button" class="secondary" id="open-event-inscritos">Inscritos</button>
+          <button type="button" class="secondary" id="open-event-consulta-atendente">Consultar</button>
           <button type="button" class="secondary" id="open-event-report">Relatorio</button>
           <button type="button" class="secondary" id="open-event-costs">Custos</button>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Editar campos</a>
@@ -1608,6 +1749,203 @@
             </form>
           {% else %}
             <p class="panel-note">Sem inscritos ainda.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="modal event-report-modal" id="event-consulta-atendente-modal" aria-hidden="true">
+        <div class="modal-content">
+          <header>
+            <h3>Consultar inscricao e vender itens - {{ evento.name }}</h3>
+            <button type="button" id="close-event-consulta-atendente" aria-label="Fechar">X</button>
+          </header>
+          {% if inscritos_detalhes %}
+            <div class="event-consulta-layout">
+              <aside class="event-consulta-list" aria-label="Inscricoes do evento">
+                {% for item in inscritos_detalhes %}
+                  <button
+                    type="button"
+                    class="event-consulta-person {% if forloop.first %}is-active{% endif %}"
+                    data-consulta-target="event-consulta-detail-{{ item.id }}"
+                  >
+                    <span>{{ item.responsavel }}</span>
+                    <strong>Codigo {{ item.codigo }}</strong>
+                  </button>
+                {% endfor %}
+              </aside>
+              <section>
+                {% for item in inscritos_detalhes %}
+                  <article
+                    class="event-consulta-detail"
+                    id="event-consulta-detail-{{ item.id }}"
+                    {% if not forloop.first %}hidden{% endif %}
+                  >
+                    <div>
+                      <h4 style="margin:.1rem 0 .45rem;">{{ item.responsavel }} - Codigo {{ item.codigo }}</h4>
+                      <div class="event-consulta-summary">
+                        <div class="event-consulta-box">
+                          <strong>Responsavel</strong>
+                          <span>{{ item.responsavel }}</span>
+                        </div>
+                        <div class="event-consulta-box">
+                          <strong>CPF</strong>
+                          <span>{{ item.cpf_responsavel|default:"-" }}</span>
+                        </div>
+                        <div class="event-consulta-box">
+                          <strong>Valor inscricao</strong>
+                          <span>{{ item.valor_inscricao_fmt }}{% if item.valor_inscricao_unidades %} ({{ item.valor_inscricao_unidades }}x){% endif %}</span>
+                        </div>
+                        <div class="event-consulta-box">
+                          <strong>Data da inscricao</strong>
+                          <span>{{ item.data_inscricao|date:"d/m/Y H:i" }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <section class="field-section">
+                      <h4>Criancas</h4>
+                      {% if item.criancas_total > 0 %}
+                        <div class="inscritos-kids-list">
+                          {% for linha in item.criancas_linhas %}
+                            <div class="inscritos-kids-line">{{ linha.display }}</div>
+                          {% endfor %}
+                        </div>
+                      {% else %}
+                        <p class="panel-note">Nenhuma crianca identificada na inscricao.</p>
+                      {% endif %}
+                    </section>
+
+                    <section class="field-section">
+                      <h4>Dados da inscricao</h4>
+                      <div>{{ item.dados_resumo }}</div>
+                      {% if item.dados_json %}
+                        <details>
+                          <summary>Ver dados completos</summary>
+                          <pre style="white-space:pre-wrap;">{{ item.dados_json }}</pre>
+                        </details>
+                      {% endif %}
+                    </section>
+
+                    <section class="field-section">
+                      <h4>Itens pedidos</h4>
+                      {% if item.pedidos_detalhes %}
+                        <div class="table-scroll">
+                          <table class="users-table">
+                            <thead>
+                              <tr>
+                                <th>Pedido</th>
+                                <th>Status</th>
+                                <th>Forma</th>
+                                <th>Total</th>
+                                <th>Itens</th>
+                                <th>Data</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {% for ped in item.pedidos_detalhes %}
+                                <tr>
+                                  <td>#{{ ped.id }}</td>
+                                  <td>{{ ped.status }}</td>
+                                  <td>{{ ped.forma_pagamento }}</td>
+                                  <td>{{ ped.valor_total }}</td>
+                                  <td>
+                                    {% for ped_item in ped.itens %}
+                                      <div>{{ ped_item.descricao }} - {{ ped_item.valor_total }}</div>
+                                    {% empty %}
+                                      -
+                                    {% endfor %}
+                                  </td>
+                                  <td>{{ ped.created_at|date:"d/m/Y H:i" }}</td>
+                                </tr>
+                              {% endfor %}
+                            </tbody>
+                          </table>
+                        </div>
+                      {% else %}
+                        <p class="panel-note">Sem pedidos vinculados a esta inscricao.</p>
+                      {% endif %}
+                    </section>
+
+                    <section class="field-section">
+                      <h4>Venda de itens do evento</h4>
+                      {% if atendente_produtos %}
+                        <form method="post" class="event-sale-form" data-attendant-sale-form>
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="registrar_venda_evento_atendente" />
+                          <input type="hidden" name="sale_inscricao_id" value="{{ item.id }}" />
+                          <div class="event-sale-grid">
+                            <label>
+                              <span>Item do evento</span>
+                              <select data-sale-variation-select>
+                                <option value="">Selecione um item</option>
+                                {% for produto_sale in atendente_produtos %}
+                                  <option
+                                    value="{{ produto_sale.variacao_id }}"
+                                    data-label="{{ produto_sale.label }}"
+                                    data-price="{{ produto_sale.valor }}"
+                                    data-stock="{{ produto_sale.estoque_raw }}"
+                                    {% if produto_sale.disabled %}disabled{% endif %}
+                                  >
+                                    {{ produto_sale.label }} - {{ produto_sale.valor_fmt }}{% if produto_sale.estoque_label %} - {{ produto_sale.estoque_label }}{% endif %}
+                                  </option>
+                                {% endfor %}
+                              </select>
+                            </label>
+                            <label>
+                              <span>Quantidade</span>
+                              <input type="number" min="1" step="1" value="1" data-sale-qty />
+                            </label>
+                            <button type="button" class="secondary" data-sale-add>Adicionar</button>
+                          </div>
+
+                          <div class="event-sale-cart">
+                            <p class="panel-note" data-sale-empty style="padding:.7rem;margin:0;">Nenhum item adicionado.</p>
+                            <table data-sale-table hidden>
+                              <thead>
+                                <tr>
+                                  <th>Item</th>
+                                  <th>Qtd</th>
+                                  <th>Total</th>
+                                  <th></th>
+                                </tr>
+                              </thead>
+                              <tbody data-sale-cart-body></tbody>
+                            </table>
+                          </div>
+                          <div data-sale-hidden-inputs></div>
+                          <div class="event-sale-total">
+                            <span>Total:</span>
+                            <strong data-sale-total>R$ 0,00</strong>
+                          </div>
+                          <div class="event-sale-final">
+                            <label>
+                              <span>Forma de pagamento</span>
+                              <select name="sale_payment_method" required>
+                                <option value="pix">Pix</option>
+                                <option value="dinheiro">Dinheiro</option>
+                                <option value="cartao">Cartao</option>
+                              </select>
+                            </label>
+                            <label>
+                              <span>Status do pagamento</span>
+                              <select name="sale_status" required>
+                                <option value="pago">Pago</option>
+                                <option value="pendente">Nao pago</option>
+                              </select>
+                            </label>
+                            <button type="submit" class="primary">Concluir venda</button>
+                          </div>
+                        </form>
+                      {% else %}
+                        <p class="panel-note">Este evento ainda nao possui produtos ativos para venda.</p>
+                      {% endif %}
+                    </section>
+                  </article>
+                {% endfor %}
+              </section>
+            </div>
+          {% else %}
+            <p class="panel-note">Sem inscritos confirmados para consulta.</p>
           {% endif %}
         </div>
       </div>
@@ -2116,6 +2454,9 @@
       const inscritosModal = document.getElementById('event-inscritos-modal');
       const openInscritosBtn = document.getElementById('open-event-inscritos');
       const closeInscritosBtn = document.getElementById('close-event-inscritos');
+      const consultaAtendenteModal = document.getElementById('event-consulta-atendente-modal');
+      const openConsultaAtendenteBtn = document.getElementById('open-event-consulta-atendente');
+      const closeConsultaAtendenteBtn = document.getElementById('close-event-consulta-atendente');
       const reportModal = document.getElementById('event-report-modal');
       const openReportBtn = document.getElementById('open-event-report');
       const closeReportBtn = document.getElementById('close-event-report');
@@ -3684,6 +4025,164 @@
         });
       }
 
+      if (openConsultaAtendenteBtn && consultaAtendenteModal) {
+        openConsultaAtendenteBtn.addEventListener('click', () => {
+          openModal(consultaAtendenteModal);
+        });
+      }
+      if (closeConsultaAtendenteBtn && consultaAtendenteModal) {
+        closeConsultaAtendenteBtn.addEventListener('click', () => {
+          closeModal(consultaAtendenteModal);
+        });
+      }
+      if (consultaAtendenteModal) {
+        consultaAtendenteModal.addEventListener('click', (event) => {
+          if (event.target === consultaAtendenteModal) {
+            closeModal(consultaAtendenteModal);
+          }
+        });
+        const consultaButtons = Array.from(consultaAtendenteModal.querySelectorAll('[data-consulta-target]'));
+        const consultaDetails = Array.from(consultaAtendenteModal.querySelectorAll('.event-consulta-detail'));
+        consultaButtons.forEach((button) => {
+          button.addEventListener('click', () => {
+            const targetId = String(button.getAttribute('data-consulta-target') || '');
+            consultaButtons.forEach((item) => item.classList.toggle('is-active', item === button));
+            consultaDetails.forEach((detail) => {
+              detail.hidden = detail.id !== targetId;
+            });
+          });
+        });
+      }
+
+      const initAttendantSaleForms = () => {
+        const forms = Array.from(document.querySelectorAll('[data-attendant-sale-form]'));
+        forms.forEach((form) => {
+          const select = form.querySelector('[data-sale-variation-select]');
+          const qtyInput = form.querySelector('[data-sale-qty]');
+          const addBtn = form.querySelector('[data-sale-add]');
+          const emptyNode = form.querySelector('[data-sale-empty]');
+          const table = form.querySelector('[data-sale-table]');
+          const body = form.querySelector('[data-sale-cart-body]');
+          const hiddenWrap = form.querySelector('[data-sale-hidden-inputs]');
+          const totalNode = form.querySelector('[data-sale-total]');
+          const items = [];
+
+          const parsePrice = (raw) => {
+            const text = String(raw || '0').trim();
+            if (text.indexOf(',') >= 0) {
+              return Number(text.replace(/\./g, '').replace(',', '.')) || 0;
+            }
+            return Number(text) || 0;
+          };
+          const render = () => {
+            if (body) body.innerHTML = '';
+            if (hiddenWrap) hiddenWrap.innerHTML = '';
+            let total = 0;
+            items.forEach((item, index) => {
+              const lineTotal = item.price * item.qty;
+              total += lineTotal;
+              if (body) {
+                const row = document.createElement('tr');
+                const itemCell = document.createElement('td');
+                itemCell.textContent = item.label;
+                const qtyCell = document.createElement('td');
+                qtyCell.textContent = String(item.qty);
+                const totalCell = document.createElement('td');
+                totalCell.textContent = toMoney(lineTotal);
+                const actionCell = document.createElement('td');
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'secondary';
+                removeBtn.textContent = 'Remover';
+                removeBtn.setAttribute('data-sale-remove-index', String(index));
+                actionCell.appendChild(removeBtn);
+                row.appendChild(itemCell);
+                row.appendChild(qtyCell);
+                row.appendChild(totalCell);
+                row.appendChild(actionCell);
+                body.appendChild(row);
+              }
+              if (hiddenWrap) {
+                const variationInput = document.createElement('input');
+                variationInput.type = 'hidden';
+                variationInput.name = 'sale_variacao_ids[]';
+                variationInput.value = item.variationId;
+                const qtyHidden = document.createElement('input');
+                qtyHidden.type = 'hidden';
+                qtyHidden.name = 'sale_quantities[]';
+                qtyHidden.value = String(item.qty);
+                hiddenWrap.appendChild(variationInput);
+                hiddenWrap.appendChild(qtyHidden);
+              }
+            });
+            if (emptyNode) emptyNode.hidden = items.length > 0;
+            if (table) table.hidden = items.length <= 0;
+            if (totalNode) totalNode.textContent = toMoney(total);
+          };
+
+          if (addBtn) {
+            addBtn.addEventListener('click', () => {
+              if (!select) return;
+              const option = select.options[select.selectedIndex];
+              if (!option || !option.value) {
+                window.alert('Selecione um item para adicionar.');
+                return;
+              }
+              const qty = Math.max(1, parseInt(qtyInput ? qtyInput.value : '1', 10) || 1);
+              const stockText = String(option.getAttribute('data-stock') || '').trim();
+              const stock = stockText === '' ? null : parseInt(stockText, 10);
+              const existing = items.find((item) => item.variationId === option.value);
+              const nextQty = (existing ? existing.qty : 0) + qty;
+              if (stock !== null && nextQty > stock) {
+                window.alert('Estoque insuficiente. Disponivel: ' + Math.max(0, stock) + '.');
+                return;
+              }
+              if (existing) {
+                existing.qty = nextQty;
+              } else {
+                items.push({
+                  variationId: option.value,
+                  label: String(option.getAttribute('data-label') || option.textContent || '').trim(),
+                  price: parsePrice(option.getAttribute('data-price')),
+                  qty,
+                });
+              }
+              if (qtyInput) qtyInput.value = '1';
+              render();
+            });
+          }
+          if (body) {
+            body.addEventListener('click', (event) => {
+              const target = event.target;
+              if (!(target instanceof HTMLElement)) return;
+              const rawIndex = target.getAttribute('data-sale-remove-index');
+              if (rawIndex === null) return;
+              const index = parseInt(rawIndex, 10);
+              if (!Number.isNaN(index)) {
+                items.splice(index, 1);
+                render();
+              }
+            });
+          }
+          form.addEventListener('submit', (event) => {
+            if (!items.length) {
+              event.preventDefault();
+              window.alert('Adicione ao menos um item antes de concluir a venda.');
+              return;
+            }
+            const statusSelect = form.querySelector('select[name="sale_status"]');
+            const status = statusSelect ? String(statusSelect.value || '') : '';
+            if (status === 'pago') {
+              if (!window.confirm('Confirmar venda como paga? Ela entrara no extrato do evento e no financeiro.')) {
+                event.preventDefault();
+              }
+            }
+          });
+          render();
+        });
+      };
+      initAttendantSaleForms();
+
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
         if (paidModal && !paidModal.hidden) {
@@ -3716,6 +4215,10 @@
         }
         if (inscritosModal && inscritosModal.getAttribute('aria-hidden') === 'false') {
           closeModal(inscritosModal);
+          return;
+        }
+        if (consultaAtendenteModal && consultaAtendenteModal.getAttribute('aria-hidden') === 'false') {
+          closeModal(consultaAtendenteModal);
         }
       });
 

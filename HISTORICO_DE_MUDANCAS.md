@@ -9,6 +9,14 @@ Arquivo oficial de registro das entregas concluidas.
 - Padrao de commit adotado no projeto:
   - `<arquivo_principal>: <descricao objetiva>`
 
+## 18/05/2026 - Eventos: consulta do atendente e venda manual
+
+- Adicionado botao Consultar na gestao da pagina do evento, listando responsavel e codigo da inscricao.
+- A consulta abre os dados completos da inscricao, criancas e pedidos vinculados.
+- O atendente pode registrar venda manual de itens do evento vinculada a inscricao.
+- A venda manual aceita Pix, Dinheiro ou Cartao e pode ser marcada como paga ou pendente.
+- Vendas pagas entram no extrato do evento/financeiro e baixam estoque dos itens vendidos.
+
 ## 18/05/2026 - Eventos: cancelamento de inscricao com estorno no saldo
 
 - Adicionada baixa logica para inscricoes de eventos, registrando cancelamento, data e usuario responsavel.

@@ -1079,8 +1079,12 @@ class LojaProdutoFoto(models.Model):
 
 class LojaPedido(models.Model):
     FORMA_PAGAMENTO_PIX = 'pix'
+    FORMA_PAGAMENTO_DINHEIRO = 'dinheiro'
+    FORMA_PAGAMENTO_CARTAO = 'cartao'
     FORMA_PAGAMENTO_CHOICES = [
         (FORMA_PAGAMENTO_PIX, 'Pix'),
+        (FORMA_PAGAMENTO_DINHEIRO, 'Dinheiro'),
+        (FORMA_PAGAMENTO_CARTAO, 'Cartao'),
     ]
 
     STATUS_PENDENTE = 'pendente'
