@@ -17,6 +17,8 @@ Arquivo oficial de registro das entregas concluidas.
 - A confirmacao posterior de pagamento nao reativa inscricoes que ja foram canceladas.
 - O relatorio do evento passa a listar inscricoes canceladas com valor estornado e responsavel pelo cancelamento.
 - O extrato financeiro passa a mostrar entrada de inscricao de evento e estorno quando a inscricao for cancelada.
+- Estornos antigos com valor zerado sao corrigidos automaticamente pela migracao 0077.
+- O card financeiro de eventos passa a separar bruto antes dos estornos, estornos e saldo atual.
 
 ## 29/04/2026 - Loja: WhatsApp para comprador
 

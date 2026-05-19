@@ -9732,8 +9732,21 @@ class FinanceiroView(LoginRequiredMixin, View):
             .get('total')
             or Decimal('0.00')
         )
+        total_eventos_inscricoes_estornado = (
+            EventoInscricao.objects
+            .filter(cancelada=True)
+            .aggregate(total=Sum('valor_estornado'))
+            .get('total')
+            or Decimal('0.00')
+        )
+        total_eventos_inscricoes_bruto = (
+            Decimal(total_eventos_inscricoes_pago) + Decimal(total_eventos_inscricoes_estornado)
+        ).quantize(Decimal('0.01'))
         total_eventos_geral = (
             Decimal(total_eventos_inscricoes_pago) + Decimal(total_loja_eventos_pago)
+        ).quantize(Decimal('0.01'))
+        total_eventos_bruto_antes_estorno = (
+            Decimal(total_eventos_inscricoes_bruto) + Decimal(total_loja_eventos_pago)
         ).quantize(Decimal('0.01'))
         total_gastos_comprovados = (
             FinanceiroComprovante.objects
@@ -9770,7 +9783,7 @@ class FinanceiroView(LoginRequiredMixin, View):
             Decimal(total_loja_geral_pago) * taxa_transacao_percentual
         ).quantize(Decimal('0.01'))
         total_taxas_eventos = (
-            Decimal(total_eventos_geral) * taxa_transacao_percentual
+            Decimal(total_eventos_bruto_antes_estorno) * taxa_transacao_percentual
         ).quantize(Decimal('0.01'))
         total_taxas_transacao = (
             Decimal(total_taxas_mensalidades) + Decimal(total_taxas_loja_geral) + Decimal(total_taxas_eventos)
@@ -9976,7 +9989,10 @@ class FinanceiroView(LoginRequiredMixin, View):
             'relatorios_total_loja_eventos_pago': self._format_currency(total_loja_eventos_pago),
             'relatorios_total_loja_geral_pago': self._format_currency(total_loja_geral_pago),
             'relatorios_total_eventos_inscricoes_pago': self._format_currency(total_eventos_inscricoes_pago),
+            'relatorios_total_eventos_inscricoes_bruto': self._format_currency(total_eventos_inscricoes_bruto),
+            'relatorios_total_eventos_inscricoes_estornado': self._format_currency(total_eventos_inscricoes_estornado),
             'relatorios_total_eventos_geral': self._format_currency(total_eventos_geral),
+            'relatorios_total_eventos_bruto_antes_estorno': self._format_currency(total_eventos_bruto_antes_estorno),
             'relatorios_total_gastos_comprovados': self._format_currency(total_gastos_comprovados),
             'relatorios_total_gastos_caixa_liquido': self._format_currency(total_gastos_caixa_liquido),
             'relatorios_total_gastos_loja_geral': self._format_currency(total_gastos_loja_geral),

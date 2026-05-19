@@ -553,12 +553,20 @@
             <div class="financeiro-origin-card">
               <h4>Eventos</h4>
               <div class="financeiro-origin-row">
-                <strong>Bruto<small>Inscricoes + pedidos de eventos</small></strong>
-                <span>{{ relatorios_total_eventos_geral }}</span>
+                <strong>Bruto antes dos estornos<small>Inscricoes + pedidos de eventos</small></strong>
+                <span>{{ relatorios_total_eventos_bruto_antes_estorno }}</span>
               </div>
               <div class="financeiro-origin-row">
-                <strong>Detalhe<small>Inscricoes / pedidos</small></strong>
-                <span>{{ relatorios_total_eventos_inscricoes_pago }} / {{ relatorios_total_loja_eventos_pago }}</span>
+                <strong>Detalhe<small>Inscricoes brutas / pedidos</small></strong>
+                <span>{{ relatorios_total_eventos_inscricoes_bruto }} / {{ relatorios_total_loja_eventos_pago }}</span>
+              </div>
+              <div class="financeiro-origin-row is-cost">
+                <strong>Estornos<small>Inscricoes canceladas</small></strong>
+                <span>{{ relatorios_total_eventos_inscricoes_estornado }}</span>
+              </div>
+              <div class="financeiro-origin-row">
+                <strong>Saldo atual<small>Bruto - estornos</small></strong>
+                <span>{{ relatorios_total_eventos_geral }}</span>
               </div>
               <div class="financeiro-origin-row is-cost">
                 <strong>Gastos<small>Marcados para eventos</small></strong>
