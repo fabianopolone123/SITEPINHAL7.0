@@ -5899,6 +5899,10 @@ class EventoPublicoView(View):
         inscricoes_preview_rows = []
         pedidos_preview_rows = []
         inscritos_detalhes = []
+        inscricoes_canceladas_count = 0
+        inscricoes_canceladas_valor_total = Decimal('0.00')
+        inscricoes_canceladas_valor_total_fmt = self._format_currency(Decimal('0.00'))
+        inscricoes_canceladas_rows = []
         custos_evento = []
         custos_total = Decimal('0.00')
         lucro_liquido = Decimal('0.00')
@@ -5911,6 +5915,19 @@ class EventoPublicoView(View):
                     .order_by('-created_at')
                 )
                 inscricoes_count = inscricoes_base_qs.count()
+                inscricoes_canceladas_qs = (
+                    EventoInscricao.objects
+                    .filter(evento=evento, cancelada=True)
+                    .select_related('user', 'responsavel', 'responsavel__user', 'cancelada_by')
+                    .order_by('-cancelada_at', '-updated_at')
+                )
+                inscricoes_canceladas_count = inscricoes_canceladas_qs.count()
+                inscricoes_canceladas_valor_total = (
+                    inscricoes_canceladas_qs
+                    .aggregate(total=Sum('valor_estornado'))
+                    .get('total')
+                    or Decimal('0.00')
+                )
                 inscricoes_valor_total = (
                     inscricoes_base_qs
                     .aggregate(total=Sum('valor_inscricao'))
@@ -5942,6 +5959,7 @@ class EventoPublicoView(View):
                 lucro_liquido = receita_total - custos_total
                 pedidos_total_pago_fmt = self._format_currency(pedidos_total_pago)
                 inscricoes_valor_total_fmt = self._format_currency(inscricoes_valor_total)
+                inscricoes_canceladas_valor_total_fmt = self._format_currency(inscricoes_canceladas_valor_total)
                 receita_total_fmt = self._format_currency(receita_total)
                 custos_evento = list(custos_qs[:300])
                 inscricoes_preview = list(inscricoes_base_qs[:20])
@@ -5953,6 +5971,19 @@ class EventoPublicoView(View):
                         'valor_inscricao': self._format_currency(item.valor_inscricao or Decimal('0.00')),
                         'dados_resumo': self._dados_resumo(dados_obj),
                         'created_at': item.created_at,
+                    })
+                for item in list(inscricoes_canceladas_qs[:50]):
+                    dados_obj = item.dados if isinstance(item.dados, dict) else {}
+                    cancel_user = getattr(item, 'cancelada_by', None)
+                    inscricoes_canceladas_rows.append({
+                        'codigo_inscricao': item.codigo_inscricao or '-',
+                        'responsavel_label': self._responsavel_label_from_inscricao(item),
+                        'valor_inscricao': self._format_currency(item.valor_inscricao or Decimal('0.00')),
+                        'valor_estornado': self._format_currency(item.valor_estornado or Decimal('0.00')),
+                        'dados_resumo': self._dados_resumo(dados_obj),
+                        'created_at': item.created_at,
+                        'cancelada_at': item.cancelada_at,
+                        'cancelada_by': cancel_user.username if cancel_user else '-',
                     })
                 pedidos_preview = list(
                     pedidos_qs
@@ -6065,9 +6096,11 @@ class EventoPublicoView(View):
             ),
             'can_manage_evento': can_manage_evento,
             'inscricoes_count': inscricoes_count,
+            'inscricoes_canceladas_count': inscricoes_canceladas_count,
             'pedidos_count': pedidos_count,
             'pedidos_total_pago_fmt': pedidos_total_pago_fmt,
             'inscricoes_valor_total_fmt': inscricoes_valor_total_fmt,
+            'inscricoes_canceladas_valor_total_fmt': inscricoes_canceladas_valor_total_fmt,
             'receita_total_fmt': receita_total_fmt,
             'custos_total_fmt': self._format_currency(custos_total),
             'lucro_liquido_fmt': self._format_currency(lucro_liquido),
@@ -6075,6 +6108,7 @@ class EventoPublicoView(View):
             'inscricoes_preview': inscricoes_preview,
             'pedidos_preview': pedidos_preview,
             'inscricoes_preview_rows': inscricoes_preview_rows,
+            'inscricoes_canceladas_rows': inscricoes_canceladas_rows,
             'pedidos_preview_rows': pedidos_preview_rows,
             'inscritos_detalhes': inscritos_detalhes,
             'cashback_rows': cashback_rows,
@@ -6278,16 +6312,34 @@ class EventoPublicoView(View):
                 messages.error(request, 'Selecione ao menos uma inscricao para cancelar.')
                 return render(request, self.template_name, self._context(request, evento))
 
-            cancelled_total = EventoInscricao.objects.filter(
-                evento=evento,
-                pk__in=selected_ids,
-                cancelada=False,
-            ).update(
-                confirmada=False,
-                cancelada=True,
-                cancelada_at=timezone.now(),
-                cancelada_by=request.user if request.user.is_authenticated else None,
-            )
+            cancelled_total = 0
+            cancel_now = timezone.now()
+            cancel_user = request.user if request.user.is_authenticated else None
+            with transaction.atomic():
+                inscricoes_cancelar = list(
+                    EventoInscricao.objects
+                    .select_for_update()
+                    .filter(evento=evento, pk__in=selected_ids, cancelada=False)
+                )
+                for inscricao_cancelar in inscricoes_cancelar:
+                    inscricao_cancelar.valor_estornado = (
+                        Decimal(inscricao_cancelar.valor_inscricao or Decimal('0.00')).quantize(Decimal('0.01'))
+                        if inscricao_cancelar.confirmada
+                        else Decimal('0.00')
+                    )
+                    inscricao_cancelar.confirmada = False
+                    inscricao_cancelar.cancelada = True
+                    inscricao_cancelar.cancelada_at = cancel_now
+                    inscricao_cancelar.cancelada_by = cancel_user
+                    inscricao_cancelar.save(update_fields=[
+                        'valor_estornado',
+                        'confirmada',
+                        'cancelada',
+                        'cancelada_at',
+                        'cancelada_by',
+                        'updated_at',
+                    ])
+                    cancelled_total += 1
             if cancelled_total <= 0:
                 messages.error(request, 'Nenhuma inscricao foi cancelada.')
             else:
@@ -6305,30 +6357,52 @@ class EventoPublicoView(View):
 
             cancelled_total = 0
             if request.user.is_authenticated:
-                cancelled_total = EventoInscricao.objects.filter(
-                    evento=evento,
-                    user=request.user,
-                    cancelada=False,
-                ).update(
-                    confirmada=False,
-                    cancelada=True,
-                    cancelada_at=timezone.now(),
-                    cancelada_by=request.user,
-                )
+                with transaction.atomic():
+                    inscricoes_cancelar = list(
+                        EventoInscricao.objects
+                        .select_for_update()
+                        .filter(evento=evento, user=request.user, cancelada=False)
+                    )
+                    for inscricao_cancelar in inscricoes_cancelar:
+                        inscricao_cancelar.valor_estornado = (
+                            Decimal(inscricao_cancelar.valor_inscricao or Decimal('0.00')).quantize(Decimal('0.01'))
+                            if inscricao_cancelar.confirmada
+                            else Decimal('0.00')
+                        )
+                        inscricao_cancelar.confirmada = False
+                        inscricao_cancelar.cancelada = True
+                        inscricao_cancelar.cancelada_at = timezone.now()
+                        inscricao_cancelar.cancelada_by = request.user
+                        inscricao_cancelar.save(update_fields=[
+                            'valor_estornado',
+                            'confirmada',
+                            'cancelada',
+                            'cancelada_at',
+                            'cancelada_by',
+                            'updated_at',
+                        ])
+                        cancelled_total += 1
             else:
                 inscricao = self._current_inscricao(request, evento)
                 if inscricao:
-                    cancelled_total = EventoInscricao.objects.filter(
-                        pk=inscricao.pk,
-                        evento=evento,
-                        user__isnull=True,
-                        cancelada=False,
-                    ).update(
-                        confirmada=False,
-                        cancelada=True,
-                        cancelada_at=timezone.now(),
-                        cancelada_by=None,
+                    inscricao.valor_estornado = (
+                        Decimal(inscricao.valor_inscricao or Decimal('0.00')).quantize(Decimal('0.01'))
+                        if inscricao.confirmada
+                        else Decimal('0.00')
                     )
+                    inscricao.confirmada = False
+                    inscricao.cancelada = True
+                    inscricao.cancelada_at = timezone.now()
+                    inscricao.cancelada_by = None
+                    inscricao.save(update_fields=[
+                        'valor_estornado',
+                        'confirmada',
+                        'cancelada',
+                        'cancelada_at',
+                        'cancelada_by',
+                        'updated_at',
+                    ])
+                    cancelled_total = 1
                 request.session.pop(_evento_public_inscricao_session_key(evento.id), None)
 
             if cancelled_total <= 0:
@@ -9602,9 +9676,18 @@ class FinanceiroView(LoginRequiredMixin, View):
         pedidos_loja_pagos = list(
             LojaPedido.objects
             .filter(status=LojaPedido.STATUS_PAGO)
-            .select_related('responsavel', 'responsavel__user', 'evento')
+            .select_related('responsavel', 'responsavel__user', 'evento', 'evento_inscricao')
             .prefetch_related('itens')
             .order_by('-paid_at', '-created_at')
+        )
+        inscricoes_evento_extrato = list(
+            EventoInscricao.objects
+            .filter(
+                Q(confirmada=True, cancelada=False)
+                | Q(cancelada=True, valor_estornado__gt=0)
+            )
+            .select_related('evento', 'user', 'responsavel', 'responsavel__user', 'cancelada_by')
+            .order_by('-created_at')
         )
         comprovantes_qs = FinanceiroComprovante.objects.select_related('created_by').order_by('-created_at')
         if comprovante_query:
@@ -9711,6 +9794,11 @@ class FinanceiroView(LoginRequiredMixin, View):
 
         mensalidades_rows = []
         extrato_entries = []
+        evento_helper = EventoPublicoView()
+        pedido_pago_por_inscricao = {}
+        for pedido in pedidos_loja_pagos:
+            if getattr(pedido, 'evento_inscricao_id', None) and pedido.evento_inscricao_id not in pedido_pago_por_inscricao:
+                pedido_pago_por_inscricao[pedido.evento_inscricao_id] = pedido
         for pagamento in mensalidades_pagas:
             responsavel_nome = (
                 pagamento.responsavel.responsavel_nome
@@ -9739,6 +9827,48 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'impacto_liquido': Decimal(pagamento.valor_total).quantize(Decimal('0.01')),
                 'impacta_liquido': True,
             })
+
+        for inscricao_evento in inscricoes_evento_extrato:
+            evento_nome = str(getattr(getattr(inscricao_evento, 'evento', None), 'name', '') or '').strip()
+            responsavel_nome = evento_helper._responsavel_label_from_inscricao(inscricao_evento)
+            codigo = str(getattr(inscricao_evento, 'codigo_inscricao', '') or '-')
+            valor_inscricao = Decimal(
+                getattr(inscricao_evento, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
+            ).quantize(Decimal('0.01'))
+            valor_estornado = Decimal(
+                getattr(inscricao_evento, 'valor_estornado', Decimal('0.00')) or Decimal('0.00')
+            ).quantize(Decimal('0.01'))
+            pedido_pago = pedido_pago_por_inscricao.get(inscricao_evento.id)
+            data_entrada = (
+                getattr(pedido_pago, 'paid_at', None)
+                or getattr(pedido_pago, 'created_at', None)
+                or inscricao_evento.created_at
+            )
+            if valor_inscricao > 0:
+                extrato_entries.append({
+                    'created_at': data_entrada,
+                    'tipo': 'Inscricao evento paga',
+                    'descricao': f'Inscricao {codigo} - {responsavel_nome} | Evento: {evento_nome}',
+                    'valor': valor_inscricao,
+                    'impacto_liquido': Decimal('0.00'),
+                    'impacta_liquido': False,
+                    'impacto_label_custom': 'Entra no resultado de eventos',
+                })
+            if bool(getattr(inscricao_evento, 'cancelada', False)) and valor_estornado > 0:
+                cancel_user = getattr(inscricao_evento, 'cancelada_by', None)
+                cancel_user_label = f' por {cancel_user.username}' if cancel_user else ''
+                extrato_entries.append({
+                    'created_at': inscricao_evento.cancelada_at or inscricao_evento.updated_at,
+                    'tipo': 'Estorno inscricao evento',
+                    'descricao': (
+                        f'Estorno da inscricao {codigo} - {responsavel_nome} | '
+                        f'Evento: {evento_nome}{cancel_user_label}'
+                    ),
+                    'valor': -valor_estornado,
+                    'impacto_liquido': Decimal('0.00'),
+                    'impacta_liquido': False,
+                    'impacto_label_custom': 'Abate resultado de eventos',
+                })
 
         pedidos_loja_rows = []
         for pedido in pedidos_loja_pagos:

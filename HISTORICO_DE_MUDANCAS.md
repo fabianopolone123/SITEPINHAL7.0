@@ -15,6 +15,8 @@ Arquivo oficial de registro das entregas concluidas.
 - O diretor agora cancela inscricoes selecionadas na gestao do evento, com senha 1580, sem apagar o historico.
 - Inscricoes canceladas deixam de compor os totais, relatorios, consultas e saldo do evento.
 - A confirmacao posterior de pagamento nao reativa inscricoes que ja foram canceladas.
+- O relatorio do evento passa a listar inscricoes canceladas com valor estornado e responsavel pelo cancelamento.
+- O extrato financeiro passa a mostrar entrada de inscricao de evento e estorno quando a inscricao for cancelada.
 
 ## 29/04/2026 - Loja: WhatsApp para comprador
 

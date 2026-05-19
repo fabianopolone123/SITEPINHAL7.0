@@ -1620,6 +1620,7 @@
           </header>
           <section class="field-section">
             <p><strong>Inscricoes:</strong> {{ inscricoes_count }}</p>
+            <p><strong>Inscricoes canceladas:</strong> {{ inscricoes_canceladas_count }} | <strong>Estornado:</strong> {{ inscricoes_canceladas_valor_total_fmt }}</p>
             <p><strong>Pedidos:</strong> {{ pedidos_count }}</p>
             <p><strong>Total pago:</strong> {{ pedidos_total_pago_fmt }}</p>
             <p><strong>Total inscricoes:</strong> {{ inscricoes_valor_total_fmt }}</p>
@@ -1656,6 +1657,41 @@
               </div>
             {% else %}
               <p class="panel-note">Sem inscricoes ainda.</p>
+            {% endif %}
+          </section>
+          <section class="field-section">
+            <h4>Inscricoes canceladas</h4>
+            {% if inscricoes_canceladas_rows %}
+              <div class="table-scroll">
+                <table class="users-table">
+                  <thead>
+                    <tr>
+                      <th>Codigo</th>
+                      <th>Responsavel</th>
+                      <th>Valor original</th>
+                      <th>Valor estornado</th>
+                      <th>Cancelada por</th>
+                      <th>Cancelada em</th>
+                      <th>Dados</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for item in inscricoes_canceladas_rows %}
+                      <tr>
+                        <td>{{ item.codigo_inscricao|default:"-" }}</td>
+                        <td>{{ item.responsavel_label|default:"-" }}</td>
+                        <td>{{ item.valor_inscricao }}</td>
+                        <td>{{ item.valor_estornado }}</td>
+                        <td>{{ item.cancelada_by|default:"-" }}</td>
+                        <td>{{ item.cancelada_at|date:"d/m/Y H:i"|default:"-" }}</td>
+                        <td>{{ item.dados_resumo }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="panel-note">Sem inscricoes canceladas.</p>
             {% endif %}
           </section>
           <section class="field-section">

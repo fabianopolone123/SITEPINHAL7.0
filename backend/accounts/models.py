@@ -755,6 +755,7 @@ class EventoInscricao(models.Model):
     cashback_usado_valor = models.DecimalField('valor cashback usado', max_digits=10, decimal_places=2, default=Decimal('0.00'))
     confirmada = models.BooleanField('inscricao confirmada por pagamento', default=True)
     cancelada = models.BooleanField('inscricao cancelada', default=False)
+    valor_estornado = models.DecimalField('valor estornado no cancelamento', max_digits=10, decimal_places=2, default=Decimal('0.00'))
     cancelada_at = models.DateTimeField('cancelada em', null=True, blank=True)
     cancelada_by = models.ForeignKey(
         User,
