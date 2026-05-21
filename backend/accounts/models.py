@@ -623,6 +623,30 @@ class Evento(models.Model):
         return self.name
 
 
+class EventoAtendente(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='evento_atendente')
+    eventos = models.ManyToManyField(Evento, blank=True, related_name='atendentes')
+    ativo = models.BooleanField('ativo', default=True)
+    force_password_change = models.BooleanField('troca de senha obrigatoria', default=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='eventos_atendentes_criados',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        ordering = ('user__username',)
+        verbose_name = 'atendente de evento'
+        verbose_name_plural = 'atendentes de eventos'
+
+    def __str__(self):
+        return self.user.get_full_name() or self.user.username
+
+
 class EventoCusto(models.Model):
     evento = models.ForeignKey(Evento, on_delete=models.CASCADE, related_name='custos')
     nome = models.CharField('nome do custo', max_length=255)

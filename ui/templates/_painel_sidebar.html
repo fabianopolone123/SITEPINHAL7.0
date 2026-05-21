@@ -48,6 +48,11 @@
           <li><a href="{% url 'accounts:evento_publico' atalho.id %}">{{ atalho.name }}</a></li>
         {% endfor %}
       {% endif %}
+      {% if eventos_atendente %}
+        {% for atalho in eventos_atendente %}
+          <li><a href="{% url 'accounts:evento_publico' atalho.id %}">{{ atalho.name }}</a></li>
+        {% endfor %}
+      {% endif %}
       {% if 'presenca' in menu_permissions %}<li><a href="{% url 'accounts:presenca' %}">Presença</a></li>{% endif %}
       {% if 'auditoria' in menu_permissions %}<li><a href="{% url 'accounts:auditoria' %}">Auditoria</a></li>{% endif %}
       {% if 'usuarios' in menu_permissions %}<li><a href="{% url 'accounts:usuarios' %}">Usuários</a></li>{% endif %}

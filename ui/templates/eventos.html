@@ -25,6 +25,24 @@
       border: 1px solid #cbd5e1;
       margin-bottom: 0.45rem;
     }
+    .attendant-list {
+      display: grid;
+      gap: 0.55rem;
+      margin-top: 0.75rem;
+    }
+    .attendant-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 0.7rem;
+    }
+    .attendant-card-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
     .event-fields {
       display: grid;
       gap: 0.6rem;
@@ -255,6 +273,7 @@
       <p>Cadastre eventos para inscrição dos pais, com data, horário e campos personalizados.</p>
       <div class="event-top-actions">
         <button type="button" class="primary" id="open-create-event">Criar novo evento</button>
+        <button type="button" class="secondary" id="open-attendant-modal">Cadastrar atendentes</button>
       </div>
     </header>
 
@@ -714,6 +733,112 @@
       {% endwith %}
     {% endfor %}
   </main>
+
+  <div class="modal event-modal" id="attendant-modal" aria-hidden="true">
+    <div class="modal-content">
+      <header>
+        <h3>Cadastrar atendentes de eventos</h3>
+        <button type="button" id="close-attendant-modal" aria-label="Fechar">×</button>
+      </header>
+
+      <form method="post" class="painel-card">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_event_attendant" />
+        <div class="field-section">
+          <label>
+            Usuario do atendente *
+            <input type="text" name="atendente_username" placeholder="Ex.: atendimento.passaporte" required />
+          </label>
+          <label>
+            Nome completo (opcional)
+            <input type="text" name="atendente_nome" placeholder="Ex.: Maria Silva" />
+          </label>
+          <label>
+            <input type="checkbox" name="atendente_reset_password" value="1" />
+            Redefinir senha para 1234
+          </label>
+        </div>
+        <div class="field-section">
+          <h4>Eventos que este atendente pode gerenciar</h4>
+          {% for row in eventos %}
+            {% with evento=row.evento %}
+              <label>
+                <input type="checkbox" name="atendente_eventos[]" value="{{ evento.id }}" />
+                {{ evento.name }} - {{ evento.event_date|date:"d/m/Y"|default:"sem data" }}
+              </label>
+            {% endwith %}
+          {% empty %}
+            <p class="panel-note">Cadastre um evento antes de criar atendentes.</p>
+          {% endfor %}
+        </div>
+        <div class="action-row">
+          <button type="submit" class="primary">Salvar atendente</button>
+          <button type="button" class="secondary" id="cancel-attendant-modal">Cancelar</button>
+        </div>
+        <p class="panel-note">Usuarios novos entram com senha inicial 1234 e precisam cadastrar uma nova senha no primeiro login.</p>
+      </form>
+
+      <section class="painel-card">
+        <h4>Atendentes cadastrados</h4>
+        <div class="attendant-list">
+          {% for row in atendentes_evento %}
+            <div class="attendant-card">
+              <div class="attendant-card-top">
+                <div>
+                  <strong>{{ row.user.get_full_name|default:row.user.username }}</strong>
+                  <div class="panel-note">
+                    Usuario: {{ row.user.username }} |
+                    Status: {% if row.atendente.ativo %}Ativo{% else %}Inativo{% endif %} |
+                    Troca senha: {% if row.atendente.force_password_change %}Pendente{% else %}OK{% endif %}
+                  </div>
+                  <div class="panel-note">Eventos: {{ row.eventos_label }}</div>
+                </div>
+                <div class="action-row">
+                  <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="reset_event_attendant_password" />
+                    <input type="hidden" name="atendente_id" value="{{ row.atendente.id }}" />
+                    <button type="submit" class="secondary">Resetar senha 1234</button>
+                  </form>
+                  <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_event_attendant" />
+                    <input type="hidden" name="atendente_id" value="{{ row.atendente.id }}" />
+                    <input type="hidden" name="ativo" value="{% if row.atendente.ativo %}0{% else %}1{% endif %}" />
+                    <button type="submit" class="secondary">{% if row.atendente.ativo %}Inativar{% else %}Ativar{% endif %}</button>
+                  </form>
+                </div>
+              </div>
+              <details style="margin-top:0.6rem;">
+                <summary>Alterar eventos deste atendente</summary>
+                <form method="post" class="field-section" style="margin-top:0.55rem;">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="save_event_attendant" />
+                  <input type="hidden" name="atendente_username" value="{{ row.user.username }}" />
+                  <input type="hidden" name="atendente_nome" value="{{ row.user.get_full_name }}" />
+                  {% for event_row in eventos %}
+                    {% with evento=event_row.evento %}
+                      <label>
+                        <input type="checkbox" name="atendente_eventos[]" value="{{ evento.id }}" {% if evento.id in row.eventos_ids %}checked{% endif %} />
+                        {{ evento.name }} - {{ evento.event_date|date:"d/m/Y"|default:"sem data" }}
+                      </label>
+                    {% endwith %}
+                  {% endfor %}
+                  <label>
+                    <input type="checkbox" name="atendente_reset_password" value="1" />
+                    Tambem redefinir senha para 1234
+                  </label>
+                  <button type="submit" class="primary">Salvar alteracao</button>
+                </form>
+              </details>
+            </div>
+          {% empty %}
+            <p class="panel-note">Nenhum atendente cadastrado ainda.</p>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+  </div>
 
   <div class="modal event-modal" id="event-modal" aria-hidden="true">
     <div class="modal-content">
@@ -1691,6 +1816,31 @@
           target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }
+    })();
+  </script>
+  <script>
+    (function () {
+      const modal = document.getElementById('attendant-modal');
+      const openBtn = document.getElementById('open-attendant-modal');
+      const closeBtn = document.getElementById('close-attendant-modal');
+      const cancelBtn = document.getElementById('cancel-attendant-modal');
+      if (!modal || !openBtn) return;
+
+      const openModal = () => {
+        modal.classList.add('show');
+        modal.setAttribute('aria-hidden', 'false');
+      };
+      const closeModal = () => {
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+      };
+
+      openBtn.addEventListener('click', openModal);
+      if (closeBtn) closeBtn.addEventListener('click', closeModal);
+      if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) closeModal();
+      });
     })();
   </script>
 </body>

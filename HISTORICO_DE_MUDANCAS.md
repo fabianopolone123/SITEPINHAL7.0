@@ -9,6 +9,13 @@ Arquivo oficial de registro das entregas concluidas.
 - Padrao de commit adotado no projeto:
   - `<arquivo_principal>: <descricao objetiva>`
 
+## 21/05/2026 - Eventos: atendentes por evento
+
+- Diretor pode cadastrar atendentes na pagina de Eventos, vinculando cada usuario a eventos selecionados.
+- Usuarios novos de atendimento entram com senha inicial 1234.
+- No primeiro login, o atendente precisa cadastrar uma senha propria antes de acessar o evento.
+- Atendentes veem no menu lateral somente os eventos vinculados e conseguem gerenciar apenas esses eventos.
+
 ## 18/05/2026 - Eventos: consulta do atendente e venda manual
 
 - Adicionado botao Consultar na gestao da pagina do evento, listando responsavel e codigo da inscricao.

@@ -1,9 +1,10 @@
 from django.urls import path
 from django.views.generic import RedirectView
-from django.contrib.auth.views import LoginView
 
 from .views import (
     RegisterView,
+    EventoLoginView,
+    EventoAtendenteTrocarSenhaView,
     PasswordRecoveryView,
     NovoCadastroLoginView,
     NovoCadastroInscricaoView,
@@ -131,6 +132,7 @@ urlpatterns = [
     path('perfil/alternar/', AlterarPerfilAtivoView.as_view(), name='alternar_perfil'),
     path('aventureiros-gerais/', AventureirosGeraisView.as_view(), name='aventureiros_gerais'),
     path('aventureiros-gerais/<int:pk>/', AventureiroGeralDetalheView.as_view(), name='aventureiro_geral'),
-    path('login/', LoginView.as_view(template_name='login.html'), name='login'),
+    path('atendente/trocar-senha/', EventoAtendenteTrocarSenhaView.as_view(), name='atendente_trocar_senha'),
+    path('login/', EventoLoginView.as_view(), name='login'),
     path('logout/', LogoutRedirectView.as_view(), name='logout'),
 ]

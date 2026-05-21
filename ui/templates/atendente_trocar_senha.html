@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastrar senha do atendente</title>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+</head>
+<body class="painel-page">
+  {% include '_painel_sidebar.html' %}
+  <main class="painel-content">
+    <header class="painel-header">
+      <h2>Cadastrar senha do atendente</h2>
+      <p>Esta senha substitui a senha inicial 1234 e sera usada nos proximos acessos.</p>
+    </header>
+
+    <section class="painel-card">
+      <div class="status" aria-live="polite">
+        {% for message in messages %}
+          <p data-state="{{ message.tags }}">{{ message }}</p>
+        {% empty %}
+          <p data-state="info">Informe uma senha nova para continuar.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="painel-card">
+      <form method="post" class="field-section">
+        {% csrf_token %}
+        <label>
+          Nova senha
+          <input type="password" name="nova_senha" minlength="6" autocomplete="new-password" required />
+        </label>
+        <label>
+          Confirmar nova senha
+          <input type="password" name="confirmar_senha" minlength="6" autocomplete="new-password" required />
+        </label>
+        <div class="action-row">
+          <button type="submit" class="primary">Salvar senha e entrar</button>
+        </div>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

@@ -14,8 +14,9 @@ from urllib import request as urllib_request, error as urllib_error
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.contrib.auth import login, logout, get_user_model
+from django.contrib.auth import login, logout, get_user_model, update_session_auth_hash
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import LoginView as DjangoLoginView
 from django.views import View
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
@@ -51,6 +52,7 @@ from .models import (
     AccessGroup,
     DocumentoInscricaoGerado,
     Evento,
+    EventoAtendente,
     EventoCusto,
     FinanceiroComprovante,
     EventoPreset,
@@ -257,8 +259,11 @@ def _effective_menu_permissions(user, active_profile=''):
     if user_override:
         return user_override
 
-    allowed = {'inicio', 'meus_dados'}
     profiles = set(_available_profiles(access))
+    if not profiles and _user_has_active_evento_atendente(user):
+        return []
+
+    allowed = {'inicio', 'meus_dados'}
     if active_profile and active_profile in profiles:
         profiles = {active_profile}
 
@@ -293,6 +298,90 @@ def _has_menu_permission(user_or_request, menu_key):
     return menu_key in _effective_menu_permissions(user_or_request)
 
 
+def _evento_atendente_record(user):
+    if not getattr(user, 'is_authenticated', False):
+        return None
+    try:
+        return (
+            EventoAtendente.objects
+            .filter(user=user, ativo=True)
+            .prefetch_related('eventos')
+            .first()
+        )
+    except Exception:
+        logger.exception('Falha ao carregar atendente de evento do usuario id=%s.', getattr(user, 'id', None))
+        return None
+
+
+def _user_has_active_evento_atendente(user):
+    if not getattr(user, 'is_authenticated', False):
+        return False
+    try:
+        return EventoAtendente.objects.filter(user=user, ativo=True, eventos__isnull=False).exists()
+    except Exception:
+        logger.exception('Falha ao validar atendente de evento do usuario id=%s.', getattr(user, 'id', None))
+        return False
+
+
+def _eventos_atendente_menu_items(user):
+    record = _evento_atendente_record(user)
+    if not record:
+        return []
+    try:
+        return [
+            {
+                'id': int(evento.id),
+                'name': str(evento.name or f'Evento {evento.id}'),
+            }
+            for evento in record.eventos.all().order_by('event_date', 'event_time', 'name')
+        ]
+    except Exception:
+        logger.exception('Falha ao montar eventos do atendente usuario id=%s.', getattr(user, 'id', None))
+        return []
+
+
+def _user_can_manage_evento(user, evento):
+    if not getattr(user, 'is_authenticated', False) or not evento:
+        return False
+    try:
+        if _has_menu_permission(user, 'eventos'):
+            return True
+        return EventoAtendente.objects.filter(user=user, ativo=True, eventos=evento).exists()
+    except Exception:
+        logger.exception(
+            'Falha ao validar permissao de atendente no evento id=%s usuario id=%s.',
+            getattr(evento, 'id', None),
+            getattr(user, 'id', None),
+        )
+        return False
+
+
+def _user_needs_evento_atendente_password_change(user):
+    if not getattr(user, 'is_authenticated', False):
+        return False
+    try:
+        return EventoAtendente.objects.filter(
+            user=user,
+            ativo=True,
+            force_password_change=True,
+            eventos__isnull=False,
+        ).exists()
+    except Exception:
+        logger.exception('Falha ao validar troca obrigatoria de senha do atendente id=%s.', getattr(user, 'id', None))
+        return False
+
+
+def _first_evento_atendente(user):
+    record = _evento_atendente_record(user)
+    if not record:
+        return None
+    try:
+        return record.eventos.all().order_by('event_date', 'event_time', 'name').first()
+    except Exception:
+        logger.exception('Falha ao carregar primeiro evento do atendente usuario id=%s.', getattr(user, 'id', None))
+        return None
+
+
 def _sidebar_context(request):
     _ensure_default_access_groups()
     access = _ensure_user_access(request.user)
@@ -303,6 +392,7 @@ def _sidebar_context(request):
         for profile in _available_profiles(access)
     ]
     eventos_atalho_responsavel = []
+    eventos_atendente = _eventos_atendente_menu_items(request.user)
     try:
         if active_profile == UserAccess.ROLE_RESPONSAVEL:
             eventos_qs = (
@@ -328,16 +418,22 @@ def _sidebar_context(request):
                 })
     except Exception:
         logger.exception('Falha ao montar atalhos de eventos para sidebar do responsavel.')
+    active_profile_label = _profile_display_name(active_profile)
+    current_profiles = [_profile_display_name(item) for item in _available_profiles(access)]
+    if not active_profile and eventos_atendente:
+        active_profile_label = 'Atendente de evento'
+        current_profiles = ['Atendente de evento']
     return {
         'is_diretor': access.has_profile(UserAccess.ROLE_DIRETOR),
         'active_profile': active_profile,
-        'active_profile_label': _profile_display_name(active_profile),
+        'active_profile_label': active_profile_label,
         'profile_options': profile_options,
         'profile_switch_enabled': len(profile_options) > 1,
         'current_path': request.get_full_path(),
-        'current_profiles': [_profile_display_name(item) for item in _available_profiles(access)],
+        'current_profiles': current_profiles,
         'menu_permissions': menu_permissions,
         'eventos_atalho_responsavel': eventos_atalho_responsavel,
+        'eventos_atendente': eventos_atendente,
     }
 
 
@@ -2676,6 +2772,76 @@ class NovoCadastroDiretoriaResumoView(View):
         return redirect('accounts:login')
 
 
+class EventoLoginView(DjangoLoginView):
+    template_name = 'login.html'
+
+    def get_success_url(self):
+        if _user_needs_evento_atendente_password_change(self.request.user):
+            return reverse('accounts:atendente_trocar_senha')
+        redirect_to = self.get_redirect_url()
+        if redirect_to:
+            return redirect_to
+        first_evento = _first_evento_atendente(self.request.user)
+        if first_evento:
+            return reverse('accounts:evento_publico', args=[first_evento.id])
+        return super().get_success_url()
+
+
+class EventoAtendenteTrocarSenhaView(LoginRequiredMixin, View):
+    template_name = 'atendente_trocar_senha.html'
+
+    def _redirect_after_change(self, request):
+        first_evento = _first_evento_atendente(request.user)
+        if first_evento:
+            return redirect('accounts:evento_publico', event_id=first_evento.id)
+        return redirect('accounts:painel')
+
+    def _guard(self, request):
+        if not _user_has_active_evento_atendente(request.user):
+            messages.error(request, 'Seu usuario nao esta vinculado como atendente de evento.')
+            return redirect('accounts:painel')
+        return None
+
+    def get(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+        context = {
+            'eventos_atendente': _eventos_atendente_menu_items(request.user),
+        }
+        context.update(_sidebar_context(request))
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        guard = self._guard(request)
+        if guard:
+            return guard
+        nova_senha = str(request.POST.get('nova_senha') or '').strip()
+        confirmar_senha = str(request.POST.get('confirmar_senha') or '').strip()
+        if not nova_senha or not confirmar_senha:
+            messages.error(request, 'Informe e confirme a nova senha.')
+            context = {'eventos_atendente': _eventos_atendente_menu_items(request.user)}
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+        if nova_senha != confirmar_senha:
+            messages.error(request, 'As senhas nao conferem.')
+            context = {'eventos_atendente': _eventos_atendente_menu_items(request.user)}
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+        if nova_senha == '1234' or len(nova_senha) < 6:
+            messages.error(request, 'Use uma senha nova com pelo menos 6 caracteres e diferente de 1234.')
+            context = {'eventos_atendente': _eventos_atendente_menu_items(request.user)}
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+
+        request.user.set_password(nova_senha)
+        request.user.save(update_fields=['password'])
+        EventoAtendente.objects.filter(user=request.user, ativo=True).update(force_password_change=False)
+        update_session_auth_hash(request, request.user)
+        messages.success(request, 'Senha cadastrada com sucesso.')
+        return self._redirect_after_change(request)
+
+
 class LogoutRedirectView(View):
     def get(self, request):
         logout(request)
@@ -2850,6 +3016,14 @@ class PainelView(LoginRequiredMixin, View):
     template_name = 'painel.html'
 
     def get(self, request):
+        if _user_needs_evento_atendente_password_change(request.user):
+            return redirect('accounts:atendente_trocar_senha')
+        access = _ensure_user_access(request.user)
+        if not _available_profiles(access):
+            first_evento = _first_evento_atendente(request.user)
+            if first_evento:
+                return redirect('accounts:evento_publico', event_id=first_evento.id)
+
         responsavel = getattr(request.user, 'responsavel', None)
         pending_count = len(request.session.get('aventures_pending', []))
 
@@ -3656,10 +3830,30 @@ class EventosView(LoginRequiredMixin, View):
                 'event_end_time': preset.event_end_time.strftime('%H:%M') if preset.event_end_time else '',
                 'fields_data': self._to_json_safe(preset.fields_data or []),
             })
+        atendentes_evento = []
+        try:
+            for atendente in (
+                EventoAtendente.objects
+                .select_related('user', 'created_by')
+                .prefetch_related('eventos')
+                .order_by('user__username')
+            ):
+                eventos_vinculados = list(atendente.eventos.all().order_by('event_date', 'event_time', 'name'))
+                atendentes_evento.append({
+                    'atendente': atendente,
+                    'user': atendente.user,
+                    'eventos': eventos_vinculados,
+                    'eventos_ids': [int(evento.id) for evento in eventos_vinculados],
+                    'eventos_label': ', '.join(evento.name for evento in eventos_vinculados) or '-',
+                })
+        except Exception:
+            logger.exception('Falha ao carregar atendentes de eventos.')
+            atendentes_evento = []
         context = {
             'eventos': event_rows,
             'presets': presets,
             'presets_json': presets_json,
+            'atendentes_evento': atendentes_evento,
         }
         context.update(_sidebar_context(request))
         return context
@@ -4050,7 +4244,111 @@ class EventosView(LoginRequiredMixin, View):
             }
 
         action = (request.POST.get('action') or '').strip()
-        if action == 'create_event':
+        if action == 'save_event_attendant':
+            username = str(request.POST.get('atendente_username') or '').strip()
+            full_name = str(request.POST.get('atendente_nome') or '').strip()
+            reset_password = bool(request.POST.get('atendente_reset_password'))
+            raw_event_ids = request.POST.getlist('atendente_eventos[]')
+            event_ids = []
+            for raw_id in raw_event_ids:
+                text = str(raw_id or '').strip()
+                if text.isdigit():
+                    event_ids.append(int(text))
+            event_ids = sorted(set(event_ids))
+
+            if not username:
+                messages.error(request, 'Informe o usuario do atendente.')
+                return render(request, self.template_name, self._context(request))
+            if not event_ids:
+                messages.error(request, 'Selecione ao menos um evento para o atendente.')
+                return render(request, self.template_name, self._context(request))
+
+            eventos_vinculados = list(Evento.objects.filter(pk__in=event_ids))
+            if len(eventos_vinculados) != len(event_ids):
+                messages.error(request, 'Um ou mais eventos selecionados nao foram encontrados.')
+                return render(request, self.template_name, self._context(request))
+
+            with transaction.atomic():
+                user, created = User.objects.get_or_create(
+                    username=username,
+                    defaults={'is_active': True},
+                )
+                save_fields = []
+                if not user.is_active:
+                    user.is_active = True
+                    save_fields.append('is_active')
+                if full_name:
+                    parts = full_name.split()
+                    first_name = parts[0][:150] if parts else full_name[:150]
+                    last_name = ' '.join(parts[1:])[:150] if len(parts) > 1 else ''
+                    if user.first_name != first_name:
+                        user.first_name = first_name
+                        save_fields.append('first_name')
+                    if user.last_name != last_name:
+                        user.last_name = last_name
+                        save_fields.append('last_name')
+                if created or reset_password:
+                    user.set_password('1234')
+                    save_fields.append('password')
+                if save_fields:
+                    user.save(update_fields=sorted(set(save_fields)))
+
+                atendente, atendente_created = EventoAtendente.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        'ativo': True,
+                        'force_password_change': True,
+                        'created_by': request.user,
+                    },
+                )
+                if not atendente.ativo:
+                    atendente.ativo = True
+                if created or atendente_created or reset_password:
+                    atendente.force_password_change = True
+                if not atendente.created_by_id:
+                    atendente.created_by = request.user
+                atendente.save(update_fields=['ativo', 'force_password_change', 'created_by', 'updated_at'])
+                atendente.eventos.set(eventos_vinculados)
+
+            if created:
+                messages.success(request, 'Atendente cadastrado com senha inicial 1234. No primeiro login ele devera criar a propria senha.')
+            elif reset_password:
+                messages.success(request, 'Atendente atualizado e senha redefinida para 1234.')
+            else:
+                messages.success(request, 'Atendente atualizado com sucesso.')
+
+        elif action == 'toggle_event_attendant':
+            atendente_id = str(request.POST.get('atendente_id') or '').strip()
+            ativo = str(request.POST.get('ativo') or '').strip() == '1'
+            if not atendente_id.isdigit():
+                messages.error(request, 'Atendente invalido.')
+                return render(request, self.template_name, self._context(request))
+            atendente = EventoAtendente.objects.filter(pk=int(atendente_id)).first()
+            if not atendente:
+                messages.error(request, 'Atendente nao encontrado.')
+                return render(request, self.template_name, self._context(request))
+            atendente.ativo = ativo
+            atendente.save(update_fields=['ativo', 'updated_at'])
+            messages.success(request, f'Atendente {"ativado" if ativo else "inativado"} com sucesso.')
+
+        elif action == 'reset_event_attendant_password':
+            atendente_id = str(request.POST.get('atendente_id') or '').strip()
+            if not atendente_id.isdigit():
+                messages.error(request, 'Atendente invalido.')
+                return render(request, self.template_name, self._context(request))
+            atendente = EventoAtendente.objects.select_related('user').filter(pk=int(atendente_id)).first()
+            if not atendente:
+                messages.error(request, 'Atendente nao encontrado.')
+                return render(request, self.template_name, self._context(request))
+            atendente.user.set_password('1234')
+            atendente.user.is_active = True
+            atendente.user.save(update_fields=['password', 'is_active'])
+            atendente.force_password_change = True
+            atendente.ativo = True
+            atendente.save(update_fields=['force_password_change', 'ativo', 'updated_at'])
+            messages.success(request, 'Senha do atendente redefinida para 1234. No proximo login ele devera trocar.')
+
+        elif action == 'create_event':
             name = (request.POST.get('name') or '').strip()
             event_type = (request.POST.get('event_type') or '').strip()
             event_location = (request.POST.get('event_location') or '').strip()
@@ -4547,6 +4845,8 @@ class EventoPublicoView(View):
         if not request.user.is_authenticated:
             return False
         access = _ensure_user_access(request.user)
+        if _user_has_active_evento_atendente(request.user) and not _available_profiles(access):
+            return False
         return (
             access.has_profile(UserAccess.ROLE_RESPONSAVEL)
             or access.has_profile(UserAccess.ROLE_PROFESSOR)
@@ -4554,11 +4854,17 @@ class EventoPublicoView(View):
             or access.has_profile(UserAccess.ROLE_DIRETORIA)
         )
 
-    def _can_manage_evento_page(self, request):
-        return bool(request.user.is_authenticated and _has_menu_permission(request, 'eventos'))
+    def _can_manage_evento_page(self, request, evento=None):
+        if not getattr(request.user, 'is_authenticated', False):
+            return False
+        if _has_menu_permission(request, 'eventos'):
+            return True
+        if evento is None:
+            return False
+        return _user_can_manage_evento(request.user, evento)
 
     def _can_access_page(self, request, evento):
-        if self._can_manage_evento_page(request):
+        if self._can_manage_evento_page(request, evento):
             return True
         if not bool(getattr(evento, 'pagina_ativa', True)):
             return False
@@ -4576,7 +4882,7 @@ class EventoPublicoView(View):
         context = {
             'evento': evento,
             'inactive_message': self._inactive_page_message(evento),
-            'can_manage_evento': self._can_manage_evento_page(request),
+            'can_manage_evento': self._can_manage_evento_page(request, evento),
         }
         if request.user.is_authenticated:
             context.update(_sidebar_context(request))
@@ -5590,7 +5896,7 @@ class EventoPublicoView(View):
         if not inscricao or inscricao.evento_id != evento.id:
             return False
         if request.user.is_authenticated:
-            if _has_menu_permission(request, 'eventos') or _has_menu_permission(request, 'loja'):
+            if self._can_manage_evento_page(request, evento) or _has_menu_permission(request, 'loja'):
                 return True
             if inscricao.user_id and inscricao.user_id == request.user.id:
                 return True
@@ -5887,7 +6193,7 @@ class EventoPublicoView(View):
             register_summary_fee_units = int(getattr(inscricao, 'valor_inscricao_unidades', 0) or 0)
             if fee_value > 0:
                 register_summary_fee_value_fmt = self._format_currency(fee_value)
-        can_manage_evento = bool(request.user.is_authenticated and _has_menu_permission(request, 'eventos'))
+        can_manage_evento = self._can_manage_evento_page(request, evento)
         inscricoes_count = 0
         pedidos_count = 0
         inscricoes_valor_total = Decimal('0.00')
@@ -6182,6 +6488,8 @@ class EventoPublicoView(View):
 
     def get(self, request, event_id):
         evento = get_object_or_404(Evento, pk=event_id)
+        if _user_needs_evento_atendente_password_change(request.user):
+            return redirect('accounts:atendente_trocar_senha')
         if not self._can_access_page(request, evento):
             if not bool(getattr(evento, 'pagina_ativa', True)):
                 return self._render_evento_inativo(request, evento)
@@ -6459,6 +6767,8 @@ class EventoPublicoView(View):
 
     def post(self, request, event_id):
         evento = get_object_or_404(Evento, pk=event_id)
+        if _user_needs_evento_atendente_password_change(request.user):
+            return redirect('accounts:atendente_trocar_senha')
         if not self._can_access_page(request, evento):
             if not bool(getattr(evento, 'pagina_ativa', True)):
                 return self._render_evento_inativo(request, evento)
@@ -6469,7 +6779,7 @@ class EventoPublicoView(View):
             messages.error(request, 'Este evento não está com página pública habilitada.')
             return redirect('accounts:painel')
         action = str(request.POST.get('action') or '').strip()
-        can_manage_evento = bool(request.user.is_authenticated and _has_menu_permission(request, 'eventos'))
+        can_manage_evento = self._can_manage_evento_page(request, evento)
 
         if action == 'registrar_venda_evento_atendente':
             if not can_manage_evento:
@@ -7060,6 +7370,8 @@ class EventoPedidoCreatePixApiView(View):
         if not request.user.is_authenticated:
             return False
         access = _ensure_user_access(request.user)
+        if _user_has_active_evento_atendente(request.user) and not _available_profiles(access):
+            return False
         return (
             access.has_profile(UserAccess.ROLE_RESPONSAVEL)
             or access.has_profile(UserAccess.ROLE_PROFESSOR)
@@ -7206,7 +7518,7 @@ class EventoPedidoCreatePixApiView(View):
         if not inscricao or inscricao.evento_id != evento.id:
             return False
         if request.user.is_authenticated:
-            if _has_menu_permission(request, 'eventos') or _has_menu_permission(request, 'loja'):
+            if EventoPublicoView()._can_manage_evento_page(request, evento) or _has_menu_permission(request, 'loja'):
                 return True
             if inscricao.user_id and inscricao.user_id == request.user.id:
                 return True
@@ -7508,6 +7820,8 @@ class EventoPedidoStatusApiView(View):
         if not request.user.is_authenticated:
             return False
         access = _ensure_user_access(request.user)
+        if _user_has_active_evento_atendente(request.user) and not _available_profiles(access):
+            return False
         return (
             access.has_profile(UserAccess.ROLE_RESPONSAVEL)
             or access.has_profile(UserAccess.ROLE_PROFESSOR)
@@ -7544,9 +7858,9 @@ class EventoPedidoStatusApiView(View):
         )
 
         if request.user.is_authenticated:
-            if not self._authenticated_profile_allowed(request):
+            can_manage = EventoPublicoView()._can_manage_evento_page(request, evento) or _has_menu_permission(request, 'loja')
+            if not can_manage and not self._authenticated_profile_allowed(request):
                 return JsonResponse({'ok': False, 'error': 'forbidden_profile'}, status=403)
-            can_manage = _has_menu_permission(request, 'eventos') or _has_menu_permission(request, 'loja')
             if not can_manage and pedido.responsavel.user_id != request.user.id:
                 return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
         else:
