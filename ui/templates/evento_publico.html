@@ -2084,6 +2084,7 @@
                         data-sale-inscricao-option
                         data-inscricao-id="{{ item.id }}"
                         data-inscricao-label="Codigo {{ item.codigo }} - {{ item.responsavel }}"
+                        data-inscricao-pending="{% if item.confirmada %}0{% else %}1{% endif %}"
                         data-inscricao-fee="{% if item.confirmada %}0{% else %}{{ item.valor_inscricao_raw }}{% endif %}"
                         data-inscricao-fee-breakdown="{{ item.fee_breakdown_json|escapejs }}"
                         data-sale-inscricao-search="{{ item.codigo }} {{ item.responsavel }} {{ item.cpf_responsavel }} {{ item.criancas }} {{ item.dados_resumo }}"
@@ -4443,9 +4444,13 @@
           if (!button) return;
           const id = String(button.getAttribute('data-inscricao-id') || '').trim();
           const label = String(button.getAttribute('data-inscricao-label') || button.textContent || '').trim();
-          selectedInscricaoFee = parsePrice(button.getAttribute('data-inscricao-fee'));
+          const isPending = String(button.getAttribute('data-inscricao-pending') || '0').trim() === '1';
+          selectedInscricaoFee = isPending ? parsePrice(button.getAttribute('data-inscricao-fee')) : 0;
+          if (!isPending) selectedInscricaoFeeBreakdown = [];
           try {
-            selectedInscricaoFeeBreakdown = JSON.parse(String(button.getAttribute('data-inscricao-fee-breakdown') || '[]'));
+            selectedInscricaoFeeBreakdown = isPending
+              ? JSON.parse(String(button.getAttribute('data-inscricao-fee-breakdown') || '[]'))
+              : [];
           } catch (error) {
             selectedInscricaoFeeBreakdown = [];
           }
