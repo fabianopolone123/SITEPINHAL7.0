@@ -4466,14 +4466,27 @@
         const applyInscricaoFilter = () => {
           const rawQuery = inscricaoFilter instanceof HTMLInputElement ? inscricaoFilter.value : '';
           const query = normalizeLookupText(rawQuery);
+          const queryRaw = String(rawQuery || '').trim().toLowerCase();
           const digitsQuery = String(rawQuery || '').replace(/\D/g, '');
           let visibleCount = 0;
           inscricaoOptions.forEach((button) => {
-            const searchRaw = String(button.getAttribute('data-sale-inscricao-search') || button.textContent || '');
+            const searchRaw = String(
+              button.getAttribute('data-sale-inscricao-search')
+              || button.getAttribute('data-inscricao-label')
+              || button.textContent
+              || ''
+            );
             const searchText = normalizeLookupText(searchRaw);
+            const searchTextRaw = String(searchRaw || '').toLowerCase();
             const searchDigits = searchRaw.replace(/\D/g, '');
-            const matches = !query || searchText.includes(query) || (digitsQuery && searchDigits.includes(digitsQuery));
+            const matches = (
+              !query
+              || searchText.includes(query)
+              || (queryRaw && searchTextRaw.includes(queryRaw))
+              || (digitsQuery && searchDigits.includes(digitsQuery))
+            );
             button.hidden = !matches;
+            button.style.display = matches ? '' : 'none';
             if (matches) visibleCount += 1;
           });
           if (inscricaoEmpty) inscricaoEmpty.hidden = visibleCount > 0;
@@ -4568,6 +4581,8 @@
         });
         if (inscricaoFilter instanceof HTMLInputElement) {
           inscricaoFilter.addEventListener('input', applyInscricaoFilter);
+          inscricaoFilter.addEventListener('keyup', applyInscricaoFilter);
+          inscricaoFilter.addEventListener('change', applyInscricaoFilter);
           applyInscricaoFilter();
         }
         if (addBtn) {
