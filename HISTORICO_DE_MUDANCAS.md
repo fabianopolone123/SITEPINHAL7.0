@@ -9,6 +9,12 @@ Arquivo oficial de registro das entregas concluidas.
 - Padrao de commit adotado no projeto:
   - `<arquivo_principal>: <descricao objetiva>`
 
+## 22/05/2026 - Eventos: total de inscritos por crianca
+
+- O resumo de gestao do evento passa a contar inscricoes pelo total de criancas/participantes informados na inscricao.
+- Quando uma inscricao tem campo repetidor de criancas, cada linha preenchida entra na contagem.
+- A listagem de criancas prioriza os dados da inscricao do evento antes de usar o cadastro geral do responsavel como fallback.
+
 ## 21/05/2026 - Eventos: atendentes por evento
 
 - Diretor pode cadastrar atendentes na pagina de Eventos, vinculando cada usuario a eventos selecionados.

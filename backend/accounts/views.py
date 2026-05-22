@@ -3666,16 +3666,22 @@ class EventosView(LoginRequiredMixin, View):
 
     def _context(self, request):
         eventos = list(Evento.objects.select_related('created_by').all())
+        evento_publico_helper = EventoPublicoView()
+        eventos_by_id = {evento.id: evento for evento in eventos}
         try:
-            inscritos_totais_map = {
-                item['evento_id']: item['total']
-                for item in (
-                    EventoInscricao.objects
-                    .filter(confirmada=True, cancelada=False)
-                    .values('evento_id')
-                    .annotate(total=Count('id'))
+            inscritos_totais_map = {}
+            inscricoes_confirmadas = (
+                EventoInscricao.objects
+                .filter(confirmada=True, cancelada=False)
+                .select_related('responsavel')
+                .prefetch_related('responsavel__aventures')
+            )
+            for inscricao in inscricoes_confirmadas:
+                evento_obj = eventos_by_id.get(inscricao.evento_id)
+                inscritos_totais_map[inscricao.evento_id] = (
+                    int(inscritos_totais_map.get(inscricao.evento_id) or 0)
+                    + evento_publico_helper._inscricao_participantes_count(inscricao, evento=evento_obj)
                 )
-            }
         except Exception:
             logger.exception('Falha ao calcular total de inscrições por evento.')
             inscritos_totais_map = {}
@@ -3731,7 +3737,6 @@ class EventosView(LoginRequiredMixin, View):
             logger.exception('Falha ao calcular total de custos por evento.')
             custos_totais_map = {}
         event_rows = []
-        evento_publico_helper = EventoPublicoView()
         for evento in eventos:
             try:
                 fields_data = evento_publico_helper._event_schema(evento)
@@ -5748,22 +5753,6 @@ class EventoPublicoView(View):
             _append_row(rows, found_name, found_age)
             return rows
 
-        responsavel = getattr(inscricao, 'responsavel', None)
-        if responsavel:
-            nomes = list(
-                responsavel.aventures.order_by('nome').values_list('nome', flat=True)
-            )
-            nomes = [str(item or '').strip() for item in nomes if str(item or '').strip()]
-            if nomes:
-                lines = [{'nome': item, 'idade': '', 'display': item} for item in nomes]
-                resumo = ', '.join(item['display'] for item in lines[:3])
-                if len(lines) > 3:
-                    resumo += '...'
-                return {
-                    'linhas': lines,
-                    'resumo': resumo,
-                    'total': len(lines),
-                }
         dados = (inscricao.dados or {}) if isinstance(inscricao.dados, dict) else {}
         repeat_field_preferido = ''
         if evento is not None:
@@ -5807,6 +5796,22 @@ class EventoPublicoView(View):
             seen.add(key)
             deduped.append(row)
         if not deduped:
+            responsavel = getattr(inscricao, 'responsavel', None)
+            if responsavel:
+                nomes = list(
+                    responsavel.aventures.order_by('nome').values_list('nome', flat=True)
+                )
+                nomes = [str(item or '').strip() for item in nomes if str(item or '').strip()]
+                if nomes:
+                    lines = [{'nome': item, 'idade': '', 'display': item} for item in nomes]
+                    resumo = ', '.join(item['display'] for item in lines[:3])
+                    if len(lines) > 3:
+                        resumo += '...'
+                    return {
+                        'linhas': lines,
+                        'resumo': resumo,
+                        'total': len(lines),
+                    }
             return {
                 'linhas': [],
                 'resumo': '-',
@@ -5820,6 +5825,29 @@ class EventoPublicoView(View):
             'resumo': resumo,
             'total': len(deduped),
         }
+
+    def _inscricao_participantes_count(self, inscricao, evento=None):
+        criancas_info = self._criancas_info_from_inscricao(inscricao, evento=evento)
+        criancas_total = int(criancas_info.get('total', 0) or 0)
+        if criancas_total > 0:
+            return criancas_total
+
+        mode = self._normalize_inscricao_valor_modo(getattr(evento, 'inscricao_valor_modo', '') if evento else '')
+        if mode in {
+            Evento.INSCRICAO_VALOR_MODO_POR_ITEM_REPETIDOR,
+            Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR,
+        }:
+            unidades = int(getattr(inscricao, 'valor_inscricao_unidades', 0) or 0)
+            if unidades > 0:
+                return unidades
+
+        return 1
+
+    def _inscricoes_participantes_count(self, inscricoes, evento=None):
+        total = 0
+        for inscricao in inscricoes:
+            total += self._inscricao_participantes_count(inscricao, evento=evento)
+        return total
 
     def _pedido_items_summary(self, pedido):
         itens = list(pedido.itens.all())
@@ -6241,9 +6269,10 @@ class EventoPublicoView(View):
                     EventoInscricao.objects
                     .filter(evento=evento, confirmada=True, cancelada=False)
                     .select_related('user', 'responsavel', 'responsavel__user')
+                    .prefetch_related('responsavel__aventures')
                     .order_by('-created_at')
                 )
-                inscricoes_count = inscricoes_base_qs.count()
+                inscricoes_count = self._inscricoes_participantes_count(inscricoes_base_qs, evento=evento)
                 inscricoes_canceladas_qs = (
                     EventoInscricao.objects
                     .filter(evento=evento, cancelada=True)
