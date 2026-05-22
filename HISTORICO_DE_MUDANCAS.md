@@ -9,6 +9,12 @@ Arquivo oficial de registro das entregas concluidas.
 - Padrao de commit adotado no projeto:
   - `<arquivo_principal>: <descricao objetiva>`
 
+## 22/05/2026 - Eventos: busca rapida no Consultar
+
+- O modal Consultar da gestao do evento passa a ter campo de pesquisa instantanea.
+- A busca filtra por codigo da inscricao, nome do responsavel, CPF, nome da crianca e resumo dos dados.
+- Ao digitar, o primeiro resultado encontrado e aberto automaticamente para agilizar atendimento.
+
 ## 22/05/2026 - Eventos: consulta sem nova venda
 
 - O botao Consultar da gestao do evento deixa de permitir adicionar novo pedido/venda.

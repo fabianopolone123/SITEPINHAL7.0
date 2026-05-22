@@ -527,6 +527,42 @@
       overflow: auto;
       padding-right: 0.25rem;
     }
+    .event-consulta-side {
+      display: grid;
+      gap: 0.55rem;
+    }
+    .event-consulta-filter {
+      display: grid;
+      gap: 0.22rem;
+    }
+    .event-consulta-filter label {
+      color: #334155;
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+    .event-consulta-filter input {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 0.62rem 0.7rem;
+      background: #fff;
+      color: #0f172a;
+      font: inherit;
+    }
+    .event-consulta-filter input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+      outline: none;
+    }
+    .event-consulta-empty-filter {
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      color: #64748b;
+      font-size: 0.88rem;
+      margin: 0;
+      padding: 0.65rem;
+      text-align: center;
+    }
     .event-consulta-person {
       border: 1px solid #dbeafe;
       border-radius: 12px;
@@ -1733,18 +1769,32 @@
           </header>
           {% if inscritos_detalhes %}
             <div class="event-consulta-layout">
-              <aside class="event-consulta-list" aria-label="Inscricoes do evento">
-                {% for item in inscritos_detalhes %}
-                  <button
-                    type="button"
-                    class="event-consulta-person {% if forloop.first %}is-active{% endif %}"
-                    data-consulta-target="event-consulta-detail-{{ item.id }}"
-                  >
-                    <span>{{ item.responsavel }}</span>
-                    <strong>Codigo {{ item.codigo }}</strong>
-                  </button>
-                {% endfor %}
-              </aside>
+              <div class="event-consulta-side">
+                <div class="event-consulta-filter">
+                  <label for="event-consulta-filter-input">Pesquisar</label>
+                  <input
+                    type="search"
+                    id="event-consulta-filter-input"
+                    data-consulta-filter-input
+                    placeholder="Codigo, responsavel ou crianca"
+                    autocomplete="off"
+                  />
+                </div>
+                <aside class="event-consulta-list" aria-label="Inscricoes do evento">
+                  {% for item in inscritos_detalhes %}
+                    <button
+                      type="button"
+                      class="event-consulta-person {% if forloop.first %}is-active{% endif %}"
+                      data-consulta-target="event-consulta-detail-{{ item.id }}"
+                      data-consulta-search="{{ item.codigo }} {{ item.responsavel }} {{ item.cpf_responsavel }} {{ item.criancas }} {{ item.dados_resumo }}"
+                    >
+                      <span>{{ item.responsavel }}</span>
+                      <strong>Codigo {{ item.codigo }}</strong>
+                    </button>
+                  {% endfor %}
+                  <p class="event-consulta-empty-filter" data-consulta-empty-filter hidden>Nenhuma inscricao encontrada.</p>
+                </aside>
+              </div>
               <section>
                 {% for item in inscritos_detalhes %}
                   <article
@@ -3965,6 +4015,10 @@
       if (openConsultaAtendenteBtn && consultaAtendenteModal) {
         openConsultaAtendenteBtn.addEventListener('click', () => {
           openModal(consultaAtendenteModal);
+          const filterInput = consultaAtendenteModal.querySelector('[data-consulta-filter-input]');
+          if (filterInput instanceof HTMLInputElement) {
+            window.setTimeout(() => filterInput.focus(), 40);
+          }
         });
       }
       if (closeConsultaAtendenteBtn && consultaAtendenteModal) {
@@ -3980,15 +4034,54 @@
         });
         const consultaButtons = Array.from(consultaAtendenteModal.querySelectorAll('[data-consulta-target]'));
         const consultaDetails = Array.from(consultaAtendenteModal.querySelectorAll('.event-consulta-detail'));
+        const consultaFilterInput = consultaAtendenteModal.querySelector('[data-consulta-filter-input]');
+        const consultaEmptyFilter = consultaAtendenteModal.querySelector('[data-consulta-empty-filter]');
+        const showConsultaDetail = (button) => {
+          if (!button) return;
+          const targetId = String(button.getAttribute('data-consulta-target') || '');
+          consultaButtons.forEach((item) => item.classList.toggle('is-active', item === button));
+          consultaDetails.forEach((detail) => {
+            detail.hidden = detail.id !== targetId;
+          });
+        };
+        const applyConsultaFilter = () => {
+          const rawQuery = consultaFilterInput instanceof HTMLInputElement ? consultaFilterInput.value : '';
+          const query = normalizeLookupText(rawQuery);
+          const digitsQuery = String(rawQuery || '').replace(/\D/g, '');
+          let firstVisible = null;
+          let visibleCount = 0;
+          consultaButtons.forEach((button) => {
+            const searchText = normalizeLookupText(button.getAttribute('data-consulta-search') || button.textContent || '');
+            const searchDigits = String(button.getAttribute('data-consulta-search') || button.textContent || '').replace(/\D/g, '');
+            const matches = (
+              !query
+              || searchText.includes(query)
+              || (digitsQuery && searchDigits.includes(digitsQuery))
+            );
+            button.hidden = !matches;
+            if (matches) {
+              visibleCount += 1;
+              if (!firstVisible) firstVisible = button;
+            }
+          });
+          if (consultaEmptyFilter) consultaEmptyFilter.hidden = visibleCount > 0;
+          if (firstVisible) {
+            showConsultaDetail(firstVisible);
+          } else {
+            consultaDetails.forEach((detail) => {
+              detail.hidden = true;
+            });
+          }
+        };
         consultaButtons.forEach((button) => {
           button.addEventListener('click', () => {
-            const targetId = String(button.getAttribute('data-consulta-target') || '');
-            consultaButtons.forEach((item) => item.classList.toggle('is-active', item === button));
-            consultaDetails.forEach((detail) => {
-              detail.hidden = detail.id !== targetId;
-            });
+            showConsultaDetail(button);
           });
         });
+        if (consultaFilterInput instanceof HTMLInputElement) {
+          consultaFilterInput.addEventListener('input', applyConsultaFilter);
+          applyConsultaFilter();
+        }
       }
 
       Array.from(document.querySelectorAll('[data-mark-delivered-form]')).forEach((form) => {
