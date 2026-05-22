@@ -5085,6 +5085,78 @@ class EventoPublicoView(View):
         total = (unit * Decimal(units)).quantize(Decimal('0.01'))
         return mode, int(units), total, ''
 
+    def _inscricao_fee_breakdown(self, evento, schema, dados):
+        mode = self._normalize_inscricao_valor_modo(getattr(evento, 'inscricao_valor_modo', ''))
+        if mode != Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR:
+            return []
+        config = getattr(evento, 'inscricao_valor_config', {}) or {}
+        if not isinstance(config, dict):
+            return []
+        repeat_field = str(config.get('repeat_field') or '').strip()
+        age_field = str(config.get('age_field') or '').strip()
+        ranges = config.get('ranges') if isinstance(config.get('ranges'), list) else []
+        if not repeat_field or not age_field or not ranges:
+            return []
+        dados_obj = dados if isinstance(dados, dict) else {}
+        repeat_rows = dados_obj.get(repeat_field)
+        if not isinstance(repeat_rows, list):
+            return []
+
+        breakdown = []
+        for idx, row in enumerate(repeat_rows):
+            if not self._row_has_any_value(row) or not isinstance(row, dict):
+                continue
+            age_text = str(row.get(age_field) or '').strip()
+            age_match = re.search(r'\d{1,3}', age_text)
+            if not age_match:
+                continue
+            age = int(age_match.group(0))
+            matched_value = None
+            for item in ranges:
+                if not isinstance(item, dict):
+                    continue
+                try:
+                    min_age = int(item.get('min'))
+                    max_age = int(item.get('max'))
+                    item_value = Decimal(str(item.get('value') or '0')).quantize(Decimal('0.01'))
+                except (TypeError, ValueError, InvalidOperation):
+                    continue
+                if min_age <= age <= max_age:
+                    matched_value = item_value
+                    break
+            if matched_value is None:
+                continue
+
+            nome = ''
+            for key, value in row.items():
+                if self._normalize_lookup_text(key) == self._normalize_lookup_text(age_field):
+                    continue
+                value_text = str(value or '').strip()
+                if not value_text:
+                    continue
+                norm_key = self._normalize_lookup_text(key)
+                if self._is_nome_key(norm_key) and not self._is_responsavel_key(norm_key):
+                    nome = value_text
+                    break
+            if not nome:
+                for key, value in row.items():
+                    if self._normalize_lookup_text(key) == self._normalize_lookup_text(age_field):
+                        continue
+                    value_text = str(value or '').strip()
+                    if value_text:
+                        nome = value_text
+                        break
+            if not nome:
+                nome = f'Crianca {idx + 1}'
+
+            breakdown.append({
+                'nome': nome,
+                'idade': age,
+                'valor_raw': str(matched_value),
+                'valor_fmt': self._format_currency(matched_value),
+            })
+        return breakdown
+
     def _selector_options_from_field(self, field):
         field_obj = field or {}
         options = []
@@ -6470,6 +6542,7 @@ class EventoPublicoView(View):
                         except Exception:
                             logger.exception('Falha ao recalcular valor da inscricao pendente id=%s.', inscricao.id)
                     criancas_info = self._criancas_info_from_inscricao(inscricao, evento=evento)
+                    fee_breakdown = self._inscricao_fee_breakdown(evento, schema, dados_obj)
                     sale_inscricoes_detalhes.append({
                         'id': inscricao.id,
                         'codigo': inscricao.codigo_inscricao or '-',
@@ -6481,6 +6554,8 @@ class EventoPublicoView(View):
                         'valor_inscricao_raw': str(Decimal(valor_inscricao_item).quantize(Decimal('0.01'))),
                         'valor_inscricao_fmt': self._format_currency(valor_inscricao_item),
                         'valor_inscricao_unidades': valor_inscricao_unidades_item,
+                        'fee_breakdown': fee_breakdown,
+                        'fee_breakdown_json': json.dumps(fee_breakdown, ensure_ascii=False),
                     })
             except Exception:
                 logger.exception('Falha ao montar dados de gestao do evento id=%s.', evento.id)

@@ -2085,6 +2085,7 @@
                         data-inscricao-id="{{ item.id }}"
                         data-inscricao-label="Codigo {{ item.codigo }} - {{ item.responsavel }}"
                         data-inscricao-fee="{% if item.confirmada %}0{% else %}{{ item.valor_inscricao_raw }}{% endif %}"
+                        data-inscricao-fee-breakdown="{{ item.fee_breakdown_json|escapejs }}"
                         data-sale-inscricao-search="{{ item.codigo }} {{ item.responsavel }} {{ item.cpf_responsavel }} {{ item.criancas }} {{ item.dados_resumo }}"
                       >
                         <span>{{ item.responsavel }}</span>
@@ -2551,6 +2552,7 @@
           <span>Total da inscricao</span>
           <strong id="event-fee-total">R$ 0,00</strong>
           <small id="event-fee-meta">0 unidade(s)</small>
+          <div id="event-fee-breakdown" class="panel-note" style="margin-top:.35rem;"></div>
         </div>
         <div class="event-checkout-item">
           <span>Total dos itens no carrinho</span>
@@ -2674,6 +2676,7 @@
       const cartCountNode = document.getElementById('event-cart-count');
       const feeTotalNode = document.getElementById('event-fee-total');
       const feeMetaNode = document.getElementById('event-fee-meta');
+      const feeBreakdownNode = document.getElementById('event-fee-breakdown');
       const itemsTotalNode = document.getElementById('event-items-total');
       const itemsMetaNode = document.getElementById('event-items-meta');
       const grandTotalNode = document.getElementById('event-grand-total');
@@ -3440,7 +3443,7 @@
       };
 
       const calculateFeePreview = () => {
-        const result = { units: 0, total: 0 };
+        const result = { units: 0, total: 0, breakdown: [] };
         if (!registerForm) return result;
         const mode = feeMode;
         if (mode === 'nenhum') return result;
@@ -3505,6 +3508,17 @@
             if (!ageMatch) return;
             const age = Number(ageMatch[0]);
             if (!Number.isFinite(age)) return;
+            let kidName = '';
+            for (const [key, value] of Object.entries(row || {})) {
+              const normalizedKey = normalizeLookupText(key);
+              const valueText = String(value || '').trim();
+              if (!valueText || normalizedKey === normalizeLookupText(ageFieldName)) continue;
+              if (normalizedKey.includes('nome')) {
+                kidName = valueText;
+                break;
+              }
+            }
+            if (!kidName) kidName = 'Crianca ' + String(units + 1);
             for (const rangeItem of ranges) {
               const minAge = Number(rangeItem && rangeItem.min);
               const maxAge = Number(rangeItem && rangeItem.max);
@@ -3513,6 +3527,7 @@
               if (age < minAge || age > maxAge) continue;
               total += rangeValue;
               units += 1;
+              result.breakdown.push({ nome: kidName, valor: rangeValue });
               break;
             }
           });
@@ -3553,6 +3568,16 @@
         const grandTotal = Math.max(0, subtotal - currentCashbackDesconto);
         if (feeTotalNode) feeTotalNode.textContent = toMoney(currentFeeTotal);
         if (feeMetaNode) feeMetaNode.textContent = currentFeeUnits + ' unidade(s)';
+        if (feeBreakdownNode) {
+          const lines = Array.isArray(feePreview.breakdown) ? feePreview.breakdown : [];
+          if (!lines.length) {
+            feeBreakdownNode.textContent = '';
+          } else {
+            feeBreakdownNode.innerHTML = lines
+              .map((item) => String(item.nome || 'Crianca') + ' - Inscricao - ' + toMoney(item.valor || 0))
+              .join('<br>');
+          }
+        }
         if (itemsTotalNode) itemsTotalNode.textContent = toMoney(currentCartTotal);
         if (itemsMetaNode) itemsMetaNode.textContent = currentCartItems + ' item(ns)';
         if (cashbackTotalNode) cashbackTotalNode.textContent = toMoney(currentCashbackDesconto);
@@ -4393,6 +4418,7 @@
         const editLink = form.querySelector('[data-sale-edit-link]');
         const items = [];
         let selectedInscricaoFee = 0;
+        let selectedInscricaoFeeBreakdown = [];
 
         const parsePrice = (raw) => {
           const text = String(raw || '0').trim();
@@ -4413,6 +4439,11 @@
           const id = String(button.getAttribute('data-inscricao-id') || '').trim();
           const label = String(button.getAttribute('data-inscricao-label') || button.textContent || '').trim();
           selectedInscricaoFee = parsePrice(button.getAttribute('data-inscricao-fee'));
+          try {
+            selectedInscricaoFeeBreakdown = JSON.parse(String(button.getAttribute('data-inscricao-fee-breakdown') || '[]'));
+          } catch (error) {
+            selectedInscricaoFeeBreakdown = [];
+          }
           if (inscricaoInput) inscricaoInput.value = id;
           if (selectedLabel) {
             selectedLabel.textContent = label
@@ -4447,20 +4478,40 @@
           if (hiddenWrap) hiddenWrap.innerHTML = '';
           let total = selectedInscricaoFee;
           if (selectedInscricaoFee > 0 && body) {
-            const row = document.createElement('tr');
-            const itemCell = document.createElement('td');
-            itemCell.textContent = 'Inscricao do evento';
-            const qtyCell = document.createElement('td');
-            qtyCell.textContent = '1';
-            const totalCell = document.createElement('td');
-            totalCell.textContent = toMoney(selectedInscricaoFee);
-            const actionCell = document.createElement('td');
-            actionCell.textContent = '-';
-            row.appendChild(itemCell);
-            row.appendChild(qtyCell);
-            row.appendChild(totalCell);
-            row.appendChild(actionCell);
-            body.appendChild(row);
+            const feeLines = Array.isArray(selectedInscricaoFeeBreakdown) ? selectedInscricaoFeeBreakdown : [];
+            if (feeLines.length) {
+              feeLines.forEach((line) => {
+                const row = document.createElement('tr');
+                const itemCell = document.createElement('td');
+                itemCell.textContent = String(line && line.nome ? line.nome : 'Crianca') + ' - Inscricao';
+                const qtyCell = document.createElement('td');
+                qtyCell.textContent = '1';
+                const totalCell = document.createElement('td');
+                totalCell.textContent = toMoney(parsePrice(line && line.valor_raw ? line.valor_raw : '0'));
+                const actionCell = document.createElement('td');
+                actionCell.textContent = '-';
+                row.appendChild(itemCell);
+                row.appendChild(qtyCell);
+                row.appendChild(totalCell);
+                row.appendChild(actionCell);
+                body.appendChild(row);
+              });
+            } else {
+              const row = document.createElement('tr');
+              const itemCell = document.createElement('td');
+              itemCell.textContent = 'Inscricao do evento';
+              const qtyCell = document.createElement('td');
+              qtyCell.textContent = '1';
+              const totalCell = document.createElement('td');
+              totalCell.textContent = toMoney(selectedInscricaoFee);
+              const actionCell = document.createElement('td');
+              actionCell.textContent = '-';
+              row.appendChild(itemCell);
+              row.appendChild(qtyCell);
+              row.appendChild(totalCell);
+              row.appendChild(actionCell);
+              body.appendChild(row);
+            }
           }
           items.forEach((item, index) => {
             const lineTotal = item.price * item.qty;
