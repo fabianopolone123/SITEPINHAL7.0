@@ -10606,6 +10606,12 @@ class FinanceiroView(LoginRequiredMixin, View):
         total_eventos_bruto_antes_estorno = (
             Decimal(total_eventos_inscricoes_bruto) + Decimal(total_loja_eventos_pago)
         ).quantize(Decimal('0.01'))
+        total_custos_evento_direto = (
+            EventoCusto.objects
+            .aggregate(total=Sum('valor'))
+            .get('total')
+            or Decimal('0.00')
+        )
         comprovantes_totais_rows = list(
             FinanceiroComprovante.objects
             .all()
@@ -10628,7 +10634,9 @@ class FinanceiroView(LoginRequiredMixin, View):
         total_gastos_comprovados = total_gastos_comprovados.quantize(Decimal('0.01'))
         total_gastos_caixa_liquido = total_gastos_caixa_liquido.quantize(Decimal('0.01'))
         total_gastos_loja_geral = total_gastos_loja_geral.quantize(Decimal('0.01'))
-        total_gastos_eventos = total_gastos_eventos.quantize(Decimal('0.01'))
+        total_custos_evento_direto = Decimal(total_custos_evento_direto).quantize(Decimal('0.01'))
+        total_gastos_eventos = (total_gastos_eventos + total_custos_evento_direto).quantize(Decimal('0.01'))
+        total_gastos_comprovados = (total_gastos_comprovados + total_custos_evento_direto).quantize(Decimal('0.01'))
         taxa_transacao_percentual = Decimal('0.01')
         total_taxas_mensalidades = (
             Decimal(total_mensalidades_pago) * taxa_transacao_percentual
@@ -10806,6 +10814,32 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'impacto_liquido': (-Decimal(gasto.valor)).quantize(Decimal('0.01')) if impacta_liquido else Decimal('0.00'),
                 'impacta_liquido': impacta_liquido,
                 'impacto_label_custom': impacto_custom,
+            })
+
+        custos_evento_rows = list(
+            EventoCusto.objects
+            .select_related('evento', 'created_by')
+            .order_by('-created_at')
+        )
+        for custo in custos_evento_rows:
+            valor_custo = Decimal(getattr(custo, 'valor', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+            evento_nome = str(getattr(getattr(custo, 'evento', None), 'name', '') or '').strip()
+            nome_custo = str(getattr(custo, 'nome', '') or '').strip() or f'Custo #{custo.id}'
+            usuario_label = str(getattr(getattr(custo, 'created_by', None), 'username', '') or '').strip()
+            if evento_nome and usuario_label:
+                descricao = f'{nome_custo} | Evento: {evento_nome} | por {usuario_label}'
+            elif evento_nome:
+                descricao = f'{nome_custo} | Evento: {evento_nome}'
+            else:
+                descricao = nome_custo
+            extrato_entries.append({
+                'created_at': custo.created_at,
+                'tipo': 'Custo evento',
+                'descricao': descricao,
+                'valor': -valor_custo,
+                'impacto_liquido': Decimal('0.00'),
+                'impacta_liquido': False,
+                'impacto_label_custom': 'Abate resultado de eventos',
             })
 
         sorted_entries = sorted(
