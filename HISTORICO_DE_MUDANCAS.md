@@ -9,6 +9,13 @@ Arquivo oficial de registro das entregas concluidas.
 - Padrao de commit adotado no projeto:
   - `<arquivo_principal>: <descricao objetiva>`
 
+## 22/05/2026 - Eventos: botao Vender na gestao
+
+- Adicionado botao Vender na gestao da pagina do evento.
+- O modal permite pesquisar uma inscricao por codigo, responsavel, CPF ou crianca e vincular a venda a ela.
+- O atendente monta um carrinho com itens ativos do evento, escolhe forma de pagamento e conclui a venda ja como paga.
+- Vendas concluidas entram como pedido do evento, baixam estoque quando pago e podem sair ja marcadas como entregues.
+
 ## 22/05/2026 - Eventos: busca rapida no Consultar
 
 - O modal Consultar da gestao do evento passa a ter campo de pesquisa instantanea.
