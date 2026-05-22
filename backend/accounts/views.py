@@ -6459,6 +6459,16 @@ class EventoPublicoView(View):
                 )
                 for inscricao in list(sale_inscricoes_qs[:500]):
                     dados_obj = inscricao.dados if isinstance(inscricao.dados, dict) else {}
+                    valor_inscricao_item = getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
+                    valor_inscricao_unidades_item = int(getattr(inscricao, 'valor_inscricao_unidades', 0) or 0)
+                    if not inscricao.confirmada:
+                        try:
+                            _fee_mode, fee_units_item, fee_total_item, fee_error_item = self._calcular_inscricao_valor(evento, schema, dados_obj)
+                            if not fee_error_item:
+                                valor_inscricao_item = fee_total_item
+                                valor_inscricao_unidades_item = int(fee_units_item or 0)
+                        except Exception:
+                            logger.exception('Falha ao recalcular valor da inscricao pendente id=%s.', inscricao.id)
                     criancas_info = self._criancas_info_from_inscricao(inscricao, evento=evento)
                     sale_inscricoes_detalhes.append({
                         'id': inscricao.id,
@@ -6468,12 +6478,9 @@ class EventoPublicoView(View):
                         'criancas': criancas_info.get('resumo', '-'),
                         'dados_resumo': self._dados_resumo(dados_obj),
                         'confirmada': bool(inscricao.confirmada),
-                        'valor_inscricao_raw': str(
-                            Decimal(getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
-                        ),
-                        'valor_inscricao_fmt': self._format_currency(
-                            getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
-                        ),
+                        'valor_inscricao_raw': str(Decimal(valor_inscricao_item).quantize(Decimal('0.01'))),
+                        'valor_inscricao_fmt': self._format_currency(valor_inscricao_item),
+                        'valor_inscricao_unidades': valor_inscricao_unidades_item,
                     })
             except Exception:
                 logger.exception('Falha ao montar dados de gestao do evento id=%s.', evento.id)
@@ -6676,9 +6683,23 @@ class EventoPublicoView(View):
             return render(request, self.template_name, self._context(request, evento))
         inscricao_valor_pendente = Decimal('0.00')
         if not inscricao.confirmada:
-            inscricao_valor_pendente = Decimal(
-                getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
-            ).quantize(Decimal('0.01'))
+            dados_inscricao = inscricao.dados if isinstance(inscricao.dados, dict) else {}
+            _fee_mode, fee_units, fee_total, fee_error = self._calcular_inscricao_valor(
+                evento,
+                self._event_schema(evento),
+                dados_inscricao,
+            )
+            if fee_error:
+                messages.error(request, fee_error)
+                return render(request, self.template_name, self._context(request, evento))
+            inscricao_valor_pendente = Decimal(fee_total or Decimal('0.00')).quantize(Decimal('0.01'))
+            if (
+                inscricao_valor_pendente != Decimal(getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+                or int(getattr(inscricao, 'valor_inscricao_unidades', 0) or 0) != int(fee_units or 0)
+            ):
+                inscricao.valor_inscricao = inscricao_valor_pendente
+                inscricao.valor_inscricao_unidades = int(fee_units or 0)
+                inscricao.save(update_fields=['valor_inscricao', 'valor_inscricao_unidades', 'updated_at'])
 
         forma_pagamento = str(request.POST.get('sale_payment_method') or '').strip().lower()
         formas_validas = {
