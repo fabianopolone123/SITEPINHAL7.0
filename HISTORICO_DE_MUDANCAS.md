@@ -1191,3 +1191,4 @@ ame e label sem quebrar a tela.
 - No fluxo Vender, inscricoes pendentes passam por recalculo de valor no momento da venda com base na configuracao atual do evento (incluindo faixa por idade), evitando usar valor antigo salvo.
 - Carrinho da inscricao passou a detalhar por crianca (nome - Inscricao - valor), tanto no resumo da inscricao quanto no fluxo Vender.
 - Detalhamento da inscricao no carrinho passou a mostrar idade da crianca junto do nome e valor.
+- Relatorio financeiro de gastos por destino (incluindo Eventos) ficou tolerante a valores legados do campo destino para nao perder custos na soma.

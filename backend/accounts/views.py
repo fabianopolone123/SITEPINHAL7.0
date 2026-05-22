@@ -10508,6 +10508,22 @@ class FinanceiroView(LoginRequiredMixin, View):
 
     def _relatorios_context(self, comprovante_query='', open_comprovante_modal=False):
         comprovante_query = str(comprovante_query or '').strip()
+        def _normalize_comprovante_destino(raw_destino):
+            destino = str(raw_destino or '').strip().lower()
+            if destino in {
+                FinanceiroComprovante.DESTINO_CAIXA_LIQUIDO,
+                FinanceiroComprovante.DESTINO_LOJA_GERAL,
+                FinanceiroComprovante.DESTINO_EVENTOS,
+            }:
+                return destino
+            if destino in {'caixa', 'caixa_liquido_mensalidades', 'mensalidades'}:
+                return FinanceiroComprovante.DESTINO_CAIXA_LIQUIDO
+            if destino in {'loja', 'loja-geral', 'loja_geral_'}:
+                return FinanceiroComprovante.DESTINO_LOJA_GERAL
+            if destino in {'evento', 'evento_geral', 'eventos_geral', 'eventos-geral'}:
+                return FinanceiroComprovante.DESTINO_EVENTOS
+            return FinanceiroComprovante.DESTINO_CAIXA_LIQUIDO
+
         mensalidades_pagas = list(
             PagamentoMensalidade.objects
             .filter(status=PagamentoMensalidade.STATUS_PAGO)
@@ -10590,33 +10606,29 @@ class FinanceiroView(LoginRequiredMixin, View):
         total_eventos_bruto_antes_estorno = (
             Decimal(total_eventos_inscricoes_bruto) + Decimal(total_loja_eventos_pago)
         ).quantize(Decimal('0.01'))
-        total_gastos_comprovados = (
+        comprovantes_totais_rows = list(
             FinanceiroComprovante.objects
-            .aggregate(total=Sum('valor'))
-            .get('total')
-            or Decimal('0.00')
+            .all()
+            .only('destino', 'valor')
         )
-        total_gastos_caixa_liquido = (
-            FinanceiroComprovante.objects
-            .filter(destino=FinanceiroComprovante.DESTINO_CAIXA_LIQUIDO)
-            .aggregate(total=Sum('valor'))
-            .get('total')
-            or Decimal('0.00')
-        )
-        total_gastos_loja_geral = (
-            FinanceiroComprovante.objects
-            .filter(destino=FinanceiroComprovante.DESTINO_LOJA_GERAL)
-            .aggregate(total=Sum('valor'))
-            .get('total')
-            or Decimal('0.00')
-        )
-        total_gastos_eventos = (
-            FinanceiroComprovante.objects
-            .filter(destino=FinanceiroComprovante.DESTINO_EVENTOS)
-            .aggregate(total=Sum('valor'))
-            .get('total')
-            or Decimal('0.00')
-        )
+        total_gastos_comprovados = Decimal('0.00')
+        total_gastos_caixa_liquido = Decimal('0.00')
+        total_gastos_loja_geral = Decimal('0.00')
+        total_gastos_eventos = Decimal('0.00')
+        for gasto_total in comprovantes_totais_rows:
+            valor_gasto = Decimal(getattr(gasto_total, 'valor', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+            destino_normalizado = _normalize_comprovante_destino(getattr(gasto_total, 'destino', ''))
+            total_gastos_comprovados += valor_gasto
+            if destino_normalizado == FinanceiroComprovante.DESTINO_LOJA_GERAL:
+                total_gastos_loja_geral += valor_gasto
+            elif destino_normalizado == FinanceiroComprovante.DESTINO_EVENTOS:
+                total_gastos_eventos += valor_gasto
+            else:
+                total_gastos_caixa_liquido += valor_gasto
+        total_gastos_comprovados = total_gastos_comprovados.quantize(Decimal('0.01'))
+        total_gastos_caixa_liquido = total_gastos_caixa_liquido.quantize(Decimal('0.01'))
+        total_gastos_loja_geral = total_gastos_loja_geral.quantize(Decimal('0.01'))
+        total_gastos_eventos = total_gastos_eventos.quantize(Decimal('0.01'))
         taxa_transacao_percentual = Decimal('0.01')
         total_taxas_mensalidades = (
             Decimal(total_mensalidades_pago) * taxa_transacao_percentual
@@ -10765,7 +10777,7 @@ class FinanceiroView(LoginRequiredMixin, View):
 
         comprovantes_rows = []
         for gasto in comprovantes_gasto:
-            destino = getattr(gasto, 'destino', '') or FinanceiroComprovante.DESTINO_CAIXA_LIQUIDO
+            destino = _normalize_comprovante_destino(getattr(gasto, 'destino', ''))
             impacta_liquido = destino == FinanceiroComprovante.DESTINO_CAIXA_LIQUIDO
             if destino == FinanceiroComprovante.DESTINO_LOJA_GERAL:
                 impacto_custom = 'Abate resultado da loja'
