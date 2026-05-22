@@ -1186,3 +1186,5 @@ ame e label sem quebrar a tela.
 - Adicionado o botao Avisei o pagamento na janela do QR Code Pix de mensalidades.
 - O clique consulta o Mercado Pago imediatamente e usa a mesma sincronizacao que marca mensalidades como pagas quando o pagamento esta aprovado.
 - A janela passa a mostrar retorno claro quando o pagamento foi confirmado, ainda esta pendente ou houve falha na consulta.
+
+- Regra de cobranca por faixa de idade ficou mais tolerante no backend (aceita idade com texto, como '4 anos', usando o numero para calcular a faixa).

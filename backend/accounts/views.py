@@ -5050,11 +5050,12 @@ class EventoPublicoView(View):
                 if not isinstance(row, dict):
                     continue
                 age_text = str(row.get(age_field) or '').strip()
-                if not re.fullmatch(r'\d+', age_text):
+                age_match = re.search(r'\d{1,3}', age_text)
+                if not age_match:
                     return mode, 0, Decimal('0.00'), (
                         f'Preencha o subcampo "{age_field}" com idade numerica em todos os itens de "{repeat_field}".'
                     )
-                age = int(age_text)
+                age = int(age_match.group(0))
                 matched_range = None
                 for item in ranges:
                     if not isinstance(item, dict):
