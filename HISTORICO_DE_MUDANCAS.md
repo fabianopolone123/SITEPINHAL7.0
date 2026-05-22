@@ -9,6 +9,12 @@ Arquivo oficial de registro das entregas concluidas.
 - Padrao de commit adotado no projeto:
   - `<arquivo_principal>: <descricao objetiva>`
 
+## 22/05/2026 - Eventos: consulta sem nova venda
+
+- O botao Consultar da gestao do evento deixa de permitir adicionar novo pedido/venda.
+- A consulta permanece focada em pesquisar inscricoes, visualizar itens comprados e ajustar entregas por item.
+- A acao antiga de venda pelo Consultar passa a ser bloqueada no backend.
+
 ## 22/05/2026 - Eventos: total de inscritos por crianca
 
 - O resumo de gestao do evento passa a contar inscricoes pelo total de criancas/participantes informados na inscricao.

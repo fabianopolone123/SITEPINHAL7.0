@@ -6233,7 +6233,6 @@ class EventoPublicoView(View):
         inscricoes_preview_rows = []
         pedidos_preview_rows = []
         inscritos_detalhes = []
-        atendente_produtos = []
         inscricoes_canceladas_count = 0
         inscricoes_canceladas_valor_total = Decimal('0.00')
         inscricoes_canceladas_valor_total_fmt = self._format_currency(Decimal('0.00'))
@@ -6243,28 +6242,6 @@ class EventoPublicoView(View):
         lucro_liquido = Decimal('0.00')
         if can_manage_evento:
             try:
-                for produto_row in produtos:
-                    produto_obj = produto_row.get('produto') if isinstance(produto_row, dict) else None
-                    if not produto_obj:
-                        continue
-                    for variacao in (produto_row.get('variacoes') or []):
-                        estoque_raw = ''
-                        estoque_label = 'Sem limite'
-                        if variacao.estoque is not None:
-                            estoque_raw = str(int(variacao.estoque))
-                            estoque_label = f'Estoque: {int(variacao.estoque)}'
-                        atendente_produtos.append({
-                            'produto_id': produto_obj.id,
-                            'variacao_id': variacao.id,
-                            'label': f'{produto_obj.titulo} - {variacao.nome}',
-                            'produto_titulo': produto_obj.titulo,
-                            'variacao_nome': variacao.nome,
-                            'valor': str(Decimal(variacao.valor).quantize(Decimal('0.01'))),
-                            'valor_fmt': self._format_currency(variacao.valor),
-                            'estoque_raw': estoque_raw,
-                            'estoque_label': estoque_label,
-                            'disabled': bool(variacao.estoque is not None and int(variacao.estoque) <= 0),
-                        })
                 inscricoes_base_qs = (
                     EventoInscricao.objects
                     .filter(evento=evento, confirmada=True, cancelada=False)
@@ -6492,7 +6469,6 @@ class EventoPublicoView(View):
                 getattr(evento, 'inscricao_valor_unitario', Decimal('0.00')) or Decimal('0.00')
             ),
             'can_manage_evento': can_manage_evento,
-            'atendente_produtos': atendente_produtos,
             'inscricoes_count': inscricoes_count,
             'inscricoes_canceladas_count': inscricoes_canceladas_count,
             'pedidos_count': pedidos_count,
@@ -6811,10 +6787,8 @@ class EventoPublicoView(View):
         can_manage_evento = self._can_manage_evento_page(request, evento)
 
         if action == 'registrar_venda_evento_atendente':
-            if not can_manage_evento:
-                messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
-                return render(request, self.template_name, self._context(request, evento))
-            return self._handle_registrar_venda_evento_atendente(request, evento)
+            messages.error(request, 'Nova venda pelo botao Consultar foi desativada. Use a consulta apenas para conferir pedidos e controlar entregas.')
+            return render(request, self.template_name, self._context(request, evento))
 
         if action == 'marcar_pedido_evento_entregue':
             if not can_manage_evento:
