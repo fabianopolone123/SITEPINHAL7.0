@@ -9,6 +9,13 @@ Arquivo oficial de registro das entregas concluidas.
 - Padrao de commit adotado no projeto:
   - `<arquivo_principal>: <descricao objetiva>`
 
+## 22/05/2026 - Eventos: inscricao dentro do fluxo Vender
+
+- O fluxo Vender passa a mostrar Inscricao do evento junto aos itens de venda e abre o formulario em modo de atendimento, sem finalizar por Pix publico.
+- Inscricoes criadas pelo Vender ficam disponiveis para selecao no proprio modal de venda.
+- Ao selecionar uma inscricao pendente, o valor da inscricao entra como item do total da venda.
+- Ao concluir a venda como paga, a inscricao pendente e confirmada junto com os itens vendidos.
+
 ## 22/05/2026 - Eventos: botao Vender na gestao
 
 - Adicionado botao Vender na gestao da pagina do evento.

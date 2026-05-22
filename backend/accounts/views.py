@@ -6139,6 +6139,7 @@ class EventoPublicoView(View):
         produtos = self._produto_rows_evento(evento)
         evento_fluxo_selector = bool(schema or produtos)
         is_embedded_modal = str(request.GET.get('embedded') or '').strip().lower() in {'1', 'true', 'yes'}
+        sale_registration_mode = str(request.GET.get('sale') or request.POST.get('sale_registration_mode') or '').strip().lower() in {'1', 'true', 'yes'}
 
         normalized_mode = str(active_mode or '').strip().lower()
         if normalized_mode not in {'inscricao', 'consulta'}:
@@ -6233,6 +6234,7 @@ class EventoPublicoView(View):
         inscricoes_preview_rows = []
         pedidos_preview_rows = []
         inscritos_detalhes = []
+        sale_inscricoes_detalhes = []
         atendente_produtos = []
         inscricoes_canceladas_count = 0
         inscricoes_canceladas_valor_total = Decimal('0.00')
@@ -6445,6 +6447,31 @@ class EventoPublicoView(View):
                         'valor_inscricao_unidades': int(getattr(inscricao, 'valor_inscricao_unidades', 0) or 0),
                         'data_inscricao': inscricao.created_at,
                     })
+                sale_inscricoes_qs = (
+                    EventoInscricao.objects
+                    .filter(evento=evento, cancelada=False)
+                    .select_related('user', 'responsavel', 'responsavel__user')
+                    .prefetch_related('responsavel__aventures')
+                    .order_by('-created_at')
+                )
+                for inscricao in list(sale_inscricoes_qs[:500]):
+                    dados_obj = inscricao.dados if isinstance(inscricao.dados, dict) else {}
+                    criancas_info = self._criancas_info_from_inscricao(inscricao, evento=evento)
+                    sale_inscricoes_detalhes.append({
+                        'id': inscricao.id,
+                        'codigo': inscricao.codigo_inscricao or '-',
+                        'responsavel': self._responsavel_label_from_inscricao(inscricao),
+                        'cpf_responsavel': self._cpf_responsavel_from_inscricao(inscricao),
+                        'criancas': criancas_info.get('resumo', '-'),
+                        'dados_resumo': self._dados_resumo(dados_obj),
+                        'confirmada': bool(inscricao.confirmada),
+                        'valor_inscricao_raw': str(
+                            Decimal(getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+                        ),
+                        'valor_inscricao_fmt': self._format_currency(
+                            getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
+                        ),
+                    })
             except Exception:
                 logger.exception('Falha ao montar dados de gestao do evento id=%s.', evento.id)
         pedido_modal = {}
@@ -6470,6 +6497,7 @@ class EventoPublicoView(View):
             'inscricao_codigo': (inscricao.codigo_inscricao if inscricao else ''),
             'active_mode': normalized_mode,
             'is_embedded_modal': is_embedded_modal,
+            'sale_registration_mode': sale_registration_mode,
             'evento_fluxo_selector': evento_fluxo_selector,
             'consulta_term': str(consulta_term or '').strip(),
             'consulta_results': consulta_results if isinstance(consulta_results, list) else [],
@@ -6511,6 +6539,7 @@ class EventoPublicoView(View):
             'inscricoes_canceladas_rows': inscricoes_canceladas_rows,
             'pedidos_preview_rows': pedidos_preview_rows,
             'inscritos_detalhes': inscritos_detalhes,
+            'sale_inscricoes_detalhes': sale_inscricoes_detalhes,
             'cashback_rows': cashback_rows,
         }
         if request.user.is_authenticated:
@@ -6635,13 +6664,18 @@ class EventoPublicoView(View):
             return render(request, self.template_name, self._context(request, evento))
         inscricao = (
             EventoInscricao.objects
-            .filter(pk=int(inscricao_id_raw), evento=evento, confirmada=True, cancelada=False)
+            .filter(pk=int(inscricao_id_raw), evento=evento, cancelada=False)
             .select_related('responsavel', 'responsavel__user', 'user')
             .first()
         )
         if not inscricao:
-            messages.error(request, 'Inscricao nao encontrada ou nao confirmada neste evento.')
+            messages.error(request, 'Inscricao nao encontrada neste evento.')
             return render(request, self.template_name, self._context(request, evento))
+        inscricao_valor_pendente = Decimal('0.00')
+        if not inscricao.confirmada:
+            inscricao_valor_pendente = Decimal(
+                getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
+            ).quantize(Decimal('0.01'))
 
         forma_pagamento = str(request.POST.get('sale_payment_method') or '').strip().lower()
         formas_validas = {
@@ -6663,8 +6697,11 @@ class EventoPublicoView(View):
         raw_variacao_ids = request.POST.getlist('sale_variacao_ids[]') or request.POST.getlist('sale_variacao_ids')
         raw_quantities = request.POST.getlist('sale_quantities[]') or request.POST.getlist('sale_quantities')
         if not raw_variacao_ids or len(raw_variacao_ids) != len(raw_quantities):
-            messages.error(request, 'Adicione ao menos um item valido na venda.')
-            return render(request, self.template_name, self._context(request, evento))
+            if inscricao_valor_pendente <= 0:
+                messages.error(request, 'Adicione ao menos um item valido na venda.')
+                return render(request, self.template_name, self._context(request, evento))
+            raw_variacao_ids = []
+            raw_quantities = []
 
         qty_by_variacao = {}
         for raw_variacao_id, raw_qty in zip(raw_variacao_ids, raw_quantities):
@@ -6681,8 +6718,9 @@ class EventoPublicoView(View):
             qty_by_variacao[variacao_id] = qty_by_variacao.get(variacao_id, 0) + qty
 
         if not qty_by_variacao:
-            messages.error(request, 'Adicione ao menos um item valido na venda.')
-            return render(request, self.template_name, self._context(request, evento))
+            if inscricao_valor_pendente <= 0:
+                messages.error(request, 'Adicione ao menos um item valido na venda.')
+                return render(request, self.template_name, self._context(request, evento))
 
         try:
             with transaction.atomic():
@@ -6704,8 +6742,19 @@ class EventoPublicoView(View):
                     messages.error(request, 'Um ou mais itens nao pertencem a este evento ou estao inativos.')
                     return render(request, self.template_name, self._context(request, evento))
 
-                total = Decimal('0.00')
+                total = inscricao_valor_pendente
                 pedido_items = []
+                if inscricao_valor_pendente > 0:
+                    pedido_items.append({
+                        'produto': None,
+                        'variacao': None,
+                        'produto_titulo': f'Inscricao do evento: {evento.name}',
+                        'variacao_nome': f'Codigo {str(inscricao.codigo_inscricao or "-").strip()}',
+                        'quantidade': 1,
+                        'valor_unitario': inscricao_valor_pendente,
+                        'valor_total': inscricao_valor_pendente,
+                        'foto_url': '',
+                    })
                 for variacao_id, qty in qty_by_variacao.items():
                     variacao = variacoes.get(variacao_id)
                     if not variacao:
@@ -6778,6 +6827,9 @@ class EventoPublicoView(View):
                 ])
 
                 if is_paid:
+                    if not inscricao.confirmada:
+                        inscricao.confirmada = True
+                        inscricao.save(update_fields=['confirmada', 'updated_at'])
                     for variacao_id, qty in qty_by_variacao.items():
                         variacao = variacoes.get(variacao_id)
                         if not variacao or variacao.estoque is None:
@@ -7223,6 +7275,7 @@ class EventoPublicoView(View):
             return render(request, self.template_name, self._context(request, evento, active_mode='inscricao', edit_target_inscricao=edit_target_inscricao))
         indicador_aventureiro = loja_view._resolve_indicador_from_code(codigo_indicacao_input) if codigo_indicacao_input else None
         finalize_after_save = str(request.POST.get('finalize_after_save') or '').strip() == '1'
+        sale_registration_mode = str(request.POST.get('sale_registration_mode') or '').strip() in {'1', 'true', 'yes'}
         inscricao_salva = None
         if edit_target_inscricao:
             codigo_indicacao_save = codigo_indicacao_input
@@ -7259,7 +7312,7 @@ class EventoPublicoView(View):
                 request.session[_evento_public_inscricao_session_key(evento.id)] = int(edit_target_inscricao.pk)
             messages.success(request, 'Inscricao do evento atualizada com sucesso.')
         else:
-            if request.user.is_authenticated:
+            if request.user.is_authenticated and not sale_registration_mode:
                 responsavel = LojaView()._ensure_loja_responsavel(request.user, create=False)
                 existing_inscricao = (
                     EventoInscricao.objects
@@ -7324,7 +7377,7 @@ class EventoPublicoView(View):
                     messages.success(request, 'Inscricao do evento salva com sucesso.')
             else:
                 session_key = _evento_public_inscricao_session_key(evento.id)
-                existing_id = request.session.get(session_key)
+                existing_id = None if sale_registration_mode else request.session.get(session_key)
                 existing_inscricao = None
                 if str(existing_id or '').isdigit():
                     existing_inscricao = (
@@ -7384,7 +7437,8 @@ class EventoPublicoView(View):
                     if not inscricao_obj:
                         messages.error(request, 'Nao foi possivel gerar codigo unico da inscricao. Tente novamente.')
                         return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
-                    request.session[session_key] = inscricao_obj.pk
+                    if not sale_registration_mode:
+                        request.session[session_key] = inscricao_obj.pk
                     inscricao_salva = inscricao_obj
                     messages.success(request, 'Inscricao do evento salva com sucesso.')
         return render(
@@ -7395,7 +7449,7 @@ class EventoPublicoView(View):
                 evento,
                 show_register_summary=bool(inscricao_salva and not finalize_after_save),
                 active_mode='inscricao',
-                auto_start_pix=bool(finalize_after_save and inscricao_salva),
+                auto_start_pix=bool(finalize_after_save and inscricao_salva and not sale_registration_mode),
             ),
         )
 
