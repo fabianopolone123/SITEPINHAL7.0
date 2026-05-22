@@ -1190,3 +1190,4 @@ ame e label sem quebrar a tela.
 - Regra de cobranca por faixa de idade ficou mais tolerante no backend (aceita idade com texto, como '4 anos', usando o numero para calcular a faixa).
 - No fluxo Vender, inscricoes pendentes passam por recalculo de valor no momento da venda com base na configuracao atual do evento (incluindo faixa por idade), evitando usar valor antigo salvo.
 - Carrinho da inscricao passou a detalhar por crianca (nome - Inscricao - valor), tanto no resumo da inscricao quanto no fluxo Vender.
+- Detalhamento da inscricao no carrinho passou a mostrar idade da crianca junto do nome e valor.

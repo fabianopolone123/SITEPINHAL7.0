@@ -3527,7 +3527,7 @@
               if (age < minAge || age > maxAge) continue;
               total += rangeValue;
               units += 1;
-              result.breakdown.push({ nome: kidName, valor: rangeValue });
+              result.breakdown.push({ nome: kidName, idade: age, valor: rangeValue });
               break;
             }
           });
@@ -3574,7 +3574,12 @@
             feeBreakdownNode.textContent = '';
           } else {
             feeBreakdownNode.innerHTML = lines
-              .map((item) => String(item.nome || 'Crianca') + ' - Inscricao - ' + toMoney(item.valor || 0))
+              .map((item) => {
+                const nome = String(item.nome || 'Crianca');
+                const idade = Number(item.idade || 0);
+                const idadeLabel = Number.isFinite(idade) && idade > 0 ? ' (' + String(idade) + ' anos)' : '';
+                return nome + idadeLabel + ' - Inscricao - ' + toMoney(item.valor || 0);
+              })
               .join('<br>');
           }
         }
@@ -4483,7 +4488,10 @@
               feeLines.forEach((line) => {
                 const row = document.createElement('tr');
                 const itemCell = document.createElement('td');
-                itemCell.textContent = String(line && line.nome ? line.nome : 'Crianca') + ' - Inscricao';
+                const lineName = String(line && line.nome ? line.nome : 'Crianca');
+                const lineAge = Number(line && line.idade ? line.idade : 0);
+                const lineAgeLabel = Number.isFinite(lineAge) && lineAge > 0 ? ' (' + String(lineAge) + ' anos)' : '';
+                itemCell.textContent = lineName + lineAgeLabel + ' - Inscricao';
                 const qtyCell = document.createElement('td');
                 qtyCell.textContent = '1';
                 const totalCell = document.createElement('td');
