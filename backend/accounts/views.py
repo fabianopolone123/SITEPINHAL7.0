@@ -6154,12 +6154,14 @@ class EventoPublicoView(View):
             else:
                 normalized_mode = 'inscricao'
 
-        if not edit_target_inscricao and request.method == 'POST':
+        if not edit_target_inscricao:
             posted_edit_id = str(request.POST.get('edit_registration_id') or '').strip()
-            if posted_edit_id.isdigit():
+            query_edit_id = str(request.GET.get('edit_registration_id') or '').strip()
+            selected_edit_id = posted_edit_id if posted_edit_id.isdigit() else query_edit_id
+            if selected_edit_id.isdigit():
                 posted_target = (
                     EventoInscricao.objects
-                    .filter(pk=int(posted_edit_id), evento=evento, cancelada=False)
+                    .filter(pk=int(selected_edit_id), evento=evento, cancelada=False)
                     .select_related('responsavel', 'responsavel__user', 'user')
                     .first()
                 )

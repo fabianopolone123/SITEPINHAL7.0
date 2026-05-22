@@ -2099,6 +2099,7 @@
                 </div>
                 <section class="field-section" style="margin:0;">
                   <p class="panel-note" data-sale-selected-label>Selecione uma inscricao para vincular a venda.</p>
+                  <a href="?modo=inscricao&sale=1" data-open-event-mode="inscricao" data-sale-edit-link class="secondary" style="display:none;text-decoration:none;margin-bottom:.6rem;">Editar inscricao selecionada</a>
                   <div class="event-sale-grid">
                     <label>
                       <span>Item do evento</span>
@@ -2755,7 +2756,10 @@
       let indicacaoLookupController = null;
       {% if sale_registration_mode and show_register_summary and is_embedded_modal %}
         try {
-          window.parent.postMessage({ type: 'event-sale-registration-saved' }, window.location.origin);
+          window.parent.postMessage(
+            { type: 'event-sale-registration-saved', inscricaoId: '{{ inscricao.id|default:"" }}' },
+            window.location.origin
+          );
         } catch (error) {
           // ignore
         }
@@ -2889,7 +2893,11 @@
         if (event.origin !== window.location.origin) return;
         const payload = event.data || {};
         if (!payload || payload.type !== 'event-sale-registration-saved') return;
-        window.location.reload();
+        const inscricaoId = String(payload.inscricaoId || '').trim();
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set('open_sale', '1');
+        if (inscricaoId) nextUrl.searchParams.set('sale_selected', inscricaoId);
+        window.location.href = nextUrl.toString();
       });
 
       const toMoney = (value) => {
@@ -4382,6 +4390,7 @@
         const hiddenWrap = form.querySelector('[data-sale-hidden-inputs]');
         const totalNode = form.querySelector('[data-sale-total]');
         const registrationLink = form.querySelector('[data-sale-registration-link]');
+        const editLink = form.querySelector('[data-sale-edit-link]');
         const items = [];
         let selectedInscricaoFee = 0;
 
@@ -4409,6 +4418,11 @@
             selectedLabel.textContent = label
               ? 'Venda vinculada a: ' + label + (selectedInscricaoFee > 0 ? ' | Inscricao: ' + toMoney(selectedInscricaoFee) : '')
               : 'Inscricao selecionada.';
+          }
+          if (editLink instanceof HTMLElement) {
+            const editHref = '?modo=inscricao&sale=1&edit_registration_id=' + encodeURIComponent(id);
+            editLink.setAttribute('href', editHref);
+            editLink.style.display = id ? 'inline-flex' : 'none';
           }
           inscricaoOptions.forEach((item) => item.classList.toggle('is-active', item === button));
           render();
@@ -4569,9 +4583,30 @@
             event.preventDefault();
           }
         });
+        const urlParams = new URLSearchParams(window.location.search);
+        const preselectedId = String(urlParams.get('sale_selected') || '').trim();
+        if (preselectedId) {
+          const preselectedOption = inscricaoOptions.find(
+            (button) => String(button.getAttribute('data-inscricao-id') || '').trim() === preselectedId
+          );
+          if (preselectedOption) {
+            selectInscricao(preselectedOption);
+            preselectedOption.scrollIntoView({ block: 'nearest' });
+          }
+        }
         render();
       };
       initEventSaleForm();
+
+      const bootUrlParams = new URLSearchParams(window.location.search);
+      if (saleModal && bootUrlParams.get('open_sale') === '1') {
+        openModal(saleModal);
+        bootUrlParams.delete('open_sale');
+        bootUrlParams.delete('sale_selected');
+        const cleanQuery = bootUrlParams.toString();
+        const cleanUrl = window.location.pathname + (cleanQuery ? ('?' + cleanQuery) : '') + window.location.hash;
+        window.history.replaceState({}, '', cleanUrl);
+      }
 
       Array.from(document.querySelectorAll('[data-mark-delivered-form]')).forEach((form) => {
         form.addEventListener('submit', (event) => {

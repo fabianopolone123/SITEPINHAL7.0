@@ -15,6 +15,7 @@ Arquivo oficial de registro das entregas concluidas.
 - Inscricoes criadas pelo Vender ficam disponiveis para selecao no proprio modal de venda.
 - Ao selecionar uma inscricao pendente, o valor da inscricao entra como item do total da venda.
 - Ao concluir a venda como paga, a inscricao pendente e confirmada junto com os itens vendidos.
+- Depois de salvar inscricao no modo Vender, a tela volta para o modal de venda com a nova inscricao ja selecionada e com acao de editar disponivel.
 
 ## 22/05/2026 - Eventos: botao Vender na gestao
 
