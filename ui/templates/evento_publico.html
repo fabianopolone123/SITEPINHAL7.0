@@ -1532,7 +1532,6 @@
         <div class="action-row event-mode-actions">
           <a href="?modo=inscricao" data-open-event-mode="inscricao" class="{% if active_mode == 'inscricao' %}primary{% else %}secondary{% endif %}">Nova inscricao</a>
           <a href="?modo=consulta" data-open-event-mode="consulta" class="{% if active_mode == 'consulta' %}primary{% else %}secondary{% endif %}">Consultar inscricao</a>
-          <a href="?modo=vendasinscritos&vtab=comprar" data-open-event-mode="vendasinscritos" class="{% if active_mode == 'vendasinscritos' %}primary{% else %}secondary{% endif %}">Vendas inscritos</a>
         </div>
         {% if active_mode == 'menu' %}
           <p class="panel-note">Escolha uma opcao para continuar.</p>
@@ -1814,6 +1813,7 @@
           <button type="button" class="secondary" id="open-event-inscritos">Inscritos</button>
           <button type="button" class="secondary" id="open-event-consulta-atendente">Consultar</button>
           <button type="button" class="secondary" id="open-event-sale">Vender</button>
+          <a href="?modo=vendasinscritos&vtab=comprar" data-open-event-mode="vendasinscritos" class="{% if active_mode == 'vendasinscritos' %}primary{% else %}secondary{% endif %}" style="text-decoration:none;">Vendas inscritos</a>
           <button type="button" class="secondary" id="open-event-report">Relatorio</button>
           <button type="button" class="secondary" id="open-event-costs">Custos</button>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Editar campos</a>
