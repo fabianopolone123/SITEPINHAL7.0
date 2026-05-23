@@ -1615,12 +1615,13 @@
 
       {% if consulta_results %}
         <section class="painel-card event-step">
-          <h3>Resultado da consulta</h3>
+          <h3>{% if active_mode == 'vendasinscritos' %}Inscritos encontrados{% else %}Resultado da consulta{% endif %}</h3>
           <div class="event-consulta-results">
             {% for row in consulta_results %}
               <article class="event-consulta-card">
                 <div class="event-consulta-head">
                   <h4 class="event-consulta-title">Inscricao #{{ row.codigo }}</h4>
+                  {% if active_mode != 'vendasinscritos' %}
                   <div class="event-consulta-meta">
                     <span class="event-status-pill {{ row.status_pagamento_css }}">
                       {% if row.status_pagamento_css == 'is-paid' %}
@@ -1635,8 +1636,11 @@
                     </span>
                     <span class="event-metric-pill">{{ row.data_inscricao|date:"d/m/Y H:i" }}</span>
                   </div>
+                  {% endif %}
                 </div>
+                {% if active_mode != 'vendasinscritos' %}
                 <p class="event-consulta-note">{{ row.status_pagamento_hint }}</p>
+                {% endif %}
                 <div class="event-consulta-grid">
                   <div class="event-consulta-field">
                     <span>Responsavel</span>
@@ -1656,6 +1660,7 @@
                     <span>Valor da inscricao</span>
                     <strong>{{ row.valor_inscricao_fmt }}{% if row.valor_inscricao_unidades %} ({{ row.valor_inscricao_unidades }}x){% endif %}</strong>
                   </div>
+                  {% if active_mode != 'vendasinscritos' %}
                   <div class="event-consulta-field">
                     <span>Pedidos pagos</span>
                     <strong>{{ row.pedidos_pagos }}/{{ row.pedidos_total }}</strong>
@@ -1687,6 +1692,7 @@
                       Credito: {{ row.cashback_creditado_valor_fmt }} | Uso: {{ row.cashback_usado_valor_fmt }}
                     </strong>
                   </div>
+                  {% endif %}
                 </div>
                 {% if row.criancas_total > 0 %}
                   <div class="event-consulta-others">
@@ -1712,7 +1718,7 @@
                     {% endif %}
                   </div>
                 {% endif %}
-                {% if row.pode_editar %}
+                {% if row.pode_editar and active_mode != 'vendasinscritos' %}
                   <form method="post">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="abrir_edicao_inscricao" />
@@ -1723,62 +1729,64 @@
                   </form>
                 {% endif %}
 
-                <div>
-                  <strong>Pedidos da loja neste evento</strong>
-                  {% if row.pedidos %}
-                    <div class="event-consulta-results" style="margin-top:.45rem;">
-                      {% for ped in row.pedidos %}
-                        <div class="event-consulta-pedido">
-                          <div class="event-consulta-pedido-top">
-                            <span><strong>Pedido #{{ ped.id }}</strong></span>
-                            <span class="event-consulta-pedido-status">
-                              <span class="event-status-pill {{ ped.status_css }}">{{ ped.pago_label }}</span>
-                              <span>{{ ped.status_label }}</span>
-                            </span>
-                            <span><strong>Total:</strong> {{ ped.valor_total_fmt }}</span>
-                          </div>
-                          {% if ped.itens %}
-                            <ul class="event-consulta-itens">
-                              {% for item in ped.itens %}
-                                <li>{{ item.produto_titulo }} - {{ item.variacao_nome }} x{{ item.quantidade }} ({{ item.valor_total_fmt }})</li>
-                              {% endfor %}
-                            </ul>
-                          {% endif %}
-                          {% if not ped.is_paid %}
-                            <div class="action-row">
-                              <button
-                                type="button"
-                                class="primary"
-                                data-consulta-pagar
-                                data-pedido-id="{{ ped.id }}"
-                                data-inscricao-codigo="{{ row.codigo }}"
-                              >
-                                Pagar agora
-                              </button>
+                {% if active_mode != 'vendasinscritos' %}
+                  <div>
+                    <strong>Pedidos da loja neste evento</strong>
+                    {% if row.pedidos %}
+                      <div class="event-consulta-results" style="margin-top:.45rem;">
+                        {% for ped in row.pedidos %}
+                          <div class="event-consulta-pedido">
+                            <div class="event-consulta-pedido-top">
+                              <span><strong>Pedido #{{ ped.id }}</strong></span>
+                              <span class="event-consulta-pedido-status">
+                                <span class="event-status-pill {{ ped.status_css }}">{{ ped.pago_label }}</span>
+                                <span>{{ ped.status_label }}</span>
+                              </span>
+                              <span><strong>Total:</strong> {{ ped.valor_total_fmt }}</span>
                             </div>
-                          {% else %}
-                            <p class="panel-note">Pagamento aprovado.</p>
-                          {% endif %}
-                        </div>
-                      {% endfor %}
-                    </div>
-                  {% else %}
-                    <p class="panel-note">Nenhum pedido encontrado para esta inscricao.</p>
-                    {% if row.tem_valor_inscricao %}
-                      <div class="action-row">
-                        <button
-                          type="button"
-                          class="primary"
-                          data-consulta-gerar-inscricao-pix
-                          data-inscricao-id="{{ row.id }}"
-                          data-inscricao-codigo="{{ row.codigo }}"
-                        >
-                          Gerar Pix da inscricao
-                        </button>
+                            {% if ped.itens %}
+                              <ul class="event-consulta-itens">
+                                {% for item in ped.itens %}
+                                  <li>{{ item.produto_titulo }} - {{ item.variacao_nome }} x{{ item.quantidade }} ({{ item.valor_total_fmt }})</li>
+                                {% endfor %}
+                              </ul>
+                            {% endif %}
+                            {% if not ped.is_paid %}
+                              <div class="action-row">
+                                <button
+                                  type="button"
+                                  class="primary"
+                                  data-consulta-pagar
+                                  data-pedido-id="{{ ped.id }}"
+                                  data-inscricao-codigo="{{ row.codigo }}"
+                                >
+                                  Pagar agora
+                                </button>
+                              </div>
+                            {% else %}
+                              <p class="panel-note">Pagamento aprovado.</p>
+                            {% endif %}
+                          </div>
+                        {% endfor %}
                       </div>
+                    {% else %}
+                      <p class="panel-note">Nenhum pedido encontrado para esta inscricao.</p>
+                      {% if row.tem_valor_inscricao %}
+                        <div class="action-row">
+                          <button
+                            type="button"
+                            class="primary"
+                            data-consulta-gerar-inscricao-pix
+                            data-inscricao-id="{{ row.id }}"
+                            data-inscricao-codigo="{{ row.codigo }}"
+                          >
+                            Gerar Pix da inscricao
+                          </button>
+                        </div>
+                      {% endif %}
                     {% endif %}
-                  {% endif %}
-                </div>
+                  </div>
+                {% endif %}
                 {% if active_mode == 'vendasinscritos' %}
                   <div class="action-row" style="margin-top:.75rem;">
                     <button type="button" class="primary" data-vendasinscrito-select data-inscricao-id="{{ row.id }}" data-inscricao-codigo="{{ row.codigo }}" data-inscricao-responsavel="{{ row.responsavel|default:'-' }}">Selecionar para compra</button>
