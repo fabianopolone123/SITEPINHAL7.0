@@ -7841,6 +7841,7 @@ class EventoPedidoCreatePixApiView(View):
             return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
 
         requested_inscricao_raw = str(payload.get('inscricao_id') or '').strip()
+        apenas_itens = bool(payload.get('apenas_itens'))
         inscricao = None
         if requested_inscricao_raw:
             if not requested_inscricao_raw.isdigit():
@@ -7883,6 +7884,8 @@ class EventoPedidoCreatePixApiView(View):
         try:
             fee_total = Decimal(getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
         except (InvalidOperation, TypeError, ValueError):
+            fee_total = Decimal('0.00')
+        if apenas_itens:
             fee_total = Decimal('0.00')
 
         loja_view = LojaView()

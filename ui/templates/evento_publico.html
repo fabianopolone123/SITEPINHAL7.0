@@ -2826,6 +2826,7 @@
       const paidSummaryEl = document.getElementById('eventPaidSummary');
       const modeSelectorModal = document.getElementById('eventModeSelectorModal');
       const modeSelectorFrame = document.getElementById('eventModeSelectorFrame');
+      const isVendasInscritosComprar = String('{{ active_mode|default:""|escapejs }}') === 'vendasinscritos' && String('{{ vendas_tab|default:""|escapejs }}') === 'comprar';
       const modeSelectorCloseBtn = document.getElementById('eventModeSelectorClose');
       const PIX_CREATE_URL = pixApiConfig ? String(pixApiConfig.dataset.createUrl || '') : '';
       const PIX_STATUS_URL_TEMPLATE = pixApiConfig ? String(pixApiConfig.dataset.statusUrlTemplate || '') : '';
@@ -3324,6 +3325,9 @@
         if (inscricaoId) {
           payload.inscricao_id = Number(inscricaoId);
         }
+        if (isVendasInscritosComprar) {
+          payload.apenas_itens = true;
+        }
         const response = await fetch(PIX_CREATE_URL, {
           method: 'POST',
           credentials: 'same-origin',
@@ -3397,7 +3401,6 @@
       };
 
       const runPixCheckoutFlow = async () => {
-        const isVendasInscritosComprar = String('{{ active_mode|default:""|escapejs }}') === 'vendasinscritos' && String('{{ vendas_tab|default:""|escapejs }}') === 'comprar';
         const inscricaoVinculoId = Number(vendaInscritoSelectedIdInput ? vendaInscritoSelectedIdInput.value : 0) || 0;
         if (isVendasInscritosComprar && !inscricaoVinculoId) {
           setCheckoutFeedback('Selecione um inscrito antes de finalizar o pagamento.', 'error');
@@ -3734,7 +3737,9 @@
       };
 
       const updateCheckoutSummary = () => {
-        const feePreview = calculateFeePreview();
+        const feePreview = isVendasInscritosComprar
+          ? { units: 0, total: 0, breakdown: [] }
+          : calculateFeePreview();
         currentFeeUnits = Number(feePreview.units || 0);
         currentFeeTotal = Number(feePreview.total || 0);
         const subtotal = currentFeeTotal + currentCartTotal;

@@ -1210,3 +1210,5 @@ ame e label sem quebrar a tela.
 - Vendas inscritos: bloco de resultado da busca foi simplificado para operacao de venda (menos campos), ocultando status detalhado, cashback, pedidos e botao de editar inscricao nessa rota.
 
 - Removida da tela de evento a secao de consulta de codigo cashback (checkout e modal Vender), mantendo apenas selecao normal de aventureiro para uso de saldo.
+
+- Vendas inscritos: checkout/Pix ajustado para cobrar somente itens do carrinho, sem somar valor de inscricao; inscricao segue apenas como vinculo da compra.
