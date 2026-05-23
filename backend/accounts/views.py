@@ -6594,6 +6594,41 @@ class EventoPublicoView(View):
                     })
             except Exception:
                 logger.exception('Falha ao montar dados de gestao do evento id=%s.', evento.id)
+        # Na rota publica de vendas-inscritos, precisamos de sugestoes de busca
+        # mesmo sem permissao de gestao para permitir filtragem em tempo real.
+        if normalized_mode == 'vendasinscritos' and not sale_inscricoes_detalhes:
+            try:
+                sale_lookup_qs = (
+                    EventoInscricao.objects
+                    .filter(evento=evento, cancelada=False)
+                    .select_related('user', 'responsavel', 'responsavel__user')
+                    .prefetch_related('responsavel__aventures')
+                    .order_by('-created_at')[:500]
+                )
+                for inscricao in sale_lookup_qs:
+                    dados_obj = inscricao.dados if isinstance(inscricao.dados, dict) else {}
+                    criancas_info = self._criancas_info_from_inscricao(inscricao, evento=evento)
+                    sale_inscricoes_detalhes.append({
+                        'id': inscricao.id,
+                        'codigo': inscricao.codigo_inscricao or '-',
+                        'responsavel': self._responsavel_label_from_inscricao(inscricao),
+                        'cpf_responsavel': self._cpf_responsavel_from_inscricao(inscricao),
+                        'criancas': criancas_info.get('resumo', '-'),
+                        'dados_resumo': self._dados_resumo(dados_obj),
+                        'confirmada': bool(inscricao.confirmada),
+                        'valor_inscricao_raw': str(
+                            Decimal(getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00'))
+                            .quantize(Decimal('0.01'))
+                        ),
+                        'valor_inscricao_fmt': self._format_currency(
+                            getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
+                        ),
+                        'valor_inscricao_unidades': int(getattr(inscricao, 'valor_inscricao_unidades', 0) or 0),
+                        'fee_breakdown': [],
+                        'fee_breakdown_json': '[]',
+                    })
+            except Exception:
+                logger.exception('Falha ao montar sugestoes publicas de vendas-inscritos para evento id=%s.', evento.id)
         pedido_modal = {}
         if request.user.is_authenticated and 'last_evento_pedido_id' in request.session:
             pedido_id = request.session.pop('last_evento_pedido_id', None)

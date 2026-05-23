@@ -1204,3 +1204,5 @@ ame e label sem quebrar a tela.
 - Backend reforcado na rota /eventos/{id}/vendas-inscritos/ para aceitar apenas acao de consultar inscricao (vinculo da compra), bloqueando tentativas de cadastro/edicao por URL manual.
 
 - Vendas inscritos: busca da tela passou a exibir sugestoes dinamicas enquanto digita (codigo, responsavel ou crianca), com clique direto na opcao para preencher e buscar.
+
+- Vendas inscritos (link publico): sugestoes da busca agora sao carregadas mesmo sem permissao de gestao, permitindo ver opcoes enquanto digita (codigo, responsavel ou crianca).
