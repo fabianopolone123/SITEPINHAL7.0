@@ -7584,6 +7584,36 @@ class EventoPublicoView(View):
         )
 
 
+class EventoVendasInscritosView(EventoPublicoView):
+    def get(self, request, event_id):
+        evento = get_object_or_404(Evento, pk=event_id)
+        if _user_needs_evento_atendente_password_change(request.user):
+            return redirect('accounts:atendente_trocar_senha')
+        if not self._can_access_page(request, evento):
+            if not bool(getattr(evento, 'pagina_ativa', True)):
+                return self._render_evento_inativo(request, evento)
+            if not request.user.is_authenticated:
+                login_url = reverse('accounts:login')
+                next_path = request.get_full_path()
+                return redirect(f'{login_url}?next={next_path}')
+            messages.error(request, 'Este evento nao esta com pagina publica habilitada.')
+            return redirect('accounts:painel')
+        return render(
+            request,
+            self.template_name,
+            self._context(request, evento, active_mode='vendasinscritos'),
+        )
+
+    def post(self, request, event_id):
+        post_data = request.POST.copy()
+        action = str(post_data.get('action') or '').strip().lower()
+        if action == 'consultar_inscricao' and not str(post_data.get('modo') or '').strip():
+            post_data['modo'] = 'vendasinscritos'
+            post_data['vtab'] = str(post_data.get('vtab') or 'comprar').strip().lower() or 'comprar'
+            request.POST = post_data
+        return super().post(request, event_id)
+
+
 class EventoPedidoCreatePixApiView(View):
     def _authenticated_profile_allowed(self, request):
         if not request.user.is_authenticated:

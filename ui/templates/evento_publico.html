@@ -1544,8 +1544,8 @@
         <h3>Vendas para inscritos</h3>
         <p class="panel-note">Escolha o fluxo para compra com Pix ou somente consulta de itens/alimentacao.</p>
         <div class="action-row event-mode-actions">
-          <a href="?modo=vendasinscritos&vtab=comprar" class="{% if vendas_tab == 'comprar' %}primary{% else %}secondary{% endif %}">Comprar</a>
-          <a href="?modo=vendasinscritos&vtab=consultar" class="{% if vendas_tab == 'consultar' %}primary{% else %}secondary{% endif %}">Consultar</a>
+          <a href="{% url 'accounts:evento_vendas_inscritos' evento.id %}?vtab=comprar" class="{% if vendas_tab == 'comprar' %}primary{% else %}secondary{% endif %}">Comprar</a>
+          <a href="{% url 'accounts:evento_vendas_inscritos' evento.id %}?vtab=consultar" class="{% if vendas_tab == 'consultar' %}primary{% else %}secondary{% endif %}">Consultar</a>
         </div>
       </section>
     {% endif %}
@@ -1813,7 +1813,7 @@
           <button type="button" class="secondary" id="open-event-inscritos">Inscritos</button>
           <button type="button" class="secondary" id="open-event-consulta-atendente">Consultar</button>
           <button type="button" class="secondary" id="open-event-sale">Vender</button>
-          <a href="?modo=vendasinscritos&vtab=comprar" data-open-event-mode="vendasinscritos" class="{% if active_mode == 'vendasinscritos' %}primary{% else %}secondary{% endif %}" style="text-decoration:none;">Vendas inscritos</a>
+          <a href="{% url 'accounts:evento_vendas_inscritos' evento.id %}?vtab=comprar" class="{% if active_mode == 'vendasinscritos' %}primary{% else %}secondary{% endif %}" style="text-decoration:none;">Vendas inscritos</a>
           <button type="button" class="secondary" id="open-event-report">Relatorio</button>
           <button type="button" class="secondary" id="open-event-costs">Custos</button>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Editar campos</a>
