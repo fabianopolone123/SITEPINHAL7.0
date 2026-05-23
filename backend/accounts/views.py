@@ -6091,6 +6091,31 @@ class EventoPublicoView(View):
             maybe_code = re.sub(r'\D', '', termo)[:3]
             if len(maybe_code) == 3:
                 inscricoes = list(base_qs.filter(codigo_inscricao=maybe_code)[:20])
+            if not inscricoes:
+                normalized_term = self._normalize_lookup_text(termo)
+                candidates = list(
+                    base_qs.filter(
+                        Q(responsavel__responsavel_nome__icontains=termo)
+                        | Q(responsavel__mae_nome__icontains=termo)
+                        | Q(responsavel__pai_nome__icontains=termo)
+                        | Q(user__username__icontains=termo)
+                        | Q(user__first_name__icontains=termo)
+                        | Q(user__last_name__icontains=termo)
+                        | Q(dados__icontains=termo)
+                    )[:400]
+                )
+                for item in candidates:
+                    resp_label = self._normalize_lookup_text(self._responsavel_label_from_inscricao(item))
+                    criancas_text = self._normalize_lookup_text(self._criancas_info_from_inscricao(item, evento=evento).get('resumo', ''))
+                    dados_text = self._normalize_lookup_text(self._dados_resumo(item.dados if isinstance(item.dados, dict) else {}))
+                    codigo_text = str(item.codigo_inscricao or '').strip()
+                    if (
+                        normalized_term in resp_label
+                        or normalized_term in criancas_text
+                        or normalized_term in dados_text
+                        or (codigo_text and normalized_term in self._normalize_lookup_text(codigo_text))
+                    ):
+                        inscricoes.append(item)
 
         loja_view = LojaView()
         results = []
@@ -6213,9 +6238,12 @@ class EventoPublicoView(View):
         evento_fluxo_selector = bool(schema or produtos)
         is_embedded_modal = str(request.GET.get('embedded') or '').strip().lower() in {'1', 'true', 'yes'}
         sale_registration_mode = str(request.GET.get('sale') or request.POST.get('sale_registration_mode') or '').strip().lower() in {'1', 'true', 'yes'}
+        vendas_tab = str(request.GET.get('vtab') or request.POST.get('vtab') or '').strip().lower()
+        if vendas_tab not in {'comprar', 'consultar'}:
+            vendas_tab = 'comprar'
 
         normalized_mode = str(active_mode or '').strip().lower()
-        if normalized_mode not in {'inscricao', 'consulta'}:
+        if normalized_mode not in {'inscricao', 'consulta', 'vendasinscritos'}:
             if is_embedded_modal:
                 normalized_mode = 'inscricao'
             elif show_register_summary:
@@ -6583,6 +6611,7 @@ class EventoPublicoView(View):
             'active_mode': normalized_mode,
             'is_embedded_modal': is_embedded_modal,
             'sale_registration_mode': sale_registration_mode,
+            'vendas_tab': vendas_tab,
             'evento_fluxo_selector': evento_fluxo_selector,
             'consulta_term': str(consulta_term or '').strip(),
             'consulta_results': consulta_results if isinstance(consulta_results, list) else [],
@@ -6987,15 +7016,17 @@ class EventoPublicoView(View):
 
         if action == 'consultar_inscricao':
             termo = str(request.POST.get('consulta_termo') or '').strip()
+            modo_post = str(request.POST.get('modo') or '').strip().lower()
+            target_mode = 'vendasinscritos' if modo_post == 'vendasinscritos' else 'consulta'
             if not termo:
-                messages.error(request, 'Informe CPF ou codigo da inscricao para consultar.')
+                messages.error(request, 'Informe um termo para consultar inscricoes.')
                 return render(
                     request,
                     self.template_name,
                     self._context(
                         request,
                         evento,
-                        active_mode='consulta',
+                        active_mode=target_mode,
                         consulta_term=termo,
                         consulta_results=[],
                     ),
@@ -7017,7 +7048,7 @@ class EventoPublicoView(View):
                 self._context(
                     request,
                     evento,
-                    active_mode='consulta',
+                    active_mode=target_mode,
                     consulta_term=termo,
                     consulta_results=consulta_results,
                 ),

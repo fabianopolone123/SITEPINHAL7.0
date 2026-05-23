@@ -1532,6 +1532,7 @@
         <div class="action-row event-mode-actions">
           <a href="?modo=inscricao" data-open-event-mode="inscricao" class="{% if active_mode == 'inscricao' %}primary{% else %}secondary{% endif %}">Nova inscricao</a>
           <a href="?modo=consulta" data-open-event-mode="consulta" class="{% if active_mode == 'consulta' %}primary{% else %}secondary{% endif %}">Consultar inscricao</a>
+          <a href="?modo=vendasinscritos&vtab=comprar" data-open-event-mode="vendasinscritos" class="{% if active_mode == 'vendasinscritos' %}primary{% else %}secondary{% endif %}">Vendas inscritos</a>
         </div>
         {% if active_mode == 'menu' %}
           <p class="panel-note">Escolha uma opcao para continuar.</p>
@@ -1539,22 +1540,34 @@
       </section>
     {% endif %}
 
-    {% if active_mode == 'consulta' %}
+    {% if active_mode == 'vendasinscritos' %}
+      <section class="painel-card event-step">
+        <h3>Vendas para inscritos</h3>
+        <p class="panel-note">Escolha o fluxo para compra com Pix ou somente consulta de itens/alimentacao.</p>
+        <div class="action-row event-mode-actions">
+          <a href="?modo=vendasinscritos&vtab=comprar" class="{% if vendas_tab == 'comprar' %}primary{% else %}secondary{% endif %}">Comprar</a>
+          <a href="?modo=vendasinscritos&vtab=consultar" class="{% if vendas_tab == 'consultar' %}primary{% else %}secondary{% endif %}">Consultar</a>
+        </div>
+      </section>
+    {% endif %}
+
+    {% if active_mode == 'consulta' or active_mode == 'vendasinscritos' %}
       <section class="painel-card event-step">
         <div class="event-consulta-search">
           <div class="event-consulta-search-head">
-            <h3>Consultar inscricao</h3>
-            <p>Digite o CPF do responsavel ou o codigo de 3 digitos da inscricao para localizar rapidamente.</p>
+            <h3>{% if active_mode == 'vendasinscritos' %}Localizar inscrito{% else %}Consultar inscricao{% endif %}</h3>
+            <p>{% if active_mode == 'vendasinscritos' %}Pesquise por codigo, nome da crianca ou nome do responsavel.{% else %}Digite o CPF do responsavel ou o codigo de 3 digitos da inscricao para localizar rapidamente.{% endif %}</p>
           </div>
           <form method="post" class="event-consulta-search-form">
           {% csrf_token %}
           <input type="hidden" name="action" value="consultar_inscricao" />
-          <input type="hidden" name="modo" value="consulta" />
+          <input type="hidden" name="modo" value="{% if active_mode == 'vendasinscritos' %}vendasinscritos{% else %}consulta{% endif %}" />
+          {% if active_mode == 'vendasinscritos' %}<input type="hidden" name="vtab" value="{{ vendas_tab }}" />{% endif %}
           <label>
-            CPF ou codigo da inscricao
-            <input type="text" name="consulta_termo" value="{{ consulta_term }}" placeholder="Ex.: 15648614861 ou 123" autocomplete="off" inputmode="numeric" required />
+            {% if active_mode == 'vendasinscritos' %}Codigo, crianca ou responsavel{% else %}CPF ou codigo da inscricao{% endif %}
+            <input type="text" name="consulta_termo" value="{{ consulta_term }}" placeholder="{% if active_mode == 'vendasinscritos' %}Ex.: 123, Ana, Joao Silva{% else %}Ex.: 15648614861 ou 123{% endif %}" autocomplete="off" {% if active_mode != 'vendasinscritos' %}inputmode="numeric"{% endif %} required />
           </label>
-          <p class="event-consulta-search-tip">Dica: o sistema detecta automaticamente se voce digitou CPF ou codigo.</p>
+          <p class="event-consulta-search-tip">{% if active_mode == 'vendasinscritos' %}Dica: ao selecionar um inscrito no modo Comprar, o carrinho e o Pix ficam vinculados a ele.{% else %}Dica: o sistema detecta automaticamente se voce digitou CPF ou codigo.{% endif %}</p>
           <div class="action-row">
             <button type="submit" class="primary">Buscar inscricao</button>
             <a href="?modo=inscricao" class="secondary">Fazer nova inscricao</a>
@@ -1725,6 +1738,11 @@
                     {% endif %}
                   {% endif %}
                 </div>
+                {% if active_mode == 'vendasinscritos' and vendas_tab == 'comprar' %}
+                  <div class="action-row" style="margin-top:.75rem;">
+                    <button type="button" class="primary" data-vendasinscrito-select data-inscricao-id="{{ row.id }}" data-inscricao-codigo="{{ row.codigo }}" data-inscricao-responsavel="{{ row.responsavel|default:'-' }}">Selecionar para compra</button>
+                  </div>
+                {% endif %}
               </article>
             {% endfor %}
           </div>
@@ -2371,8 +2389,9 @@
       </div>
     {% endif %}
 
-    {% if active_mode == 'inscricao' %}
+    {% if active_mode == 'inscricao' or active_mode == 'vendasinscritos' and vendas_tab == 'comprar' %}
     <div class="event-main-grid">
+    {% if active_mode == 'inscricao' %}
     <section class="painel-card event-step">
       <h3>Passo 1: Inscrição</h3>
       <p class="panel-note">Cobrança configurada: {{ inscricao_valor_config_text }}.</p>
@@ -2463,6 +2482,14 @@
         </div>
       </form>
     </section>
+    {% else %}
+    <section class="painel-card event-step">
+      <h3>Passo 1: Selecionar inscrito</h3>
+      <p class="panel-note">Use a busca acima, selecione um inscrito e depois adicione itens no carrinho.</p>
+      <p class="panel-note" id="event-vendasinscrito-selected-label">Nenhum inscrito selecionado.</p>
+      <input type="hidden" id="event-vendasinscrito-selected-id" value="" />
+    </section>
+    {% endif %}
 
     {% if not sale_registration_mode %}
     <section class="painel-card event-step">
@@ -2686,6 +2713,8 @@
       const cashbackUseInput = document.getElementById('event-use-cashback');
       const cashbackAventureiroSelect = document.getElementById('event-cashback-aventureiro');
       const finalizarPagarBtn = document.getElementById('event-finalizar-pagar');
+      const vendaInscritoSelectedIdInput = document.getElementById('event-vendasinscrito-selected-id');
+      const vendaInscritoSelectedLabel = document.getElementById('event-vendasinscrito-selected-label');
       const inscritosModal = document.getElementById('event-inscritos-modal');
       const openInscritosBtn = document.getElementById('open-event-inscritos');
       const closeInscritosBtn = document.getElementById('close-event-inscritos');
@@ -3318,6 +3347,12 @@
       };
 
       const runPixCheckoutFlow = async () => {
+        const isVendasInscritosComprar = String('{{ active_mode|default:""|escapejs }}') === 'vendasinscritos' && String('{{ vendas_tab|default:""|escapejs }}') === 'comprar';
+        const inscricaoVinculoId = Number(vendaInscritoSelectedIdInput ? vendaInscritoSelectedIdInput.value : 0) || 0;
+        if (isVendasInscritosComprar && !inscricaoVinculoId) {
+          setCheckoutFeedback('Selecione um inscrito antes de finalizar o pagamento.', 'error');
+          return;
+        }
         if (cashbackUseInput && cashbackUseInput.checked) {
           const selectedId = cashbackAventureiroSelect ? String(cashbackAventureiroSelect.value || '').trim() : '';
           if (!selectedId) {
@@ -3334,7 +3369,7 @@
         try {
           if (finalizarPagarBtn) finalizarPagarBtn.disabled = true;
           setCheckoutFeedback('Gerando Pix do valor total do evento...');
-          const pedido = await createPixPedidoFromEvent();
+          const pedido = await createPixPedidoFromEvent(isVendasInscritosComprar ? inscricaoVinculoId : null);
           if (!pedido) {
             throw new Error('Resposta invalida ao gerar pagamento.');
           }
@@ -4157,6 +4192,26 @@
           } finally {
             button.disabled = false;
           }
+        });
+      });
+      document.querySelectorAll('[data-vendasinscrito-select]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const inscricaoId = String(button.getAttribute('data-inscricao-id') || '').trim();
+          const codigo = String(button.getAttribute('data-inscricao-codigo') || '').trim();
+          const responsavel = String(button.getAttribute('data-inscricao-responsavel') || '').trim();
+          if (vendaInscritoSelectedIdInput) vendaInscritoSelectedIdInput.value = inscricaoId;
+          if (vendaInscritoSelectedLabel) {
+            vendaInscritoSelectedLabel.textContent = inscricaoId
+              ? ('Inscrito selecionado: codigo ' + codigo + ' - ' + responsavel)
+              : 'Nenhum inscrito selecionado.';
+          }
+          document.querySelectorAll('[data-vendasinscrito-select]').forEach((otherBtn) => {
+            if (!(otherBtn instanceof HTMLElement)) return;
+            otherBtn.classList.toggle('primary', otherBtn === button);
+            otherBtn.classList.toggle('secondary', otherBtn !== button);
+          });
+          const grid = document.getElementById('event-products-grid');
+          if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
       });
       if (pixModal) {

@@ -1194,3 +1194,4 @@ ame e label sem quebrar a tela.
 - Relatorio financeiro de gastos por destino (incluindo Eventos) ficou tolerante a valores legados do campo destino para nao perder custos na soma.
 - Financeiro > Relatorios agora soma tambem os custos cadastrados direto no evento (EventoCusto) em Gastos de Eventos e no extrato.
 - Busca de inscricoes no modal Vender foi reforcada para filtrar em tempo real por input/keyup/change e esconder cards de forma consistente.
+- Evento publico ganhou modo Vendas inscritos (Comprar/Consultar), com busca por codigo/nome responsavel/crianca e checkout Pix vinculado ao inscrito selecionado.
