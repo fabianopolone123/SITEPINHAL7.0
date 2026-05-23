@@ -2197,6 +2197,13 @@
                         <option value="1">Ja entregar agora</option>
                       </select>
                     </label>
+                    {% if cashback_rows %}
+                      <label>
+                        <span>Consultar cashback</span>
+                        <input type="search" id="event-sale-cashback-search" placeholder="Nome ou codigo" autocomplete="off" />
+                      </label>
+                      <p class="panel-note" id="event-sale-cashback-code-result" style="margin:0;">Codigo: -</p>
+                    {% endif %}
                     <button type="submit" class="primary">Concluir venda</button>
                   </div>
                 </section>
@@ -2614,11 +2621,16 @@
             <select id="event-cashback-aventureiro">
               <option value="">Selecione o aventureiro</option>
               {% for row in cashback_rows %}
-                <option value="{{ row.id }}" data-disponivel="{{ row.disponivel }}">
+                <option value="{{ row.id }}" data-disponivel="{{ row.disponivel }}" data-codigo="{{ row.codigo_indicacao|default:'' }}">
                   {{ row.nome }} - disponivel {{ row.disponivel_fmt }}{% if row.codigo_indicacao %} (codigo {{ row.codigo_indicacao }}){% endif %}
                 </option>
               {% endfor %}
             </select>
+            <label style="margin-top:.35rem;">
+              Consultar cashback por nome/codigo
+              <input type="search" id="event-cashback-search" placeholder="Nome ou codigo" autocomplete="off" />
+            </label>
+            <small id="event-cashback-code-result">Codigo: -</small>
             <small id="event-cashback-available">Disponivel: R$ 0,00</small>
           </div>
           <div class="event-checkout-item">
@@ -2729,6 +2741,10 @@
       const cashbackMetaNode = document.getElementById('event-cashback-available');
       const cashbackUseInput = document.getElementById('event-use-cashback');
       const cashbackAventureiroSelect = document.getElementById('event-cashback-aventureiro');
+      const cashbackSearchInput = document.getElementById('event-cashback-search');
+      const cashbackCodeResult = document.getElementById('event-cashback-code-result');
+      const saleCashbackSearchInput = document.getElementById('event-sale-cashback-search');
+      const saleCashbackCodeResult = document.getElementById('event-sale-cashback-code-result');
       const finalizarPagarBtn = document.getElementById('event-finalizar-pagar');
       const vendaInscritoSelectedIdInput = document.getElementById('event-vendasinscrito-selected-id');
       const vendaInscritoSelectedLabel = document.getElementById('event-vendasinscrito-selected-label');
@@ -3417,6 +3433,63 @@
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '')
           .replace(/\s+/g, ' ');
+      };
+      const findCashbackMatches = (queryValue) => {
+        if (!cashbackAventureiroSelect) return [];
+        const query = String(queryValue || '').trim();
+        if (!query) return [];
+        const normalizedQuery = normalizeLookupText(query);
+        const lowerQuery = query.toLowerCase();
+        const digitsQuery = query.replace(/\D/g, '');
+        return Array.from(cashbackAventureiroSelect.options || []).filter((option) => {
+          const value = String(option.value || '').trim();
+          if (!value) return false;
+          const label = String(option.textContent || '').trim();
+          const codigo = String(option.getAttribute('data-codigo') || '').trim();
+          const haystack = (label + ' ' + codigo).trim();
+          const normalizedHaystack = normalizeLookupText(haystack);
+          const lowerHaystack = haystack.toLowerCase();
+          const digitsHaystack = haystack.replace(/\D/g, '');
+          return (
+            normalizedHaystack.includes(normalizedQuery)
+            || (lowerQuery && lowerHaystack.includes(lowerQuery))
+            || (digitsQuery && digitsHaystack.includes(digitsQuery))
+          );
+        });
+      };
+      const updateCashbackResultText = (resultNode, matches) => {
+        if (!(resultNode instanceof HTMLElement)) return;
+        if (!Array.isArray(matches) || !matches.length) {
+          resultNode.textContent = 'Codigo: -';
+          return;
+        }
+        const first = matches[0];
+        const codigo = String(first.getAttribute('data-codigo') || '').trim() || '-';
+        const nome = String(first.textContent || '').split(' - ')[0].trim();
+        if (matches.length === 1) {
+          resultNode.textContent = 'Codigo: ' + codigo + ' | ' + nome;
+          return;
+        }
+        resultNode.textContent = 'Codigo: ' + codigo + ' | ' + nome + ' (+' + String(matches.length - 1) + ')';
+      };
+      const initCashbackSearches = () => {
+        const apply = (inputNode, resultNode, autoSelectUnique) => {
+          if (!(inputNode instanceof HTMLInputElement)) return;
+          const run = () => {
+            const matches = findCashbackMatches(inputNode.value);
+            updateCashbackResultText(resultNode, matches);
+            if (autoSelectUnique && matches.length === 1 && cashbackAventureiroSelect) {
+              cashbackAventureiroSelect.value = String(matches[0].value || '').trim();
+              if (cashbackUseInput) cashbackUseInput.checked = true;
+              updateCheckoutSummary();
+            }
+          };
+          inputNode.addEventListener('input', run);
+          inputNode.addEventListener('keyup', run);
+          inputNode.addEventListener('change', run);
+        };
+        apply(cashbackSearchInput, cashbackCodeResult, true);
+        apply(saleCashbackSearchInput, saleCashbackCodeResult, false);
       };
       const initVendasInscritosAutoSearch = () => {
         const isVendasInscritos = String('{{ active_mode|default:""|escapejs }}') === 'vendasinscritos';
@@ -4271,6 +4344,15 @@
           if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
       });
+      if (
+        vendaInscritoSelectedIdInput
+        && !String(vendaInscritoSelectedIdInput.value || '').trim()
+      ) {
+        const firstSelectBtn = document.querySelector('[data-vendasinscrito-select]');
+        if (firstSelectBtn instanceof HTMLElement) {
+          firstSelectBtn.click();
+        }
+      }
       if (pixModal) {
         pixModal.addEventListener('click', (event) => {
           if (event.target === pixModal) closePixModal();
@@ -4788,6 +4870,7 @@
         render();
       };
       initVendasInscritosAutoSearch();
+      initCashbackSearches();
       initEventSaleForm();
 
       const bootUrlParams = new URLSearchParams(window.location.search);

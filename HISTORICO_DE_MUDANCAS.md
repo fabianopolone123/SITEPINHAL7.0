@@ -1197,3 +1197,5 @@ ame e label sem quebrar a tela.
 - Evento publico ganhou modo Vendas inscritos (Comprar/Consultar), com busca por codigo/nome responsavel/crianca e checkout Pix vinculado ao inscrito selecionado.
 - Vendas inscritos ganhou endereco proprio para compartilhamento: /eventos/{id}/vendas-inscritos/.
 - Vendas inscritos: removido botao Pesquisar, busca com sugestao e envio automatico ao selecionar; dados sensiveis (CPF/WhatsApp e outros dados) ocultados nessa tela.
+- Vendas inscritos: ao selecionar um cadastro, o Passo 1 agora mostra automaticamente o inscrito selecionado (incluindo selecao automatica do primeiro resultado quando aplicavel).
+- Checkout e tela Vender: adicionada consulta de cashback por nome/codigo, com retorno imediato do codigo cashback e auto-selecao do aventureiro quando houver correspondencia unica.
