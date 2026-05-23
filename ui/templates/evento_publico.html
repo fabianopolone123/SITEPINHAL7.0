@@ -1493,7 +1493,7 @@
       </section>
     {% endif %}
 
-    {% if evento_fluxo_selector and not is_embedded_modal %}
+    {% if evento_fluxo_selector and not is_embedded_modal and active_mode != 'vendasinscritos' %}
       <section class="painel-card event-step">
         <div class="event-entry-details">
           {% if evento.event_description %}
@@ -1564,8 +1564,17 @@
           {% if active_mode == 'vendasinscritos' %}<input type="hidden" name="vtab" value="{{ vendas_tab }}" />{% endif %}
           <label>
             {% if active_mode == 'vendasinscritos' %}Codigo, crianca ou responsavel{% else %}CPF ou codigo da inscricao{% endif %}
-            <input type="text" name="consulta_termo" value="{{ consulta_term }}" placeholder="{% if active_mode == 'vendasinscritos' %}Ex.: 123, Ana, Joao Silva{% else %}Ex.: 15648614861 ou 123{% endif %}" autocomplete="off" {% if active_mode != 'vendasinscritos' %}inputmode="numeric"{% endif %} required />
+            <input type="text" name="consulta_termo" value="{{ consulta_term }}" placeholder="{% if active_mode == 'vendasinscritos' %}Ex.: 123, Ana, Joao Silva{% else %}Ex.: 15648614861 ou 123{% endif %}" autocomplete="off" {% if active_mode == 'vendasinscritos' %}list="vendasinscritos-suggest-list"{% else %}inputmode="numeric"{% endif %} required />
           </label>
+          {% if active_mode == 'vendasinscritos' %}
+            <datalist id="vendasinscritos-suggest-list">
+              {% for item in sale_inscricoes_detalhes %}
+                <option value="{{ item.codigo }}">{{ item.responsavel }} | {{ item.criancas }}</option>
+                <option value="{{ item.responsavel }}">Codigo {{ item.codigo }} | {{ item.criancas }}</option>
+                <option value="{{ item.criancas }}">Codigo {{ item.codigo }} | {{ item.responsavel }}</option>
+              {% endfor %}
+            </datalist>
+          {% endif %}
           <p class="event-consulta-search-tip">{% if active_mode == 'vendasinscritos' %}Dica: ao selecionar um inscrito no modo Comprar, o carrinho e o Pix ficam vinculados a ele.{% else %}Dica: o sistema detecta automaticamente se voce digitou CPF ou codigo.{% endif %}</p>
           <div class="action-row">
             <button type="submit" class="primary">Buscar inscricao</button>
@@ -1789,7 +1798,7 @@
       </div>
     {% endif %}
 
-    {% if can_manage_evento %}
+    {% if can_manage_evento and active_mode != 'vendasinscritos' %}
       <section class="painel-card event-step">
         <h3>Gestao do evento</h3>
         <div class="event-manage-metrics">
