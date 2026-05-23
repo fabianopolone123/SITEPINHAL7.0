@@ -1199,3 +1199,6 @@ ame e label sem quebrar a tela.
 - Vendas inscritos: removido botao Pesquisar, busca com sugestao e envio automatico ao selecionar; dados sensiveis (CPF/WhatsApp e outros dados) ocultados nessa tela.
 - Vendas inscritos: ao selecionar um cadastro, o Passo 1 agora mostra automaticamente o inscrito selecionado (incluindo selecao automatica do primeiro resultado quando aplicavel).
 - Checkout e tela Vender: adicionada consulta de cashback por nome/codigo, com retorno imediato do codigo cashback e auto-selecao do aventureiro quando houver correspondencia unica.
+
+- Vendas inscritos (link publico): removidas opcoes de consultar/cadastrar/editar nessa rota; agora o fluxo fica somente em selecionar inscricao, adicionar itens e pagar.
+- Backend reforcado na rota /eventos/{id}/vendas-inscritos/ para aceitar apenas acao de consultar inscricao (vinculo da compra), bloqueando tentativas de cadastro/edicao por URL manual.

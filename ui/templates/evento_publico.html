@@ -1542,11 +1542,7 @@
     {% if active_mode == 'vendasinscritos' %}
       <section class="painel-card event-step">
         <h3>Vendas para inscritos</h3>
-        <p class="panel-note">Escolha o fluxo para compra com Pix ou somente consulta de itens/alimentacao.</p>
-        <div class="action-row event-mode-actions">
-          <a href="{% url 'accounts:evento_vendas_inscritos' evento.id %}?vtab=comprar" class="{% if vendas_tab == 'comprar' %}primary{% else %}secondary{% endif %}">Comprar</a>
-          <a href="{% url 'accounts:evento_vendas_inscritos' evento.id %}?vtab=consultar" class="{% if vendas_tab == 'consultar' %}primary{% else %}secondary{% endif %}">Consultar</a>
-        </div>
+        <p class="panel-note">Selecione um inscrito, adicione os itens e conclua o pagamento.</p>
       </section>
     {% endif %}
 
@@ -1561,7 +1557,7 @@
           {% csrf_token %}
           <input type="hidden" name="action" value="consultar_inscricao" />
           <input type="hidden" name="modo" value="{% if active_mode == 'vendasinscritos' %}vendasinscritos{% else %}consulta{% endif %}" />
-          {% if active_mode == 'vendasinscritos' %}<input type="hidden" name="vtab" value="{{ vendas_tab }}" />{% endif %}
+          {% if active_mode == 'vendasinscritos' %}<input type="hidden" name="vtab" value="comprar" />{% endif %}
           <label>
             {% if active_mode == 'vendasinscritos' %}Codigo, crianca ou responsavel{% else %}CPF ou codigo da inscricao{% endif %}
             <input type="text" name="consulta_termo" value="{{ consulta_term }}" placeholder="{% if active_mode == 'vendasinscritos' %}Ex.: 123, Ana, Joao Silva{% else %}Ex.: 15648614861 ou 123{% endif %}" autocomplete="off" {% if active_mode == 'vendasinscritos' %}list="vendasinscritos-suggest-list"{% else %}inputmode="numeric"{% endif %} required />
@@ -1754,7 +1750,7 @@
                     {% endif %}
                   {% endif %}
                 </div>
-                {% if active_mode == 'vendasinscritos' and vendas_tab == 'comprar' %}
+                {% if active_mode == 'vendasinscritos' %}
                   <div class="action-row" style="margin-top:.75rem;">
                     <button type="button" class="primary" data-vendasinscrito-select data-inscricao-id="{{ row.id }}" data-inscricao-codigo="{{ row.codigo }}" data-inscricao-responsavel="{{ row.responsavel|default:'-' }}">Selecionar para compra</button>
                   </div>

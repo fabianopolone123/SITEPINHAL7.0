@@ -6255,6 +6255,13 @@ class EventoPublicoView(View):
             else:
                 normalized_mode = 'inscricao'
 
+        # Na pagina dedicada de vendas para inscritos, mantemos apenas o fluxo de compra
+        # (selecionar inscricao + itens + pagamento), sem tela de consulta/cadastro/edicao.
+        if normalized_mode == 'vendasinscritos':
+            vendas_tab = 'comprar'
+            sale_registration_mode = False
+            edit_target_inscricao = None
+
         if not edit_target_inscricao:
             posted_edit_id = str(request.POST.get('edit_registration_id') or '').strip()
             query_edit_id = str(request.GET.get('edit_registration_id') or '').strip()
@@ -7607,9 +7614,18 @@ class EventoVendasInscritosView(EventoPublicoView):
     def post(self, request, event_id):
         post_data = request.POST.copy()
         action = str(post_data.get('action') or '').strip().lower()
+        allowed_actions = {'consultar_inscricao'}
+        if action not in allowed_actions:
+            messages.error(request, 'Nesta pagina, use apenas a busca de inscricao para vincular itens e pagar.')
+            evento = get_object_or_404(Evento, pk=event_id)
+            return render(
+                request,
+                self.template_name,
+                self._context(request, evento, active_mode='vendasinscritos'),
+            )
         if action == 'consultar_inscricao' and not str(post_data.get('modo') or '').strip():
             post_data['modo'] = 'vendasinscritos'
-            post_data['vtab'] = str(post_data.get('vtab') or 'comprar').strip().lower() or 'comprar'
+            post_data['vtab'] = 'comprar'
             request.POST = post_data
         return super().post(request, event_id)
 
