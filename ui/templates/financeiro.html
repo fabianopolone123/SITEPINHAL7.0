@@ -217,6 +217,19 @@
       color:#0f172a;
       font-size:1rem;
     }
+    .financeiro-origin-open {
+      border:0;
+      background:none;
+      padding:0;
+      margin:0;
+      color:#0f172a;
+      font:inherit;
+      font-size:1rem;
+      font-weight:700;
+      cursor:pointer;
+      text-decoration:underline;
+      text-underline-offset:2px;
+    }
     .financeiro-origin-row {
       display:flex;
       align-items:center;
@@ -511,7 +524,7 @@
           </div>
           <div class="financeiro-origin-cards">
             <div class="financeiro-origin-card">
-              <h4>Mensalidades</h4>
+              <h4><button type="button" class="financeiro-origin-open" data-card-extrato-open="mensalidades">Mensalidades</button></h4>
               <div class="financeiro-origin-row">
                 <strong>Bruto<small>Mensalidades pagas</small></strong>
                 <span>{{ relatorios_total_mensalidades_pago }}</span>
@@ -531,7 +544,7 @@
             </div>
 
             <div class="financeiro-origin-card">
-              <h4>Loja</h4>
+              <h4><button type="button" class="financeiro-origin-open" data-card-extrato-open="loja">Loja</button></h4>
               <div class="financeiro-origin-row">
                 <strong>Bruto<small>Pedidos pagos da loja geral</small></strong>
                 <span>{{ relatorios_total_loja_geral_pago }}</span>
@@ -551,7 +564,7 @@
             </div>
 
             <div class="financeiro-origin-card">
-              <h4>Eventos</h4>
+              <h4><button type="button" class="financeiro-origin-open" data-card-extrato-open="eventos">Eventos</button></h4>
               <div class="financeiro-origin-row">
                 <strong>Bruto antes dos estornos<small>Inscricoes + pedidos de eventos</small></strong>
                 <span>{{ relatorios_total_eventos_bruto_antes_estorno }}</span>
@@ -1001,6 +1014,30 @@
   {% endif %}
 
   {% if financeiro_mode != 'responsavel' and active_financeiro_tab == 'relatorios' and show_financeiro_relatorios_tab %}
+  {{ relatorios_card_mensalidades_rows|json_script:"financeiroCardExtratoMensalidadesData" }}
+  {{ relatorios_card_loja_rows|json_script:"financeiroCardExtratoLojaData" }}
+  {{ relatorios_card_eventos_rows|json_script:"financeiroCardExtratoEventosData" }}
+  <div class="modal-backdrop" id="financeiroCardExtratoModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="financeiroCardExtratoModalTitle" style="width:min(100%, 980px);max-height:90vh;overflow:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:.65rem;flex-wrap:wrap;">
+        <h3 id="financeiroCardExtratoModalTitle">Extrato</h3>
+        <button type="button" class="ghost" id="financeiroCardExtratoModalClose">Fechar</button>
+      </div>
+      <p id="financeiroCardExtratoModalSubtitle" class="panel-note" style="margin-top:.25rem;">Transações detalhadas.</p>
+      <div class="financeiro-scroll" style="margin-top:.6rem;">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Descrição</th>
+              <th>Valor</th>
+            </tr>
+          </thead>
+          <tbody id="financeiroCardExtratoBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
   <div class="modal-backdrop{% if relatorios_open_comprovante_modal %} is-open{% endif %}" id="financeiroComprovanteModal" aria-hidden="{% if relatorios_open_comprovante_modal %}false{% else %}true{% endif %}">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="financeiroComprovanteModalTitle">
       <h3 id="financeiroComprovanteModalTitle">Novo comprovante de gasto</h3>
@@ -1032,6 +1069,66 @@
 
   <script>
     (function () {
+      const cardModal = document.getElementById('financeiroCardExtratoModal');
+      const cardCloseBtn = document.getElementById('financeiroCardExtratoModalClose');
+      const cardTitle = document.getElementById('financeiroCardExtratoModalTitle');
+      const cardSubtitle = document.getElementById('financeiroCardExtratoModalSubtitle');
+      const cardBody = document.getElementById('financeiroCardExtratoBody');
+      const cardOpenButtons = Array.from(document.querySelectorAll('[data-card-extrato-open]'));
+      const cardDataMap = {
+        mensalidades: JSON.parse((document.getElementById('financeiroCardExtratoMensalidadesData') || {}).textContent || '[]'),
+        loja: JSON.parse((document.getElementById('financeiroCardExtratoLojaData') || {}).textContent || '[]'),
+        eventos: JSON.parse((document.getElementById('financeiroCardExtratoEventosData') || {}).textContent || '[]'),
+      };
+
+      function openCardModal() {
+        if (!cardModal) return;
+        cardModal.classList.add('is-open');
+        cardModal.setAttribute('aria-hidden', 'false');
+      }
+      function closeCardModal() {
+        if (!cardModal) return;
+        cardModal.classList.remove('is-open');
+        cardModal.setAttribute('aria-hidden', 'true');
+      }
+      function renderCardExtrato(tipo) {
+        const rows = Array.isArray(cardDataMap[tipo]) ? cardDataMap[tipo] : [];
+        const tituloMap = { mensalidades: 'Extrato - Mensalidades', loja: 'Extrato - Loja', eventos: 'Extrato - Eventos' };
+        if (cardTitle) cardTitle.textContent = tituloMap[tipo] || 'Extrato';
+        if (cardSubtitle) cardSubtitle.textContent = 'Transação por transação (data, descrição e valor).';
+        if (cardBody) {
+          cardBody.innerHTML = '';
+          if (!rows.length) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td colspan="3">Nenhuma transação encontrada.</td>';
+            cardBody.appendChild(tr);
+          } else {
+            rows.forEach((row) => {
+              const tr = document.createElement('tr');
+              const valorClass = String(row && row.valor_css || '');
+              tr.innerHTML =
+                '<td>' + String(row && row.data || '-') + '</td>' +
+                '<td>' + String(row && row.descricao || '-') + '</td>' +
+                '<td class="extrato-valor ' + valorClass + '">' + String(row && row.valor_sinal || '+') + ' ' + String(row && row.valor || 'R$ 0,00') + '</td>';
+              cardBody.appendChild(tr);
+            });
+          }
+        }
+        openCardModal();
+      }
+      cardOpenButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const tipo = String(btn.getAttribute('data-card-extrato-open') || '').trim();
+          renderCardExtrato(tipo);
+        });
+      });
+      if (cardCloseBtn) cardCloseBtn.addEventListener('click', closeCardModal);
+      if (cardModal) {
+        cardModal.addEventListener('click', (event) => {
+          if (event.target === cardModal) closeCardModal();
+        });
+      }
+
       const modal = document.getElementById('financeiroComprovanteModal');
       const openBtn = document.getElementById('financeiroOpenComprovanteModal');
       const closeBtn = document.getElementById('financeiroComprovanteModalCancelar');
@@ -1053,6 +1150,10 @@
         if (event.target === modal) closeModal();
       });
       document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && cardModal && cardModal.classList.contains('is-open')) {
+          closeCardModal();
+          return;
+        }
         if (event.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
       });
     })();

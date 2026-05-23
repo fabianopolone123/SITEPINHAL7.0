@@ -1212,3 +1212,5 @@ ame e label sem quebrar a tela.
 - Removida da tela de evento a secao de consulta de codigo cashback (checkout e modal Vender), mantendo apenas selecao normal de aventureiro para uso de saldo.
 
 - Vendas inscritos: checkout/Pix ajustado para cobrar somente itens do carrinho, sem somar valor de inscricao; inscricao segue apenas como vinculo da compra.
+
+- Financeiro > Relatorios: cards Mensalidades, Loja e Eventos agora abrem janela suspensa ao clicar no nome, exibindo extrato detalhado por transacao (data, descricao e valor).

@@ -10623,6 +10623,17 @@ class FinanceiroView(LoginRequiredMixin, View):
 
     def _relatorios_context(self, comprovante_query='', open_comprovante_modal=False):
         comprovante_query = str(comprovante_query or '').strip()
+        def _row(data_ref, descricao, valor_decimal):
+            valor_decimal = Decimal(valor_decimal or Decimal('0.00')).quantize(Decimal('0.01'))
+            return {
+                'timestamp': data_ref or timezone.now(),
+                'data': timezone.localtime(data_ref).strftime('%d/%m/%Y %H:%M') if data_ref else '-',
+                'descricao': str(descricao or '-'),
+                'valor': self._format_currency(abs(valor_decimal)),
+                'valor_sinal': '+' if valor_decimal >= 0 else '-',
+                'valor_css': 'is-saida' if valor_decimal < 0 else 'is-entrada',
+            }
+
         def _normalize_comprovante_destino(raw_destino):
             destino = str(raw_destino or '').strip().lower()
             if destino in {
@@ -10899,6 +10910,9 @@ class FinanceiroView(LoginRequiredMixin, View):
             })
 
         comprovantes_rows = []
+        comprovantes_caixa_rows = []
+        comprovantes_loja_rows = []
+        comprovantes_eventos_rows = []
         for gasto in comprovantes_gasto:
             destino = _normalize_comprovante_destino(getattr(gasto, 'destino', ''))
             impacta_liquido = destino == FinanceiroComprovante.DESTINO_CAIXA_LIQUIDO
@@ -10921,6 +10935,13 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'created_by': gasto.created_by.username if gasto.created_by else '-',
                 'comprovante_url': gasto.comprovante.url if getattr(gasto, 'comprovante', None) else '',
             })
+            gasto_linha = _row(gasto.created_at, f'Gasto: {gasto.nome}', -Decimal(gasto.valor))
+            if destino == FinanceiroComprovante.DESTINO_LOJA_GERAL:
+                comprovantes_loja_rows.append(gasto_linha)
+            elif destino == FinanceiroComprovante.DESTINO_EVENTOS:
+                comprovantes_eventos_rows.append(gasto_linha)
+            else:
+                comprovantes_caixa_rows.append(gasto_linha)
             extrato_entries.append({
                 'created_at': gasto.created_at,
                 'tipo': tipo_gasto,
@@ -10956,6 +10977,107 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'impacta_liquido': False,
                 'impacto_label_custom': 'Abate resultado de eventos',
             })
+
+        # Extratos por card (Mensalidades / Loja / Eventos)
+        relatorios_card_mensalidades_rows = []
+        relatorios_card_loja_rows = []
+        relatorios_card_eventos_rows = []
+
+        for pagamento in mensalidades_pagas:
+            data_ref = pagamento.paid_at or pagamento.created_at
+            responsavel_nome = (
+                pagamento.responsavel.responsavel_nome
+                or pagamento.responsavel.mae_nome
+                or pagamento.responsavel.pai_nome
+                or pagamento.responsavel.user.username
+            )
+            valor_total = Decimal(pagamento.valor_total or Decimal('0.00')).quantize(Decimal('0.01'))
+            relatorios_card_mensalidades_rows.append(
+                _row(data_ref, f'Mensalidade paga #{pagamento.pk} - {responsavel_nome}', valor_total)
+            )
+            taxa = (valor_total * taxa_transacao_percentual).quantize(Decimal('0.01'))
+            relatorios_card_mensalidades_rows.append(
+                _row(data_ref, f'Taxa banco 1% - pagamento #{pagamento.pk}', -taxa)
+            )
+        relatorios_card_mensalidades_rows.extend(comprovantes_caixa_rows)
+
+        for pedido in pedidos_loja_pagos:
+            if getattr(pedido, 'evento_id', None):
+                continue
+            data_ref = pedido.paid_at or pedido.created_at
+            responsavel_nome = (
+                pedido.responsavel.responsavel_nome
+                or pedido.responsavel.mae_nome
+                or pedido.responsavel.pai_nome
+                or pedido.responsavel.user.username
+            )
+            valor_total = Decimal(pedido.valor_total or Decimal('0.00')).quantize(Decimal('0.01'))
+            relatorios_card_loja_rows.append(
+                _row(data_ref, f'Pedido loja #{pedido.pk} - {responsavel_nome}', valor_total)
+            )
+            taxa = (valor_total * taxa_transacao_percentual).quantize(Decimal('0.01'))
+            relatorios_card_loja_rows.append(
+                _row(data_ref, f'Taxa banco 1% - pedido loja #{pedido.pk}', -taxa)
+            )
+        relatorios_card_loja_rows.extend(comprovantes_loja_rows)
+
+        for inscricao_evento in inscricoes_evento_extrato:
+            evento_nome = str(getattr(getattr(inscricao_evento, 'evento', None), 'name', '') or '').strip()
+            responsavel_nome = evento_helper._responsavel_label_from_inscricao(inscricao_evento)
+            codigo = str(getattr(inscricao_evento, 'codigo_inscricao', '') or '-')
+            valor_inscricao = Decimal(getattr(inscricao_evento, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+            valor_estornado = Decimal(getattr(inscricao_evento, 'valor_estornado', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+            pedido_pago = pedido_pago_por_inscricao.get(inscricao_evento.id)
+            data_entrada = (
+                getattr(pedido_pago, 'paid_at', None)
+                or getattr(pedido_pago, 'created_at', None)
+                or inscricao_evento.created_at
+            )
+            if valor_inscricao > 0:
+                relatorios_card_eventos_rows.append(
+                    _row(data_entrada, f'Inscricao evento {codigo} - {responsavel_nome} | {evento_nome}', valor_inscricao)
+                )
+                taxa_inscricao = (valor_inscricao * taxa_transacao_percentual).quantize(Decimal('0.01'))
+                relatorios_card_eventos_rows.append(
+                    _row(data_entrada, f'Taxa banco 1% - inscricao {codigo} | {evento_nome}', -taxa_inscricao)
+                )
+            if bool(getattr(inscricao_evento, 'cancelada', False)) and valor_estornado > 0:
+                relatorios_card_eventos_rows.append(
+                    _row(inscricao_evento.cancelada_at or inscricao_evento.updated_at, f'Estorno inscricao {codigo} - {responsavel_nome} | {evento_nome}', -valor_estornado)
+                )
+
+        for pedido in pedidos_loja_pagos:
+            if not getattr(pedido, 'evento_id', None):
+                continue
+            data_ref = pedido.paid_at or pedido.created_at
+            responsavel_nome = (
+                pedido.responsavel.responsavel_nome
+                or pedido.responsavel.mae_nome
+                or pedido.responsavel.pai_nome
+                or pedido.responsavel.user.username
+            )
+            evento_nome = str(getattr(getattr(pedido, 'evento', None), 'name', '') or '').strip()
+            valor_total = Decimal(pedido.valor_total or Decimal('0.00')).quantize(Decimal('0.01'))
+            relatorios_card_eventos_rows.append(
+                _row(data_ref, f'Pedido evento #{pedido.pk} - {responsavel_nome} | {evento_nome}', valor_total)
+            )
+            taxa = (valor_total * taxa_transacao_percentual).quantize(Decimal('0.01'))
+            relatorios_card_eventos_rows.append(
+                _row(data_ref, f'Taxa banco 1% - pedido evento #{pedido.pk} | {evento_nome}', -taxa)
+            )
+
+        relatorios_card_eventos_rows.extend(comprovantes_eventos_rows)
+        for custo in custos_evento_rows:
+            valor_custo = Decimal(getattr(custo, 'valor', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+            evento_nome = str(getattr(getattr(custo, 'evento', None), 'name', '') or '').strip()
+            nome_custo = str(getattr(custo, 'nome', '') or '').strip() or f'Custo #{custo.id}'
+            relatorios_card_eventos_rows.append(
+                _row(custo.created_at, f'Custo evento: {nome_custo} | {evento_nome}', -valor_custo)
+            )
+
+        relatorios_card_mensalidades_rows = sorted(relatorios_card_mensalidades_rows, key=lambda item: item.get('timestamp') or timezone.now(), reverse=True)
+        relatorios_card_loja_rows = sorted(relatorios_card_loja_rows, key=lambda item: item.get('timestamp') or timezone.now(), reverse=True)
+        relatorios_card_eventos_rows = sorted(relatorios_card_eventos_rows, key=lambda item: item.get('timestamp') or timezone.now(), reverse=True)
 
         sorted_entries = sorted(
             extrato_entries,
@@ -11015,6 +11137,9 @@ class FinanceiroView(LoginRequiredMixin, View):
             'relatorios_open_comprovante_modal': bool(open_comprovante_modal),
             'relatorios_sync_days': int(self.relatorios_sync_days_default),
             'relatorios_sync_max_items': int(self.relatorios_sync_max_items_default),
+            'relatorios_card_mensalidades_rows': relatorios_card_mensalidades_rows,
+            'relatorios_card_loja_rows': relatorios_card_loja_rows,
+            'relatorios_card_eventos_rows': relatorios_card_eventos_rows,
         }
 
     def _sync_loja_pagamentos_manual(self, days=None, max_items=None):
