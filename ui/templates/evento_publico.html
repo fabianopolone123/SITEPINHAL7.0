@@ -1577,8 +1577,12 @@
           {% endif %}
           <p class="event-consulta-search-tip">{% if active_mode == 'vendasinscritos' %}Dica: ao selecionar um inscrito no modo Comprar, o carrinho e o Pix ficam vinculados a ele.{% else %}Dica: o sistema detecta automaticamente se voce digitou CPF ou codigo.{% endif %}</p>
           <div class="action-row">
-            <button type="submit" class="primary">Buscar inscricao</button>
-            <a href="?modo=inscricao" class="secondary">Fazer nova inscricao</a>
+            {% if active_mode == 'vendasinscritos' %}
+              <p class="panel-note" style="margin:0;">Digite para filtrar e selecione uma sugestao para continuar.</p>
+            {% else %}
+              <button type="submit" class="primary">Buscar inscricao</button>
+              <a href="?modo=inscricao" class="secondary">Fazer nova inscricao</a>
+            {% endif %}
           </div>
           </form>
         </div>
@@ -1613,14 +1617,16 @@
                     <span>Responsavel</span>
                     <strong>{{ row.responsavel|default:"-" }}</strong>
                   </div>
-                  <div class="event-consulta-field">
-                    <span>CPF</span>
-                    <strong>{{ row.cpf_responsavel|default:"-" }}</strong>
-                  </div>
-                  <div class="event-consulta-field">
-                    <span>WhatsApp</span>
-                    <strong>{{ row.whatsapp_responsavel|default:"-" }}</strong>
-                  </div>
+                  {% if active_mode != 'vendasinscritos' %}
+                    <div class="event-consulta-field">
+                      <span>CPF</span>
+                      <strong>{{ row.cpf_responsavel|default:"-" }}</strong>
+                    </div>
+                    <div class="event-consulta-field">
+                      <span>WhatsApp</span>
+                      <strong>{{ row.whatsapp_responsavel|default:"-" }}</strong>
+                    </div>
+                  {% endif %}
                   <div class="event-consulta-field">
                     <span>Valor da inscricao</span>
                     <strong>{{ row.valor_inscricao_fmt }}{% if row.valor_inscricao_unidades %} ({{ row.valor_inscricao_unidades }}x){% endif %}</strong>
@@ -1667,18 +1673,20 @@
                     </div>
                   </div>
                 {% endif %}
-                <div class="event-consulta-others">
-                  <p class="event-consulta-subtitle">Outros dados</p>
-                  {% if row.outros_dados_rows %}
-                    <ul>
-                      {% for data_item in row.outros_dados_rows %}
-                        <li><strong>{{ data_item.label }}:</strong> {{ data_item.value }}</li>
-                      {% endfor %}
-                    </ul>
-                  {% else %}
-                    <p class="panel-note">Nenhum outro dado adicional informado.</p>
-                  {% endif %}
-                </div>
+                {% if active_mode != 'vendasinscritos' %}
+                  <div class="event-consulta-others">
+                    <p class="event-consulta-subtitle">Outros dados</p>
+                    {% if row.outros_dados_rows %}
+                      <ul>
+                        {% for data_item in row.outros_dados_rows %}
+                          <li><strong>{{ data_item.label }}:</strong> {{ data_item.value }}</li>
+                        {% endfor %}
+                      </ul>
+                    {% else %}
+                      <p class="panel-note">Nenhum outro dado adicional informado.</p>
+                    {% endif %}
+                  </div>
+                {% endif %}
                 {% if row.pode_editar %}
                   <form method="post">
                     {% csrf_token %}
@@ -3410,6 +3418,46 @@
           .replace(/[\u0300-\u036f]/g, '')
           .replace(/\s+/g, ' ');
       };
+      const initVendasInscritosAutoSearch = () => {
+        const isVendasInscritos = String('{{ active_mode|default:""|escapejs }}') === 'vendasinscritos';
+        if (!isVendasInscritos) return;
+        const form = document.querySelector('.event-consulta-search-form');
+        if (!(form instanceof HTMLFormElement)) return;
+        const input = form.querySelector('input[name="consulta_termo"]');
+        if (!(input instanceof HTMLInputElement)) return;
+        const datalistId = input.getAttribute('list');
+        if (!datalistId) return;
+        const listNode = document.getElementById(datalistId);
+        const validValues = new Set();
+        if (listNode) {
+          listNode.querySelectorAll('option').forEach((option) => {
+            const value = String(option.getAttribute('value') || '').trim();
+            if (value) validValues.add(value);
+          });
+        }
+        let typingTimer = null;
+        const trySubmit = () => {
+          const value = String(input.value || '').trim();
+          if (!value) return;
+          if (validValues.size > 0 && !validValues.has(value)) return;
+          form.requestSubmit();
+        };
+        input.addEventListener('change', trySubmit);
+        input.addEventListener('keyup', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            trySubmit();
+            return;
+          }
+          if (typingTimer) clearTimeout(typingTimer);
+          typingTimer = window.setTimeout(() => {
+            const value = String(input.value || '').trim();
+            if (value && validValues.has(value)) {
+              trySubmit();
+            }
+          }, 180);
+        });
+      };
 
       const rowHasAnyValue = (rowObj) => {
         if (!rowObj || typeof rowObj !== 'object') return false;
@@ -4739,6 +4787,7 @@
         }
         render();
       };
+      initVendasInscritosAutoSearch();
       initEventSaleForm();
 
       const bootUrlParams = new URLSearchParams(window.location.search);
