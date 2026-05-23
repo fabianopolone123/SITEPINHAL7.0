@@ -1202,3 +1202,5 @@ ame e label sem quebrar a tela.
 
 - Vendas inscritos (link publico): removidas opcoes de consultar/cadastrar/editar nessa rota; agora o fluxo fica somente em selecionar inscricao, adicionar itens e pagar.
 - Backend reforcado na rota /eventos/{id}/vendas-inscritos/ para aceitar apenas acao de consultar inscricao (vinculo da compra), bloqueando tentativas de cadastro/edicao por URL manual.
+
+- Vendas inscritos: busca da tela passou a exibir sugestoes dinamicas enquanto digita (codigo, responsavel ou crianca), com clique direto na opcao para preencher e buscar.
