@@ -4918,6 +4918,7 @@ class EventoPrinterDriverDownloadView(View):
             driver_sources = [
                 base_dir / 'DRIVER' / 'POS58 DRIVER',
                 base_dir / 'ui' / 'static' / 'driver' / 'POS58 DRIVER',
+                Path(settings.BASE_DIR) / 'staticfiles' / 'driver' / 'POS58 DRIVER',
             ]
             source_dir = next((path for path in driver_sources if path.exists() and path.is_dir()), None)
             if source_dir is None:
