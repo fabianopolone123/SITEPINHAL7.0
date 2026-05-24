@@ -15133,7 +15133,7 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
                     self._pdf_text(commands, 36, y, f'Item: {group["produto"]} > {group["variacao"]} (cont.)', size=9, bold=True)
                     y -= 11
                 line = (
-                    f'- {compra["comprador"]} | Pagamento: {compra.get("forma_pagamento", "-")} | Quantidade: {compra["quantidade"]} | '
+                    f'- {compra["comprador"]} | {compra.get("forma_pagamento", "-")} | Quantidade: {compra["quantidade"]} | '
                     f'Valor: {self._format_currency(compra["valor"])}'
                 )
                 for wrap_line in self._pdf_wrap(line, 88):
