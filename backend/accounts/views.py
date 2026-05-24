@@ -6949,6 +6949,57 @@ class EventoPublicoView(View):
         )
         return render(request, self.template_name, self._context(request, evento))
 
+    def _registrar_inscricao_teste_sem_pix(self, request, evento, inscricao):
+        if not inscricao:
+            return False, 'Inscricao nao encontrada para finalizar em modo teste.'
+        if getattr(inscricao, 'cancelada', False):
+            return False, 'Esta inscricao esta cancelada e nao pode ser finalizada.'
+
+        valor_inscricao = Decimal(getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+        if valor_inscricao <= 0:
+            if not inscricao.confirmada:
+                inscricao.confirmada = True
+                inscricao.save(update_fields=['confirmada', 'updated_at'])
+            return True, 'Inscricao confirmada em modo teste (sem cobranca).'
+
+        responsavel = inscricao.responsavel
+        if not responsavel:
+            responsavel, guest_error = EventoPedidoCreatePixApiView()._guest_responsavel_from_inscricao(inscricao, evento)
+            if guest_error:
+                return False, guest_error
+            inscricao.responsavel = responsavel
+            inscricao.save(update_fields=['responsavel', 'updated_at'])
+
+        with transaction.atomic():
+            pedido = LojaPedido.objects.create(
+                responsavel=responsavel,
+                evento=evento,
+                evento_inscricao=inscricao,
+                forma_pagamento=LojaPedido.FORMA_PAGAMENTO_DINHEIRO,
+                valor_total=valor_inscricao,
+                status=LojaPedido.STATUS_PAGO,
+                paid_at=timezone.now(),
+                entregue=False,
+                created_by=request.user if request.user.is_authenticated else None,
+            )
+            LojaPedidoItem.objects.create(
+                pedido=pedido,
+                produto=None,
+                variacao=None,
+                produto_titulo=f'Inscricao do evento: {evento.name}',
+                variacao_nome=f'Codigo {str(inscricao.codigo_inscricao or "-").strip()}',
+                quantidade=1,
+                quantidade_entregue=0,
+                valor_unitario=valor_inscricao,
+                valor_total=valor_inscricao,
+                foto_url='',
+            )
+            if not inscricao.confirmada:
+                inscricao.confirmada = True
+                inscricao.save(update_fields=['confirmada', 'updated_at'])
+
+        return True, f'Inscricao confirmada em modo teste. Pedido #{pedido.id} criado como pago ({self._format_currency(valor_inscricao)}).'
+
     def _handle_registrar_venda_evento_atendente(self, request, evento):
         inscricao_id_raw = str(request.POST.get('sale_inscricao_id') or '').strip()
         if not inscricao_id_raw.isdigit():
@@ -7583,6 +7634,7 @@ class EventoPublicoView(View):
             return render(request, self.template_name, self._context(request, evento, active_mode='inscricao', edit_target_inscricao=edit_target_inscricao))
         indicador_aventureiro = loja_view._resolve_indicador_from_code(codigo_indicacao_input) if codigo_indicacao_input else None
         finalize_after_save = str(request.POST.get('finalize_after_save') or '').strip() == '1'
+        admin_confirm_without_pix = str(request.POST.get('admin_confirm_without_pix') or '').strip() == '1'
         sale_registration_mode = str(request.POST.get('sale_registration_mode') or '').strip() in {'1', 'true', 'yes'}
         inscricao_salva = None
         if edit_target_inscricao:
@@ -7749,15 +7801,28 @@ class EventoPublicoView(View):
                         request.session[session_key] = inscricao_obj.pk
                     inscricao_salva = inscricao_obj
                     messages.success(request, 'Inscricao do evento salva com sucesso.')
+
+        if admin_confirm_without_pix:
+            if not can_manage_evento:
+                messages.error(request, 'Apenas a gestao do evento pode usar o atalho de teste sem Pix.')
+            elif not inscricao_salva:
+                messages.error(request, 'Nao foi possivel localizar a inscricao para finalizar em modo teste.')
+            else:
+                ok, feedback = self._registrar_inscricao_teste_sem_pix(request, evento, inscricao_salva)
+                if ok:
+                    messages.success(request, feedback)
+                else:
+                    messages.error(request, feedback)
+
         return render(
             request,
             self.template_name,
             self._context(
                 request,
                 evento,
-                show_register_summary=bool(inscricao_salva and not finalize_after_save),
+                show_register_summary=bool(inscricao_salva and not finalize_after_save and not admin_confirm_without_pix),
                 active_mode='inscricao',
-                auto_start_pix=bool(finalize_after_save and inscricao_salva and not sale_registration_mode),
+                auto_start_pix=bool(finalize_after_save and inscricao_salva and not sale_registration_mode and not admin_confirm_without_pix),
             ),
         )
 

@@ -2590,6 +2590,9 @@
             <button type="submit" class="primary">Salvar inscricao para venda</button>
           {% else %}
             <p class="panel-note" style="margin:0;">Use o botao "Finalizar e pagar" para salvar a inscricao e gerar o Pix.</p>
+            {% if can_manage_evento %}
+              <button type="submit" class="secondary" name="admin_confirm_without_pix" value="1">Salvar e marcar pago (teste)</button>
+            {% endif %}
           {% endif %}
         </div>
       </form>
