@@ -1224,3 +1224,5 @@ ame e label sem quebrar a tela.
 - Hotfix: corrigido erro de JavaScript no assistente de impressora que impedia acao do botao 'Instalar impressora'; gerador de .bat foi simplificado para fluxo estavel.
 
 - Assistente de impressora: instalador .bat agora funciona fora da raiz do projeto (na pasta de downloads), elevando para admin e executando o .ps1 companion da mesma pasta; download do .bat passou a baixar automaticamente o .ps1 correspondente.
+
+- Hotfix fallback: botao/fechar do modal 'Instalar impressora' agora possuem onclick direto no HTML para abrir/fechar mesmo se algum JS secundario falhar no carregamento da pagina.
