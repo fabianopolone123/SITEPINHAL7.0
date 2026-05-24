@@ -7746,35 +7746,28 @@ class EventoPublicoView(View):
                 messages.error(request, 'Somente o usuario fabianop pode calcular taxas neste evento.')
                 return render(request, self.template_name, self._context(request, evento))
             total_liquido_geral_desejado = self._parse_valor(request.POST.get('target_total_liquido_geral'))
-            saldo_liquido_informado = self._parse_valor(request.POST.get('saldo_liquido_conta'))
             taxa_cartao_calculada = None
             lucro_bruto_atual = self._evento_lucro_bruto_atual(evento)
-
-            if total_liquido_geral_desejado is not None:
-                financeiro_ctx = FinanceiroView()._relatorios_context()
-                total_liquido_geral_atual = self._parse_valor(
-                    financeiro_ctx.get('relatorios_total_geral_liquido')
-                )
-                if total_liquido_geral_atual is None:
-                    total_liquido_geral_atual = Decimal('0.00')
-                delta_taxa_necessario = (total_liquido_geral_atual - total_liquido_geral_desejado).quantize(Decimal('0.01'))
-                bruto_evento_antes_estorno = self._evento_bruto_antes_estorno_atual(evento)
-                taxa_padrao_evento = (bruto_evento_antes_estorno * Decimal('0.01')).quantize(Decimal('0.01'))
-                taxa_manual_atual = _evento_taxa_cartao_manual(evento)
-                taxa_evento_atual = taxa_manual_atual if taxa_manual_atual is not None else taxa_padrao_evento
-                taxa_cartao_calculada = (taxa_evento_atual + delta_taxa_necessario).quantize(Decimal('0.01'))
-                if taxa_cartao_calculada < 0:
-                    taxa_cartao_calculada = Decimal('0.00')
-            elif saldo_liquido_informado is not None:
-                taxa_cartao_calculada = (lucro_bruto_atual - saldo_liquido_informado).quantize(Decimal('0.01'))
-                if taxa_cartao_calculada < 0:
-                    taxa_cartao_calculada = Decimal('0.00')
-            else:
+            if total_liquido_geral_desejado is None:
                 messages.error(
                     request,
-                    'Informe o total liquido geral desejado (ou o saldo liquido da conta) para calcular a taxa.',
+                    'Informe o total liquido geral desejado para calcular a taxa.',
                 )
                 return render(request, self.template_name, self._context(request, evento, open_event_taxas=True))
+            financeiro_ctx = FinanceiroView()._relatorios_context()
+            total_liquido_geral_atual = self._parse_valor(
+                financeiro_ctx.get('relatorios_total_geral_liquido')
+            )
+            if total_liquido_geral_atual is None:
+                total_liquido_geral_atual = Decimal('0.00')
+            delta_taxa_necessario = (total_liquido_geral_atual - total_liquido_geral_desejado).quantize(Decimal('0.01'))
+            bruto_evento_antes_estorno = self._evento_bruto_antes_estorno_atual(evento)
+            taxa_padrao_evento = (bruto_evento_antes_estorno * Decimal('0.01')).quantize(Decimal('0.01'))
+            taxa_manual_atual = _evento_taxa_cartao_manual(evento)
+            taxa_evento_atual = taxa_manual_atual if taxa_manual_atual is not None else taxa_padrao_evento
+            taxa_cartao_calculada = (taxa_evento_atual + delta_taxa_necessario).quantize(Decimal('0.01'))
+            if taxa_cartao_calculada < 0:
+                taxa_cartao_calculada = Decimal('0.00')
 
             evento.taxa_cartao_evento = taxa_cartao_calculada
             evento.save(update_fields=['taxa_cartao_evento', 'updated_at'])
