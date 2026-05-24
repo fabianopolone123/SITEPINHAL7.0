@@ -2514,6 +2514,7 @@
         {% if sale_registration_mode %}<input type="hidden" name="sale_registration_mode" value="1" />{% endif %}
         <input type="hidden" name="edit_registration_id" id="event-edit-registration-id" value="{{ form_edit_registration_id }}" />
         <input type="hidden" name="finalize_after_save" id="event-finalize-after-save" value="0" />
+        <input type="hidden" name="admin_test_items_json" id="event-admin-test-items-json" value="[]" />
         <div class="field-section">
           {% for field in schema %}
             {% if field.type == 'repetidor' %}
@@ -2859,6 +2860,7 @@
       const indicacaoInput = registerForm ? registerForm.querySelector('input[name="codigo_indicacao"]') : null;
       const indicacaoFeedbackNode = document.getElementById('event-indicacao-feedback');
       const finalizeAfterSaveInput = document.getElementById('event-finalize-after-save');
+      const adminTestItemsInput = document.getElementById('event-admin-test-items-json');
       const deleteSelectedInscricoesForm = document.getElementById('event-delete-selected-inscricoes-form');
       const deleteSelectedPasswordInput = document.getElementById('event-delete-selected-password');
       const inscritosSelectAll = document.getElementById('event-inscritos-select-all');
@@ -3443,6 +3445,13 @@
         }
       };
 
+      const serializeAdminTestItemsFromCart = () => {
+        return cart.map((item) => ({
+          variation_id: Number(item.variationId || 0),
+          quantity: Math.max(1, Number(item.quantity || 1)),
+        })).filter((item) => item.variation_id > 0 && item.quantity > 0);
+      };
+
       const restoreCartAfterSave = () => {
         try {
           if (!window.sessionStorage) return;
@@ -3471,6 +3480,26 @@
           // ignore restore failures
         }
       };
+
+      if (registerForm) {
+        registerForm.addEventListener('submit', (event) => {
+          if (!adminTestItemsInput) return;
+          const submitter = event.submitter || document.activeElement;
+          const isAdminTestSubmit = (
+            submitter instanceof HTMLElement
+            && String(submitter.getAttribute('name') || '').trim() === 'admin_confirm_without_pix'
+          );
+          if (!isAdminTestSubmit) {
+            adminTestItemsInput.value = '[]';
+            return;
+          }
+          try {
+            adminTestItemsInput.value = JSON.stringify(serializeAdminTestItemsFromCart());
+          } catch (error) {
+            adminTestItemsInput.value = '[]';
+          }
+        });
+      }
 
       const runPixCheckoutFlow = async () => {
         const inscricaoVinculoId = Number(vendaInscritoSelectedIdInput ? vendaInscritoSelectedIdInput.value : 0) || 0;

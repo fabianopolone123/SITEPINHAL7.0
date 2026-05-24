@@ -6956,18 +6956,30 @@ class EventoPublicoView(View):
         )
         return render(request, self.template_name, self._context(request, evento))
 
-    def _registrar_inscricao_teste_sem_pix(self, request, evento, inscricao):
+    def _registrar_inscricao_teste_sem_pix(self, request, evento, inscricao, cart_items=None):
         if not inscricao:
             return False, 'Inscricao nao encontrada para finalizar em modo teste.'
         if getattr(inscricao, 'cancelada', False):
             return False, 'Esta inscricao esta cancelada e nao pode ser finalizada.'
 
         valor_inscricao = Decimal(getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
-        if valor_inscricao <= 0:
-            if not inscricao.confirmada:
-                inscricao.confirmada = True
-                inscricao.save(update_fields=['confirmada', 'updated_at'])
-            return True, 'Inscricao confirmada em modo teste (sem cobranca).'
+        cart_rows = []
+        for row in (cart_items or []):
+            if not isinstance(row, dict):
+                continue
+            raw_variacao = str(row.get('variation_id') or '').strip()
+            if not raw_variacao.isdigit():
+                continue
+            try:
+                quantidade = int(row.get('quantity') or 0)
+            except (TypeError, ValueError):
+                quantidade = 0
+            if quantidade <= 0:
+                continue
+            cart_rows.append({
+                'variation_id': int(raw_variacao),
+                'quantity': quantidade,
+            })
 
         responsavel = inscricao.responsavel
         if not responsavel:
@@ -6978,34 +6990,117 @@ class EventoPublicoView(View):
             inscricao.save(update_fields=['responsavel', 'updated_at'])
 
         with transaction.atomic():
+            variacoes = {}
+            if cart_rows:
+                variacoes = {
+                    variacao.id: variacao
+                    for variacao in (
+                        LojaProdutoVariacao.objects
+                        .select_for_update()
+                        .select_related('produto')
+                        .filter(
+                            id__in=[item['variation_id'] for item in cart_rows],
+                            ativo=True,
+                            produto__ativo=True,
+                            produto__evento=evento,
+                        )
+                    )
+                }
+                if len(variacoes) != len({item['variation_id'] for item in cart_rows}):
+                    return False, 'Um ou mais itens do carrinho nao pertencem a este evento ou estao inativos.'
+
+            total_itens = Decimal('0.00')
+            pedido_items_payload = []
+            if valor_inscricao > 0:
+                pedido_items_payload.append({
+                    'produto': None,
+                    'variacao': None,
+                    'produto_titulo': f'Inscricao do evento: {evento.name}',
+                    'variacao_nome': f'Codigo {str(inscricao.codigo_inscricao or "-").strip()}',
+                    'quantidade': 1,
+                    'valor_unitario': valor_inscricao,
+                    'valor_total': valor_inscricao,
+                    'foto_url': '',
+                })
+
+            for item in cart_rows:
+                variacao = variacoes.get(item['variation_id'])
+                if not variacao:
+                    continue
+                if variacao.estoque is not None and int(item['quantity']) > int(variacao.estoque):
+                    return False, (
+                        f'Estoque insuficiente para {variacao.produto.titulo} - {variacao.nome}. '
+                        f'Disponivel: {max(0, int(variacao.estoque))}.'
+                    )
+                valor_unitario = Decimal(variacao.valor or Decimal('0.00')).quantize(Decimal('0.01'))
+                valor_total_item = (valor_unitario * int(item['quantity'])).quantize(Decimal('0.01'))
+                total_itens += valor_total_item
+                foto_url = ''
+                if getattr(variacao.produto, 'foto', None):
+                    try:
+                        foto_url = variacao.produto.foto.url
+                    except Exception:
+                        foto_url = ''
+                pedido_items_payload.append({
+                    'produto': variacao.produto,
+                    'variacao': variacao,
+                    'produto_titulo': variacao.produto.titulo,
+                    'variacao_nome': variacao.nome,
+                    'quantidade': int(item['quantity']),
+                    'valor_unitario': valor_unitario,
+                    'valor_total': valor_total_item,
+                    'foto_url': foto_url,
+                })
+
+            total_pedido = (valor_inscricao + total_itens).quantize(Decimal('0.01'))
+            if total_pedido <= 0:
+                if not inscricao.confirmada:
+                    inscricao.confirmada = True
+                    inscricao.save(update_fields=['confirmada', 'updated_at'])
+                return True, 'Inscricao confirmada em modo teste (sem cobranca).'
+
             pedido = LojaPedido.objects.create(
                 responsavel=responsavel,
                 evento=evento,
                 evento_inscricao=inscricao,
                 forma_pagamento=LojaPedido.FORMA_PAGAMENTO_DINHEIRO,
-                valor_total=valor_inscricao,
+                valor_total=total_pedido,
                 status=LojaPedido.STATUS_PAGO,
                 paid_at=timezone.now(),
                 entregue=False,
                 created_by=request.user if request.user.is_authenticated else None,
             )
-            LojaPedidoItem.objects.create(
-                pedido=pedido,
-                produto=None,
-                variacao=None,
-                produto_titulo=f'Inscricao do evento: {evento.name}',
-                variacao_nome=f'Codigo {str(inscricao.codigo_inscricao or "-").strip()}',
-                quantidade=1,
-                quantidade_entregue=0,
-                valor_unitario=valor_inscricao,
-                valor_total=valor_inscricao,
-                foto_url='',
-            )
+            LojaPedidoItem.objects.bulk_create([
+                LojaPedidoItem(
+                    pedido=pedido,
+                    produto=item['produto'],
+                    variacao=item['variacao'],
+                    produto_titulo=item['produto_titulo'],
+                    variacao_nome=item['variacao_nome'],
+                    quantidade=item['quantidade'],
+                    quantidade_entregue=0,
+                    valor_unitario=item['valor_unitario'],
+                    valor_total=item['valor_total'],
+                    foto_url=item['foto_url'],
+                )
+                for item in pedido_items_payload
+            ])
+
+            for item in cart_rows:
+                variacao = variacoes.get(item['variation_id'])
+                if not variacao or variacao.estoque is None:
+                    continue
+                variacao.estoque = max(0, int(variacao.estoque) - int(item['quantity']))
+                variacao.save(update_fields=['estoque', 'updated_at'])
+
             if not inscricao.confirmada:
                 inscricao.confirmada = True
                 inscricao.save(update_fields=['confirmada', 'updated_at'])
 
-        return True, f'Inscricao confirmada em modo teste. Pedido #{pedido.id} criado como pago ({self._format_currency(valor_inscricao)}).'
+        return True, (
+            f'Inscricao confirmada em modo teste. '
+            f'Pedido #{pedido.id} criado como pago ({self._format_currency(total_pedido)}).'
+        )
 
     def _handle_registrar_venda_evento_atendente(self, request, evento):
         inscricao_id_raw = str(request.POST.get('sale_inscricao_id') or '').strip()
@@ -7815,7 +7910,21 @@ class EventoPublicoView(View):
             elif not inscricao_salva:
                 messages.error(request, 'Nao foi possivel localizar a inscricao para finalizar em modo teste.')
             else:
-                ok, feedback = self._registrar_inscricao_teste_sem_pix(request, evento, inscricao_salva)
+                cart_items_teste = []
+                raw_cart_items = str(request.POST.get('admin_test_items_json') or '').strip()
+                if raw_cart_items:
+                    try:
+                        parsed_cart_items = json.loads(raw_cart_items)
+                        if isinstance(parsed_cart_items, list):
+                            cart_items_teste = parsed_cart_items
+                    except (TypeError, ValueError, json.JSONDecodeError):
+                        cart_items_teste = []
+                ok, feedback = self._registrar_inscricao_teste_sem_pix(
+                    request,
+                    evento,
+                    inscricao_salva,
+                    cart_items=cart_items_teste,
+                )
                 if ok:
                     messages.success(request, feedback)
                 else:
