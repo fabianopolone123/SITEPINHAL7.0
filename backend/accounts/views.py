@@ -4915,6 +4915,17 @@ class EventoPrinterDriverDownloadView(View):
             return response
 
         if kind == 'driver':
+            bundled_zip = base_dir / 'DRIVER' / 'POS_58_Driver-11.3.0.0.zip'
+            if bundled_zip.exists() and bundled_zip.is_file():
+                try:
+                    payload = bundled_zip.read_bytes()
+                except OSError:
+                    return HttpResponse('Falha ao ler arquivo de driver no servidor.', status=500)
+                response = HttpResponse(payload, content_type='application/zip')
+                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                response['Content-Length'] = str(len(payload))
+                return response
+
             driver_sources = [
                 base_dir / 'DRIVER' / 'POS58 DRIVER',
                 base_dir / 'ui' / 'static' / 'driver' / 'POS58 DRIVER',
