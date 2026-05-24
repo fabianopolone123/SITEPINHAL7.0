@@ -14856,6 +14856,62 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
             row_y -= (row_height + 4)
         return y - (chart_height + 8)
 
+    def _chart_columns_with_legend(self, commands, *, x, y, width, title, rows):
+        self._pdf_text(commands, x, y, title, size=11, bold=True, color='#0f172a')
+        y -= 14
+        max_value = Decimal('0.00')
+        normalized_rows = []
+        for idx, row in enumerate(rows, start=1):
+            try:
+                value = Decimal(row.get('value') or Decimal('0.00')).quantize(Decimal('0.01'))
+            except (InvalidOperation, TypeError, ValueError):
+                value = Decimal('0.00')
+            if value > max_value:
+                max_value = value
+            normalized_rows.append({
+                'idx': idx,
+                'label': str(row.get('label') or '-').strip() or '-',
+                'value': value,
+                'color': str(row.get('color') or '#0ea5e9'),
+            })
+        if max_value <= 0:
+            max_value = Decimal('1.00')
+
+        legend_lines = []
+        for item in normalized_rows:
+            base = f'{item["idx"]}. {item["label"]} - qtd {int(item["value"])}'
+            legend_lines.extend(self._pdf_wrap(base, 86))
+        legend_height = max(22, len(legend_lines) * 9 + 8)
+        bar_area_height = 92
+        chart_height = bar_area_height + legend_height + 10
+
+        self._pdf_rect(commands, x, y - chart_height, width, chart_height, fill='#f8fafc', stroke='#cbd5e1')
+
+        bars_x = x + 18
+        bars_y = y - 10
+        bars_w = width - 36
+        bars_h = bar_area_height - 18
+        count = max(1, len(normalized_rows))
+        slot_w = bars_w / float(count)
+        bar_w = max(8.0, min(30.0, slot_w * 0.6))
+        for pos, item in enumerate(normalized_rows):
+            ratio = float(item['value'] / max_value) if max_value > 0 else 0.0
+            if ratio < 0:
+                ratio = 0.0
+            bar_h = max(1.0, ratio * bars_h)
+            bar_x = bars_x + (slot_w * pos) + ((slot_w - bar_w) / 2.0)
+            bar_y = bars_y - 8 - bar_h
+            self._pdf_rect(commands, bar_x, bar_y, bar_w, bar_h, fill=item['color'], stroke=item['color'], line_width=0.3)
+            self._pdf_text(commands, bar_x + (bar_w / 2.0) - 3, bars_y - 16, str(item['idx']), size=7, bold=True, color='#334155')
+            self._pdf_text(commands, bar_x + (bar_w / 2.0) - 8, bar_y - 8, str(int(item['value'])), size=7, color='#0f172a')
+
+        legend_y = y - bar_area_height - 4
+        for line in legend_lines:
+            self._pdf_text(commands, x + 10, legend_y, line, size=8, color='#334155')
+            legend_y -= 9
+
+        return y - (chart_height + 8)
+
     def get(self, request, event_id):
         evento = get_object_or_404(Evento, pk=event_id)
         guard = self._guard(request, evento)
@@ -15071,10 +15127,9 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
         if not loja_chart_rows:
             loja_chart_rows = [{'label': 'Sem vendas', 'value': Decimal('0.00'), 'color': '#94a3b8'}]
 
-        chart_chunks = [loja_chart_rows[index:index + 16] for index in range(0, len(loja_chart_rows), 16)]
+        chart_chunks = [loja_chart_rows[index:index + 8] for index in range(0, len(loja_chart_rows), 8)]
         for chunk_idx, chunk in enumerate(chart_chunks, start=1):
-            needed_height = max(88, 24 + (len(chunk) * 16)) + 26
-            if y - needed_height < 88:
+            if y < 340:
                 commands, y = self._pdf_new_event_page(
                     pages,
                     generated_at=now_label,
@@ -15084,14 +15139,13 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
             chunk_title = 'Grafico de quantidade por variacao da lojinha'
             if len(chart_chunks) > 1:
                 chunk_title = f'{chunk_title} ({chunk_idx}/{len(chart_chunks)})'
-            y = self._chart_hbars(
+            y = self._chart_columns_with_legend(
                 commands,
                 x=36,
                 y=y,
                 width=523,
                 title=chunk_title,
                 rows=chunk,
-                show_currency=False,
             )
 
         if y < 120:
