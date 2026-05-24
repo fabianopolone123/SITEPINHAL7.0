@@ -2390,8 +2390,10 @@
             <div class="action-row" style="margin-top:.65rem;">
               <button type="button" class="secondary" id="event-printer-copy-script">Copiar script</button>
               <button type="button" class="primary" id="event-printer-download-script">Baixar script .ps1</button>
+              <button type="button" class="primary" id="event-printer-download-installer">Baixar instalador .bat</button>
             </div>
             <p class="panel-note" id="event-printer-setup-feedback" style="margin-top:.45rem;">Conecte a impressora no USB antes de executar.</p>
+            <p class="panel-note">Atalho local pronto no projeto: <code>driver\instalar-impressora-ol1005.bat</code> (duplo clique no Windows).</p>
           </section>
           <section class="field-section">
             <h4>Script de instalacao</h4>
@@ -2835,6 +2837,7 @@
       const printerScriptTextarea = document.getElementById('event-printer-script');
       const printerCopyBtn = document.getElementById('event-printer-copy-script');
       const printerDownloadBtn = document.getElementById('event-printer-download-script');
+      const printerDownloadInstallerBtn = document.getElementById('event-printer-download-installer');
       const printerFeedbackNode = document.getElementById('event-printer-setup-feedback');
       const registerSummaryModal = document.getElementById('event-register-summary-modal');
       const closeRegisterSummaryBtn = document.getElementById('close-event-register-summary');
@@ -3626,6 +3629,19 @@
           ? String(printerDriverUrlInput.value || '').trim()
           : '';
         printerScriptTextarea.value = buildPrinterInstallScript(selectedModel, selectedUrl);
+      };
+      const buildPrinterInstallerBat = (modelName, driverUrl) => {
+        const safeModel = String(modelName || 'OL-1005').trim() || 'OL-1005';
+        const safeDriverUrl = String(driverUrl || '').trim().replace(/"/g, '""');
+        return [
+          '@echo off',
+          'setlocal',
+          'set "MODEL=' + safeModel + '"',
+          'set "DRIVER_URL=' + safeDriverUrl + '"',
+          'set "PS1=%TEMP%\\instalar-impressora-termica.ps1"',
+          'powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath ''powershell'' -ArgumentList ''-NoProfile -ExecutionPolicy Bypass -Command \"\"if(-not([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){Start-Process cmd -ArgumentList ''''/c \"\"\"\"%~f0\"\"\"\"'''' -Verb RunAs; exit}; $DriverUrl=''''%DRIVER_URL%''''; $PrinterName=''''%MODEL% USB''''; $DriverName=''''Generic / Text Only''''; $PortName=''''USB001''''; ' + String.raw`$` + 'ErrorActionPreference=''''Stop''''; if(' + String.raw`$` + 'DriverUrl){' + String.raw`$` + 'tmp=' + String.raw`$` + 'env:TEMP + ''''\\drv_'''' + [guid]::NewGuid().ToString(''''N''''); New-Item -ItemType Directory -Path ' + String.raw`$` + 'tmp -Force|Out-Null; ' + String.raw`$` + 'file=' + String.raw`$` + 'tmp + ''''\\driver.zip''''; Invoke-WebRequest -Uri ' + String.raw`$` + 'DriverUrl -OutFile ' + String.raw`$` + 'file -UseBasicParsing; Expand-Archive -Path ' + String.raw`$` + 'file -DestinationPath ' + String.raw`$` + 'tmp -Force; Get-ChildItem ' + String.raw`$` + 'tmp -Recurse -Filter *.inf | % { pnputil /add-driver ' + String.raw`$` + '_.FullName /install | Out-Null } }; if(-not (Get-PrinterDriver -Name ' + String.raw`$` + 'DriverName -ErrorAction SilentlyContinue)){ ' + String.raw`$` + 'd=Get-PrinterDriver | Select-Object -First 1; if(' + String.raw`$` + 'd){' + String.raw`$` + 'DriverName=' + String.raw`$` + 'd.Name} }; if(-not (Get-PrinterPort -Name ' + String.raw`$` + 'PortName -ErrorAction SilentlyContinue)){ try{Add-PrinterPort -Name ' + String.raw`$` + 'PortName}catch{} }; if(Get-Printer -Name ' + String.raw`$` + 'PrinterName -ErrorAction SilentlyContinue){ Set-Printer -Name ' + String.raw`$` + 'PrinterName -DriverName ' + String.raw`$` + 'DriverName -PortName ' + String.raw`$` + 'PortName } else { Add-Printer -Name ' + String.raw`$` + 'PrinterName -DriverName ' + String.raw`$` + 'DriverName -PortName ' + String.raw`$` + 'PortName }; ' + String.raw`$` + 'txt=''''TESTE IMPRESSORA '''' + ' + String.raw`$` + 'PrinterName + '''' - '''' + (Get-Date).ToString(''''dd/MM/yyyy HH:mm:ss''''); ' + String.raw`$` + 'f=' + String.raw`$` + 'env:TEMP + ''''\\teste-impressora.txt''''; Set-Content -Path ' + String.raw`$` + 'f -Value ' + String.raw`$` + 'txt -Encoding ASCII; Get-Content ' + String.raw`$` + 'f | Out-Printer -Name ' + String.raw`$` + 'PrinterName; Write-Host ''''Instalacao concluida.'''' -ForegroundColor Green\"\"'' -Verb RunAs"',
+          'endlocal'
+        ].join('\r\n');
       };
       const initVendasInscritosAutoSearch = () => {
         const isVendasInscritos = String('{{ active_mode|default:""|escapejs }}') === 'vendasinscritos';
@@ -4721,6 +4737,23 @@
           link.remove();
           URL.revokeObjectURL(url);
           if (printerFeedbackNode) printerFeedbackNode.textContent = 'Arquivo .ps1 baixado. Execute como Administrador no Windows.';
+        });
+      }
+      if (printerDownloadInstallerBtn) {
+        printerDownloadInstallerBtn.addEventListener('click', () => {
+          const selectedModel = printerModelSelect instanceof HTMLSelectElement ? String(printerModelSelect.value || 'OL-1005') : 'OL-1005';
+          const selectedUrl = printerDriverUrlInput instanceof HTMLInputElement ? String(printerDriverUrlInput.value || '').trim() : '';
+          const batText = buildPrinterInstallerBat(selectedModel, selectedUrl);
+          const blob = new Blob([batText], { type: 'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'instalar-impressora-termica-' + selectedModel.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.bat';
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+          if (printerFeedbackNode) printerFeedbackNode.textContent = 'Instalador .bat baixado. Execute com duplo clique no Windows.';
         });
       }
 

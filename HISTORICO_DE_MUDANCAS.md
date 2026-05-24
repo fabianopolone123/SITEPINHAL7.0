@@ -1218,3 +1218,5 @@ ame e label sem quebrar a tela.
 - Eventos (gestao): adicionado botao 'Instalar impressora' com janela guiada para impressora termica USB (inclui modelo OL-1005), com script PowerShell pronto para copiar/baixar e teste de impressao.
 
 - Assistente de impressora (eventos): adicionado campo de URL do driver e script PowerShell com download automatico + tentativa de instalacao (zip/cab/inf/exe) antes da configuracao da impressora USB.
+
+- Criado instalador local 1-clique para impressora OL-1005 em driver\instalar-impressora-ol1005.bat (chama script PowerShell e tenta instalar INF da pasta driver\POS58 DRIVER, configurar USB001 e imprimir teste).
