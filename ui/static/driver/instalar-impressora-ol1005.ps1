@@ -1,11 +1,11 @@
-$ErrorActionPreference = "Stop"
-
 param(
   [string]$PrinterName = "OL-1005 USB",
   [string]$DriverName = "Generic / Text Only",
   [string]$PortName = "USB001",
   [string]$DriverDir = ".\POS58 DRIVER"
 )
+
+$ErrorActionPreference = "Stop"
 
 Write-Host "Instalando impressora termica OL-1005..." -ForegroundColor Cyan
 
