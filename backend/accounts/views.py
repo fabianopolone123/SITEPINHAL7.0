@@ -5349,6 +5349,73 @@ class EventoPublicoView(View):
             })
         return breakdown
 
+    def _inscricao_faixas_resumo(self, evento, inscricoes):
+        mode = self._normalize_inscricao_valor_modo(getattr(evento, 'inscricao_valor_modo', ''))
+        if mode != Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR:
+            return []
+        config = getattr(evento, 'inscricao_valor_config', {}) or {}
+        if not isinstance(config, dict):
+            return []
+        repeat_field = str(config.get('repeat_field') or '').strip()
+        age_field = str(config.get('age_field') or '').strip()
+        ranges = config.get('ranges') if isinstance(config.get('ranges'), list) else []
+        if not repeat_field or not age_field or not ranges:
+            return []
+
+        faixas = []
+        for item in ranges:
+            if not isinstance(item, dict):
+                continue
+            try:
+                min_age = int(item.get('min'))
+                max_age = int(item.get('max'))
+                value = Decimal(str(item.get('value') or '0')).quantize(Decimal('0.01'))
+            except (TypeError, ValueError, InvalidOperation):
+                continue
+            if max_age < min_age:
+                continue
+            faixas.append({
+                'min': min_age,
+                'max': max_age,
+                'value': value,
+                'quantidade': 0,
+                'valor_total': Decimal('0.00'),
+            })
+        if not faixas:
+            return []
+
+        for inscricao in (inscricoes or []):
+            dados_obj = getattr(inscricao, 'dados', {}) if inscricao is not None else {}
+            if not isinstance(dados_obj, dict):
+                continue
+            repeat_rows = dados_obj.get(repeat_field)
+            if not isinstance(repeat_rows, list):
+                continue
+            for row in repeat_rows:
+                if not self._row_has_any_value(row) or not isinstance(row, dict):
+                    continue
+                age_text = str(row.get(age_field) or '').strip()
+                age_match = re.search(r'\d{1,3}', age_text)
+                if not age_match:
+                    continue
+                age = int(age_match.group(0))
+                for faixa in faixas:
+                    if faixa['min'] <= age <= faixa['max']:
+                        faixa['quantidade'] += 1
+                        faixa['valor_total'] = (faixa['valor_total'] + faixa['value']).quantize(Decimal('0.01'))
+                        break
+
+        resumo = []
+        for faixa in faixas:
+            label = f"{faixa['min']}-{faixa['max']}"
+            resumo.append({
+                'label': label,
+                'quantidade': int(faixa['quantidade']),
+                'valor_total_raw': str(faixa['valor_total']),
+                'valor_total_fmt': self._format_currency(faixa['valor_total']),
+            })
+        return resumo
+
     def _selector_options_from_field(self, field):
         field_obj = field or {}
         options = []
@@ -6538,6 +6605,7 @@ class EventoPublicoView(View):
         pedidos_preview_rows = []
         inscritos_detalhes = []
         sale_inscricoes_detalhes = []
+        inscricao_faixas_resumo = []
         event_extrato_rows = []
         atendente_produtos = []
         inscricoes_canceladas_count = 0
@@ -6588,9 +6656,14 @@ class EventoPublicoView(View):
                     .order_by('-created_at')
                 )
                 inscricoes_excluir_teste_ids = _evento_inscricoes_excluir_teste_ids(evento=evento)
+                inscricoes_base_relatorio_qs = inscricoes_base_qs.exclude(id__in=list(inscricoes_excluir_teste_ids))
                 inscricoes_count = self._inscricoes_participantes_count(
-                    inscricoes_base_qs.exclude(id__in=list(inscricoes_excluir_teste_ids)),
+                    inscricoes_base_relatorio_qs,
                     evento=evento,
+                )
+                inscricao_faixas_resumo = self._inscricao_faixas_resumo(
+                    evento,
+                    inscricoes_base_relatorio_qs,
                 )
                 inscricoes_canceladas_qs = (
                     EventoInscricao.objects
@@ -6606,8 +6679,7 @@ class EventoPublicoView(View):
                     or Decimal('0.00')
                 )
                 inscricoes_valor_total = (
-                    inscricoes_base_qs
-                    .exclude(id__in=list(inscricoes_excluir_teste_ids))
+                    inscricoes_base_relatorio_qs
                     .aggregate(total=Sum('valor_inscricao'))
                     .get('total')
                     or Decimal('0.00')
@@ -6932,6 +7004,7 @@ class EventoPublicoView(View):
             'pedidos_preview_rows': pedidos_preview_rows,
             'inscritos_detalhes': inscritos_detalhes,
             'sale_inscricoes_detalhes': sale_inscricoes_detalhes,
+            'inscricao_faixas_resumo': inscricao_faixas_resumo,
             'event_extrato_rows': event_extrato_rows,
             'cashback_rows': cashback_rows,
             'open_event_extrato': bool(open_event_extrato),

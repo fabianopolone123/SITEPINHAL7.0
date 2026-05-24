@@ -1851,6 +1851,9 @@
           <span class="event-metric-pill">Custos: {{ custos_total_fmt }}</span>
           <span class="event-metric-pill">Lucro liquido: {{ lucro_liquido_fmt }}</span>
           <span class="event-metric-pill">Cobranca: {{ inscricao_valor_config_text }}</span>
+          {% for faixa in inscricao_faixas_resumo %}
+            <span class="event-metric-pill">Faixa {{ faixa.label }}: {{ faixa.quantidade }} inscrito(s) | {{ faixa.valor_total_fmt }}</span>
+          {% endfor %}
           <span class="event-metric-pill">Pagina: {% if evento.inscricao_publica %}Publica{% else %}Privada{% endif %}</span>
         </div>
         <div class="action-row">
