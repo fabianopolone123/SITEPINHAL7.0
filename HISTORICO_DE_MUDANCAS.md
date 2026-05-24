@@ -1220,3 +1220,5 @@ ame e label sem quebrar a tela.
 - Assistente de impressora (eventos): adicionado campo de URL do driver e script PowerShell com download automatico + tentativa de instalacao (zip/cab/inf/exe) antes da configuracao da impressora USB.
 
 - Criado instalador local 1-clique para impressora OL-1005 em driver\instalar-impressora-ol1005.bat (chama script PowerShell e tenta instalar INF da pasta driver\POS58 DRIVER, configurar USB001 e imprimir teste).
+
+- Hotfix: corrigido erro de JavaScript no assistente de impressora que impedia acao do botao 'Instalar impressora'; gerador de .bat foi simplificado para fluxo estavel.

@@ -3638,8 +3638,19 @@
           'setlocal',
           'set "MODEL=' + safeModel + '"',
           'set "DRIVER_URL=' + safeDriverUrl + '"',
-          'set "PS1=%TEMP%\\instalar-impressora-termica.ps1"',
-          'powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath ''powershell'' -ArgumentList ''-NoProfile -ExecutionPolicy Bypass -Command \"\"if(-not([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){Start-Process cmd -ArgumentList ''''/c \"\"\"\"%~f0\"\"\"\"'''' -Verb RunAs; exit}; $DriverUrl=''''%DRIVER_URL%''''; $PrinterName=''''%MODEL% USB''''; $DriverName=''''Generic / Text Only''''; $PortName=''''USB001''''; ' + String.raw`$` + 'ErrorActionPreference=''''Stop''''; if(' + String.raw`$` + 'DriverUrl){' + String.raw`$` + 'tmp=' + String.raw`$` + 'env:TEMP + ''''\\drv_'''' + [guid]::NewGuid().ToString(''''N''''); New-Item -ItemType Directory -Path ' + String.raw`$` + 'tmp -Force|Out-Null; ' + String.raw`$` + 'file=' + String.raw`$` + 'tmp + ''''\\driver.zip''''; Invoke-WebRequest -Uri ' + String.raw`$` + 'DriverUrl -OutFile ' + String.raw`$` + 'file -UseBasicParsing; Expand-Archive -Path ' + String.raw`$` + 'file -DestinationPath ' + String.raw`$` + 'tmp -Force; Get-ChildItem ' + String.raw`$` + 'tmp -Recurse -Filter *.inf | % { pnputil /add-driver ' + String.raw`$` + '_.FullName /install | Out-Null } }; if(-not (Get-PrinterDriver -Name ' + String.raw`$` + 'DriverName -ErrorAction SilentlyContinue)){ ' + String.raw`$` + 'd=Get-PrinterDriver | Select-Object -First 1; if(' + String.raw`$` + 'd){' + String.raw`$` + 'DriverName=' + String.raw`$` + 'd.Name} }; if(-not (Get-PrinterPort -Name ' + String.raw`$` + 'PortName -ErrorAction SilentlyContinue)){ try{Add-PrinterPort -Name ' + String.raw`$` + 'PortName}catch{} }; if(Get-Printer -Name ' + String.raw`$` + 'PrinterName -ErrorAction SilentlyContinue){ Set-Printer -Name ' + String.raw`$` + 'PrinterName -DriverName ' + String.raw`$` + 'DriverName -PortName ' + String.raw`$` + 'PortName } else { Add-Printer -Name ' + String.raw`$` + 'PrinterName -DriverName ' + String.raw`$` + 'DriverName -PortName ' + String.raw`$` + 'PortName }; ' + String.raw`$` + 'txt=''''TESTE IMPRESSORA '''' + ' + String.raw`$` + 'PrinterName + '''' - '''' + (Get-Date).ToString(''''dd/MM/yyyy HH:mm:ss''''); ' + String.raw`$` + 'f=' + String.raw`$` + 'env:TEMP + ''''\\teste-impressora.txt''''; Set-Content -Path ' + String.raw`$` + 'f -Value ' + String.raw`$` + 'txt -Encoding ASCII; Get-Content ' + String.raw`$` + 'f | Out-Printer -Name ' + String.raw`$` + 'PrinterName; Write-Host ''''Instalacao concluida.'''' -ForegroundColor Green\"\"'' -Verb RunAs"',
+          'echo Iniciando instalacao da impressora %MODEL%...',
+          'echo.',
+          'echo 1) Execute este .bat como Administrador.',
+          'echo 2) Se estiver no projeto, prefira usar DRIVER\\instalar-impressora-ol1005.bat',
+          'echo 3) URL de driver informada: %DRIVER_URL%',
+          'echo.',
+          'if exist ".\\DRIVER\\instalar-impressora-ol1005.bat" (',
+          '  call ".\\DRIVER\\instalar-impressora-ol1005.bat"',
+          ') else (',
+          '  echo Nao encontrei DRIVER\\instalar-impressora-ol1005.bat nesta pasta.',
+          '  echo Copie este arquivo para a raiz do projeto e execute novamente.',
+          '  pause',
+          ')',
           'endlocal'
         ].join('\r\n');
       };
