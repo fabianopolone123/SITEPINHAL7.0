@@ -586,7 +586,7 @@
                 <span>{{ relatorios_total_gastos_eventos }}</span>
               </div>
               <div class="financeiro-origin-row is-cost">
-                <strong>Taxas<small>Banco {{ relatorios_taxa_transacao_percentual }} sobre o bruto</small></strong>
+                <strong>Taxas<small>{{ relatorios_eventos_taxas_hint }}</small></strong>
                 <span>{{ relatorios_total_taxas_eventos }}</span>
               </div>
               <div class="financeiro-origin-row is-liquid">
@@ -617,6 +617,7 @@
               <span>{{ relatorios_total_taxas_transacao }}</span>
               <p class="financeiro-report-note">Taxa aplicada: {{ relatorios_taxa_transacao_percentual }} sobre cada entrada bruta paga.</p>
               <p class="financeiro-report-note">Mensalidades: {{ relatorios_total_taxas_mensalidades }} | Loja: {{ relatorios_total_taxas_loja_geral }} | Eventos: {{ relatorios_total_taxas_eventos }}</p>
+              <p class="financeiro-report-note">{{ relatorios_eventos_taxas_hint }}</p>
             </div>
           </div>
         </section>
@@ -1095,7 +1096,7 @@
         const rows = Array.isArray(cardDataMap[tipo]) ? cardDataMap[tipo] : [];
         const tituloMap = { mensalidades: 'Extrato - Mensalidades', loja: 'Extrato - Loja', eventos: 'Extrato - Eventos' };
         if (cardTitle) cardTitle.textContent = tituloMap[tipo] || 'Extrato';
-        if (cardSubtitle) cardSubtitle.textContent = 'Transação por transação com entradas líquidas (taxa de 1% já descontada).';
+        if (cardSubtitle) cardSubtitle.textContent = 'Transação por transação com entradas líquidas e ajustes de taxa quando houver cálculo manual por evento.';
         if (cardBody) {
           cardBody.innerHTML = '';
           if (!rows.length) {

@@ -1850,6 +1850,8 @@
           <span class="event-metric-pill">Total inscricoes: {{ inscricoes_valor_total_fmt }}</span>
           <span class="event-metric-pill">Receita total: {{ receita_total_fmt }}</span>
           <span class="event-metric-pill">Custos: {{ custos_total_fmt }}</span>
+          <span class="event-metric-pill">Lucro bruto: {{ lucro_bruto_fmt }}</span>
+          <span class="event-metric-pill">Taxas cartao: {{ taxa_cartao_evento_fmt }}</span>
           <span class="event-metric-pill">Lucro liquido: {{ lucro_liquido_fmt }}</span>
           <span class="event-metric-pill">Cobranca: {{ inscricao_valor_config_text }}</span>
           {% for faixa in inscricao_faixas_resumo %}
@@ -1871,6 +1873,7 @@
           <a href="{% url 'accounts:evento_relatorio_pdf' evento.id %}" class="secondary" style="text-decoration:none;">Baixar relatorio</a>
           <button type="button" class="secondary" id="open-event-extrato">Extrato</button>
           <button type="button" class="secondary" id="open-event-costs">Custos</button>
+          <button type="button" class="secondary" id="open-event-taxas">Calcular taxas</button>
           <button type="button" class="secondary" id="open-event-printer-setup" onclick="(function(){var m=document.getElementById('event-printer-setup-modal');if(m){m.setAttribute('aria-hidden','false');m.classList.add('show');m.classList.add('is-open');}})();">Instalar impressora</button>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Editar campos</a>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Cadastrar produtos</a>
@@ -2264,6 +2267,8 @@
             <p><strong>Total inscricoes:</strong> {{ inscricoes_valor_total_fmt }}</p>
             <p><strong>Receita total:</strong> {{ receita_total_fmt }}</p>
             <p><strong>Custos:</strong> {{ custos_total_fmt }}</p>
+            <p><strong>Lucro bruto:</strong> {{ lucro_bruto_fmt }}</p>
+            <p><strong>Taxas cartao:</strong> {{ taxa_cartao_evento_fmt }}</p>
             <p><strong>Lucro liquido:</strong> {{ lucro_liquido_fmt }}</p>
           </section>
           <section class="field-section">
@@ -2480,6 +2485,34 @@
         </div>
       </div>
 
+      <div class="modal event-report-modal" id="event-taxas-modal" aria-hidden="true" {% if open_event_taxas %}data-autoshow="1"{% endif %}>
+        <div class="modal-content">
+          <header>
+            <h3>Calcular taxas de cartao - {{ evento.name }}</h3>
+            <button type="button" id="close-event-taxas" aria-label="Fechar">X</button>
+          </header>
+          <section class="field-section">
+            <p class="panel-note"><strong>Lucro bruto atual do evento:</strong> {{ lucro_bruto_fmt }}</p>
+            <p class="panel-note"><strong>Taxas cartao atuais:</strong> {{ taxa_cartao_evento_fmt }}</p>
+            <p class="panel-note">
+              Informe o saldo liquido real da conta do evento. A taxa sera calculada como:
+              <strong>lucro bruto - saldo liquido informado</strong>.
+            </p>
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="calcular_taxa_cartao_evento" />
+              <label>
+                Saldo atual liquido da conta
+                <input type="text" name="saldo_liquido_conta" placeholder="0,00" required />
+              </label>
+              <div class="action-row">
+                <button type="submit" class="primary">Calcular e salvar taxa</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </div>
+
       <div class="modal event-report-modal" id="event-costs-modal" aria-hidden="true">
         <div class="modal-content">
           <header>
@@ -2489,6 +2522,7 @@
           <div class="event-cost-summary">
             <span class="event-metric-pill">Total pago: {{ pedidos_total_pago_fmt }}</span>
             <span class="event-metric-pill">Custos: {{ custos_total_fmt }}</span>
+            <span class="event-metric-pill">Taxas cartao: {{ taxa_cartao_evento_fmt }}</span>
             <span class="event-metric-pill">Lucro liquido: {{ lucro_liquido_fmt }}</span>
           </div>
           <form method="post" enctype="multipart/form-data" class="event-cost-form">
@@ -2907,6 +2941,9 @@
       const costsModal = document.getElementById('event-costs-modal');
       const openCostsBtn = document.getElementById('open-event-costs');
       const closeCostsBtn = document.getElementById('close-event-costs');
+      const taxasModal = document.getElementById('event-taxas-modal');
+      const openTaxasBtn = document.getElementById('open-event-taxas');
+      const closeTaxasBtn = document.getElementById('close-event-taxas');
       const printerSetupModal = document.getElementById('event-printer-setup-modal');
       const openPrinterSetupBtn = document.getElementById('open-event-printer-setup');
       const closePrinterSetupBtn = document.getElementById('close-event-printer-setup');
@@ -4774,6 +4811,27 @@
             closeModal(costsModal);
           }
         });
+      }
+
+      if (openTaxasBtn && taxasModal) {
+        openTaxasBtn.addEventListener('click', () => {
+          openModal(taxasModal);
+        });
+      }
+      if (closeTaxasBtn && taxasModal) {
+        closeTaxasBtn.addEventListener('click', () => {
+          closeModal(taxasModal);
+        });
+      }
+      if (taxasModal) {
+        taxasModal.addEventListener('click', (event) => {
+          if (event.target === taxasModal) {
+            closeModal(taxasModal);
+          }
+        });
+        if (String(taxasModal.getAttribute('data-autoshow') || '').trim() === '1') {
+          openModal(taxasModal);
+        }
       }
 
       if (openPrinterSetupBtn && printerSetupModal) {

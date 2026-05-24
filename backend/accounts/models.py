@@ -603,6 +603,13 @@ class Evento(models.Model):
         default=Decimal('0.00'),
     )
     inscricao_valor_config = models.JSONField('configuracao da cobranca da inscricao', default=dict, blank=True)
+    taxa_cartao_evento = models.DecimalField(
+        'taxa de cartao do evento',
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
     fields_data = models.JSONField('campos do evento', default=list, blank=True)
     created_by = models.ForeignKey(
         User,

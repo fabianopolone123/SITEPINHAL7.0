@@ -197,6 +197,21 @@ def _pedido_evento_itens_total(pedido):
     return valor_itens_evento
 
 
+def _evento_taxa_cartao_manual(evento):
+    if evento is None:
+        return None
+    raw_value = getattr(evento, 'taxa_cartao_evento', None)
+    if raw_value in (None, ''):
+        return None
+    try:
+        value = Decimal(raw_value)
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    if value < 0:
+        value = Decimal('0.00')
+    return value.quantize(Decimal('0.01'))
+
+
 def _get_pending_aventures(session):
     return session.get('aventures_pending', [])
 
@@ -6481,6 +6496,40 @@ class EventoPublicoView(View):
             inscricao_ids.append(int(inscricao.id))
         return results, sorted(set(inscricao_ids)), sorted(set(pedido_ids))
 
+    def _evento_lucro_bruto_atual(self, evento):
+        inscricoes_excluir_teste_ids = _evento_inscricoes_excluir_teste_ids(evento=evento)
+        inscricoes_valor_total = (
+            EventoInscricao.objects
+            .filter(evento=evento, confirmada=True, cancelada=False)
+            .exclude(id__in=list(inscricoes_excluir_teste_ids))
+            .aggregate(total=Sum('valor_inscricao'))
+            .get('total')
+            or Decimal('0.00')
+        )
+        pedidos_pagos = list(
+            LojaPedido.objects
+            .filter(
+                evento=evento,
+                status=LojaPedido.STATUS_PAGO,
+                transacao_teste=False,
+            )
+            .exclude(status=LojaPedido.STATUS_CANCELADO)
+            .prefetch_related('itens')
+        )
+        pedidos_total_pago = sum(
+            (_pedido_evento_itens_total(pedido) for pedido in pedidos_pagos),
+            Decimal('0.00'),
+        ).quantize(Decimal('0.01'))
+        custos_total = (
+            EventoCusto.objects
+            .filter(evento=evento)
+            .aggregate(total=Sum('valor'))
+            .get('total')
+            or Decimal('0.00')
+        )
+        receita_total = (Decimal(inscricoes_valor_total) + Decimal(pedidos_total_pago)).quantize(Decimal('0.01'))
+        return (receita_total - Decimal(custos_total)).quantize(Decimal('0.01'))
+
     def _context(
         self,
         request,
@@ -6492,6 +6541,7 @@ class EventoPublicoView(View):
         edit_target_inscricao=None,
         auto_start_pix=False,
         open_event_extrato=False,
+        open_event_taxas=False,
     ):
         schema = self._event_schema(evento)
         produtos = self._produto_rows_evento(evento)
@@ -6614,6 +6664,8 @@ class EventoPublicoView(View):
         inscricoes_canceladas_rows = []
         custos_evento = []
         custos_total = Decimal('0.00')
+        lucro_bruto = Decimal('0.00')
+        taxa_cartao_evento = Decimal('0.00')
         lucro_liquido = Decimal('0.00')
         if can_manage_evento:
             try:
@@ -6713,7 +6765,10 @@ class EventoPublicoView(View):
                     or Decimal('0.00')
                 )
                 receita_total = pedidos_total_pago + inscricoes_valor_total
-                lucro_liquido = receita_total - custos_total
+                lucro_bruto = (receita_total - custos_total).quantize(Decimal('0.01'))
+                taxa_manual = _evento_taxa_cartao_manual(evento)
+                taxa_cartao_evento = taxa_manual if taxa_manual is not None else Decimal('0.00')
+                lucro_liquido = (lucro_bruto - taxa_cartao_evento).quantize(Decimal('0.01'))
                 pedidos_total_pago_fmt = self._format_currency(pedidos_total_pago)
                 inscricoes_valor_total_fmt = self._format_currency(inscricoes_valor_total)
                 inscricoes_canceladas_valor_total_fmt = self._format_currency(inscricoes_canceladas_valor_total)
@@ -6995,6 +7050,8 @@ class EventoPublicoView(View):
             'inscricoes_canceladas_valor_total_fmt': inscricoes_canceladas_valor_total_fmt,
             'receita_total_fmt': receita_total_fmt,
             'custos_total_fmt': self._format_currency(custos_total),
+            'lucro_bruto_fmt': self._format_currency(lucro_bruto),
+            'taxa_cartao_evento_fmt': self._format_currency(taxa_cartao_evento),
             'lucro_liquido_fmt': self._format_currency(lucro_liquido),
             'custos_evento': custos_evento,
             'inscricoes_preview': inscricoes_preview,
@@ -7008,6 +7065,7 @@ class EventoPublicoView(View):
             'event_extrato_rows': event_extrato_rows,
             'cashback_rows': cashback_rows,
             'open_event_extrato': bool(open_event_extrato),
+            'open_event_taxas': bool(open_event_taxas),
         }
         if request.user.is_authenticated:
             context.update(_sidebar_context(request))
@@ -7635,6 +7693,31 @@ class EventoPublicoView(View):
                 f'Pagina do evento marcada como {"ativa" if make_active else "inativa"} com sucesso.',
             )
             return render(request, self.template_name, self._context(request, evento))
+
+        if action == 'calcular_taxa_cartao_evento':
+            if not can_manage_evento:
+                messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
+                return render(request, self.template_name, self._context(request, evento))
+            saldo_liquido_informado = self._parse_valor(request.POST.get('saldo_liquido_conta'))
+            if saldo_liquido_informado is None:
+                messages.error(request, 'Informe um saldo liquido valido para calcular a taxa de cartao.')
+                return render(request, self.template_name, self._context(request, evento, open_event_taxas=True))
+            lucro_bruto_atual = self._evento_lucro_bruto_atual(evento)
+            taxa_cartao_calculada = (lucro_bruto_atual - saldo_liquido_informado).quantize(Decimal('0.01'))
+            if taxa_cartao_calculada < 0:
+                taxa_cartao_calculada = Decimal('0.00')
+            evento.taxa_cartao_evento = taxa_cartao_calculada
+            evento.save(update_fields=['taxa_cartao_evento', 'updated_at'])
+            lucro_liquido_atual = (lucro_bruto_atual - taxa_cartao_calculada).quantize(Decimal('0.01'))
+            messages.success(
+                request,
+                (
+                    f'Taxa de cartao atualizada para {self._format_currency(taxa_cartao_calculada)}. '
+                    f'Lucro bruto: {self._format_currency(lucro_bruto_atual)} | '
+                    f'Lucro liquido: {self._format_currency(lucro_liquido_atual)}.'
+                ),
+            )
+            return render(request, self.template_name, self._context(request, evento, open_event_taxas=True))
 
         if action == 'add_event_cost':
             if not can_manage_evento:
@@ -11318,9 +11401,69 @@ class FinanceiroView(LoginRequiredMixin, View):
         total_taxas_loja_geral = (
             Decimal(total_loja_geral_pago) * taxa_transacao_percentual
         ).quantize(Decimal('0.01'))
-        total_taxas_eventos = (
+        total_taxas_eventos_padrao = (
             Decimal(total_eventos_bruto_antes_estorno) * taxa_transacao_percentual
         ).quantize(Decimal('0.01'))
+        total_taxas_eventos = Decimal(total_taxas_eventos_padrao)
+        ajustes_taxa_eventos_rows = []
+        try:
+            pedidos_evento_total_by_event = {}
+            for pedido in pedidos_loja_pagos:
+                event_id = getattr(pedido, 'evento_id', None)
+                if not event_id:
+                    continue
+                valor_itens = Decimal(pedido_evento_itens_total_map.get(pedido.pk, Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+                pedidos_evento_total_by_event[event_id] = (
+                    Decimal(pedidos_evento_total_by_event.get(event_id, Decimal('0.00'))) + valor_itens
+                ).quantize(Decimal('0.01'))
+
+            inscricoes_excluir_teste_ids = _evento_inscricoes_excluir_teste_ids()
+            inscricoes_pago_por_evento = {
+                int(row['evento_id']): Decimal(row['total'] or Decimal('0.00')).quantize(Decimal('0.01'))
+                for row in (
+                    EventoInscricao.objects
+                    .filter(confirmada=True, cancelada=False, evento_id__isnull=False)
+                    .exclude(id__in=list(inscricoes_excluir_teste_ids))
+                    .values('evento_id')
+                    .annotate(total=Sum('valor_inscricao'))
+                )
+                if row.get('evento_id')
+            }
+            inscricoes_estorno_por_evento = {
+                int(row['evento_id']): Decimal(row['total'] or Decimal('0.00')).quantize(Decimal('0.01'))
+                for row in (
+                    EventoInscricao.objects
+                    .filter(cancelada=True, evento_id__isnull=False)
+                    .values('evento_id')
+                    .annotate(total=Sum('valor_estornado'))
+                )
+                if row.get('evento_id')
+            }
+            for evento_fin in Evento.objects.only('id', 'name', 'taxa_cartao_evento', 'updated_at'):
+                taxa_manual = _evento_taxa_cartao_manual(evento_fin)
+                if taxa_manual is None:
+                    continue
+                inscricoes_pago_evento = Decimal(inscricoes_pago_por_evento.get(evento_fin.id, Decimal('0.00')))
+                inscricoes_estorno_evento = Decimal(inscricoes_estorno_por_evento.get(evento_fin.id, Decimal('0.00')))
+                pedidos_pago_evento = Decimal(pedidos_evento_total_by_event.get(evento_fin.id, Decimal('0.00')))
+                bruto_evento = (inscricoes_pago_evento + inscricoes_estorno_evento + pedidos_pago_evento).quantize(Decimal('0.01'))
+                taxa_padrao_evento = (bruto_evento * taxa_transacao_percentual).quantize(Decimal('0.01'))
+                delta_taxa = (taxa_manual - taxa_padrao_evento).quantize(Decimal('0.01'))
+                if delta_taxa == Decimal('0.00'):
+                    continue
+                total_taxas_eventos = (Decimal(total_taxas_eventos) + delta_taxa).quantize(Decimal('0.01'))
+                ajustes_taxa_eventos_rows.append({
+                    'evento_id': evento_fin.id,
+                    'evento_nome': str(getattr(evento_fin, 'name', '') or f'Evento {evento_fin.id}'),
+                    'taxa_manual': taxa_manual,
+                    'taxa_padrao': taxa_padrao_evento,
+                    'valor_ajuste_liquido': (taxa_padrao_evento - taxa_manual).quantize(Decimal('0.01')),
+                    'timestamp': getattr(evento_fin, 'updated_at', None) or timezone.now(),
+                })
+        except Exception:
+            logger.exception('Falha ao aplicar ajuste de taxa manual por evento no relatorio financeiro.')
+            total_taxas_eventos = Decimal(total_taxas_eventos_padrao)
+
         total_taxas_transacao = (
             Decimal(total_taxas_mensalidades) + Decimal(total_taxas_loja_geral) + Decimal(total_taxas_eventos)
         ).quantize(Decimal('0.01'))
@@ -11625,6 +11768,19 @@ class FinanceiroView(LoginRequiredMixin, View):
             relatorios_card_eventos_rows.append(
                 _row(custo.created_at, f'Custo evento: {nome_custo} | {evento_nome}', -valor_custo)
             )
+        for ajuste in ajustes_taxa_eventos_rows:
+            relatorios_card_eventos_rows.append(
+                _row(
+                    ajuste.get('timestamp') or timezone.now(),
+                    (
+                        f'Ajuste taxa cartao evento {ajuste.get("evento_id")} - '
+                        f'{ajuste.get("evento_nome")} '
+                        f'(manual {self._format_currency(ajuste.get("taxa_manual"))} / '
+                        f'padrao {self._format_currency(ajuste.get("taxa_padrao"))})'
+                    ),
+                    Decimal(ajuste.get('valor_ajuste_liquido') or Decimal('0.00')),
+                )
+            )
 
         relatorios_card_mensalidades_rows = sorted(relatorios_card_mensalidades_rows, key=lambda item: item.get('timestamp') or timezone.now(), reverse=True)
         relatorios_card_loja_rows = sorted(relatorios_card_loja_rows, key=lambda item: item.get('timestamp') or timezone.now(), reverse=True)
@@ -11676,6 +11832,9 @@ class FinanceiroView(LoginRequiredMixin, View):
             'relatorios_resultado_loja_geral': self._format_currency(resultado_loja_geral),
             'relatorios_resultado_eventos': self._format_currency(resultado_eventos),
             'relatorios_taxa_transacao_percentual': '1%',
+            'relatorios_eventos_taxas_hint': (
+                'Eventos: usa 1% por padrao; quando houver taxa manual calculada no evento, o valor manual substitui.'
+            ),
             'relatorios_total_taxas_mensalidades': self._format_currency(total_taxas_mensalidades),
             'relatorios_total_taxas_loja_geral': self._format_currency(total_taxas_loja_geral),
             'relatorios_total_taxas_eventos': self._format_currency(total_taxas_eventos),
@@ -15058,8 +15217,15 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
         )
 
         bruto = (Decimal(inscricoes_valor_total) + Decimal(vendas_lojinha_total)).quantize(Decimal('0.01'))
-        taxas = (bruto * Decimal('0.01')).quantize(Decimal('0.01'))
-        liquido = (bruto - Decimal(custos_total) - taxas).quantize(Decimal('0.01'))
+        taxa_padrao = (bruto * Decimal('0.01')).quantize(Decimal('0.01'))
+        taxa_manual = _evento_taxa_cartao_manual(evento)
+        taxas = taxa_manual if taxa_manual is not None else taxa_padrao
+        liquido = (bruto - Decimal(custos_total) - Decimal(taxas)).quantize(Decimal('0.01'))
+        taxas_label = 'Taxas cartao/pix'
+        if taxa_manual is None:
+            taxas_label = 'Taxas cartao/pix (1%)'
+        else:
+            taxas_label = 'Taxas cartao/pix (calculada)'
 
         pages = []
         now_label = timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M:%S')
@@ -15074,7 +15240,7 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
         metrics_cards = [
             ('Total bruto', bruto, '#eff6ff'),
             ('Total liquido', liquido, '#ecfdf5'),
-            ('Taxas cartao/pix (1%)', taxas, '#fff7ed'),
+            (taxas_label, taxas, '#fff7ed'),
             ('Total venda lojinha', vendas_lojinha_total, '#f5f3ff'),
             ('Total inscricoes', Decimal(inscricoes_valor_total), '#f8fafc'),
         ]
