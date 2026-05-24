@@ -2495,15 +2495,20 @@
             <p class="panel-note"><strong>Lucro bruto atual do evento:</strong> {{ lucro_bruto_fmt }}</p>
             <p class="panel-note"><strong>Taxas cartao atuais:</strong> {{ taxa_cartao_evento_fmt }}</p>
             <p class="panel-note">
-              Informe o saldo liquido real da conta do evento. A taxa sera calculada como:
-              <strong>lucro bruto - saldo liquido informado</strong>.
+              Informe o valor que voce quer ver no <strong>Total liquido geral</strong> em Financeiro > Relatorio.
+              O sistema ajusta a taxa deste evento para bater esse valor no consolidado.
             </p>
             <form method="post">
               {% csrf_token %}
               <input type="hidden" name="action" value="calcular_taxa_cartao_evento" />
               <label>
-                Saldo atual liquido da conta
-                <input type="text" name="saldo_liquido_conta" placeholder="0,00" required />
+                Total liquido geral desejado
+                <input type="text" name="target_total_liquido_geral" placeholder="0,00" required />
+              </label>
+              <p class="panel-note">Opcional (modo antigo): saldo liquido real da conta do evento.</p>
+              <label>
+                Saldo atual liquido da conta (opcional)
+                <input type="text" name="saldo_liquido_conta" placeholder="0,00" />
               </label>
               <div class="action-row">
                 <button type="submit" class="primary">Calcular e salvar taxa</button>
