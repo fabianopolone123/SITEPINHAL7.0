@@ -1228,3 +1228,5 @@ ame e label sem quebrar a tela.
 - Hotfix fallback: botao/fechar do modal 'Instalar impressora' agora possuem onclick direto no HTML para abrir/fechar mesmo se algum JS secundario falhar no carregamento da pagina.
 
 - Hotfix modal impressora: fallback inline passou a adicionar/remover tambem a classe show, garantindo exibicao do modal no mesmo padrao dos demais modais da pagina.
+
+- Impressora: botao de download do instalador passou para link direto de arquivo estatico (.bat/.ps1), removendo dependencia do download via JavaScript Blob.

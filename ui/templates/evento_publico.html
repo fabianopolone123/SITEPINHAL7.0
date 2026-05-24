@@ -2390,7 +2390,22 @@
             <div class="action-row" style="margin-top:.65rem;">
               <button type="button" class="secondary" id="event-printer-copy-script">Copiar script</button>
               <button type="button" class="primary" id="event-printer-download-script">Baixar script .ps1</button>
-              <button type="button" class="primary" id="event-printer-download-installer">Baixar instalador .bat</button>
+              <a
+                class="primary"
+                href="{% static 'driver/instalar-impressora-ol1005.bat' %}"
+                download="instalar-impressora-ol1005.bat"
+                style="text-decoration:none;display:inline-flex;align-items:center;"
+              >
+                Baixar instalador .bat
+              </a>
+              <a
+                class="secondary"
+                href="{% static 'driver/instalar-impressora-ol1005.ps1' %}"
+                download="instalar-impressora-ol1005.ps1"
+                style="text-decoration:none;display:inline-flex;align-items:center;"
+              >
+                Baixar .ps1 padrao
+              </a>
             </div>
             <p class="panel-note" id="event-printer-setup-feedback" style="margin-top:.45rem;">Conecte a impressora no USB antes de executar.</p>
             <p class="panel-note">Atalho local pronto no projeto: <code>driver\instalar-impressora-ol1005.bat</code> (duplo clique no Windows).</p>
@@ -2837,7 +2852,6 @@
       const printerScriptTextarea = document.getElementById('event-printer-script');
       const printerCopyBtn = document.getElementById('event-printer-copy-script');
       const printerDownloadBtn = document.getElementById('event-printer-download-script');
-      const printerDownloadInstallerBtn = document.getElementById('event-printer-download-installer');
       const printerFeedbackNode = document.getElementById('event-printer-setup-feedback');
       const registerSummaryModal = document.getElementById('event-register-summary-modal');
       const closeRegisterSummaryBtn = document.getElementById('close-event-register-summary');
@@ -3629,46 +3643,6 @@
           ? String(printerDriverUrlInput.value || '').trim()
           : '';
         printerScriptTextarea.value = buildPrinterInstallScript(selectedModel, selectedUrl);
-      };
-      const buildPrinterInstallerBat = (modelName, driverUrl) => {
-        const safeModel = String(modelName || 'OL-1005').trim() || 'OL-1005';
-        const safeDriverUrl = String(driverUrl || '').trim().replace(/"/g, '""');
-        const slug = safeModel.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        const ps1Name = 'instalar-impressora-' + slug + '.ps1';
-        return [
-          '@echo off',
-          'setlocal',
-          'set "MODEL=' + safeModel + '"',
-          'set "DRIVER_URL=' + safeDriverUrl + '"',
-          'set "PS1=' + ps1Name + '"',
-          'echo Iniciando instalacao da impressora %MODEL%...',
-          'echo.',
-          'echo 1) Execute este .bat como Administrador.',
-          'echo 2) Mantenha este .bat junto com %PS1%',
-          'echo 3) URL de driver informada: %DRIVER_URL%',
-          'echo.',
-          'net session >nul 2>&1',
-          'if %errorlevel% neq 0 (',
-          '  powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath ''%~f0'' -Verb RunAs"',
-          '  exit /b',
-          ')',
-          'if exist "%~dp0%PS1%" (',
-          '  powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0%PS1%"',
-          ') else (',
-          '  echo Nao encontrei %PS1% na mesma pasta deste .bat.',
-          '  echo Baixe tambem o arquivo .ps1 no botao "Baixar script .ps1".',
-          '  pause',
-          '  exit /b 1',
-          ')',
-          'if %errorlevel% neq 0 (',
-          '  echo Falha durante a instalacao.',
-          '  pause',
-          '  exit /b 1',
-          ')',
-          'echo Instalacao concluida.',
-          'pause',
-          'endlocal'
-        ].join('\r\n');
       };
       const initVendasInscritosAutoSearch = () => {
         const isVendasInscritos = String('{{ active_mode|default:""|escapejs }}') === 'vendasinscritos';
@@ -4764,36 +4738,6 @@
           link.remove();
           URL.revokeObjectURL(url);
           if (printerFeedbackNode) printerFeedbackNode.textContent = 'Arquivo .ps1 baixado. Execute como Administrador no Windows.';
-        });
-      }
-      if (printerDownloadInstallerBtn) {
-        printerDownloadInstallerBtn.addEventListener('click', () => {
-          const selectedModel = printerModelSelect instanceof HTMLSelectElement ? String(printerModelSelect.value || 'OL-1005') : 'OL-1005';
-          const selectedUrl = printerDriverUrlInput instanceof HTMLInputElement ? String(printerDriverUrlInput.value || '').trim() : '';
-          const modelSlug = selectedModel.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-          const ps1Name = 'instalar-impressora-' + modelSlug + '.ps1';
-          const batText = buildPrinterInstallerBat(selectedModel, selectedUrl);
-          const blob = new Blob([batText], { type: 'text/plain;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = 'instalar-impressora-' + modelSlug + '.bat';
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          URL.revokeObjectURL(url);
-          if (printerScriptTextarea instanceof HTMLTextAreaElement) {
-            const psBlob = new Blob([String(printerScriptTextarea.value || '')], { type: 'text/plain;charset=utf-8' });
-            const psUrl = URL.createObjectURL(psBlob);
-            const psLink = document.createElement('a');
-            psLink.href = psUrl;
-            psLink.download = ps1Name;
-            document.body.appendChild(psLink);
-            psLink.click();
-            psLink.remove();
-            URL.revokeObjectURL(psUrl);
-          }
-          if (printerFeedbackNode) printerFeedbackNode.textContent = 'Arquivos .bat e .ps1 baixados. Execute o .bat com duplo clique.';
         });
       }
 
