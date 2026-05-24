@@ -11068,6 +11068,25 @@ class FinanceiroView(LoginRequiredMixin, View):
             .prefetch_related('itens')
             .order_by('-paid_at', '-created_at')
         )
+        pedido_evento_itens_total_map = {}
+        for pedido in pedidos_loja_pagos:
+            if not getattr(pedido, 'evento_id', None):
+                continue
+            valor_total_pedido = Decimal(getattr(pedido, 'valor_total', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+            valor_inscricao_no_pedido = Decimal('0.00')
+            for item in pedido.itens.all():
+                if getattr(item, 'produto_id', None) or getattr(item, 'variacao_id', None):
+                    continue
+                titulo_item = str(getattr(item, 'produto_titulo', '') or '').strip().lower()
+                if not titulo_item.startswith('inscricao do evento'):
+                    continue
+                valor_inscricao_no_pedido += Decimal(getattr(item, 'valor_total', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+            if valor_inscricao_no_pedido > valor_total_pedido:
+                valor_inscricao_no_pedido = valor_total_pedido
+            valor_itens_evento = (valor_total_pedido - valor_inscricao_no_pedido).quantize(Decimal('0.01'))
+            if valor_itens_evento < 0:
+                valor_itens_evento = Decimal('0.00')
+            pedido_evento_itens_total_map[pedido.pk] = valor_itens_evento
         inscricoes_com_pedido_pago_real_ids_fin = set(
             LojaPedido.objects
             .filter(status=LojaPedido.STATUS_PAGO, transacao_teste=False, evento_inscricao__isnull=False)
@@ -11113,13 +11132,7 @@ class FinanceiroView(LoginRequiredMixin, View):
             .get('total')
             or Decimal('0.00')
         )
-        total_loja_eventos_pago = (
-            LojaPedido.objects
-            .filter(status=LojaPedido.STATUS_PAGO, evento__isnull=False, transacao_teste=False)
-            .aggregate(total=Sum('valor_total'))
-            .get('total')
-            or Decimal('0.00')
-        )
+        total_loja_eventos_pago = sum(pedido_evento_itens_total_map.values(), Decimal('0.00')).quantize(Decimal('0.01'))
         total_loja_geral_pago = (
             LojaPedido.objects
             .filter(status=LojaPedido.STATUS_PAGO, evento__isnull=True, transacao_teste=False)
@@ -11326,6 +11339,11 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'itens': itens,
                 'origem_label': f'Evento: {evento_nome}' if evento_nome else 'Loja geral',
             })
+            valor_extrato = Decimal(pedido.valor_total or Decimal('0.00')).quantize(Decimal('0.01'))
+            if evento_nome:
+                valor_extrato = Decimal(pedido_evento_itens_total_map.get(pedido.pk, Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+                if valor_extrato <= 0:
+                    continue
             extrato_entries.append({
                 'created_at': pedido.paid_at or pedido.created_at,
                 'tipo': 'Pedido evento pago' if evento_nome else 'Pedido loja pago',
@@ -11334,7 +11352,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                     if evento_nome
                     else f'Pedido #{pedido.pk} - {responsavel_nome} | Forma: {pedido.get_forma_pagamento_display()}'
                 ),
-                'valor': Decimal(pedido.valor_total).quantize(Decimal('0.01')),
+                'valor': valor_extrato,
                 'impacto_liquido': Decimal('0.00'),
                 'impacta_liquido': False,
                 'impacto_label_custom': 'Nao entra no liquido (evento)' if evento_nome else 'Nao entra no liquido (loja)',
@@ -11486,7 +11504,9 @@ class FinanceiroView(LoginRequiredMixin, View):
                 or pedido.responsavel.user.username
             )
             evento_nome = str(getattr(getattr(pedido, 'evento', None), 'name', '') or '').strip()
-            valor_total = Decimal(pedido.valor_total or Decimal('0.00')).quantize(Decimal('0.01'))
+            valor_total = Decimal(pedido_evento_itens_total_map.get(pedido.pk, Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+            if valor_total <= 0:
+                continue
             taxa = (valor_total * taxa_transacao_percentual).quantize(Decimal('0.01'))
             valor_liquido = (valor_total - taxa).quantize(Decimal('0.01'))
             relatorios_card_eventos_rows.append(
