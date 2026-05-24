@@ -14811,6 +14811,7 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
         self._pdf_text(commands, x, y, title, size=11, bold=True, color='#0f172a')
         y -= 14
         max_value = Decimal('0.00')
+        chart_rows = []
         for row in rows:
             try:
                 value = Decimal(row.get('value') or Decimal('0.00'))
@@ -14818,30 +14819,41 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
                 value = Decimal('0.00')
             if value > max_value:
                 max_value = value
+            label = str(row.get('label') or '-').strip() or '-'
+            label_lines = self._pdf_wrap(label, 34)
+            row_height = max(14, len(label_lines) * 8)
+            chart_rows.append({
+                'label_lines': label_lines,
+                'value': value.quantize(Decimal('0.01')),
+                'fill': str(row.get('color') or '#0ea5e9'),
+                'row_height': row_height,
+            })
         if max_value <= 0:
             max_value = Decimal('1.00')
-        chart_height = max(88, 24 + (len(rows) * 16))
+        chart_height = max(88, 24 + sum(int(item['row_height']) + 4 for item in chart_rows))
         self._pdf_rect(commands, x, y - chart_height, width, chart_height, fill='#f8fafc', stroke='#cbd5e1')
         row_y = y - 18
         max_bar_width = width - 220
-        for row in rows:
-            label = str(row.get('label') or '-')
-            try:
-                value = Decimal(row.get('value') or Decimal('0.00')).quantize(Decimal('0.01'))
-            except (InvalidOperation, TypeError, ValueError):
-                value = Decimal('0.00')
-            fill = str(row.get('color') or '#0ea5e9')
-            self._pdf_text(commands, x + 10, row_y + 2, self._pdf_clip(label, 24), size=8, bold=True, color='#334155')
+        for row in chart_rows:
+            label_lines = row['label_lines']
+            value = row['value']
+            fill = row['fill']
+            row_height = int(row['row_height'])
+            line_y = row_y + 2
+            for line in label_lines:
+                self._pdf_text(commands, x + 10, line_y, line, size=8, bold=True, color='#334155')
+                line_y -= 8
             bar_width = float((value / max_value) * Decimal(str(max_bar_width)))
             if bar_width < 0:
                 bar_width = 0
-            self._pdf_rect(commands, x + 120, row_y - 2, max(0.8, bar_width), 10, fill=fill, stroke=fill, line_width=0.3)
+            bar_y = row_y - (row_height / 2) + 3
+            self._pdf_rect(commands, x + 120, bar_y, max(0.8, bar_width), 10, fill=fill, stroke=fill, line_width=0.3)
             if show_currency:
                 right_label = self._format_currency(value)
             else:
                 right_label = str(int(value))
             self._pdf_text(commands, x + 126 + max_bar_width, row_y + 2, right_label, size=8, color='#0f172a')
-            row_y -= 16
+            row_y -= (row_height + 4)
         return y - (chart_height + 8)
 
     def get(self, request, event_id):
