@@ -3482,17 +3482,8 @@
       };
 
       if (registerForm) {
-        registerForm.addEventListener('submit', (event) => {
+        registerForm.addEventListener('submit', () => {
           if (!adminTestItemsInput) return;
-          const submitter = event.submitter || document.activeElement;
-          const isAdminTestSubmit = (
-            submitter instanceof HTMLElement
-            && String(submitter.getAttribute('name') || '').trim() === 'admin_confirm_without_pix'
-          );
-          if (!isAdminTestSubmit) {
-            adminTestItemsInput.value = '[]';
-            return;
-          }
           try {
             adminTestItemsInput.value = JSON.stringify(serializeAdminTestItemsFromCart());
           } catch (error) {
