@@ -2378,6 +2378,15 @@
                 <option value="PortableThermal">Portable Thermal (generica)</option>
               </select>
             </label>
+            <label style="display:grid;gap:.25rem;margin-top:.55rem;">
+              <span>URL do driver (zip/inf/cab/exe)</span>
+              <input
+                type="url"
+                id="event-printer-driver-url"
+                placeholder="https://.../driver-ol-1005.zip"
+                style="width:100%;max-width:680px;border:1px solid #cbd5e1;border-radius:10px;padding:.62rem .68rem;"
+              />
+            </label>
             <div class="action-row" style="margin-top:.65rem;">
               <button type="button" class="secondary" id="event-printer-copy-script">Copiar script</button>
               <button type="button" class="primary" id="event-printer-download-script">Baixar script .ps1</button>
@@ -2822,6 +2831,7 @@
       const openPrinterSetupBtn = document.getElementById('open-event-printer-setup');
       const closePrinterSetupBtn = document.getElementById('close-event-printer-setup');
       const printerModelSelect = document.getElementById('event-printer-model');
+      const printerDriverUrlInput = document.getElementById('event-printer-driver-url');
       const printerScriptTextarea = document.getElementById('event-printer-script');
       const printerCopyBtn = document.getElementById('event-printer-copy-script');
       const printerDownloadBtn = document.getElementById('event-printer-download-script');
@@ -3500,8 +3510,9 @@
           .replace(/[\u0300-\u036f]/g, '')
           .replace(/\s+/g, ' ');
       };
-      const buildPrinterInstallScript = (modelName) => {
+      const buildPrinterInstallScript = (modelName, driverUrl) => {
         const safeModel = String(modelName || 'OL-1005').trim() || 'OL-1005';
+        const safeDriverUrl = String(driverUrl || '').trim();
         return [
           '# ===============================================',
           '# Instalador rapido impressora termica USB',
@@ -3510,7 +3521,8 @@
           'param(',
           '  [string]$PrinterName = "' + safeModel + ' USB",',
           '  [string]$DriverName = "Generic / Text Only",',
-          '  [string]$PortName = "USB001"',
+          '  [string]$PortName = "USB001",',
+          '  [string]$DriverUrl = "' + safeDriverUrl.replace(/"/g, '\\"') + '"',
           ')',
           '',
           '$ErrorActionPreference = "Stop"',
@@ -3524,21 +3536,61 @@
           '  Write-Host "Nao foi possivel listar dispositivos PnP (continuando)." -ForegroundColor DarkYellow',
           '}',
           '',
-          '# 2) Garante driver generico (fallback robusto)',
-          'if (-not (Get-PrinterDriver -Name $DriverName -ErrorAction SilentlyContinue)) {',
-          '  Write-Host "Driver nao encontrado: $DriverName. Abrindo assistente do Windows..." -ForegroundColor Yellow',
-          '  Start-Process "control.exe" "/name Microsoft.DevicesAndPrinters"',
-          '  Write-Host "Instale o driver do fabricante e rode este script novamente." -ForegroundColor Yellow',
-          '  exit 1',
+          '# 2) Baixa e instala driver oficial (quando URL for informada)',
+          '$driverInstalled = $false',
+          'if ($DriverUrl) {',
+          '  Write-Host "Baixando driver: $DriverUrl" -ForegroundColor Cyan',
+          '  $tmpRoot = Join-Path $env:TEMP ("printer-driver-" + [Guid]::NewGuid().ToString("N"))',
+          '  New-Item -ItemType Directory -Path $tmpRoot -Force | Out-Null',
+          '  $fileName = [System.IO.Path]::GetFileName(($DriverUrl -split "\\?")[0])',
+          '  if (-not $fileName) { $fileName = "driver-package.zip" }',
+          '  $downloadPath = Join-Path $tmpRoot $fileName',
+          '  Invoke-WebRequest -Uri $DriverUrl -OutFile $downloadPath -UseBasicParsing',
+          '  $ext = [System.IO.Path]::GetExtension($downloadPath).ToLowerInvariant()',
+          '  $driverDir = $tmpRoot',
+          '  if ($ext -eq ".zip") {',
+          '    $driverDir = Join-Path $tmpRoot "unzipped"',
+          '    Expand-Archive -Path $downloadPath -DestinationPath $driverDir -Force',
+          '  } elseif ($ext -eq ".cab") {',
+          '    $driverDir = Join-Path $tmpRoot "cab"',
+          '    New-Item -ItemType Directory -Path $driverDir -Force | Out-Null',
+          '    expand.exe $downloadPath -F:* $driverDir | Out-Null',
+          '  } elseif ($ext -eq ".exe") {',
+          '    Write-Host "Executando instalador .exe em modo silencioso..." -ForegroundColor Yellow',
+          '    Start-Process -FilePath $downloadPath -ArgumentList "/S","/silent","/qn" -Wait -WindowStyle Hidden',
+          '  }',
+          '  $infFiles = Get-ChildItem -Path $driverDir -Recurse -Filter *.inf -ErrorAction SilentlyContinue',
+          '  foreach ($inf in $infFiles) {',
+          '    Write-Host ("Instalando INF: " + $inf.FullName) -ForegroundColor Yellow',
+          '    pnputil /add-driver $inf.FullName /install | Out-Null',
+          '  }',
+          '  $driverInstalled = $true',
           '}',
           '',
-          '# 3) Garante porta USB padrao',
+          '# 3) Garante driver generico (fallback robusto)',
+          'if (-not (Get-PrinterDriver -Name $DriverName -ErrorAction SilentlyContinue)) {',
+          '  if ($driverInstalled) {',
+          '    $drivers = Get-PrinterDriver -ErrorAction SilentlyContinue',
+          '    if ($drivers -and $drivers.Count -gt 0) {',
+          '      $firstDriver = $drivers | Select-Object -First 1',
+          '      if ($firstDriver -and $firstDriver.Name) { $DriverName = $firstDriver.Name }',
+          '    }',
+          '  }',
+          '  if (-not (Get-PrinterDriver -Name $DriverName -ErrorAction SilentlyContinue)) {',
+          '    Write-Host "Driver nao encontrado: $DriverName. Abrindo assistente do Windows..." -ForegroundColor Yellow',
+          '    Start-Process "control.exe" "/name Microsoft.DevicesAndPrinters"',
+          '    Write-Host "Instale o driver do fabricante e rode este script novamente." -ForegroundColor Yellow',
+          '    exit 1',
+          '  }',
+          '}',
+          '',
+          '# 4) Garante porta USB padrao',
           'if (-not (Get-PrinterPort -Name $PortName -ErrorAction SilentlyContinue)) {',
           '  Write-Host "Porta $PortName nao encontrada. Tentando criar..." -ForegroundColor Yellow',
           '  try { Add-PrinterPort -Name $PortName } catch {}',
           '}',
           '',
-          '# 4) Cria ou atualiza impressora',
+          '# 5) Cria ou atualiza impressora',
           '$existing = Get-Printer -Name $PrinterName -ErrorAction SilentlyContinue',
           'if ($existing) {',
           '  Write-Host "Impressora ja existe. Atualizando driver/porta..." -ForegroundColor Green',
@@ -3548,7 +3600,7 @@
           '  Add-Printer -Name $PrinterName -DriverName $DriverName -PortName $PortName',
           '}',
           '',
-          '# 5) Teste de impressao',
+          '# 6) Teste de impressao',
           '$testText = @(',
           '  "************************************",',
           '  " TESTE IMPRESSORA TERMICA - ' + safeModel + '",',
@@ -3570,7 +3622,10 @@
         const selectedModel = printerModelSelect instanceof HTMLSelectElement
           ? String(printerModelSelect.value || 'OL-1005')
           : 'OL-1005';
-        printerScriptTextarea.value = buildPrinterInstallScript(selectedModel);
+        const selectedUrl = printerDriverUrlInput instanceof HTMLInputElement
+          ? String(printerDriverUrlInput.value || '').trim()
+          : '';
+        printerScriptTextarea.value = buildPrinterInstallScript(selectedModel, selectedUrl);
       };
       const initVendasInscritosAutoSearch = () => {
         const isVendasInscritos = String('{{ active_mode|default:""|escapejs }}') === 'vendasinscritos';
@@ -4624,6 +4679,10 @@
       }
       if (printerModelSelect) {
         printerModelSelect.addEventListener('change', refreshPrinterScript);
+      }
+      if (printerDriverUrlInput) {
+        printerDriverUrlInput.addEventListener('input', refreshPrinterScript);
+        printerDriverUrlInput.addEventListener('change', refreshPrinterScript);
       }
       if (printerCopyBtn) {
         printerCopyBtn.addEventListener('click', async () => {

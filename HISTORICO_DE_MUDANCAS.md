@@ -1216,3 +1216,5 @@ ame e label sem quebrar a tela.
 - Financeiro > Relatorios: cards Mensalidades, Loja e Eventos agora abrem janela suspensa ao clicar no nome, exibindo extrato detalhado por transacao (data, descricao e valor).
 
 - Eventos (gestao): adicionado botao 'Instalar impressora' com janela guiada para impressora termica USB (inclui modelo OL-1005), com script PowerShell pronto para copiar/baixar e teste de impressao.
+
+- Assistente de impressora (eventos): adicionado campo de URL do driver e script PowerShell com download automatico + tentativa de instalacao (zip/cab/inf/exe) antes da configuracao da impressora USB.
