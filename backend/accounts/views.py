@@ -9,6 +9,7 @@ import hmac
 import logging
 import time
 import base64
+import zipfile
 from pathlib import Path
 from random import randint
 from decimal import Decimal, InvalidOperation
@@ -4849,6 +4850,7 @@ class EventoPrinterDriverDownloadView(View):
     FILES = {
         'bat': 'instalar-impressora-ol1005.bat',
         'ps1': 'instalar-impressora-ol1005.ps1',
+        'driver': 'driver-ol1005-pos58.zip',
     }
 
     def get(self, request, event_id, file_kind):
@@ -4893,7 +4895,7 @@ class EventoPrinterDriverDownloadView(View):
                 '  exit /b 1',
                 ')',
                 '',
-                'powershell -NoProfile -ExecutionPolicy Bypass -File "%_PS1%" -DriverDir "%~dp0POS58 DRIVER" -PortName "AUTO"',
+                'powershell -NoProfile -ExecutionPolicy Bypass -File "%_PS1%" -DriverDir "%USERPROFILE%\\Downloads\\POS58 DRIVER" -PortName "AUTO"',
                 'if %errorlevel% neq 0 (',
                 '  echo Falha na instalacao da impressora.',
                 '  pause',
@@ -4908,6 +4910,30 @@ class EventoPrinterDriverDownloadView(View):
             ])
             payload = script.encode('utf-8')
             response = HttpResponse(payload, content_type='application/octet-stream')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            response['Content-Length'] = str(len(payload))
+            return response
+
+        if kind == 'driver':
+            driver_sources = [
+                base_dir / 'DRIVER' / 'POS58 DRIVER',
+                base_dir / 'ui' / 'static' / 'driver' / 'POS58 DRIVER',
+            ]
+            source_dir = next((path for path in driver_sources if path.exists() and path.is_dir()), None)
+            if source_dir is None:
+                return HttpResponse('Pasta do driver nao encontrada no servidor.', status=404)
+
+            files = [path for path in source_dir.rglob('*') if path.is_file()]
+            if not files:
+                return HttpResponse('Pasta do driver encontrada, mas sem arquivos para download.', status=404)
+
+            memory_file = BytesIO()
+            with zipfile.ZipFile(memory_file, mode='w', compression=zipfile.ZIP_DEFLATED) as archive:
+                for file_path in files:
+                    archive_name = str(Path('POS58 DRIVER') / file_path.relative_to(source_dir))
+                    archive.write(file_path, archive_name)
+            payload = memory_file.getvalue()
+            response = HttpResponse(payload, content_type='application/zip')
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             response['Content-Length'] = str(len(payload))
             return response

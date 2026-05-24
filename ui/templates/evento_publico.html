@@ -2389,6 +2389,14 @@
             </label>
             <div class="action-row" style="margin-top:.65rem;">
               <a
+                class="secondary"
+                href="{% url 'accounts:evento_printer_driver_download' evento.id 'driver' %}"
+                download="driver-ol1005-pos58.zip"
+                style="text-decoration:none;display:inline-flex;align-items:center;"
+              >
+                Baixar driver
+              </a>
+              <a
                 class="primary"
                 href="{% url 'accounts:evento_printer_driver_download' evento.id 'bat' %}"
                 download="instalar-impressora-ol1005.bat"
@@ -2397,7 +2405,7 @@
                 Baixar instalador .bat
               </a>
             </div>
-            <p class="panel-note" id="event-printer-setup-feedback" style="margin-top:.45rem;">Conecte a impressora no USB antes de executar.</p>
+            <p class="panel-note" id="event-printer-setup-feedback" style="margin-top:.45rem;">Baixe o driver, extraia para <code>Downloads\POS58 DRIVER</code> e depois execute o instalador.</p>
             <p class="panel-note">Atalho local pronto no projeto: <code>driver\instalar-impressora-ol1005.bat</code> (duplo clique no Windows).</p>
           </section>
           <section class="field-section">

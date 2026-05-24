@@ -41,10 +41,10 @@ function Resolve-UsbPortName {
 }
 
 $driverCandidates = @(
+  (Join-Path $env:USERPROFILE 'Downloads\POS58 DRIVER'),
   $DriverDir,
   (Join-Path $PSScriptRoot 'POS58 DRIVER'),
-  (Join-Path (Get-Location).Path 'POS58 DRIVER'),
-  (Join-Path $env:USERPROFILE 'Downloads\POS58 DRIVER')
+  (Join-Path (Get-Location).Path 'POS58 DRIVER')
 ) | Where-Object { $_ -and (Test-Path $_) }
 
 $resolvedDriverDir = $driverCandidates | Select-Object -First 1
