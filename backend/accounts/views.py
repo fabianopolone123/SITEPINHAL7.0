@@ -14807,7 +14807,7 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
         pages.append(commands)
         return commands, 742
 
-    def _chart_hbars(self, commands, *, x, y, width, title, rows):
+    def _chart_hbars(self, commands, *, x, y, width, title, rows, show_currency=True):
         self._pdf_text(commands, x, y, title, size=11, bold=True, color='#0f172a')
         y -= 14
         max_value = Decimal('0.00')
@@ -14820,7 +14820,8 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
                 max_value = value
         if max_value <= 0:
             max_value = Decimal('1.00')
-        self._pdf_rect(commands, x, y - 88, width, 88, fill='#f8fafc', stroke='#cbd5e1')
+        chart_height = max(88, 24 + (len(rows) * 16))
+        self._pdf_rect(commands, x, y - chart_height, width, chart_height, fill='#f8fafc', stroke='#cbd5e1')
         row_y = y - 18
         max_bar_width = width - 220
         for row in rows:
@@ -14835,9 +14836,13 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
             if bar_width < 0:
                 bar_width = 0
             self._pdf_rect(commands, x + 120, row_y - 2, max(0.8, bar_width), 10, fill=fill, stroke=fill, line_width=0.3)
-            self._pdf_text(commands, x + 126 + max_bar_width, row_y + 2, self._format_currency(value), size=8, color='#0f172a')
+            if show_currency:
+                right_label = self._format_currency(value)
+            else:
+                right_label = str(int(value))
+            self._pdf_text(commands, x + 126 + max_bar_width, row_y + 2, right_label, size=8, color='#0f172a')
             row_y -= 16
-        return y - 96
+        return y - (chart_height + 8)
 
     def get(self, request, event_id):
         evento = get_object_or_404(Evento, pk=event_id)
@@ -14978,6 +14983,11 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
                             })
                             break
 
+        loja_groups = sorted(
+            loja_grouped.values(),
+            key=lambda row: (-row['valor_total'], row['produto'], row['variacao']),
+        )
+
         bruto = (Decimal(inscricoes_valor_total) + Decimal(vendas_lojinha_total)).quantize(Decimal('0.01'))
         taxas = (bruto * Decimal('0.01')).quantize(Decimal('0.01'))
         liquido = (bruto - Decimal(custos_total) - taxas).quantize(Decimal('0.01'))
@@ -15039,6 +15049,39 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
                 rows=faixa_chart_rows or [{'label': 'Sem dados', 'value': Decimal('0.00'), 'color': '#94a3b8'}],
             )
 
+        loja_chart_rows = []
+        for group in loja_groups:
+            loja_chart_rows.append({
+                'label': f'{group["produto"]} > {group["variacao"]}',
+                'value': Decimal(int(group.get('quantidade_total') or 0)),
+                'color': '#0ea5e9',
+            })
+        if not loja_chart_rows:
+            loja_chart_rows = [{'label': 'Sem vendas', 'value': Decimal('0.00'), 'color': '#94a3b8'}]
+
+        chart_chunks = [loja_chart_rows[index:index + 16] for index in range(0, len(loja_chart_rows), 16)]
+        for chunk_idx, chunk in enumerate(chart_chunks, start=1):
+            needed_height = max(88, 24 + (len(chunk) * 16)) + 26
+            if y - needed_height < 88:
+                commands, y = self._pdf_new_event_page(
+                    pages,
+                    generated_at=now_label,
+                    generated_by=generated_by,
+                    evento_nome=evento.name,
+                )
+            chunk_title = 'Grafico de quantidade por variacao da lojinha'
+            if len(chart_chunks) > 1:
+                chunk_title = f'{chunk_title} ({chunk_idx}/{len(chart_chunks)})'
+            y = self._chart_hbars(
+                commands,
+                x=36,
+                y=y,
+                width=523,
+                title=chunk_title,
+                rows=chunk,
+                show_currency=False,
+            )
+
         if y < 120:
             commands, y = self._pdf_new_event_page(
                 pages,
@@ -15091,10 +15134,6 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
                     y -= 10
             y -= 6
 
-        loja_groups = sorted(
-            loja_grouped.values(),
-            key=lambda row: (-row['valor_total'], row['produto'], row['variacao']),
-        )
         if y < 110:
             commands, y = self._pdf_new_event_page(
                 pages,
