@@ -6368,6 +6368,7 @@ class EventoPublicoView(View):
         consulta_results=None,
         edit_target_inscricao=None,
         auto_start_pix=False,
+        open_event_extrato=False,
     ):
         schema = self._event_schema(evento)
         produtos = self._produto_rows_evento(evento)
@@ -6890,6 +6891,7 @@ class EventoPublicoView(View):
             'sale_inscricoes_detalhes': sale_inscricoes_detalhes,
             'event_extrato_rows': event_extrato_rows,
             'cashback_rows': cashback_rows,
+            'open_event_extrato': bool(open_event_extrato),
         }
         if request.user.is_authenticated:
             context.update(_sidebar_context(request))
@@ -7416,7 +7418,7 @@ class EventoPublicoView(View):
                 messages.success(request, f'Transacao #{pedido.id} marcada como teste e removida dos relatorios financeiros.')
             else:
                 messages.success(request, f'Transacao #{pedido.id} voltou a contar nos relatorios financeiros.')
-            return render(request, self.template_name, self._context(request, evento))
+            return render(request, self.template_name, self._context(request, evento, open_event_extrato=True))
 
         if action == 'consultar_inscricao':
             termo = str(request.POST.get('consulta_termo') or '').strip()

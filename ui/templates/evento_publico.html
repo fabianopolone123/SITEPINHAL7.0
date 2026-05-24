@@ -2362,7 +2362,7 @@
         </div>
       </div>
 
-      <div class="modal event-report-modal" id="event-extrato-modal" aria-hidden="true">
+      <div class="modal event-report-modal" id="event-extrato-modal" aria-hidden="true" {% if open_event_extrato %}data-autoshow="1"{% endif %}>
         <div class="modal-content">
           <header>
             <h3>Extrato de transacoes - {{ evento.name }}</h3>
@@ -4749,6 +4749,9 @@
             closeModal(extratoModal);
           }
         });
+        if (String(extratoModal.getAttribute('data-autoshow') || '').trim() === '1') {
+          openModal(extratoModal);
+        }
       }
 
       if (openCostsBtn && costsModal) {
