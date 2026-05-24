@@ -1865,6 +1865,7 @@
           <button type="button" class="secondary" id="open-event-sale">Vender</button>
           <a href="{% url 'accounts:evento_vendas_inscritos' evento.id %}?vtab=comprar" class="{% if active_mode == 'vendasinscritos' %}primary{% else %}secondary{% endif %}" style="text-decoration:none;">Vendas inscritos</a>
           <button type="button" class="secondary" id="open-event-report">Relatorio</button>
+          <button type="button" class="secondary" id="open-event-extrato">Extrato</button>
           <button type="button" class="secondary" id="open-event-costs">Custos</button>
           <button type="button" class="secondary" id="open-event-printer-setup" onclick="(function(){var m=document.getElementById('event-printer-setup-modal');if(m){m.setAttribute('aria-hidden','false');m.classList.add('show');m.classList.add('is-open');}})();">Instalar impressora</button>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Editar campos</a>
@@ -2361,6 +2362,59 @@
         </div>
       </div>
 
+      <div class="modal event-report-modal" id="event-extrato-modal" aria-hidden="true">
+        <div class="modal-content">
+          <header>
+            <h3>Extrato de transacoes - {{ evento.name }}</h3>
+            <button type="button" id="close-event-extrato" aria-label="Fechar">X</button>
+          </header>
+          {% if event_extrato_rows %}
+            <div class="table-scroll">
+              <table class="users-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Data</th>
+                    <th>Responsavel</th>
+                    <th>Itens</th>
+                    <th>Forma</th>
+                    <th>Status</th>
+                    <th>Valor</th>
+                    <th>Relatorio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in event_extrato_rows %}
+                    <tr>
+                      <td>#{{ row.id }}</td>
+                      <td>{{ row.data_ref|date:"d/m/Y H:i" }}</td>
+                      <td>{{ row.responsavel_label }}</td>
+                      <td>{{ row.itens_resumo }}</td>
+                      <td>{{ row.forma_pagamento_label }}</td>
+                      <td>{{ row.status_label }}</td>
+                      <td>{{ row.valor_total_fmt }}</td>
+                      <td>
+                        <form method="post">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="toggle_evento_transacao_teste" />
+                          <input type="hidden" name="pedido_id" value="{{ row.id }}" />
+                          <input type="hidden" name="marcar_teste" value="{% if row.is_test %}0{% else %}1{% endif %}" />
+                          <button type="submit" class="{% if row.is_test %}primary{% else %}secondary{% endif %}">
+                            {% if row.is_test %}Teste (nao conta){% else %}Normal (conta){% endif %}
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="panel-note">Sem transacoes neste evento.</p>
+          {% endif %}
+        </div>
+      </div>
+
       <div class="modal event-report-modal" id="event-printer-setup-modal" aria-hidden="true">
         <div class="modal-content">
           <header>
@@ -2843,6 +2897,9 @@
       const reportModal = document.getElementById('event-report-modal');
       const openReportBtn = document.getElementById('open-event-report');
       const closeReportBtn = document.getElementById('close-event-report');
+      const extratoModal = document.getElementById('event-extrato-modal');
+      const openExtratoBtn = document.getElementById('open-event-extrato');
+      const closeExtratoBtn = document.getElementById('close-event-extrato');
       const costsModal = document.getElementById('event-costs-modal');
       const openCostsBtn = document.getElementById('open-event-costs');
       const closeCostsBtn = document.getElementById('close-event-costs');
@@ -4676,6 +4733,23 @@
           }
         });
       }
+      if (openExtratoBtn && extratoModal) {
+        openExtratoBtn.addEventListener('click', () => {
+          openModal(extratoModal);
+        });
+      }
+      if (closeExtratoBtn && extratoModal) {
+        closeExtratoBtn.addEventListener('click', () => {
+          closeModal(extratoModal);
+        });
+      }
+      if (extratoModal) {
+        extratoModal.addEventListener('click', (event) => {
+          if (event.target === extratoModal) {
+            closeModal(extratoModal);
+          }
+        });
+      }
 
       if (openCostsBtn && costsModal) {
         openCostsBtn.addEventListener('click', () => {
@@ -5169,6 +5243,10 @@
         }
         if (reportModal && reportModal.getAttribute('aria-hidden') === 'false') {
           closeModal(reportModal);
+          return;
+        }
+        if (extratoModal && extratoModal.getAttribute('aria-hidden') === 'false') {
+          closeModal(extratoModal);
           return;
         }
         if (costsModal && costsModal.getAttribute('aria-hidden') === 'false') {

@@ -3694,7 +3694,7 @@ class EventosView(LoginRequiredMixin, View):
                 item['evento_id']: item['total']
                 for item in (
                     LojaPedido.objects
-                    .filter(evento__isnull=False)
+                    .filter(evento__isnull=False, transacao_teste=False)
                     .values('evento_id')
                     .annotate(total=Count('id'))
                 )
@@ -3707,7 +3707,7 @@ class EventosView(LoginRequiredMixin, View):
                 item['evento_id']: item['valor_total']
                 for item in (
                     LojaPedido.objects
-                    .filter(evento__isnull=False, status=LojaPedido.STATUS_PAGO)
+                    .filter(evento__isnull=False, status=LojaPedido.STATUS_PAGO, transacao_teste=False)
                     .values('evento_id')
                     .annotate(valor_total=Sum('valor_total'))
                 )
@@ -6481,6 +6481,7 @@ class EventoPublicoView(View):
         pedidos_preview_rows = []
         inscritos_detalhes = []
         sale_inscricoes_detalhes = []
+        event_extrato_rows = []
         atendente_produtos = []
         inscricoes_canceladas_count = 0
         inscricoes_canceladas_valor_total = Decimal('0.00')
@@ -6543,16 +6544,41 @@ class EventoPublicoView(View):
                     .get('total')
                     or Decimal('0.00')
                 )
+                inscricoes_com_pedido_pago_real_ids = set(
+                    LojaPedido.objects
+                    .filter(
+                        evento=evento,
+                        status=LojaPedido.STATUS_PAGO,
+                        transacao_teste=False,
+                        evento_inscricao__isnull=False,
+                    )
+                    .values_list('evento_inscricao_id', flat=True)
+                )
+                inscricoes_com_pedido_pago_teste_ids = set(
+                    LojaPedido.objects
+                    .filter(
+                        evento=evento,
+                        status=LojaPedido.STATUS_PAGO,
+                        transacao_teste=True,
+                        evento_inscricao__isnull=False,
+                    )
+                    .values_list('evento_inscricao_id', flat=True)
+                )
+                inscricoes_excluir_teste_ids = (
+                    inscricoes_com_pedido_pago_teste_ids - inscricoes_com_pedido_pago_real_ids
+                )
                 inscricoes_valor_total = (
                     inscricoes_base_qs
+                    .exclude(id__in=list(inscricoes_excluir_teste_ids))
                     .aggregate(total=Sum('valor_inscricao'))
                     .get('total')
                     or Decimal('0.00')
                 )
                 pedidos_qs = LojaPedido.objects.filter(evento=evento)
-                pedidos_count = pedidos_qs.count()
+                pedidos_qs_relatorio = pedidos_qs.filter(transacao_teste=False)
+                pedidos_count = pedidos_qs_relatorio.count()
                 pedidos_total_pago = (
-                    pedidos_qs
+                    pedidos_qs_relatorio
                     .filter(status=LojaPedido.STATUS_PAGO)
                     .aggregate(total=Sum('valor_total'))
                     .get('total')
@@ -6601,7 +6627,7 @@ class EventoPublicoView(View):
                         'cancelada_by': cancel_user.username if cancel_user else '-',
                     })
                 pedidos_preview = list(
-                    pedidos_qs
+                    pedidos_qs_relatorio
                     .select_related(
                         'responsavel',
                         'responsavel__user',
@@ -6627,6 +6653,29 @@ class EventoPublicoView(View):
                     .prefetch_related('itens')
                     .order_by('-created_at')[:300]
                 )
+                extrato_pedidos_qs = list(
+                    pedidos_qs
+                    .select_related('responsavel', 'responsavel__user')
+                    .prefetch_related('itens')
+                    .order_by('-created_at')[:600]
+                )
+                for ped in extrato_pedidos_qs:
+                    itens_linhas = []
+                    for ped_item in ped.itens.all():
+                        linha_item = f'{ped_item.quantidade}x {ped_item.produto_titulo}'
+                        if ped_item.variacao_nome:
+                            linha_item += f' ({ped_item.variacao_nome})'
+                        itens_linhas.append(linha_item)
+                    event_extrato_rows.append({
+                        'id': ped.id,
+                        'data_ref': ped.paid_at or ped.created_at,
+                        'responsavel_label': self._responsavel_label_from_pedido(ped),
+                        'status_label': ped.get_status_display(),
+                        'forma_pagamento_label': ped.get_forma_pagamento_display(),
+                        'valor_total_fmt': self._format_currency(ped.valor_total or Decimal('0.00')),
+                        'is_test': bool(getattr(ped, 'transacao_teste', False)),
+                        'itens_resumo': ' | '.join(itens_linhas[:3]) if itens_linhas else '-',
+                    })
                 pedidos_by_responsavel = {}
                 pedidos_by_user = {}
                 pedidos_by_inscricao = {}
@@ -6839,6 +6888,7 @@ class EventoPublicoView(View):
             'pedidos_preview_rows': pedidos_preview_rows,
             'inscritos_detalhes': inscritos_detalhes,
             'sale_inscricoes_detalhes': sale_inscricoes_detalhes,
+            'event_extrato_rows': event_extrato_rows,
             'cashback_rows': cashback_rows,
         }
         if request.user.is_authenticated:
@@ -7068,6 +7118,7 @@ class EventoPublicoView(View):
                 status=LojaPedido.STATUS_PAGO,
                 paid_at=timezone.now(),
                 entregue=False,
+                transacao_teste=True,
                 created_by=request.user if request.user.is_authenticated else None,
             )
             LojaPedidoItem.objects.bulk_create([
@@ -7344,6 +7395,28 @@ class EventoPublicoView(View):
                 messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
                 return render(request, self.template_name, self._context(request, evento))
             return self._handle_ajustar_entrega_item_evento(request, evento)
+
+        if action == 'toggle_evento_transacao_teste':
+            if not can_manage_evento:
+                messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
+                return render(request, self.template_name, self._context(request, evento))
+            pedido_id_raw = str(request.POST.get('pedido_id') or '').strip()
+            marcar_teste = str(request.POST.get('marcar_teste') or '').strip() == '1'
+            if not pedido_id_raw.isdigit():
+                messages.error(request, 'Transacao invalida para atualizacao.')
+                return render(request, self.template_name, self._context(request, evento))
+            pedido = LojaPedido.objects.filter(pk=int(pedido_id_raw), evento=evento).first()
+            if not pedido:
+                messages.error(request, 'Transacao nao encontrada neste evento.')
+                return render(request, self.template_name, self._context(request, evento))
+            if bool(getattr(pedido, 'transacao_teste', False)) != bool(marcar_teste):
+                pedido.transacao_teste = bool(marcar_teste)
+                pedido.save(update_fields=['transacao_teste', 'updated_at'])
+            if marcar_teste:
+                messages.success(request, f'Transacao #{pedido.id} marcada como teste e removida dos relatorios financeiros.')
+            else:
+                messages.success(request, f'Transacao #{pedido.id} voltou a contar nos relatorios financeiros.')
+            return render(request, self.template_name, self._context(request, evento))
 
         if action == 'consultar_inscricao':
             termo = str(request.POST.get('consulta_termo') or '').strip()
@@ -10976,13 +11049,27 @@ class FinanceiroView(LoginRequiredMixin, View):
         )
         pedidos_loja_pagos = list(
             LojaPedido.objects
-            .filter(status=LojaPedido.STATUS_PAGO)
+            .filter(status=LojaPedido.STATUS_PAGO, transacao_teste=False)
             .select_related('responsavel', 'responsavel__user', 'evento', 'evento_inscricao')
             .prefetch_related('itens')
             .order_by('-paid_at', '-created_at')
         )
+        inscricoes_com_pedido_pago_real_ids_fin = set(
+            LojaPedido.objects
+            .filter(status=LojaPedido.STATUS_PAGO, transacao_teste=False, evento_inscricao__isnull=False)
+            .values_list('evento_inscricao_id', flat=True)
+        )
+        inscricoes_com_pedido_pago_teste_ids_fin = set(
+            LojaPedido.objects
+            .filter(status=LojaPedido.STATUS_PAGO, transacao_teste=True, evento_inscricao__isnull=False)
+            .values_list('evento_inscricao_id', flat=True)
+        )
+        inscricoes_excluir_teste_ids_fin = (
+            inscricoes_com_pedido_pago_teste_ids_fin - inscricoes_com_pedido_pago_real_ids_fin
+        )
         inscricoes_evento_extrato = list(
             EventoInscricao.objects
+            .exclude(id__in=list(inscricoes_excluir_teste_ids_fin))
             .filter(
                 Q(confirmada=True, cancelada=False)
                 | Q(cancelada=True, valor_estornado__gt=0)
@@ -11007,21 +11094,21 @@ class FinanceiroView(LoginRequiredMixin, View):
         )
         total_loja_pago = (
             LojaPedido.objects
-            .filter(status=LojaPedido.STATUS_PAGO)
+            .filter(status=LojaPedido.STATUS_PAGO, transacao_teste=False)
             .aggregate(total=Sum('valor_total'))
             .get('total')
             or Decimal('0.00')
         )
         total_loja_eventos_pago = (
             LojaPedido.objects
-            .filter(status=LojaPedido.STATUS_PAGO, evento__isnull=False)
+            .filter(status=LojaPedido.STATUS_PAGO, evento__isnull=False, transacao_teste=False)
             .aggregate(total=Sum('valor_total'))
             .get('total')
             or Decimal('0.00')
         )
         total_loja_geral_pago = (
             LojaPedido.objects
-            .filter(status=LojaPedido.STATUS_PAGO, evento__isnull=True)
+            .filter(status=LojaPedido.STATUS_PAGO, evento__isnull=True, transacao_teste=False)
             .aggregate(total=Sum('valor_total'))
             .get('total')
             or Decimal('0.00')
@@ -11029,6 +11116,19 @@ class FinanceiroView(LoginRequiredMixin, View):
         total_eventos_inscricoes_pago = (
             EventoInscricao.objects
             .filter(confirmada=True, cancelada=False)
+            .exclude(
+                id__in=LojaPedido.objects.filter(
+                    status=LojaPedido.STATUS_PAGO,
+                    transacao_teste=True,
+                    evento_inscricao__isnull=False,
+                ).exclude(
+                    evento_inscricao_id__in=LojaPedido.objects.filter(
+                        status=LojaPedido.STATUS_PAGO,
+                        transacao_teste=False,
+                        evento_inscricao__isnull=False,
+                    ).values_list('evento_inscricao_id', flat=True)
+                ).values_list('evento_inscricao_id', flat=True)
+            )
             .aggregate(total=Sum('valor_inscricao'))
             .get('total')
             or Decimal('0.00')
