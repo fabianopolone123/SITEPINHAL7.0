@@ -1095,7 +1095,7 @@
         const rows = Array.isArray(cardDataMap[tipo]) ? cardDataMap[tipo] : [];
         const tituloMap = { mensalidades: 'Extrato - Mensalidades', loja: 'Extrato - Loja', eventos: 'Extrato - Eventos' };
         if (cardTitle) cardTitle.textContent = tituloMap[tipo] || 'Extrato';
-        if (cardSubtitle) cardSubtitle.textContent = 'Transação por transação (data, descrição e valor).';
+        if (cardSubtitle) cardSubtitle.textContent = 'Transação por transação com entradas líquidas (taxa de 1% já descontada).';
         if (cardBody) {
           cardBody.innerHTML = '';
           if (!rows.length) {

@@ -11423,12 +11423,10 @@ class FinanceiroView(LoginRequiredMixin, View):
                 or pagamento.responsavel.user.username
             )
             valor_total = Decimal(pagamento.valor_total or Decimal('0.00')).quantize(Decimal('0.01'))
-            relatorios_card_mensalidades_rows.append(
-                _row(data_ref, f'Mensalidade paga #{pagamento.pk} - {responsavel_nome}', valor_total)
-            )
             taxa = (valor_total * taxa_transacao_percentual).quantize(Decimal('0.01'))
+            valor_liquido = (valor_total - taxa).quantize(Decimal('0.01'))
             relatorios_card_mensalidades_rows.append(
-                _row(data_ref, f'Taxa banco 1% - pagamento #{pagamento.pk}', -taxa)
+                _row(data_ref, f'Mensalidade paga #{pagamento.pk} - {responsavel_nome} (liquido)', valor_liquido)
             )
         relatorios_card_mensalidades_rows.extend(comprovantes_caixa_rows)
 
@@ -11443,12 +11441,10 @@ class FinanceiroView(LoginRequiredMixin, View):
                 or pedido.responsavel.user.username
             )
             valor_total = Decimal(pedido.valor_total or Decimal('0.00')).quantize(Decimal('0.01'))
-            relatorios_card_loja_rows.append(
-                _row(data_ref, f'Pedido loja #{pedido.pk} - {responsavel_nome}', valor_total)
-            )
             taxa = (valor_total * taxa_transacao_percentual).quantize(Decimal('0.01'))
+            valor_liquido = (valor_total - taxa).quantize(Decimal('0.01'))
             relatorios_card_loja_rows.append(
-                _row(data_ref, f'Taxa banco 1% - pedido loja #{pedido.pk}', -taxa)
+                _row(data_ref, f'Pedido loja #{pedido.pk} - {responsavel_nome} (liquido)', valor_liquido)
             )
         relatorios_card_loja_rows.extend(comprovantes_loja_rows)
 
@@ -11465,12 +11461,14 @@ class FinanceiroView(LoginRequiredMixin, View):
                 or inscricao_evento.created_at
             )
             if valor_inscricao > 0:
-                relatorios_card_eventos_rows.append(
-                    _row(data_entrada, f'Inscricao evento {codigo} - {responsavel_nome} | {evento_nome}', valor_inscricao)
-                )
                 taxa_inscricao = (valor_inscricao * taxa_transacao_percentual).quantize(Decimal('0.01'))
+                valor_inscricao_liquido = (valor_inscricao - taxa_inscricao).quantize(Decimal('0.01'))
                 relatorios_card_eventos_rows.append(
-                    _row(data_entrada, f'Taxa banco 1% - inscricao {codigo} | {evento_nome}', -taxa_inscricao)
+                    _row(
+                        data_entrada,
+                        f'Inscricao evento {codigo} - {responsavel_nome} | {evento_nome} (liquido)',
+                        valor_inscricao_liquido,
+                    )
                 )
             if bool(getattr(inscricao_evento, 'cancelada', False)) and valor_estornado > 0:
                 relatorios_card_eventos_rows.append(
@@ -11489,12 +11487,10 @@ class FinanceiroView(LoginRequiredMixin, View):
             )
             evento_nome = str(getattr(getattr(pedido, 'evento', None), 'name', '') or '').strip()
             valor_total = Decimal(pedido.valor_total or Decimal('0.00')).quantize(Decimal('0.01'))
-            relatorios_card_eventos_rows.append(
-                _row(data_ref, f'Pedido evento #{pedido.pk} - {responsavel_nome} | {evento_nome}', valor_total)
-            )
             taxa = (valor_total * taxa_transacao_percentual).quantize(Decimal('0.01'))
+            valor_liquido = (valor_total - taxa).quantize(Decimal('0.01'))
             relatorios_card_eventos_rows.append(
-                _row(data_ref, f'Taxa banco 1% - pedido evento #{pedido.pk} | {evento_nome}', -taxa)
+                _row(data_ref, f'Pedido evento #{pedido.pk} - {responsavel_nome} | {evento_nome} (liquido)', valor_liquido)
             )
 
         relatorios_card_eventos_rows.extend(comprovantes_eventos_rows)
