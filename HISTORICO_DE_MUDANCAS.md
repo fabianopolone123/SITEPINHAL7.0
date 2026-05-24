@@ -1214,3 +1214,5 @@ ame e label sem quebrar a tela.
 - Vendas inscritos: checkout/Pix ajustado para cobrar somente itens do carrinho, sem somar valor de inscricao; inscricao segue apenas como vinculo da compra.
 
 - Financeiro > Relatorios: cards Mensalidades, Loja e Eventos agora abrem janela suspensa ao clicar no nome, exibindo extrato detalhado por transacao (data, descricao e valor).
+
+- Eventos (gestao): adicionado botao 'Instalar impressora' com janela guiada para impressora termica USB (inclui modelo OL-1005), com script PowerShell pronto para copiar/baixar e teste de impressao.

@@ -1866,6 +1866,7 @@
           <a href="{% url 'accounts:evento_vendas_inscritos' evento.id %}?vtab=comprar" class="{% if active_mode == 'vendasinscritos' %}primary{% else %}secondary{% endif %}" style="text-decoration:none;">Vendas inscritos</a>
           <button type="button" class="secondary" id="open-event-report">Relatorio</button>
           <button type="button" class="secondary" id="open-event-costs">Custos</button>
+          <button type="button" class="secondary" id="open-event-printer-setup">Instalar impressora</button>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Editar campos</a>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Cadastrar produtos</a>
           <a href="{% url 'accounts:eventos' %}" class="secondary">Abrir lista de eventos</a>
@@ -2360,6 +2361,43 @@
         </div>
       </div>
 
+      <div class="modal event-report-modal" id="event-printer-setup-modal" aria-hidden="true">
+        <div class="modal-content">
+          <header>
+            <h3>Instalar impressora termica - {{ evento.name }}</h3>
+            <button type="button" id="close-event-printer-setup" aria-label="Fechar">X</button>
+          </header>
+          <section class="field-section">
+            <p class="panel-note">
+              Use este assistente no computador Windows onde a impressora USB esta conectada.
+            </p>
+            <label style="display:grid;gap:.25rem;max-width:340px;">
+              <span>Modelo</span>
+              <select id="event-printer-model">
+                <option value="OL-1005">OL-1005</option>
+                <option value="PortableThermal">Portable Thermal (generica)</option>
+              </select>
+            </label>
+            <div class="action-row" style="margin-top:.65rem;">
+              <button type="button" class="secondary" id="event-printer-copy-script">Copiar script</button>
+              <button type="button" class="primary" id="event-printer-download-script">Baixar script .ps1</button>
+            </div>
+            <p class="panel-note" id="event-printer-setup-feedback" style="margin-top:.45rem;">Conecte a impressora no USB antes de executar.</p>
+          </section>
+          <section class="field-section">
+            <h4>Script de instalacao</h4>
+            <textarea
+              id="event-printer-script"
+              style="width:100%;min-height:220px;border:1px solid #cbd5e1;border-radius:10px;padding:.65rem;font-family:Consolas,monospace;font-size:.81rem;line-height:1.35;"
+              readonly
+            ></textarea>
+            <p class="panel-note">
+              Execute como Administrador: clique direito no arquivo .ps1 e escolha "Run with PowerShell".
+            </p>
+          </section>
+        </div>
+      </div>
+
       <div class="modal event-report-modal" id="event-costs-modal" aria-hidden="true">
         <div class="modal-content">
           <header>
@@ -2780,6 +2818,14 @@
       const costsModal = document.getElementById('event-costs-modal');
       const openCostsBtn = document.getElementById('open-event-costs');
       const closeCostsBtn = document.getElementById('close-event-costs');
+      const printerSetupModal = document.getElementById('event-printer-setup-modal');
+      const openPrinterSetupBtn = document.getElementById('open-event-printer-setup');
+      const closePrinterSetupBtn = document.getElementById('close-event-printer-setup');
+      const printerModelSelect = document.getElementById('event-printer-model');
+      const printerScriptTextarea = document.getElementById('event-printer-script');
+      const printerCopyBtn = document.getElementById('event-printer-copy-script');
+      const printerDownloadBtn = document.getElementById('event-printer-download-script');
+      const printerFeedbackNode = document.getElementById('event-printer-setup-feedback');
       const registerSummaryModal = document.getElementById('event-register-summary-modal');
       const closeRegisterSummaryBtn = document.getElementById('close-event-register-summary');
       const togglePublicForm = document.getElementById('toggle-public-form');
@@ -3453,6 +3499,78 @@
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '')
           .replace(/\s+/g, ' ');
+      };
+      const buildPrinterInstallScript = (modelName) => {
+        const safeModel = String(modelName || 'OL-1005').trim() || 'OL-1005';
+        return [
+          '# ===============================================',
+          '# Instalador rapido impressora termica USB',
+          '# Modelo alvo: ' + safeModel,
+          '# ===============================================',
+          'param(',
+          '  [string]$PrinterName = "' + safeModel + ' USB",',
+          '  [string]$DriverName = "Generic / Text Only",',
+          '  [string]$PortName = "USB001"',
+          ')',
+          '',
+          '$ErrorActionPreference = "Stop"',
+          'Write-Host "Iniciando configuracao da impressora..." -ForegroundColor Cyan',
+          '',
+          '# 1) Verifica dispositivos USB/Printer visiveis',
+          'Write-Host "Detectando dispositivo conectado..." -ForegroundColor Yellow',
+          'try {',
+          '  Get-PnpDevice | Where-Object { ($_.Class -in @("Printer","USB")) -and ($_.Status -eq "OK") } | Select-Object -First 15 | Format-Table -AutoSize',
+          '} catch {',
+          '  Write-Host "Nao foi possivel listar dispositivos PnP (continuando)." -ForegroundColor DarkYellow',
+          '}',
+          '',
+          '# 2) Garante driver generico (fallback robusto)',
+          'if (-not (Get-PrinterDriver -Name $DriverName -ErrorAction SilentlyContinue)) {',
+          '  Write-Host "Driver nao encontrado: $DriverName. Abrindo assistente do Windows..." -ForegroundColor Yellow',
+          '  Start-Process "control.exe" "/name Microsoft.DevicesAndPrinters"',
+          '  Write-Host "Instale o driver do fabricante e rode este script novamente." -ForegroundColor Yellow',
+          '  exit 1',
+          '}',
+          '',
+          '# 3) Garante porta USB padrao',
+          'if (-not (Get-PrinterPort -Name $PortName -ErrorAction SilentlyContinue)) {',
+          '  Write-Host "Porta $PortName nao encontrada. Tentando criar..." -ForegroundColor Yellow',
+          '  try { Add-PrinterPort -Name $PortName } catch {}',
+          '}',
+          '',
+          '# 4) Cria ou atualiza impressora',
+          '$existing = Get-Printer -Name $PrinterName -ErrorAction SilentlyContinue',
+          'if ($existing) {',
+          '  Write-Host "Impressora ja existe. Atualizando driver/porta..." -ForegroundColor Green',
+          '  Set-Printer -Name $PrinterName -DriverName $DriverName -PortName $PortName',
+          '} else {',
+          '  Write-Host "Criando impressora: $PrinterName" -ForegroundColor Green',
+          '  Add-Printer -Name $PrinterName -DriverName $DriverName -PortName $PortName',
+          '}',
+          '',
+          '# 5) Teste de impressao',
+          '$testText = @(',
+          '  "************************************",',
+          '  " TESTE IMPRESSORA TERMICA - ' + safeModel + '",',
+          '  " Data/Hora: $((Get-Date).ToString(""dd/MM/yyyy HH:mm:ss""))",',
+          '  "************************************",',
+          '  ""',
+          ') -join [Environment]::NewLine',
+          '',
+          'Write-Host "Enviando teste para impressora..." -ForegroundColor Cyan',
+          '$tmp = Join-Path $env:TEMP "teste-impressora-termica.txt"',
+          'Set-Content -Path $tmp -Value $testText -Encoding ASCII',
+          'Get-Content -Path $tmp | Out-Printer -Name $PrinterName',
+          '',
+          'Write-Host "Concluido. Abra Configuracoes > Impressoras para validar." -ForegroundColor Green'
+        ].join('\n');
+      };
+      const refreshPrinterScript = () => {
+        if (!(printerScriptTextarea instanceof HTMLTextAreaElement)) return;
+        const selectedModel = printerModelSelect instanceof HTMLSelectElement
+          ? String(printerModelSelect.value || 'OL-1005')
+          : 'OL-1005';
+        printerScriptTextarea.value = buildPrinterInstallScript(selectedModel);
       };
       const initVendasInscritosAutoSearch = () => {
         const isVendasInscritos = String('{{ active_mode|default:""|escapejs }}') === 'vendasinscritos';
@@ -4486,6 +4604,67 @@
         });
       }
 
+      if (openPrinterSetupBtn && printerSetupModal) {
+        openPrinterSetupBtn.addEventListener('click', () => {
+          refreshPrinterScript();
+          openModal(printerSetupModal);
+        });
+      }
+      if (closePrinterSetupBtn && printerSetupModal) {
+        closePrinterSetupBtn.addEventListener('click', () => {
+          closeModal(printerSetupModal);
+        });
+      }
+      if (printerSetupModal) {
+        printerSetupModal.addEventListener('click', (event) => {
+          if (event.target === printerSetupModal) {
+            closeModal(printerSetupModal);
+          }
+        });
+      }
+      if (printerModelSelect) {
+        printerModelSelect.addEventListener('change', refreshPrinterScript);
+      }
+      if (printerCopyBtn) {
+        printerCopyBtn.addEventListener('click', async () => {
+          refreshPrinterScript();
+          if (!(printerScriptTextarea instanceof HTMLTextAreaElement)) return;
+          const text = String(printerScriptTextarea.value || '');
+          if (!text) return;
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(text);
+            } else {
+              printerScriptTextarea.focus();
+              printerScriptTextarea.select();
+              document.execCommand('copy');
+            }
+            if (printerFeedbackNode) printerFeedbackNode.textContent = 'Script copiado. Cole em um arquivo .ps1 e execute como Administrador.';
+          } catch (error) {
+            if (printerFeedbackNode) printerFeedbackNode.textContent = 'Nao foi possivel copiar automaticamente. Copie manualmente o script.';
+          }
+        });
+      }
+      if (printerDownloadBtn) {
+        printerDownloadBtn.addEventListener('click', () => {
+          refreshPrinterScript();
+          if (!(printerScriptTextarea instanceof HTMLTextAreaElement)) return;
+          const scriptText = String(printerScriptTextarea.value || '');
+          if (!scriptText) return;
+          const modelText = printerModelSelect instanceof HTMLSelectElement ? String(printerModelSelect.value || 'OL-1005') : 'OL-1005';
+          const blob = new Blob([scriptText], { type: 'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'instalar-impressora-' + modelText.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.ps1';
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+          if (printerFeedbackNode) printerFeedbackNode.textContent = 'Arquivo .ps1 baixado. Execute como Administrador no Windows.';
+        });
+      }
+
       if (closeRegisterSummaryBtn && registerSummaryModal) {
         closeRegisterSummaryBtn.addEventListener('click', () => {
           closeModal(registerSummaryModal);
@@ -4939,6 +5118,10 @@
         }
         if (costsModal && costsModal.getAttribute('aria-hidden') === 'false') {
           closeModal(costsModal);
+          return;
+        }
+        if (printerSetupModal && printerSetupModal.getAttribute('aria-hidden') === 'false') {
+          closeModal(printerSetupModal);
           return;
         }
         if (registerSummaryModal && registerSummaryModal.getAttribute('aria-hidden') === 'false') {
