@@ -14888,6 +14888,7 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
             if valor_itens > 0:
                 vendas_lojinha_total += valor_itens
             comprador = helper._responsavel_label_from_pedido(pedido)
+            forma_pagamento = str(pedido.get_forma_pagamento_display() or '-').strip() or '-'
             for item in pedido.itens.all():
                 if not (item.produto_id or item.variacao_id):
                     continue
@@ -14905,6 +14906,7 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
                 group['valor_total'] = (group['valor_total'] + valor_item).quantize(Decimal('0.01'))
                 group['compras'].append({
                     'comprador': comprador or '-',
+                    'forma_pagamento': forma_pagamento,
                     'quantidade': quantidade,
                     'valor': valor_item,
                 })
@@ -15131,7 +15133,7 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
                     self._pdf_text(commands, 36, y, f'Item: {group["produto"]} > {group["variacao"]} (cont.)', size=9, bold=True)
                     y -= 11
                 line = (
-                    f'- {compra["comprador"]} | Quantidade: {compra["quantidade"]} | '
+                    f'- {compra["comprador"]} | Pagamento: {compra.get("forma_pagamento", "-")} | Quantidade: {compra["quantidade"]} | '
                     f'Valor: {self._format_currency(compra["valor"])}'
                 )
                 for wrap_line in self._pdf_wrap(line, 88):
