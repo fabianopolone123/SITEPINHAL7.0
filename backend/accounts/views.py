@@ -6202,7 +6202,7 @@ class EventoPublicoView(View):
 
         base_qs = (
             EventoInscricao.objects
-            .filter(evento=evento, confirmada=True, cancelada=False)
+            .filter(evento=evento, cancelada=False)
             .select_related('user', 'responsavel', 'responsavel__user', 'indicador_aventureiro')
             .order_by('-created_at')
         )
@@ -6522,6 +6522,13 @@ class EventoPublicoView(View):
                     .prefetch_related('responsavel__aventures')
                     .order_by('-created_at')
                 )
+                inscricoes_consulta_qs = (
+                    EventoInscricao.objects
+                    .filter(evento=evento, cancelada=False)
+                    .select_related('user', 'responsavel', 'responsavel__user')
+                    .prefetch_related('responsavel__aventures')
+                    .order_by('-created_at')
+                )
                 inscricoes_count = self._inscricoes_participantes_count(inscricoes_base_qs, evento=evento)
                 inscricoes_canceladas_qs = (
                     EventoInscricao.objects
@@ -6632,7 +6639,7 @@ class EventoPublicoView(View):
                     if user_id:
                         pedidos_by_user.setdefault(user_id, []).append(ped)
 
-                for inscricao in list(inscricoes_base_qs[:300]):
+                for inscricao in list(inscricoes_consulta_qs[:300]):
                     linked = pedidos_by_inscricao.get(inscricao.id, [])
                     if inscricao.responsavel_id:
                         linked = linked or pedidos_by_responsavel.get(inscricao.responsavel_id, [])
