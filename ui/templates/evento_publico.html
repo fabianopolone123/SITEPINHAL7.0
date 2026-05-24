@@ -2388,8 +2388,6 @@
               />
             </label>
             <div class="action-row" style="margin-top:.65rem;">
-              <button type="button" class="secondary" id="event-printer-copy-script">Copiar script</button>
-              <button type="button" class="primary" id="event-printer-download-script">Baixar script .ps1</button>
               <a
                 class="primary"
                 href="{% url 'accounts:evento_printer_driver_download' evento.id 'bat' %}"
@@ -2397,14 +2395,6 @@
                 style="text-decoration:none;display:inline-flex;align-items:center;"
               >
                 Baixar instalador .bat
-              </a>
-              <a
-                class="secondary"
-                href="{% url 'accounts:evento_printer_driver_download' evento.id 'ps1' %}"
-                download="instalar-impressora-ol1005.ps1"
-                style="text-decoration:none;display:inline-flex;align-items:center;"
-              >
-                Baixar .ps1 padrao
               </a>
             </div>
             <p class="panel-note" id="event-printer-setup-feedback" style="margin-top:.45rem;">Conecte a impressora no USB antes de executar.</p>
@@ -2850,8 +2840,6 @@
       const printerModelSelect = document.getElementById('event-printer-model');
       const printerDriverUrlInput = document.getElementById('event-printer-driver-url');
       const printerScriptTextarea = document.getElementById('event-printer-script');
-      const printerCopyBtn = document.getElementById('event-printer-copy-script');
-      const printerDownloadBtn = document.getElementById('event-printer-download-script');
       const printerFeedbackNode = document.getElementById('event-printer-setup-feedback');
       const registerSummaryModal = document.getElementById('event-register-summary-modal');
       const closeRegisterSummaryBtn = document.getElementById('close-event-register-summary');
@@ -4701,46 +4689,6 @@
         printerDriverUrlInput.addEventListener('input', refreshPrinterScript);
         printerDriverUrlInput.addEventListener('change', refreshPrinterScript);
       }
-      if (printerCopyBtn) {
-        printerCopyBtn.addEventListener('click', async () => {
-          refreshPrinterScript();
-          if (!(printerScriptTextarea instanceof HTMLTextAreaElement)) return;
-          const text = String(printerScriptTextarea.value || '');
-          if (!text) return;
-          try {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              await navigator.clipboard.writeText(text);
-            } else {
-              printerScriptTextarea.focus();
-              printerScriptTextarea.select();
-              document.execCommand('copy');
-            }
-            if (printerFeedbackNode) printerFeedbackNode.textContent = 'Script copiado. Cole em um arquivo .ps1 e execute como Administrador.';
-          } catch (error) {
-            if (printerFeedbackNode) printerFeedbackNode.textContent = 'Nao foi possivel copiar automaticamente. Copie manualmente o script.';
-          }
-        });
-      }
-      if (printerDownloadBtn) {
-        printerDownloadBtn.addEventListener('click', () => {
-          refreshPrinterScript();
-          if (!(printerScriptTextarea instanceof HTMLTextAreaElement)) return;
-          const scriptText = String(printerScriptTextarea.value || '');
-          if (!scriptText) return;
-          const modelText = printerModelSelect instanceof HTMLSelectElement ? String(printerModelSelect.value || 'OL-1005') : 'OL-1005';
-          const blob = new Blob([scriptText], { type: 'text/plain;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = 'instalar-impressora-' + modelText.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.ps1';
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          URL.revokeObjectURL(url);
-          if (printerFeedbackNode) printerFeedbackNode.textContent = 'Arquivo .ps1 baixado. Execute como Administrador no Windows.';
-        });
-      }
-
       if (closeRegisterSummaryBtn && registerSummaryModal) {
         closeRegisterSummaryBtn.addEventListener('click', () => {
           closeModal(registerSummaryModal);
