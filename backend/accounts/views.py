@@ -4893,7 +4893,7 @@ class EventoPrinterDriverDownloadView(View):
                 '  exit /b 1',
                 ')',
                 '',
-                'powershell -NoProfile -ExecutionPolicy Bypass -File "%_PS1%"',
+                'powershell -NoProfile -ExecutionPolicy Bypass -File "%_PS1%" -DriverDir "%~dp0POS58 DRIVER"',
                 'if %errorlevel% neq 0 (',
                 '  echo Falha na instalacao da impressora.',
                 '  pause',

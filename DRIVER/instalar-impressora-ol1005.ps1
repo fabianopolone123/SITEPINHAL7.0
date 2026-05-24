@@ -9,21 +9,22 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "Instalando impressora termica..." -ForegroundColor Cyan
 
-if (-not (Test-Path $DriverDir)) {
-  Write-Host "Pasta do driver nao encontrada: $DriverDir" -ForegroundColor Yellow
-}
+$driverCandidates = @(
+  $DriverDir,
+  (Join-Path $PSScriptRoot 'POS58 DRIVER'),
+  (Join-Path (Get-Location).Path 'POS58 DRIVER'),
+  (Join-Path $env:USERPROFILE 'Downloads\POS58 DRIVER')
+) | Where-Object { $_ -and (Test-Path $_) }
 
-$resolvedDriverDir = ""
-try {
-  $resolvedDriverDir = (Resolve-Path $DriverDir).Path
-} catch {}
-
+$resolvedDriverDir = $driverCandidates | Select-Object -First 1
 if ($resolvedDriverDir) {
   $infFiles = Get-ChildItem -Path $resolvedDriverDir -Recurse -Filter *.inf -ErrorAction SilentlyContinue
   foreach ($inf in $infFiles) {
     Write-Host ("Instalando INF: " + $inf.FullName) -ForegroundColor Yellow
     pnputil /add-driver $inf.FullName /install | Out-Null
   }
+} else {
+  Write-Host "Pasta de driver nao encontrada. Continuando com driver do Windows." -ForegroundColor DarkYellow
 }
 
 if (-not (Get-PrinterDriver -Name $DriverName -ErrorAction SilentlyContinue)) {
@@ -57,6 +58,12 @@ $testText = @(
 
 $tmp = Join-Path $env:TEMP "teste-ol1005.txt"
 Set-Content -Path $tmp -Value $testText -Encoding ASCII
-Get-Content -Path $tmp | Out-Printer -Name $PrinterName
+try {
+  Get-Content -Path $tmp | Out-Printer -Name $PrinterName
+  Write-Host "Teste de impressao enviado." -ForegroundColor Green
+} catch {
+  Write-Host "Nao foi possivel enviar teste de impressao automaticamente: $($_.Exception.Message)" -ForegroundColor Yellow
+  Write-Host "A impressora foi cadastrada. Faça um teste manual nas configuracoes do Windows." -ForegroundColor Yellow
+}
 
-Write-Host "Concluido. Impressora configurada e teste enviado." -ForegroundColor Green
+Write-Host "Concluido. Impressora configurada." -ForegroundColor Green
