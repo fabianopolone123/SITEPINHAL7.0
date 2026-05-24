@@ -1,13 +1,44 @@
 param(
   [string]$PrinterName = "OL-1005 USB",
   [string]$DriverName = "Generic / Text Only",
-  [string]$PortName = "USB001",
+  [string]$PortName = "AUTO",
   [string]$DriverDir = ".\POS58 DRIVER"
 )
 
 $ErrorActionPreference = "Stop"
 
 Write-Host "Instalando impressora termica OL-1005..." -ForegroundColor Cyan
+
+function Resolve-UsbPortName {
+  param([string]$RequestedPortName)
+
+  $requested = [string]$RequestedPortName
+  if ($null -eq $requested) { $requested = '' }
+  $requested = $requested.Trim()
+  if ($requested -and $requested.ToUpperInvariant() -notin @('AUTO', 'AUTODETECT', 'AUTO_DETECT')) {
+    return $requested
+  }
+
+  $usbPorts = @(
+    Get-PrinterPort -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -match '^USB\d{3}$' } |
+      Select-Object -ExpandProperty Name -Unique |
+      Sort-Object
+  )
+  if (-not $usbPorts -or $usbPorts.Count -eq 0) {
+    return 'USB001'
+  }
+
+  $usedPorts = @(
+    Get-Printer -ErrorAction SilentlyContinue |
+      Select-Object -ExpandProperty PortName -Unique
+  )
+  $freeUsbPorts = @($usbPorts | Where-Object { $usedPorts -notcontains $_ })
+  if ($freeUsbPorts.Count -gt 0) {
+    return $freeUsbPorts[0]
+  }
+  return $usbPorts[0]
+}
 
 try {
   $current = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -48,14 +79,17 @@ if (-not (Get-PrinterDriver -Name $DriverName -ErrorAction SilentlyContinue)) {
   throw "Nao foi possivel localizar driver de impressora no Windows."
 }
 
-if (-not (Get-PrinterPort -Name $PortName -ErrorAction SilentlyContinue)) {
-  try { Add-PrinterPort -Name $PortName } catch {}
+$resolvedPortName = Resolve-UsbPortName -RequestedPortName $PortName
+Write-Host "Porta selecionada automaticamente: $resolvedPortName" -ForegroundColor Cyan
+
+if (-not (Get-PrinterPort -Name $resolvedPortName -ErrorAction SilentlyContinue)) {
+  try { Add-PrinterPort -Name $resolvedPortName } catch {}
 }
 
 if (Get-Printer -Name $PrinterName -ErrorAction SilentlyContinue) {
-  Set-Printer -Name $PrinterName -DriverName $DriverName -PortName $PortName
+  Set-Printer -Name $PrinterName -DriverName $DriverName -PortName $resolvedPortName
 } else {
-  Add-Printer -Name $PrinterName -DriverName $DriverName -PortName $PortName
+  Add-Printer -Name $PrinterName -DriverName $DriverName -PortName $resolvedPortName
 }
 
 $testText = @(
