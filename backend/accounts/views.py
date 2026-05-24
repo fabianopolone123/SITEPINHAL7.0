@@ -14777,6 +14777,377 @@ class LojaRelatorioPedidosPagosPdfView(LoginRequiredMixin, View):
         return response
 
 
+class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
+    def _guard(self, request, evento):
+        helper = EventoPublicoView()
+        if not helper._can_manage_evento_page(request, evento):
+            if request.user.is_authenticated:
+                messages.error(request, 'Seu perfil nao possui permissao para baixar este relatorio de evento.')
+            return redirect('accounts:evento_publico', event_id=evento.id)
+        return None
+
+    def _pdf_header_evento(self, commands, *, generated_at, generated_by, page_number, evento_nome):
+        self._pdf_rect(commands, 36, 768, 523, 44, fill='#0f172a', stroke='#0f172a')
+        self._pdf_text(commands, 52, 795, f'Relatorio do evento: {self._pdf_clip(evento_nome, 44)}', size=15, bold=True, color='#ffffff')
+        self._pdf_text(commands, 52, 779, 'Resumo financeiro, faixas etarias e vendas da lojinha', size=9, color='#dbeafe')
+        self._pdf_text(commands, 390, 795, f'Gerado em {generated_at}', size=8, color='#e2e8f0')
+        self._pdf_text(commands, 390, 781, f'Por {self._pdf_clip(generated_by, 26)}', size=8, color='#e2e8f0')
+        self._pdf_footer(commands, page_number)
+
+    def _pdf_new_event_page(self, pages, *, generated_at, generated_by, evento_nome):
+        commands = []
+        page_number = len(pages) + 1
+        self._pdf_header_evento(
+            commands,
+            generated_at=generated_at,
+            generated_by=generated_by,
+            page_number=page_number,
+            evento_nome=evento_nome,
+        )
+        pages.append(commands)
+        return commands, 742
+
+    def _chart_hbars(self, commands, *, x, y, width, title, rows):
+        self._pdf_text(commands, x, y, title, size=11, bold=True, color='#0f172a')
+        y -= 14
+        max_value = Decimal('0.00')
+        for row in rows:
+            try:
+                value = Decimal(row.get('value') or Decimal('0.00'))
+            except (InvalidOperation, TypeError, ValueError):
+                value = Decimal('0.00')
+            if value > max_value:
+                max_value = value
+        if max_value <= 0:
+            max_value = Decimal('1.00')
+        self._pdf_rect(commands, x, y - 88, width, 88, fill='#f8fafc', stroke='#cbd5e1')
+        row_y = y - 18
+        max_bar_width = width - 220
+        for row in rows:
+            label = str(row.get('label') or '-')
+            try:
+                value = Decimal(row.get('value') or Decimal('0.00')).quantize(Decimal('0.01'))
+            except (InvalidOperation, TypeError, ValueError):
+                value = Decimal('0.00')
+            fill = str(row.get('color') or '#0ea5e9')
+            self._pdf_text(commands, x + 10, row_y + 2, self._pdf_clip(label, 24), size=8, bold=True, color='#334155')
+            bar_width = float((value / max_value) * Decimal(str(max_bar_width)))
+            if bar_width < 0:
+                bar_width = 0
+            self._pdf_rect(commands, x + 120, row_y - 2, max(0.8, bar_width), 10, fill=fill, stroke=fill, line_width=0.3)
+            self._pdf_text(commands, x + 126 + max_bar_width, row_y + 2, self._format_currency(value), size=8, color='#0f172a')
+            row_y -= 16
+        return y - 96
+
+    def get(self, request, event_id):
+        evento = get_object_or_404(Evento, pk=event_id)
+        guard = self._guard(request, evento)
+        if guard:
+            return guard
+
+        helper = EventoPublicoView()
+        inscricoes_excluir_teste_ids = _evento_inscricoes_excluir_teste_ids(evento=evento)
+        inscricoes_qs = (
+            EventoInscricao.objects
+            .filter(evento=evento, confirmada=True, cancelada=False)
+            .exclude(id__in=list(inscricoes_excluir_teste_ids))
+            .select_related('responsavel', 'responsavel__user', 'user')
+            .order_by('created_at', 'id')
+        )
+        inscricoes = list(inscricoes_qs)
+        inscricoes_valor_total = (
+            inscricoes_qs
+            .aggregate(total=Sum('valor_inscricao'))
+            .get('total')
+            or Decimal('0.00')
+        )
+        pedidos_pagos = list(
+            LojaPedido.objects
+            .filter(
+                evento=evento,
+                status=LojaPedido.STATUS_PAGO,
+                transacao_teste=False,
+            )
+            .exclude(status=LojaPedido.STATUS_CANCELADO)
+            .select_related('responsavel', 'responsavel__user')
+            .prefetch_related('itens')
+            .order_by('paid_at', 'created_at', 'id')
+        )
+        custos_total = (
+            EventoCusto.objects
+            .filter(evento=evento)
+            .aggregate(total=Sum('valor'))
+            .get('total')
+            or Decimal('0.00')
+        )
+
+        vendas_lojinha_total = Decimal('0.00')
+        loja_grouped = {}
+        for pedido in pedidos_pagos:
+            valor_itens = _pedido_evento_itens_total(pedido)
+            if valor_itens > 0:
+                vendas_lojinha_total += valor_itens
+            comprador = helper._responsavel_label_from_pedido(pedido)
+            for item in pedido.itens.all():
+                if not (item.produto_id or item.variacao_id):
+                    continue
+                key = (str(item.produto_titulo or '-').strip(), str(item.variacao_nome or '-').strip())
+                group = loja_grouped.setdefault(key, {
+                    'produto': key[0] or '-',
+                    'variacao': key[1] or '-',
+                    'quantidade_total': 0,
+                    'valor_total': Decimal('0.00'),
+                    'compras': [],
+                })
+                quantidade = int(item.quantidade or 0)
+                valor_item = Decimal(item.valor_total or Decimal('0.00')).quantize(Decimal('0.01'))
+                group['quantidade_total'] += quantidade
+                group['valor_total'] = (group['valor_total'] + valor_item).quantize(Decimal('0.01'))
+                group['compras'].append({
+                    'comprador': comprador or '-',
+                    'quantidade': quantidade,
+                    'valor': valor_item,
+                })
+
+        config = getattr(evento, 'inscricao_valor_config', {}) or {}
+        if not isinstance(config, dict):
+            config = {}
+        repeat_field = str(config.get('repeat_field') or '').strip()
+        age_field = str(config.get('age_field') or '').strip()
+        ranges_raw = config.get('ranges') if isinstance(config.get('ranges'), list) else []
+        faixa_rows = []
+        for item in ranges_raw:
+            if not isinstance(item, dict):
+                continue
+            try:
+                min_age = int(item.get('min'))
+                max_age = int(item.get('max'))
+                valor = Decimal(str(item.get('value') or '0')).quantize(Decimal('0.01'))
+            except (TypeError, ValueError, InvalidOperation):
+                continue
+            if max_age < min_age:
+                continue
+            faixa_rows.append({
+                'min': min_age,
+                'max': max_age,
+                'valor': valor,
+                'label': f'{min_age}-{max_age}',
+                'kids': [],
+                'quantidade': 0,
+                'valor_total': Decimal('0.00'),
+            })
+        faixa_rows = sorted(faixa_rows, key=lambda row: (row['min'], row['max']))
+
+        if repeat_field and age_field and faixa_rows:
+            for inscricao in inscricoes:
+                dados_obj = inscricao.dados if isinstance(inscricao.dados, dict) else {}
+                repeat_list = dados_obj.get(repeat_field)
+                if not isinstance(repeat_list, list):
+                    continue
+                for idx, row in enumerate(repeat_list):
+                    if not isinstance(row, dict) or not helper._row_has_any_value(row):
+                        continue
+                    age_text = str(row.get(age_field) or '').strip()
+                    age_match = re.search(r'\d{1,3}', age_text)
+                    if not age_match:
+                        continue
+                    age = int(age_match.group(0))
+                    nome = ''
+                    for key, value in row.items():
+                        if helper._normalize_lookup_text(key) == helper._normalize_lookup_text(age_field):
+                            continue
+                        value_text = str(value or '').strip()
+                        if not value_text:
+                            continue
+                        norm_key = helper._normalize_lookup_text(key)
+                        if helper._is_nome_key(norm_key) and not helper._is_responsavel_key(norm_key):
+                            nome = value_text
+                            break
+                    if not nome:
+                        nome = f'Crianca {idx + 1}'
+                    for faixa in faixa_rows:
+                        if faixa['min'] <= age <= faixa['max']:
+                            faixa['quantidade'] += 1
+                            faixa['valor_total'] = (faixa['valor_total'] + faixa['valor']).quantize(Decimal('0.01'))
+                            faixa['kids'].append({
+                                'nome': nome,
+                                'idade': age,
+                                'valor': faixa['valor'],
+                            })
+                            break
+
+        bruto = (Decimal(inscricoes_valor_total) + Decimal(vendas_lojinha_total)).quantize(Decimal('0.01'))
+        taxas = (bruto * Decimal('0.01')).quantize(Decimal('0.01'))
+        liquido = (bruto - Decimal(custos_total) - taxas).quantize(Decimal('0.01'))
+
+        pages = []
+        now_label = timezone.localtime(timezone.now()).strftime('%d/%m/%Y %H:%M:%S')
+        generated_by = request.user.get_full_name() or request.user.username
+        commands, y = self._pdf_new_event_page(
+            pages,
+            generated_at=now_label,
+            generated_by=generated_by,
+            evento_nome=evento.name,
+        )
+
+        metrics_cards = [
+            ('Total bruto', bruto, '#eff6ff'),
+            ('Total liquido', liquido, '#ecfdf5'),
+            ('Taxas cartao/pix (1%)', taxas, '#fff7ed'),
+            ('Total venda lojinha', vendas_lojinha_total, '#f5f3ff'),
+            ('Total inscricoes', Decimal(inscricoes_valor_total), '#f8fafc'),
+        ]
+        card_width = 100
+        for index, item in enumerate(metrics_cards):
+            label, value, fill = item
+            x = 36 + (index * 105)
+            self._pdf_rect(commands, x, y - 54, card_width, 54, fill=fill, stroke='#cbd5e1')
+            self._pdf_text(commands, x + 6, y - 18, self._pdf_clip(label, 18), size=7, bold=True, color='#475569')
+            self._pdf_text(commands, x + 6, y - 40, self._pdf_clip(self._format_currency(value), 16), size=10, bold=True, color='#0f172a')
+        y -= 72
+
+        y = self._chart_hbars(
+            commands,
+            x=36,
+            y=y,
+            width=523,
+            title='Grafico financeiro',
+            rows=[
+                {'label': 'Bruto', 'value': bruto, 'color': '#2563eb'},
+                {'label': 'Liquido', 'value': liquido if liquido > 0 else Decimal('0.00'), 'color': '#16a34a'},
+                {'label': 'Taxas', 'value': taxas, 'color': '#f59e0b'},
+                {'label': 'Custos', 'value': Decimal(custos_total), 'color': '#ef4444'},
+            ],
+        )
+
+        if faixa_rows:
+            faixa_chart_rows = []
+            for faixa in faixa_rows:
+                faixa_chart_rows.append({
+                    'label': f'Faixa {faixa["label"]} ({faixa["quantidade"]})',
+                    'value': Decimal(faixa['valor_total']),
+                    'color': '#7c3aed',
+                })
+            y = self._chart_hbars(
+                commands,
+                x=36,
+                y=y,
+                width=523,
+                title='Grafico por faixa etaria',
+                rows=faixa_chart_rows or [{'label': 'Sem dados', 'value': Decimal('0.00'), 'color': '#94a3b8'}],
+            )
+
+        if y < 120:
+            commands, y = self._pdf_new_event_page(
+                pages,
+                generated_at=now_label,
+                generated_by=generated_by,
+                evento_nome=evento.name,
+            )
+        self._pdf_text(commands, 36, y, 'Resumo por faixa etaria', size=12, bold=True, color='#0f172a')
+        y -= 18
+        for faixa in faixa_rows:
+            self._pdf_text(
+                commands,
+                36,
+                y,
+                f'Faixa {faixa["label"]}: {faixa["quantidade"]} inscrito(s) | {self._format_currency(faixa["valor_total"])}',
+                size=9,
+                bold=True,
+                color='#1d4ed8',
+            )
+            y -= 14
+
+        y -= 4
+        for faixa in faixa_rows:
+            if y < 92:
+                commands, y = self._pdf_new_event_page(
+                    pages,
+                    generated_at=now_label,
+                    generated_by=generated_by,
+                    evento_nome=evento.name,
+                )
+            self._pdf_text(commands, 36, y, f'Faixa {faixa["label"]}: {faixa["quantidade"]} inscrito(s)', size=11, bold=True)
+            y -= 14
+            if not faixa['kids']:
+                self._pdf_text(commands, 48, y, 'Sem criancas registradas nesta faixa.', size=8, color='#64748b')
+                y -= 12
+                continue
+            for kid in faixa['kids']:
+                if y < 78:
+                    commands, y = self._pdf_new_event_page(
+                        pages,
+                        generated_at=now_label,
+                        generated_by=generated_by,
+                        evento_nome=evento.name,
+                    )
+                    self._pdf_text(commands, 36, y, f'Faixa {faixa["label"]} (continuacao)', size=10, bold=True)
+                    y -= 14
+                line = f'- {kid["nome"]} | {kid["idade"]} anos | {self._format_currency(kid["valor"])}'
+                for wrap_line in self._pdf_wrap(line, 92):
+                    self._pdf_text(commands, 48, y, wrap_line, size=8, color='#0f172a')
+                    y -= 10
+            y -= 6
+
+        loja_groups = sorted(
+            loja_grouped.values(),
+            key=lambda row: (-row['valor_total'], row['produto'], row['variacao']),
+        )
+        if y < 110:
+            commands, y = self._pdf_new_event_page(
+                pages,
+                generated_at=now_label,
+                generated_by=generated_by,
+                evento_nome=evento.name,
+            )
+        self._pdf_text(commands, 36, y, f'Vendas lojinha (total: {self._format_currency(vendas_lojinha_total)})', size=12, bold=True)
+        y -= 18
+        if not loja_groups:
+            self._pdf_text(commands, 48, y, 'Sem vendas de itens de lojinha neste evento.', size=8, color='#64748b')
+            y -= 12
+        for group in loja_groups:
+            if y < 88:
+                commands, y = self._pdf_new_event_page(
+                    pages,
+                    generated_at=now_label,
+                    generated_by=generated_by,
+                    evento_nome=evento.name,
+                )
+            header = (
+                f'Item: {group["produto"]} > {group["variacao"]} | '
+                f'Qtd: {group["quantidade_total"]} | Total: {self._format_currency(group["valor_total"])}'
+            )
+            for wrap_line in self._pdf_wrap(header, 90):
+                self._pdf_text(commands, 36, y, wrap_line, size=9, bold=True, color='#0f172a')
+                y -= 10
+            for compra in group['compras']:
+                if y < 74:
+                    commands, y = self._pdf_new_event_page(
+                        pages,
+                        generated_at=now_label,
+                        generated_by=generated_by,
+                        evento_nome=evento.name,
+                    )
+                    self._pdf_text(commands, 36, y, f'Item: {group["produto"]} > {group["variacao"]} (cont.)', size=9, bold=True)
+                    y -= 11
+                line = (
+                    f'- {compra["comprador"]} | Quantidade: {compra["quantidade"]} | '
+                    f'Valor: {self._format_currency(compra["valor"])}'
+                )
+                for wrap_line in self._pdf_wrap(line, 88):
+                    self._pdf_text(commands, 48, y, wrap_line, size=8, color='#334155')
+                    y -= 10
+            y -= 6
+
+        response = HttpResponse(
+            self._build_pdf_from_pages(pages),
+            content_type='application/pdf',
+        )
+        filename = timezone.localtime(timezone.now()).strftime(f'relatorio-evento-{evento.id}-%Y%m%d-%H%M.pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+
 class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
     def post(self, request):
         if not _has_menu_permission(request, 'loja'):

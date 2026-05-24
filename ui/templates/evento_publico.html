@@ -1868,7 +1868,7 @@
           <button type="button" class="secondary" id="open-event-consulta-atendente">Consultar</button>
           <button type="button" class="secondary" id="open-event-sale">Vender</button>
           <a href="{% url 'accounts:evento_vendas_inscritos' evento.id %}?vtab=comprar" class="{% if active_mode == 'vendasinscritos' %}primary{% else %}secondary{% endif %}" style="text-decoration:none;">Vendas inscritos</a>
-          <button type="button" class="secondary" id="open-event-report">Relatorio</button>
+          <a href="{% url 'accounts:evento_relatorio_pdf' evento.id %}" class="secondary" style="text-decoration:none;">Baixar relatorio</a>
           <button type="button" class="secondary" id="open-event-extrato">Extrato</button>
           <button type="button" class="secondary" id="open-event-costs">Custos</button>
           <button type="button" class="secondary" id="open-event-printer-setup" onclick="(function(){var m=document.getElementById('event-printer-setup-modal');if(m){m.setAttribute('aria-hidden','false');m.classList.add('show');m.classList.add('is-open');}})();">Instalar impressora</button>
