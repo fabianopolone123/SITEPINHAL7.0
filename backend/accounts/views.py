@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import logging
 import time
+import base64
 from pathlib import Path
 from random import randint
 from decimal import Decimal, InvalidOperation
@@ -4861,10 +4862,17 @@ class EventoPrinterDriverDownloadView(View):
         if not filename:
             return HttpResponse('Arquivo nao encontrado.', status=404)
 
+        base_dir = Path(settings.BASE_DIR).parent
+        ps1_path = base_dir / 'ui' / 'static' / 'driver' / 'instalar-impressora-ol1005.ps1'
+        if not (ps1_path.exists() and ps1_path.is_file()):
+            ps1_path = Path(settings.BASE_DIR) / 'staticfiles' / 'driver' / 'instalar-impressora-ol1005.ps1'
+
         if kind == 'bat':
-            ps1_url = request.build_absolute_uri(
-                reverse('accounts:evento_printer_driver_download', args=[evento.id, 'ps1'])
-            )
+            try:
+                ps1_payload = ps1_path.read_bytes()
+            except OSError:
+                return HttpResponse('Falha ao ler script de instalacao no servidor.', status=500)
+            ps1_base64 = base64.b64encode(ps1_payload).decode('ascii')
             script = '\r\n'.join([
                 '@echo off',
                 'setlocal',
@@ -4876,13 +4884,11 @@ class EventoPrinterDriverDownloadView(View):
                 ')',
                 '',
                 'set "_PS1=%TEMP%\\instalar-impressora-ol1005.ps1"',
-                f'set "_PS1_URL={ps1_url}"',
-                '',
-                'echo Baixando script de instalacao...',
-                'powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -UseBasicParsing -Uri $env:_PS1_URL -OutFile $env:_PS1 } catch { exit 1 }"',
+                f'set "_PS1_B64={ps1_base64}"',
+                'echo Preparando script de instalacao...',
+                'powershell -NoProfile -ExecutionPolicy Bypass -Command "$b=[System.Convert]::FromBase64String($env:_PS1_B64); [System.IO.File]::WriteAllBytes($env:_PS1,$b)"',
                 'if %errorlevel% neq 0 (',
-                '  echo Falha ao baixar o .ps1 automaticamente.',
-                '  echo Verifique internet/liberacao de firewall e tente novamente.',
+                '  echo Falha ao preparar o .ps1 localmente.',
                 '  pause',
                 '  exit /b 1',
                 ')',
@@ -4906,7 +4912,6 @@ class EventoPrinterDriverDownloadView(View):
             response['Content-Length'] = str(len(payload))
             return response
 
-        base_dir = Path(settings.BASE_DIR).parent
         candidates = [
             base_dir / 'ui' / 'static' / 'driver' / filename,
             Path(settings.BASE_DIR) / 'staticfiles' / 'driver' / filename,
