@@ -174,6 +174,29 @@ def _evento_inscricoes_excluir_teste_ids(evento=None):
     return inscricoes_teste_ids - inscricoes_reais_ids
 
 
+def _pedido_evento_itens_total(pedido):
+    if not pedido:
+        return Decimal('0.00')
+    valor_total_pedido = Decimal(getattr(pedido, 'valor_total', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+    valor_inscricao_no_pedido = Decimal('0.00')
+    itens = getattr(pedido, 'itens', None)
+    if itens is None:
+        return valor_total_pedido
+    for item in itens.all():
+        if getattr(item, 'produto_id', None) or getattr(item, 'variacao_id', None):
+            continue
+        titulo_item = str(getattr(item, 'produto_titulo', '') or '').strip().lower()
+        if not titulo_item.startswith('inscricao do evento'):
+            continue
+        valor_inscricao_no_pedido += Decimal(getattr(item, 'valor_total', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+    if valor_inscricao_no_pedido > valor_total_pedido:
+        valor_inscricao_no_pedido = valor_total_pedido
+    valor_itens_evento = (valor_total_pedido - valor_inscricao_no_pedido).quantize(Decimal('0.01'))
+    if valor_itens_evento < 0:
+        valor_itens_evento = Decimal('0.00')
+    return valor_itens_evento
+
+
 def _get_pending_aventures(session):
     return session.get('aventures_pending', [])
 
@@ -3728,15 +3751,21 @@ class EventosView(LoginRequiredMixin, View):
             logger.exception('Falha ao calcular total de pedidos por evento.')
             pedidos_totais_map = {}
         try:
-            pedidos_pagos_totais_map = {
-                item['evento_id']: item['valor_total']
-                for item in (
-                    LojaPedido.objects
-                    .filter(evento__isnull=False, status=LojaPedido.STATUS_PAGO, transacao_teste=False)
-                    .values('evento_id')
-                    .annotate(valor_total=Sum('valor_total'))
-                )
-            }
+            pedidos_pagos_totais_map = {}
+            pedidos_pagos_evento = list(
+                LojaPedido.objects
+                .filter(evento__isnull=False, status=LojaPedido.STATUS_PAGO, transacao_teste=False)
+                .exclude(status=LojaPedido.STATUS_CANCELADO)
+                .select_related('evento')
+                .prefetch_related('itens')
+            )
+            for pedido in pedidos_pagos_evento:
+                if not getattr(pedido, 'evento_id', None):
+                    continue
+                pedidos_pagos_totais_map[pedido.evento_id] = (
+                    Decimal(pedidos_pagos_totais_map.get(pedido.evento_id) or Decimal('0.00'))
+                    + _pedido_evento_itens_total(pedido)
+                ).quantize(Decimal('0.01'))
         except Exception:
             logger.exception('Falha ao calcular total pago por evento.')
             pedidos_pagos_totais_map = {}
@@ -6590,13 +6619,15 @@ class EventoPublicoView(View):
                     .exclude(status=LojaPedido.STATUS_CANCELADO)
                 )
                 pedidos_count = pedidos_qs_relatorio.count()
-                pedidos_total_pago = (
+                pedidos_pagos_relatorio = list(
                     pedidos_qs_relatorio
                     .filter(status=LojaPedido.STATUS_PAGO)
-                    .aggregate(total=Sum('valor_total'))
-                    .get('total')
-                    or Decimal('0.00')
+                    .prefetch_related('itens')
                 )
+                pedidos_total_pago = sum(
+                    (_pedido_evento_itens_total(pedido) for pedido in pedidos_pagos_relatorio),
+                    Decimal('0.00'),
+                ).quantize(Decimal('0.01'))
                 custos_qs = (
                     EventoCusto.objects
                     .filter(evento=evento)
