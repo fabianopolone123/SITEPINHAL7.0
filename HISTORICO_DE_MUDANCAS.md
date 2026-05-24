@@ -1226,3 +1226,5 @@ ame e label sem quebrar a tela.
 - Assistente de impressora: instalador .bat agora funciona fora da raiz do projeto (na pasta de downloads), elevando para admin e executando o .ps1 companion da mesma pasta; download do .bat passou a baixar automaticamente o .ps1 correspondente.
 
 - Hotfix fallback: botao/fechar do modal 'Instalar impressora' agora possuem onclick direto no HTML para abrir/fechar mesmo se algum JS secundario falhar no carregamento da pagina.
+
+- Hotfix modal impressora: fallback inline passou a adicionar/remover tambem a classe show, garantindo exibicao do modal no mesmo padrao dos demais modais da pagina.

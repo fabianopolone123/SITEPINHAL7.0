@@ -1866,7 +1866,7 @@
           <a href="{% url 'accounts:evento_vendas_inscritos' evento.id %}?vtab=comprar" class="{% if active_mode == 'vendasinscritos' %}primary{% else %}secondary{% endif %}" style="text-decoration:none;">Vendas inscritos</a>
           <button type="button" class="secondary" id="open-event-report">Relatorio</button>
           <button type="button" class="secondary" id="open-event-costs">Custos</button>
-          <button type="button" class="secondary" id="open-event-printer-setup" onclick="(function(){var m=document.getElementById('event-printer-setup-modal');if(m){m.setAttribute('aria-hidden','false');m.classList.add('is-open');}})();">Instalar impressora</button>
+          <button type="button" class="secondary" id="open-event-printer-setup" onclick="(function(){var m=document.getElementById('event-printer-setup-modal');if(m){m.setAttribute('aria-hidden','false');m.classList.add('show');m.classList.add('is-open');}})();">Instalar impressora</button>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Editar campos</a>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Cadastrar produtos</a>
           <a href="{% url 'accounts:eventos' %}" class="secondary">Abrir lista de eventos</a>
@@ -2365,7 +2365,7 @@
         <div class="modal-content">
           <header>
             <h3>Instalar impressora termica - {{ evento.name }}</h3>
-            <button type="button" id="close-event-printer-setup" aria-label="Fechar" onclick="(function(){var m=document.getElementById('event-printer-setup-modal');if(m){m.setAttribute('aria-hidden','true');m.classList.remove('is-open');}})();">X</button>
+            <button type="button" id="close-event-printer-setup" aria-label="Fechar" onclick="(function(){var m=document.getElementById('event-printer-setup-modal');if(m){m.setAttribute('aria-hidden','true');m.classList.remove('show');m.classList.remove('is-open');}})();">X</button>
           </header>
           <section class="field-section">
             <p class="panel-note">
