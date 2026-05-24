@@ -9,6 +9,59 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "Instalando impressora termica OL-1005..." -ForegroundColor Cyan
 
+function Expand-DriverZipIfNeeded {
+  param([string]$TargetDir)
+
+  $zipCandidates = @(
+    (Join-Path $env:USERPROFILE 'Downloads\driver-ol1005-pos58.zip'),
+    (Join-Path $env:USERPROFILE 'Downloads\POS_58_Driver-11.3.0.0.zip')
+  ) | Where-Object { $_ -and (Test-Path $_) }
+
+  if ($zipCandidates.Count -eq 0) { return }
+
+  try {
+    if (-not (Test-Path $TargetDir)) {
+      New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
+    }
+  } catch {}
+
+  foreach ($zipPath in $zipCandidates) {
+    try {
+      Write-Host "Extraindo pacote de driver: $zipPath" -ForegroundColor Yellow
+      Expand-Archive -LiteralPath $zipPath -DestinationPath $TargetDir -Force
+      break
+    } catch {
+      Write-Host "Falha ao extrair $zipPath: $($_.Exception.Message)" -ForegroundColor DarkYellow
+    }
+  }
+}
+
+function Install-DriverFromExe {
+  param([string]$ExePath)
+
+  if (-not (Test-Path $ExePath)) { return $false }
+  Write-Host "Executando instalador do driver: $ExePath" -ForegroundColor Yellow
+  $silentArgs = @('/S', '/silent', '/quiet', '/qn')
+  foreach ($arg in $silentArgs) {
+    try {
+      $process = Start-Process -FilePath $ExePath -ArgumentList $arg -Wait -PassThru -ErrorAction Stop
+      if ($process.ExitCode -eq 0) {
+        Write-Host "Instalador do driver concluido com argumento $arg." -ForegroundColor Green
+        return $true
+      }
+    } catch {}
+  }
+
+  try {
+    Start-Process -FilePath $ExePath -Wait -ErrorAction Stop
+    Write-Host "Instalador do driver executado em modo interativo." -ForegroundColor Green
+    return $true
+  } catch {
+    Write-Host "Falha ao executar instalador EXE do driver: $($_.Exception.Message)" -ForegroundColor DarkYellow
+  }
+  return $false
+}
+
 function Resolve-UsbPortName {
   param([string]$RequestedPortName)
 
@@ -58,11 +111,26 @@ $driverCandidates = @(
 ) | Where-Object { $_ -and (Test-Path $_) }
 
 $resolvedDriverDir = $driverCandidates | Select-Object -First 1
+if (-not $resolvedDriverDir) {
+  $defaultDownloadDir = Join-Path $env:USERPROFILE 'Downloads\POS58 DRIVER'
+  Expand-DriverZipIfNeeded -TargetDir $defaultDownloadDir
+  if (Test-Path $defaultDownloadDir) {
+    $resolvedDriverDir = $defaultDownloadDir
+  }
+}
+
 if ($resolvedDriverDir) {
   Write-Host "Instalando INF da pasta: $resolvedDriverDir" -ForegroundColor Yellow
   $infFiles = Get-ChildItem -Path $resolvedDriverDir -Recurse -Filter *.inf -ErrorAction SilentlyContinue
   foreach ($inf in $infFiles) {
     pnputil /add-driver $inf.FullName /install | Out-Null
+  }
+  if (-not $infFiles -or $infFiles.Count -eq 0) {
+    $exeFiles = Get-ChildItem -Path $resolvedDriverDir -Recurse -Filter *.exe -ErrorAction SilentlyContinue
+    if ($exeFiles -and $exeFiles.Count -gt 0) {
+      $driverExe = $exeFiles | Sort-Object Length -Descending | Select-Object -First 1
+      Install-DriverFromExe -ExePath $driverExe.FullName | Out-Null
+    }
   }
 } else {
   Write-Host "Pasta de driver nao encontrada. Continuando com driver do Windows." -ForegroundColor DarkYellow
