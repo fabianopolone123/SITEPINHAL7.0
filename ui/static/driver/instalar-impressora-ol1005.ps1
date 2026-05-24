@@ -12,10 +12,16 @@ Write-Host "Instalando impressora termica OL-1005..." -ForegroundColor Cyan
 function Expand-DriverZipIfNeeded {
   param([string]$TargetDir)
 
-  $zipCandidates = @(
+  $knownZipCandidates = @(
     (Join-Path $env:USERPROFILE 'Downloads\driver-ol1005-pos58.zip'),
-    (Join-Path $env:USERPROFILE 'Downloads\POS_58_Driver-11.3.0.0.zip')
+    (Join-Path $env:USERPROFILE 'Downloads\POS_58_Driver-11.3.0.0.zip'),
+    (Join-Path $env:USERPROFILE 'Downloads\POS58 DRIVER.zip')
   ) | Where-Object { $_ -and (Test-Path $_) }
+  $downloadZipMatches = @(Get-ChildItem -Path (Join-Path $env:USERPROFILE 'Downloads') -File -Filter *.zip -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -match '(?i)(pos.?58|ol.?1005|driver-ol1005)' } |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -ExpandProperty FullName)
+  $zipCandidates = @($knownZipCandidates + $downloadZipMatches | Select-Object -Unique)
 
   if ($zipCandidates.Count -eq 0) { return }
 

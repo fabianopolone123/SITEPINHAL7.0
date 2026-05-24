@@ -4915,8 +4915,16 @@ class EventoPrinterDriverDownloadView(View):
             return response
 
         if kind == 'driver':
-            bundled_zip = base_dir / 'DRIVER' / 'POS_58_Driver-11.3.0.0.zip'
-            if bundled_zip.exists() and bundled_zip.is_file():
+            bundled_zip_candidates = [
+                base_dir / 'DRIVER' / 'POS_58_Driver-11.3.0.0.zip',
+                base_dir / 'DRIVER' / 'POS58 DRIVER.zip',
+            ]
+            any_driver_zip = sorted((base_dir / 'DRIVER').glob('*.zip'))
+            bundled_zip = next(
+                (path for path in (bundled_zip_candidates + any_driver_zip) if path.exists() and path.is_file()),
+                None,
+            )
+            if bundled_zip is not None:
                 try:
                     payload = bundled_zip.read_bytes()
                 except OSError:
