@@ -153,6 +153,27 @@ def _evento_public_consulta_pedidos_session_key(evento_id):
     return f'evento_public_consulta_pedidos_{event_part}'
 
 
+def _evento_inscricoes_excluir_teste_ids(evento=None):
+    filtros = {
+        'status': LojaPedido.STATUS_PAGO,
+        'evento_inscricao__isnull': False,
+    }
+    if evento is not None:
+        filtros['evento'] = evento
+    pedidos_base = LojaPedido.objects.filter(**filtros)
+    inscricoes_reais_ids = set(
+        pedidos_base
+        .filter(transacao_teste=False)
+        .values_list('evento_inscricao_id', flat=True)
+    )
+    inscricoes_teste_ids = set(
+        pedidos_base
+        .filter(transacao_teste=True)
+        .values_list('evento_inscricao_id', flat=True)
+    )
+    return inscricoes_teste_ids - inscricoes_reais_ids
+
+
 def _get_pending_aventures(session):
     return session.get('aventures_pending', [])
 
@@ -3672,6 +3693,7 @@ class EventosView(LoginRequiredMixin, View):
         eventos = list(Evento.objects.select_related('created_by').all())
         evento_publico_helper = EventoPublicoView()
         eventos_by_id = {evento.id: evento for evento in eventos}
+        inscricoes_excluir_teste_ids = _evento_inscricoes_excluir_teste_ids()
         try:
             inscritos_totais_map = {}
             inscricoes_confirmadas = (
@@ -3681,6 +3703,8 @@ class EventosView(LoginRequiredMixin, View):
                 .prefetch_related('responsavel__aventures')
             )
             for inscricao in inscricoes_confirmadas:
+                if inscricao.id in inscricoes_excluir_teste_ids:
+                    continue
                 evento_obj = eventos_by_id.get(inscricao.evento_id)
                 inscritos_totais_map[inscricao.evento_id] = (
                     int(inscritos_totais_map.get(inscricao.evento_id) or 0)
@@ -3721,6 +3745,7 @@ class EventosView(LoginRequiredMixin, View):
                 for item in (
                     EventoInscricao.objects
                     .filter(confirmada=True, cancelada=False)
+                    .exclude(id__in=list(inscricoes_excluir_teste_ids))
                     .values('evento_id')
                     .annotate(valor_total=Sum('valor_inscricao'))
                 )
@@ -6531,7 +6556,11 @@ class EventoPublicoView(View):
                     .prefetch_related('responsavel__aventures')
                     .order_by('-created_at')
                 )
-                inscricoes_count = self._inscricoes_participantes_count(inscricoes_base_qs, evento=evento)
+                inscricoes_excluir_teste_ids = _evento_inscricoes_excluir_teste_ids(evento=evento)
+                inscricoes_count = self._inscricoes_participantes_count(
+                    inscricoes_base_qs.exclude(id__in=list(inscricoes_excluir_teste_ids)),
+                    evento=evento,
+                )
                 inscricoes_canceladas_qs = (
                     EventoInscricao.objects
                     .filter(evento=evento, cancelada=True)
@@ -6544,29 +6573,6 @@ class EventoPublicoView(View):
                     .aggregate(total=Sum('valor_estornado'))
                     .get('total')
                     or Decimal('0.00')
-                )
-                inscricoes_com_pedido_pago_real_ids = set(
-                    LojaPedido.objects
-                    .filter(
-                        evento=evento,
-                        status=LojaPedido.STATUS_PAGO,
-                        transacao_teste=False,
-                        evento_inscricao__isnull=False,
-                    )
-                    .values_list('evento_inscricao_id', flat=True)
-                )
-                inscricoes_com_pedido_pago_teste_ids = set(
-                    LojaPedido.objects
-                    .filter(
-                        evento=evento,
-                        status=LojaPedido.STATUS_PAGO,
-                        transacao_teste=True,
-                        evento_inscricao__isnull=False,
-                    )
-                    .values_list('evento_inscricao_id', flat=True)
-                )
-                inscricoes_excluir_teste_ids = (
-                    inscricoes_com_pedido_pago_teste_ids - inscricoes_com_pedido_pago_real_ids
                 )
                 inscricoes_valor_total = (
                     inscricoes_base_qs
