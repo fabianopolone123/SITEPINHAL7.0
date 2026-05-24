@@ -3719,6 +3719,7 @@ class EventosView(LoginRequiredMixin, View):
                 for item in (
                     LojaPedido.objects
                     .filter(evento__isnull=False, transacao_teste=False)
+                    .exclude(status=LojaPedido.STATUS_CANCELADO)
                     .values('evento_id')
                     .annotate(total=Count('id'))
                 )
@@ -3794,7 +3795,8 @@ class EventosView(LoginRequiredMixin, View):
                         inscricao.responsavel_label = '-'
                 pedidos = list(
                     LojaPedido.objects
-                    .filter(evento=evento)
+                    .filter(evento=evento, transacao_teste=False)
+                    .exclude(status=LojaPedido.STATUS_CANCELADO)
                     .select_related('responsavel', 'responsavel__user')
                     .prefetch_related('itens')
                     .order_by('-created_at')[:20]
@@ -6582,7 +6584,11 @@ class EventoPublicoView(View):
                     or Decimal('0.00')
                 )
                 pedidos_qs = LojaPedido.objects.filter(evento=evento)
-                pedidos_qs_relatorio = pedidos_qs.filter(transacao_teste=False)
+                pedidos_qs_relatorio = (
+                    pedidos_qs
+                    .filter(transacao_teste=False)
+                    .exclude(status=LojaPedido.STATUS_CANCELADO)
+                )
                 pedidos_count = pedidos_qs_relatorio.count()
                 pedidos_total_pago = (
                     pedidos_qs_relatorio
