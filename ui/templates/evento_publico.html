@@ -2392,7 +2392,7 @@
               <button type="button" class="primary" id="event-printer-download-script">Baixar script .ps1</button>
               <a
                 class="primary"
-                href="{% static 'driver/instalar-impressora-ol1005.bat' %}"
+                href="{% url 'accounts:evento_printer_driver_download' evento.id 'bat' %}"
                 download="instalar-impressora-ol1005.bat"
                 style="text-decoration:none;display:inline-flex;align-items:center;"
               >
@@ -2400,7 +2400,7 @@
               </a>
               <a
                 class="secondary"
-                href="{% static 'driver/instalar-impressora-ol1005.ps1' %}"
+                href="{% url 'accounts:evento_printer_driver_download' evento.id 'ps1' %}"
                 download="instalar-impressora-ol1005.ps1"
                 style="text-decoration:none;display:inline-flex;align-items:center;"
               >

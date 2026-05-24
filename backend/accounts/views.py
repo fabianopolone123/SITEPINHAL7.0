@@ -8,10 +8,12 @@ import hashlib
 import hmac
 import logging
 import time
+from pathlib import Path
 from random import randint
 from decimal import Decimal, InvalidOperation
 from urllib import request as urllib_request, error as urllib_error
 
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import login, logout, get_user_model, update_session_auth_hash
@@ -4839,6 +4841,44 @@ class EventosView(LoginRequiredMixin, View):
                 messages.success(request, 'Pré-configuração removida com sucesso.')
 
         return render(request, self.template_name, self._context(request))
+
+
+@method_decorator(xframe_options_sameorigin, name='dispatch')
+class EventoPrinterDriverDownloadView(View):
+    FILES = {
+        'bat': 'instalar-impressora-ol1005.bat',
+        'ps1': 'instalar-impressora-ol1005.ps1',
+    }
+
+    def get(self, request, event_id, file_kind):
+        evento = get_object_or_404(Evento, pk=event_id)
+        helper = EventoPublicoView()
+        if not helper._can_manage_evento_page(request, evento):
+            return HttpResponse('Acesso negado.', status=403)
+
+        kind = str(file_kind or '').strip().lower()
+        filename = self.FILES.get(kind)
+        if not filename:
+            return HttpResponse('Arquivo nao encontrado.', status=404)
+
+        base_dir = Path(settings.BASE_DIR).parent
+        candidates = [
+            base_dir / 'ui' / 'static' / 'driver' / filename,
+            Path(settings.BASE_DIR) / 'staticfiles' / 'driver' / filename,
+        ]
+        selected = next((path for path in candidates if path.exists() and path.is_file()), None)
+        if selected is None:
+            return HttpResponse('Arquivo nao encontrado no servidor.', status=404)
+
+        try:
+            payload = selected.read_bytes()
+        except OSError:
+            return HttpResponse('Falha ao ler arquivo no servidor.', status=500)
+
+        response = HttpResponse(payload, content_type='application/octet-stream')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Length'] = str(len(payload))
+        return response
 
 
 @method_decorator(xframe_options_sameorigin, name='dispatch')
