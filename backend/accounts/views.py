@@ -14882,28 +14882,22 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
             base = f'{item["idx"]}. {item["label"]} - qtd {int(item["value"])}'
             legend_lines.extend(self._pdf_wrap(base, 86))
         legend_height = max(22, len(legend_lines) * 9 + 8)
-        bar_area_height = 92
+        bar_area_height = max(88, 24 + (len(normalized_rows) * 16))
         chart_height = bar_area_height + legend_height + 10
 
         self._pdf_rect(commands, x, y - chart_height, width, chart_height, fill='#f8fafc', stroke='#cbd5e1')
 
-        bars_x = x + 18
-        bars_y = y - 10
-        bars_w = width - 36
-        bars_h = bar_area_height - 18
-        count = max(1, len(normalized_rows))
-        slot_w = bars_w / float(count)
-        bar_w = max(8.0, min(30.0, slot_w * 0.6))
-        for pos, item in enumerate(normalized_rows):
+        row_y = y - 18
+        max_bar_width = width - 120
+        for item in normalized_rows:
             ratio = float(item['value'] / max_value) if max_value > 0 else 0.0
             if ratio < 0:
                 ratio = 0.0
-            bar_h = max(1.0, ratio * bars_h)
-            bar_x = bars_x + (slot_w * pos) + ((slot_w - bar_w) / 2.0)
-            bar_y = bars_y - 8 - bar_h
-            self._pdf_rect(commands, bar_x, bar_y, bar_w, bar_h, fill=item['color'], stroke=item['color'], line_width=0.3)
-            self._pdf_text(commands, bar_x + (bar_w / 2.0) - 3, bars_y - 16, str(item['idx']), size=7, bold=True, color='#334155')
-            self._pdf_text(commands, bar_x + (bar_w / 2.0) - 8, bar_y - 8, str(int(item['value'])), size=7, color='#0f172a')
+            bar_width = max(1.0, ratio * max_bar_width)
+            self._pdf_text(commands, x + 10, row_y + 2, str(item['idx']), size=8, bold=True, color='#334155')
+            self._pdf_rect(commands, x + 24, row_y - 2, bar_width, 10, fill=item['color'], stroke=item['color'], line_width=0.3)
+            self._pdf_text(commands, x + 28 + max_bar_width, row_y + 2, str(int(item['value'])), size=8, color='#0f172a')
+            row_y -= 16
 
         legend_y = y - bar_area_height - 4
         for line in legend_lines:
