@@ -14949,11 +14949,18 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
         )
 
         vendas_lojinha_total = Decimal('0.00')
+        total_pago_pix_evento = Decimal('0.00')
+        total_pago_cartao_evento = Decimal('0.00')
         loja_grouped = {}
         for pedido in pedidos_pagos:
             valor_itens = _pedido_evento_itens_total(pedido)
             if valor_itens > 0:
                 vendas_lojinha_total += valor_itens
+            valor_total_pedido = Decimal(getattr(pedido, 'valor_total', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+            if str(getattr(pedido, 'forma_pagamento', '') or '').strip().lower() == LojaPedido.FORMA_PAGAMENTO_PIX:
+                total_pago_pix_evento = (total_pago_pix_evento + valor_total_pedido).quantize(Decimal('0.01'))
+            if str(getattr(pedido, 'forma_pagamento', '') or '').strip().lower() == LojaPedido.FORMA_PAGAMENTO_CARTAO:
+                total_pago_cartao_evento = (total_pago_cartao_evento + valor_total_pedido).quantize(Decimal('0.01'))
             comprador = helper._responsavel_label_from_pedido(pedido)
             forma_pagamento = str(pedido.get_forma_pagamento_display() or '-').strip() or '-'
             for item in pedido.itens.all():
@@ -15079,6 +15086,26 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
             self._pdf_text(commands, x + 6, y - 18, self._pdf_clip(label, 18), size=7, bold=True, color='#475569')
             self._pdf_text(commands, x + 6, y - 40, self._pdf_clip(self._format_currency(value), 16), size=10, bold=True, color='#0f172a')
         y -= 72
+        self._pdf_text(
+            commands,
+            36,
+            y,
+            f'Pago em Pix (inclui inscricoes): {self._format_currency(total_pago_pix_evento)}',
+            size=9,
+            bold=True,
+            color='#0f172a',
+        )
+        y -= 12
+        self._pdf_text(
+            commands,
+            36,
+            y,
+            f'Pago em Cartao (inclui inscricoes): {self._format_currency(total_pago_cartao_evento)}',
+            size=9,
+            bold=True,
+            color='#0f172a',
+        )
+        y -= 16
 
         y = self._chart_hbars(
             commands,
