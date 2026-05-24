@@ -1873,7 +1873,9 @@
           <a href="{% url 'accounts:evento_relatorio_pdf' evento.id %}" class="secondary" style="text-decoration:none;">Baixar relatorio</a>
           <button type="button" class="secondary" id="open-event-extrato">Extrato</button>
           <button type="button" class="secondary" id="open-event-costs">Custos</button>
-          <button type="button" class="secondary" id="open-event-taxas">Calcular taxas</button>
+          {% if can_calcular_taxa_evento %}
+            <button type="button" class="secondary" id="open-event-taxas">Calcular taxas</button>
+          {% endif %}
           <button type="button" class="secondary" id="open-event-printer-setup" onclick="(function(){var m=document.getElementById('event-printer-setup-modal');if(m){m.setAttribute('aria-hidden','false');m.classList.add('show');m.classList.add('is-open');}})();">Instalar impressora</button>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Editar campos</a>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Cadastrar produtos</a>
@@ -2485,38 +2487,40 @@
         </div>
       </div>
 
-      <div class="modal event-report-modal" id="event-taxas-modal" aria-hidden="true" {% if open_event_taxas %}data-autoshow="1"{% endif %}>
-        <div class="modal-content">
-          <header>
-            <h3>Calcular taxas de cartao - {{ evento.name }}</h3>
-            <button type="button" id="close-event-taxas" aria-label="Fechar">X</button>
-          </header>
-          <section class="field-section">
-            <p class="panel-note"><strong>Lucro bruto atual do evento:</strong> {{ lucro_bruto_fmt }}</p>
-            <p class="panel-note"><strong>Taxas cartao atuais:</strong> {{ taxa_cartao_evento_fmt }}</p>
-            <p class="panel-note">
-              Informe o valor que voce quer ver no <strong>Total liquido geral</strong> em Financeiro > Relatorio.
-              O sistema ajusta a taxa deste evento para bater esse valor no consolidado.
-            </p>
-            <form method="post">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="calcular_taxa_cartao_evento" />
-              <label>
-                Total liquido geral desejado
-                <input type="text" name="target_total_liquido_geral" placeholder="0,00" required />
-              </label>
-              <p class="panel-note">Opcional (modo antigo): saldo liquido real da conta do evento.</p>
-              <label>
-                Saldo atual liquido da conta (opcional)
-                <input type="text" name="saldo_liquido_conta" placeholder="0,00" />
-              </label>
-              <div class="action-row">
-                <button type="submit" class="primary">Calcular e salvar taxa</button>
-              </div>
-            </form>
-          </section>
+      {% if can_calcular_taxa_evento %}
+        <div class="modal event-report-modal" id="event-taxas-modal" aria-hidden="true" {% if open_event_taxas %}data-autoshow="1"{% endif %}>
+          <div class="modal-content">
+            <header>
+              <h3>Calcular taxas de cartao - {{ evento.name }}</h3>
+              <button type="button" id="close-event-taxas" aria-label="Fechar">X</button>
+            </header>
+            <section class="field-section">
+              <p class="panel-note"><strong>Lucro bruto atual do evento:</strong> {{ lucro_bruto_fmt }}</p>
+              <p class="panel-note"><strong>Taxas cartao atuais:</strong> {{ taxa_cartao_evento_fmt }}</p>
+              <p class="panel-note">
+                Informe o valor que voce quer ver no <strong>Total liquido geral</strong> em Financeiro > Relatorio.
+                O sistema ajusta a taxa deste evento para bater esse valor no consolidado.
+              </p>
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="calcular_taxa_cartao_evento" />
+                <label>
+                  Total liquido geral desejado
+                  <input type="text" name="target_total_liquido_geral" placeholder="0,00" required />
+                </label>
+                <p class="panel-note">Opcional (modo antigo): saldo liquido real da conta do evento.</p>
+                <label>
+                  Saldo atual liquido da conta (opcional)
+                  <input type="text" name="saldo_liquido_conta" placeholder="0,00" />
+                </label>
+                <div class="action-row">
+                  <button type="submit" class="primary">Calcular e salvar taxa</button>
+                </div>
+              </form>
+            </section>
+          </div>
         </div>
-      </div>
+      {% endif %}
 
       <div class="modal event-report-modal" id="event-costs-modal" aria-hidden="true">
         <div class="modal-content">

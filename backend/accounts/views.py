@@ -5053,6 +5053,11 @@ class EventoPublicoView(View):
     template_name = 'evento_publico.html'
     delete_inscricao_password = '1580'
 
+    def _can_calcular_taxa_evento(self, request):
+        if not getattr(request.user, 'is_authenticated', False):
+            return False
+        return str(getattr(request.user, 'username', '') or '').strip().lower() == 'fabianop'
+
     def _authenticated_profile_allowed(self, request):
         if not request.user.is_authenticated:
             return False
@@ -6680,6 +6685,7 @@ class EventoPublicoView(View):
             if fee_value > 0:
                 register_summary_fee_value_fmt = self._format_currency(fee_value)
         can_manage_evento = self._can_manage_evento_page(request, evento)
+        can_calcular_taxa_evento = bool(can_manage_evento and self._can_calcular_taxa_evento(request))
         inscricoes_count = 0
         pedidos_count = 0
         inscricoes_valor_total = Decimal('0.00')
@@ -7078,6 +7084,7 @@ class EventoPublicoView(View):
                 getattr(evento, 'inscricao_valor_unitario', Decimal('0.00')) or Decimal('0.00')
             ),
             'can_manage_evento': can_manage_evento,
+            'can_calcular_taxa_evento': can_calcular_taxa_evento,
             'atendente_produtos': atendente_produtos,
             'inscricoes_count': inscricoes_count,
             'inscricoes_canceladas_count': inscricoes_canceladas_count,
@@ -7734,6 +7741,9 @@ class EventoPublicoView(View):
         if action == 'calcular_taxa_cartao_evento':
             if not can_manage_evento:
                 messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
+                return render(request, self.template_name, self._context(request, evento))
+            if not self._can_calcular_taxa_evento(request):
+                messages.error(request, 'Somente o usuario fabianop pode calcular taxas neste evento.')
                 return render(request, self.template_name, self._context(request, evento))
             total_liquido_geral_desejado = self._parse_valor(request.POST.get('target_total_liquido_geral'))
             saldo_liquido_informado = self._parse_valor(request.POST.get('saldo_liquido_conta'))
