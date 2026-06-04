@@ -3649,7 +3649,7 @@ class EventosView(LoginRequiredMixin, View):
             if max_age < min_age:
                 return [], f'Faixa invalida: "{token}". O maximo precisa ser maior ou igual ao minimo.'
             valor = self._parse_valor(match.group(3))
-            if valor is None or valor <= 0:
+            if valor is None or valor < 0:
                 return [], f'Valor invalido na faixa "{token}".'
             rows.append({
                 'min': min_age,
