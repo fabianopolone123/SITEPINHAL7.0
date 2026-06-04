@@ -46,6 +46,7 @@ from .models import (
     Aventureiro,
     Diretoria,
     UserAccess,
+    MercadoPagoFeeConfig,
     WhatsAppPreference,
     WhatsAppQueue,
     WhatsAppTemplate,
@@ -210,6 +211,40 @@ def _evento_taxa_cartao_manual(evento):
     if value < 0:
         value = Decimal('0.00')
     return value.quantize(Decimal('0.01'))
+
+
+def _mercadopago_fee_config():
+    try:
+        return MercadoPagoFeeConfig.get_solo()
+    except Exception:
+        logger.exception('Falha ao carregar configuracao de taxas Mercado Pago.')
+        return MercadoPagoFeeConfig()
+
+
+def _mercadopago_fee_config_payload():
+    config = _mercadopago_fee_config()
+    return {
+        'pix_percent': f'{Decimal(config.pix_percent or Decimal("0.00")).quantize(Decimal("0.01"))}',
+        'debit_percent': f'{Decimal(config.debit_percent or Decimal("0.00")).quantize(Decimal("0.01"))}',
+        'credit_1x_percent': f'{Decimal(config.credit_1x_percent or Decimal("0.00")).quantize(Decimal("0.01"))}',
+        'credit_2_6_percent': f'{Decimal(config.credit_2_6_percent or Decimal("0.00")).quantize(Decimal("0.01"))}',
+        'credit_7_12_percent': f'{Decimal(config.credit_7_12_percent or Decimal("0.00")).quantize(Decimal("0.01"))}',
+        'credit_13_18_percent': f'{Decimal(config.credit_13_18_percent or Decimal("0.00")).quantize(Decimal("0.01"))}',
+    }
+
+
+def _mercadopago_payment_fee_percent(payment_method, installments=1):
+    method = str(payment_method or '').strip().lower()
+    if method == LojaPedido.FORMA_PAGAMENTO_DINHEIRO:
+        return Decimal('0.00')
+    return _mercadopago_fee_config().percent_for(method, installments=installments).quantize(Decimal('0.01'))
+
+
+def _mercadopago_payment_fee_amount(amount, payment_method, installments=1):
+    method = str(payment_method or '').strip().lower()
+    if method == LojaPedido.FORMA_PAGAMENTO_DINHEIRO:
+        return Decimal('0.00')
+    return _mercadopago_fee_config().calculate_fee(amount, method, installments=installments).quantize(Decimal('0.01'))
 
 
 def _get_pending_aventures(session):
@@ -7108,6 +7143,7 @@ class EventoPublicoView(View):
             'inscricao_faixas_resumo': inscricao_faixas_resumo,
             'event_extrato_rows': event_extrato_rows,
             'cashback_rows': cashback_rows,
+            'mercadopago_fee_config': _mercadopago_fee_config_payload(),
             'open_event_extrato': bool(open_event_extrato),
             'open_event_taxas': bool(open_event_taxas),
         }
@@ -7472,7 +7508,7 @@ class EventoPublicoView(View):
                     messages.error(request, 'Um ou mais itens nao pertencem a este evento ou estao inativos.')
                     return render(request, self.template_name, self._context(request, evento))
 
-                total = inscricao_valor_pendente
+                subtotal = inscricao_valor_pendente
                 pedido_items = []
                 if inscricao_valor_pendente > 0:
                     pedido_items.append({
@@ -7498,7 +7534,7 @@ class EventoPublicoView(View):
                         return render(request, self.template_name, self._context(request, evento))
                     valor_unitario = Decimal(variacao.valor or Decimal('0.00')).quantize(Decimal('0.01'))
                     valor_total = (valor_unitario * qty).quantize(Decimal('0.01'))
-                    total += valor_total
+                    subtotal += valor_total
                     foto_url = ''
                     if getattr(variacao.produto, 'foto', None):
                         try:
@@ -7514,6 +7550,21 @@ class EventoPublicoView(View):
                         'valor_unitario': valor_unitario,
                         'valor_total': valor_total,
                         'foto_url': foto_url,
+                    })
+
+                taxa_percentual = _mercadopago_payment_fee_percent(forma_pagamento, installments=1)
+                taxa_valor = _mercadopago_payment_fee_amount(subtotal, forma_pagamento, installments=1)
+                total = (subtotal + taxa_valor).quantize(Decimal('0.01'))
+                if taxa_valor > 0:
+                    pedido_items.append({
+                        'produto': None,
+                        'variacao': None,
+                        'produto_titulo': 'Taxa de pagamento',
+                        'variacao_nome': f'{str(dict(LojaPedido.FORMA_PAGAMENTO_CHOICES).get(forma_pagamento, forma_pagamento.title()) or forma_pagamento)} ({taxa_percentual}%)',
+                        'quantidade': 1,
+                        'valor_unitario': taxa_valor,
+                        'valor_total': taxa_valor,
+                        'foto_url': '',
                     })
 
                 if total <= 0:

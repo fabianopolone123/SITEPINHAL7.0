@@ -410,6 +410,83 @@ class WhatsAppGatewayConfig(models.Model):
         return f'Gateway WhatsApp ({self.updated_at:%d/%m/%Y %H:%M})'
 
 
+class MercadoPagoFeeConfig(models.Model):
+    PAYMENT_METHOD_PIX = 'pix'
+    PAYMENT_METHOD_DEBIT = 'debit'
+    PAYMENT_METHOD_CREDIT = 'credit'
+
+    pix_percent = models.DecimalField('taxa Pix (%)', max_digits=5, decimal_places=2, default=Decimal('0.49'))
+    debit_percent = models.DecimalField('taxa débito (%)', max_digits=5, decimal_places=2, default=Decimal('1.99'))
+    credit_1x_percent = models.DecimalField('taxa crédito 1x (%)', max_digits=5, decimal_places=2, default=Decimal('4.98'))
+    credit_2_6_percent = models.DecimalField('taxa crédito 2x a 6x (%)', max_digits=5, decimal_places=2, default=Decimal('2.99'))
+    credit_7_12_percent = models.DecimalField('taxa crédito 7x a 12x (%)', max_digits=5, decimal_places=2, default=Decimal('3.09'))
+    credit_13_18_percent = models.DecimalField('taxa crédito 13x a 18x (%)', max_digits=5, decimal_places=2, default=Decimal('3.19'))
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='mercadopago_fee_configs_updated',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'configuração de taxas Mercado Pago'
+        verbose_name_plural = 'configurações de taxas Mercado Pago'
+
+    def __str__(self):
+        return (
+            'Taxas Mercado Pago '
+            f'(pix {self.pix_percent}%, debito {self.debit_percent}%, '
+            f'credito 1x {self.credit_1x_percent}%)'
+        )
+
+    @classmethod
+    def get_solo(cls):
+        config = cls.objects.order_by('id').first()
+        if config:
+            return config
+        return cls.objects.create()
+
+    def credit_percent_for_installments(self, installments):
+        try:
+            count = int(installments or 1)
+        except (TypeError, ValueError):
+            count = 1
+        if count <= 1:
+            return Decimal(self.credit_1x_percent or Decimal('0.00'))
+        if count <= 6:
+            return Decimal(self.credit_2_6_percent or Decimal('0.00'))
+        if count <= 12:
+            return Decimal(self.credit_7_12_percent or Decimal('0.00'))
+        return Decimal(self.credit_13_18_percent or Decimal('0.00'))
+
+    def percent_for(self, payment_method, installments=1):
+        method = str(payment_method or '').strip().lower()
+        if method == self.PAYMENT_METHOD_PIX:
+            return Decimal(self.pix_percent or Decimal('0.00'))
+        if method == self.PAYMENT_METHOD_DEBIT:
+            return Decimal(self.debit_percent or Decimal('0.00'))
+        if method == self.PAYMENT_METHOD_CREDIT:
+            return self.credit_percent_for_installments(installments)
+        return Decimal('0.00')
+
+    def calculate_fee(self, amount, payment_method, installments=1):
+        try:
+            base_amount = Decimal(amount or Decimal('0.00')).quantize(Decimal('0.01'))
+        except (TypeError, ValueError, ArithmeticError):
+            base_amount = Decimal('0.00')
+        if base_amount <= 0:
+            return Decimal('0.00')
+        percent = self.percent_for(payment_method, installments=installments)
+        return ((base_amount * percent) / Decimal('100.00')).quantize(Decimal('0.01'))
+
+    def calculate_total(self, amount, payment_method, installments=1):
+        base_amount = Decimal(amount or Decimal('0.00')).quantize(Decimal('0.01'))
+        fee_amount = self.calculate_fee(base_amount, payment_method, installments=installments)
+        return (base_amount + fee_amount).quantize(Decimal('0.01'))
+
+
 class AuditLog(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
     username = models.CharField('username', max_length=150, blank=True)

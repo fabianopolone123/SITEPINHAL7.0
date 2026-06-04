@@ -5,6 +5,7 @@ from .models import (
     Aventureiro,
     Diretoria,
     UserAccess,
+    MercadoPagoFeeConfig,
     WhatsAppPreference,
     WhatsAppQueue,
     WhatsAppTemplate,
@@ -104,6 +105,30 @@ class AuditLogAdmin(admin.ModelAdmin):
     list_display = ('created_at', 'username', 'profile', 'location', 'action')
     search_fields = ('username', 'location', 'action', 'details', 'path', 'ip_address')
     list_filter = ('method', 'created_at')
+
+
+@admin.register(MercadoPagoFeeConfig)
+class MercadoPagoFeeConfigAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'pix_percent',
+        'debit_percent',
+        'credit_1x_percent',
+        'credit_2_6_percent',
+        'credit_7_12_percent',
+        'credit_13_18_percent',
+        'updated_at',
+    )
+    readonly_fields = ('updated_at',)
+
+    def has_add_permission(self, request):
+        if MercadoPagoFeeConfig.objects.exists():
+            return False
+        return super().has_add_permission(request)
+
+    def save_model(self, request, obj, form, change):
+        obj.updated_by = request.user
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(MensalidadeAventureiro)

@@ -1500,6 +1500,7 @@
 </head>
 <body class="painel-page{% if is_embedded_modal %} event-embedded-page{% endif %}{% if not is_authenticated and not is_embedded_modal %} event-public-standalone{% endif %}">
   {{ evento.inscricao_valor_config|default:"{}"|json_script:"event-fee-config-data" }}
+  {{ mercadopago_fee_config|default:"{}"|json_script:"event-mp-fee-config-data" }}
   {{ form_initial_by_input|default:"{}"|json_script:"event-form-initial-data" }}
   {% if is_authenticated and not is_embedded_modal %}
     {% include '_painel_sidebar.html' %}
@@ -2221,6 +2222,14 @@
                     </table>
                   </div>
                   <div data-sale-hidden-inputs></div>
+                  <div class="event-sale-total">
+                    <span>Subtotal:</span>
+                    <strong data-sale-subtotal>R$ 0,00</strong>
+                  </div>
+                  <div class="event-sale-total">
+                    <span data-sale-fee-label>Taxa:</span>
+                    <strong data-sale-fee-total>R$ 0,00</strong>
+                  </div>
                   <div class="event-sale-total">
                     <span>Total:</span>
                     <strong data-sale-total>R$ 0,00</strong>
@@ -2970,11 +2979,13 @@
       const pendingCartStorageKey = 'evento_pending_cart_{{ evento.id }}';
       let skipSaveBeforePix = autoStartPixAfterSave;
       const feeConfigNode = document.getElementById('event-fee-config-data');
+      const mpFeeConfigNode = document.getElementById('event-mp-fee-config-data');
       const formInitialNode = document.getElementById('event-form-initial-data');
       const feeMode = String('{{ evento.inscricao_valor_modo|default:"nenhum"|escapejs }}' || '').trim().toLowerCase() || 'nenhum';
       const feeUnitRaw = String('{{ evento.inscricao_valor_unitario|default:"0"|escapejs }}' || '').trim();
       const feeUnit = Number(feeUnitRaw.replace(/\./g, '').replace(',', '.')) || Number(feeUnitRaw.replace(',', '.')) || 0;
       let feeConfig = {};
+      let mpFeeConfig = {};
       let formInitialByInput = {};
       let currentFeeUnits = 0;
       let currentFeeTotal = 0;
@@ -3032,6 +3043,16 @@
           }
         } catch (error) {
           feeConfig = {};
+        }
+      }
+      if (mpFeeConfigNode) {
+        try {
+          const parsedMpFeeConfig = JSON.parse(mpFeeConfigNode.textContent || '{}');
+          if (parsedMpFeeConfig && typeof parsedMpFeeConfig === 'object') {
+            mpFeeConfig = parsedMpFeeConfig;
+          }
+        } catch (error) {
+          mpFeeConfig = {};
         }
       }
       if (formInitialNode) {
@@ -5003,12 +5024,34 @@
         const table = form.querySelector('[data-sale-table]');
         const body = form.querySelector('[data-sale-cart-body]');
         const hiddenWrap = form.querySelector('[data-sale-hidden-inputs]');
+        const paymentMethodSelect = form.querySelector('select[name="sale_payment_method"]');
+        const subtotalNode = form.querySelector('[data-sale-subtotal]');
+        const feeLabelNode = form.querySelector('[data-sale-fee-label]');
+        const feeTotalNode = form.querySelector('[data-sale-fee-total]');
         const totalNode = form.querySelector('[data-sale-total]');
         const registrationLink = form.querySelector('[data-sale-registration-link]');
         const editLink = form.querySelector('[data-sale-edit-link]');
         const items = [];
         let selectedInscricaoFee = 0;
         let selectedInscricaoFeeBreakdown = [];
+
+        const parsePercent = (raw) => {
+          const value = String(raw || '').trim().replace(',', '.');
+          const parsed = Number(value);
+          return Number.isFinite(parsed) ? parsed : 0;
+        };
+        const paymentFeeMeta = () => {
+          const method = paymentMethodSelect instanceof HTMLSelectElement
+            ? String(paymentMethodSelect.value || '').trim().toLowerCase()
+            : 'pix';
+          if (method === 'dinheiro') {
+            return { label: 'Taxa dinheiro', percent: 0 };
+          }
+          if (method === 'cartao') {
+            return { label: 'Taxa cartao (1x)', percent: parsePercent(mpFeeConfig.credit_1x_percent) };
+          }
+          return { label: 'Taxa Pix', percent: parsePercent(mpFeeConfig.pix_percent) };
+        };
 
         const parsePrice = (raw) => {
           const text = String(raw || '0').trim();
@@ -5083,7 +5126,7 @@
         const render = () => {
           if (body) body.innerHTML = '';
           if (hiddenWrap) hiddenWrap.innerHTML = '';
-          let total = selectedInscricaoFee;
+          let subtotal = selectedInscricaoFee;
           if (selectedInscricaoFee > 0 && body) {
             const feeLines = Array.isArray(selectedInscricaoFeeBreakdown) ? selectedInscricaoFeeBreakdown : [];
             if (feeLines.length) {
@@ -5125,7 +5168,7 @@
           }
           items.forEach((item, index) => {
             const lineTotal = item.price * item.qty;
-            total += lineTotal;
+            subtotal += lineTotal;
             if (body) {
               const row = document.createElement('tr');
               const itemCell = document.createElement('td');
@@ -5162,6 +5205,12 @@
           });
           if (emptyNode) emptyNode.hidden = items.length > 0 || selectedInscricaoFee > 0;
           if (table) table.hidden = items.length <= 0 && selectedInscricaoFee <= 0;
+          const feeMeta = paymentFeeMeta();
+          const feeTotal = subtotal > 0 ? (subtotal * feeMeta.percent / 100) : 0;
+          const total = subtotal + feeTotal;
+          if (subtotalNode) subtotalNode.textContent = toMoney(subtotal);
+          if (feeLabelNode) feeLabelNode.textContent = feeMeta.label + ' (' + feeMeta.percent.toFixed(2).replace('.', ',') + '%):';
+          if (feeTotalNode) feeTotalNode.textContent = toMoney(feeTotal);
           if (totalNode) totalNode.textContent = toMoney(total);
         };
 
@@ -5230,6 +5279,9 @@
               render();
             }
           });
+        }
+        if (paymentMethodSelect instanceof HTMLSelectElement) {
+          paymentMethodSelect.addEventListener('change', render);
         }
         form.addEventListener('submit', (event) => {
           if (!inscricaoInput || !String(inscricaoInput.value || '').trim()) {
