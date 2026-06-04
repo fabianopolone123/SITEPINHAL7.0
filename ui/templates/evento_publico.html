@@ -5343,9 +5343,10 @@
             selectedInscricaoFeeBreakdown = [];
           }
           if (inscricaoInput) inscricaoInput.value = id;
+          const hasPendingInscricaoValue = selectedInscricaoFee > 0 || selectedInscricaoFeeBreakdown.length > 0;
           if (selectedLabel) {
             selectedLabel.textContent = label
-              ? 'Venda vinculada a: ' + label + (selectedInscricaoFee > 0 ? ' | Inscricao: ' + toMoney(selectedInscricaoFee) : '')
+              ? 'Venda vinculada a: ' + label + (hasPendingInscricaoValue ? ' | Inscricao: ' + toMoney(selectedInscricaoFee) : '')
               : 'Inscricao selecionada.';
           }
           if (editLink instanceof HTMLElement) {
@@ -5388,8 +5389,9 @@
           if (body) body.innerHTML = '';
           if (hiddenWrap) hiddenWrap.innerHTML = '';
           let subtotal = selectedInscricaoFee;
-          if (selectedInscricaoFee > 0 && body) {
-            const feeLines = Array.isArray(selectedInscricaoFeeBreakdown) ? selectedInscricaoFeeBreakdown : [];
+          const feeLines = Array.isArray(selectedInscricaoFeeBreakdown) ? selectedInscricaoFeeBreakdown : [];
+          const hasSelectedInscricaoLines = selectedInscricaoFee > 0 || feeLines.length > 0;
+          if (hasSelectedInscricaoLines && body) {
             if (feeLines.length) {
               feeLines.forEach((line) => {
                 const row = document.createElement('tr');
@@ -5464,8 +5466,8 @@
               hiddenWrap.appendChild(qtyHidden);
             }
           });
-          if (emptyNode) emptyNode.hidden = items.length > 0 || selectedInscricaoFee > 0;
-          if (table) table.hidden = items.length <= 0 && selectedInscricaoFee <= 0;
+          if (emptyNode) emptyNode.hidden = items.length > 0 || hasSelectedInscricaoLines;
+          if (table) table.hidden = items.length <= 0 && !hasSelectedInscricaoLines;
           const feeMeta = paymentFeeMeta();
           const feeTotal = subtotal > 0 ? (subtotal * feeMeta.percent / 100) : 0;
           const total = subtotal + feeTotal;
@@ -5550,7 +5552,7 @@
             window.alert('Selecione uma inscricao para vincular a venda.');
             return;
           }
-          if (!items.length && selectedInscricaoFee <= 0) {
+          if (!items.length && selectedInscricaoFee <= 0 && (!Array.isArray(selectedInscricaoFeeBreakdown) || !selectedInscricaoFeeBreakdown.length)) {
             event.preventDefault();
             window.alert('Adicione ao menos um item antes de concluir a venda.');
             return;
