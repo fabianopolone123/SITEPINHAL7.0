@@ -14152,6 +14152,7 @@ class LojaView(LoginRequiredMixin, View):
             'responsavel_catalogo_tem_produtos': bool(rows),
             'meus_pedidos_rows': meus_pedidos,
             'cashback_rows': cashback_rows,
+            'mercadopago_fee_config': _mercadopago_fee_config_payload(),
             'catalog_aventureiros': catalog_aventureiros,
             'catalog_aventureiro_auto': catalog_aventureiros[0] if catalog_aventureiros else None,
             'loja_buyer_label': 'Professor' if _get_active_profile(request) == UserAccess.ROLE_PROFESSOR else 'Responsavel',
