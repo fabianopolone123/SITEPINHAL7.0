@@ -1889,7 +1889,30 @@
           <span class="catalog-label">Forma de pagamento</span>
           <select class="cart-payment-select" id="catalogCartPaymentMethod">
             <option value="pix" selected>Pix</option>
-            <option value="cartao">Cartao (1x)</option>
+            <option value="cartao">Cartao de credito</option>
+          </select>
+        </label>
+        <label style="display:grid; gap:.3rem;" id="catalogCartInstallmentsWrap" hidden>
+          <span class="catalog-label">Parcelamento</span>
+          <select class="cart-payment-select" id="catalogCartInstallments">
+            <option value="1">1x</option>
+            <option value="2">2x</option>
+            <option value="3">3x</option>
+            <option value="4">4x</option>
+            <option value="5">5x</option>
+            <option value="6">6x</option>
+            <option value="7">7x</option>
+            <option value="8">8x</option>
+            <option value="9">9x</option>
+            <option value="10">10x</option>
+            <option value="11">11x</option>
+            <option value="12">12x</option>
+            <option value="13">13x</option>
+            <option value="14">14x</option>
+            <option value="15">15x</option>
+            <option value="16">16x</option>
+            <option value="17">17x</option>
+            <option value="18">18x</option>
           </select>
         </label>
         <div class="cart-total-row">
@@ -2118,6 +2141,8 @@
       const cartEmpty = document.getElementById('catalogCartEmpty');
       const cartTotalEl = document.getElementById('catalogCartTotal');
       const cartPaymentSelect = document.getElementById('catalogCartPaymentMethod');
+      const cartInstallmentsWrap = document.getElementById('catalogCartInstallmentsWrap');
+      const cartInstallmentsSelect = document.getElementById('catalogCartInstallments');
       const cartUseCashbackInput = document.getElementById('catalogCartUseCashback');
       const cartCashbackAventureiroSelect = document.getElementById('catalogCartCashbackAventureiro');
       const cartCashbackTotalEl = document.getElementById('catalogCartCashbackTotal');
@@ -2148,7 +2173,7 @@
       const PIX_STATUS_URL_TEMPLATE = pixApiConfig ? String(pixApiConfig.dataset.statusUrlTemplate || '') : '';
       let modalGalleryItems = [];
       let modalGalleryIndex = 0;
-      let cartState = { items: [], payment_method: 'pix', use_cashback: false, cashback_aventureiro_id: '' };
+      let cartState = { items: [], payment_method: 'pix', installments: 1, use_cashback: false, cashback_aventureiro_id: '' };
       let mpFeeConfig = {};
       let pixPedidoAtual = null;
       let pixPollingTimer = null;
@@ -2170,6 +2195,7 @@
         const items = Array.isArray(base.items) ? base.items : [];
         return {
           payment_method: String(base.payment_method || 'pix') || 'pix',
+          installments: Math.max(1, Math.min(18, parseInt(base.installments || 1, 10) || 1)),
           use_cashback: !!base.use_cashback,
           cashback_aventureiro_id: String(base.cashback_aventureiro_id || '').trim(),
           items: items
@@ -2209,7 +2235,7 @@
           if (!raw) return;
           cartState = normalizeCartState(JSON.parse(raw));
         } catch (error) {
-          cartState = { items: [], payment_method: '', use_cashback: false, cashback_aventureiro_id: '' };
+          cartState = { items: [], payment_method: '', installments: 1, use_cashback: false, cashback_aventureiro_id: '' };
         }
       }
 
@@ -2236,18 +2262,31 @@
         return Number.isFinite(parsed) ? parsed : 0;
       }
 
-      function paymentFeeMeta(paymentMethod) {
+      function paymentFeeMeta(paymentMethod, installments) {
         const method = String(paymentMethod || 'pix').trim().toLowerCase() || 'pix';
         if (method === 'cartao') {
-          const percent = parsePercent(mpFeeConfig.credit_1x_percent);
-          return { label: 'Taxa cartao (1x)', percent: percent };
+          const parcelas = Math.max(1, Math.min(18, parseInt(installments || 1, 10) || 1));
+          if (parcelas <= 1) {
+            const percent = parsePercent(mpFeeConfig.credit_1x_percent);
+            return { label: 'Taxa cartao (1x)', percent: percent, installments: parcelas };
+          }
+          if (parcelas <= 6) {
+            const percent = parsePercent(mpFeeConfig.credit_2_6_percent);
+            return { label: 'Taxa cartao (2x a 6x)', percent: percent, installments: parcelas };
+          }
+          if (parcelas <= 12) {
+            const percent = parsePercent(mpFeeConfig.credit_7_12_percent);
+            return { label: 'Taxa cartao (7x a 12x)', percent: percent, installments: parcelas };
+          }
+          const percent = parsePercent(mpFeeConfig.credit_13_18_percent);
+          return { label: 'Taxa cartao (13x a 18x)', percent: percent, installments: parcelas };
         }
         if (method === 'debito') {
           const percent = parsePercent(mpFeeConfig.debit_percent);
-          return { label: 'Taxa debito', percent: percent };
+          return { label: 'Taxa debito', percent: percent, installments: 1 };
         }
         const percent = parsePercent(mpFeeConfig.pix_percent);
-        return { label: 'Taxa Pix', percent: percent };
+        return { label: 'Taxa Pix', percent: percent, installments: 1 };
       }
 
       function getSelectedCashbackDisponivel() {
@@ -2293,7 +2332,8 @@
         }
         const cashbackDesconto = calculateCashbackPreview(subtotal);
         if (!cartState.payment_method) cartState.payment_method = 'pix';
-        const feeMeta = paymentFeeMeta(cartState.payment_method);
+        cartState.installments = Math.max(1, Math.min(18, parseInt(cartState.installments || 1, 10) || 1));
+        const feeMeta = paymentFeeMeta(cartState.payment_method, cartState.installments);
         const feeAmount = subtotal > 0 ? (subtotal * feeMeta.percent / 100) : 0;
         const total = Math.max(0, subtotal + feeAmount - cashbackDesconto);
 
@@ -2303,6 +2343,8 @@
         if (cartFeeTotalEl) cartFeeTotalEl.textContent = formatPriceNumber(feeAmount);
         cartTotalEl.textContent = formatPriceNumber(total);
         if (cartPaymentSelect) cartPaymentSelect.value = cartState.payment_method || 'pix';
+        if (cartInstallmentsWrap) cartInstallmentsWrap.hidden = (cartState.payment_method || 'pix') !== 'cartao';
+        if (cartInstallmentsSelect) cartInstallmentsSelect.value = String(cartState.installments || 1);
         if (cartCashbackTotalEl) cartCashbackTotalEl.textContent = formatPriceNumber(cashbackDesconto);
         if (cartCashbackMetaEl) cartCashbackMetaEl.textContent = 'Disponivel: ' + formatPriceNumber(getSelectedCashbackDisponivel());
         if (cartFinalizeBtn) {
@@ -2486,6 +2528,7 @@
         });
         const payload = {
           payment_method: String(cartState.payment_method || 'pix').trim().toLowerCase() || 'pix',
+          installments: Math.max(1, Math.min(18, parseInt(cartState.installments || 1, 10) || 1)),
           items: payloadItems,
         };
         if (cartUseCashbackInput && cartUseCashbackInput.checked) {
@@ -2693,6 +2736,17 @@
       if (cartPaymentSelect) {
         cartPaymentSelect.addEventListener('change', function () {
           cartState.payment_method = String(cartPaymentSelect.value || '');
+          if (cartState.payment_method !== 'cartao') {
+            cartState.installments = 1;
+          }
+          saveCartState();
+          renderCart();
+          setCartFeedback('');
+        });
+      }
+      if (cartInstallmentsSelect) {
+        cartInstallmentsSelect.addEventListener('change', function () {
+          cartState.installments = Math.max(1, Math.min(18, parseInt(cartInstallmentsSelect.value || 1, 10) || 1));
           saveCartState();
           renderCart();
           setCartFeedback('');

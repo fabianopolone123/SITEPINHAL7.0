@@ -15849,7 +15849,13 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
             return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
 
         payment_method = str(payload.get('payment_method') or '').strip().lower()
-        installments = 1
+        try:
+            installments = int(payload.get('installments') or 1)
+        except (TypeError, ValueError):
+            installments = 1
+        installments = max(1, min(18, installments))
+        if payment_method != LojaPedido.FORMA_PAGAMENTO_CARTAO:
+            installments = 1
         if payment_method not in {LojaPedido.FORMA_PAGAMENTO_PIX, LojaPedido.FORMA_PAGAMENTO_CARTAO}:
             return JsonResponse({'ok': False, 'error': 'unsupported_payment_method', 'message': 'Forma de pagamento indisponivel no momento.'}, status=400)
 
@@ -15990,7 +15996,7 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
                     responsavel=responsavel,
                     cashback_aventureiro=cashback_aventureiro,
                     cashback_desconto_valor=cashback_desconto,
-                    forma_pagamento=LojaPedido.FORMA_PAGAMENTO_PIX,
+                    forma_pagamento=payment_method,
                     valor_total=total_final,
                     created_by=request.user,
                     status=LojaPedido.STATUS_PENDENTE,
@@ -16019,7 +16025,7 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
                             variacao=None,
                             aventureiro=None,
                             produto_titulo='Taxa de pagamento',
-                            variacao_nome='Cartao (1x)' if payment_method == LojaPedido.FORMA_PAGAMENTO_CARTAO else 'Pix',
+                            variacao_nome=(f'Cartao ({installments}x)' if payment_method == LojaPedido.FORMA_PAGAMENTO_CARTAO else 'Pix'),
                             aventureiro_nome='',
                             quantidade=1,
                             valor_unitario=taxa_valor,
