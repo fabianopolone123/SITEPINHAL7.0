@@ -1023,6 +1023,14 @@ class PagamentoMensalidade(models.Model):
     responsavel = models.ForeignKey('Responsavel', on_delete=models.CASCADE, related_name='pagamentos_mensalidade')
     mensalidades = models.ManyToManyField(MensalidadeAventureiro, related_name='pagamentos', blank=True)
     valor_total = models.DecimalField('valor total', max_digits=10, decimal_places=2)
+    cashback_aventureiro = models.ForeignKey(
+        'Aventureiro',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pagamentos_mensalidade_cashback',
+    )
+    cashback_desconto_valor = models.DecimalField('desconto cashback', max_digits=10, decimal_places=2, default=Decimal('0.00'))
     status = models.CharField('status', max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDENTE)
     mp_payment_id = models.CharField('MP payment id', max_length=64, blank=True)
     mp_external_reference = models.CharField('MP external reference', max_length=128, blank=True)
@@ -1075,6 +1083,13 @@ class AventureiroCashbackLancamento(models.Model):
     )
     loja_pedido = models.ForeignKey(
         'LojaPedido',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cashback_lancamentos',
+    )
+    pagamento_mensalidade = models.ForeignKey(
+        'PagamentoMensalidade',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

@@ -11084,7 +11084,54 @@ class FinanceiroView(LoginRequiredMixin, View):
                 status=MensalidadeAventureiro.STATUS_PAGA
             )
             if not was_paid:
+                self._apply_cashback_debito_mensalidade(pagamento)
                 self._send_whatsapp_pagamento_aprovado(pagamento)
+
+    def _apply_cashback_debito_mensalidade(self, pagamento):
+        if not pagamento or not getattr(pagamento, 'cashback_aventureiro_id', None):
+            return
+        desconto_target = Decimal(str(getattr(pagamento, 'cashback_desconto_valor', '0') or '0')).quantize(Decimal('0.01'))
+        if desconto_target <= 0:
+            return
+        with transaction.atomic():
+            pagamento_locked = (
+                PagamentoMensalidade.objects
+                .select_for_update()
+                .filter(pk=pagamento.pk)
+                .first()
+            )
+            if not pagamento_locked or pagamento_locked.status != PagamentoMensalidade.STATUS_PAGO:
+                return
+            existing = AventureiroCashbackLancamento.objects.filter(
+                tipo=AventureiroCashbackLancamento.TYPE_DEBITO_USO,
+                pagamento_mensalidade=pagamento_locked,
+            ).first()
+            if existing:
+                return
+            aventureiro_locked = (
+                Aventureiro.objects
+                .select_for_update()
+                .filter(pk=pagamento_locked.cashback_aventureiro_id)
+                .first()
+            )
+            if not aventureiro_locked:
+                return
+            saldo_atual = Decimal(str(aventureiro_locked.cashback_saldo or '0')).quantize(Decimal('0.01'))
+            valor_debito = min(desconto_target, saldo_atual).quantize(Decimal('0.01'))
+            if valor_debito <= 0:
+                return
+            saldo_novo = (saldo_atual - valor_debito).quantize(Decimal('0.01'))
+            aventureiro_locked.cashback_saldo = saldo_novo
+            aventureiro_locked.save(update_fields=['cashback_saldo'])
+            descricao = f'Desconto em mensalidade(s) - pagamento #{pagamento_locked.pk}'
+            AventureiroCashbackLancamento.objects.create(
+                aventureiro=aventureiro_locked,
+                tipo=AventureiroCashbackLancamento.TYPE_DEBITO_USO,
+                valor=valor_debito,
+                saldo_apos=saldo_novo,
+                descricao=descricao[:255],
+                pagamento_mensalidade=pagamento_locked,
+            )
 
     def _pix_modal_context(self, pagamento):
         return {
@@ -12199,16 +12246,47 @@ class FinanceiroView(LoginRequiredMixin, View):
                         messages.error(request, 'Algumas mensalidades selecionadas são inválidas ou não pertencem ao responsável logado.')
                     else:
                         total = sum((item.valor for item in mensalidades), Decimal('0.00')).quantize(Decimal('0.01'))
+
+                        # Cashback: valida aventureiro e desconto
+                        cashback_av_id_raw = str(request.POST.get('cashback_aventureiro_id') or '').strip()
+                        cashback_desconto_raw = str(request.POST.get('cashback_desconto_valor') or '').strip().replace(',', '.')
+                        cashback_aventureiro = None
+                        cashback_desconto = Decimal('0.00')
+                        if cashback_av_id_raw.isdigit():
+                            av_candidato = (
+                                Aventureiro.objects
+                                .filter(pk=int(cashback_av_id_raw), responsavel=responsavel, ativo=True)
+                                .first()
+                            )
+                            if av_candidato:
+                                try:
+                                    desconto_solicitado = Decimal(cashback_desconto_raw).quantize(Decimal('0.01'))
+                                except Exception:
+                                    desconto_solicitado = Decimal('0.00')
+                                saldo_disp = Decimal(str(av_candidato.cashback_saldo or '0')).quantize(Decimal('0.01'))
+                                cashback_desconto = min(desconto_solicitado, saldo_disp, total).quantize(Decimal('0.01'))
+                                if cashback_desconto > 0:
+                                    cashback_aventureiro = av_candidato
+
+                        valor_cobrado = (total - cashback_desconto).quantize(Decimal('0.01'))
+                        if valor_cobrado < Decimal('0.01'):
+                            valor_cobrado = Decimal('0.01')
+
                         try:
                             with transaction.atomic():
                                 pagamento = PagamentoMensalidade.objects.create(
                                     responsavel=responsavel,
                                     valor_total=total,
+                                    cashback_aventureiro=cashback_aventureiro,
+                                    cashback_desconto_valor=cashback_desconto,
                                     created_by=request.user,
                                     status=PagamentoMensalidade.STATUS_PENDENTE,
                                 )
                                 pagamento.mensalidades.set(mensalidades)
+                                # Ajusta valor cobrado no MP pelo desconto cashback
+                                pagamento.valor_total = valor_cobrado
                                 mp_payload = self._create_mp_pix_payment(request, pagamento)
+                                pagamento.valor_total = total
                                 pagamento.mp_payment_id = mp_payload['payment_id']
                                 pagamento.mp_external_reference = mp_payload['external_reference']
                                 pagamento.mp_status = mp_payload['status']
@@ -12223,13 +12301,15 @@ class FinanceiroView(LoginRequiredMixin, View):
                                 else:
                                     pagamento.status = PagamentoMensalidade.STATUS_PENDENTE
                                 pagamento.save(update_fields=[
-                                    'mp_payment_id', 'mp_external_reference', 'mp_status', 'mp_status_detail',
-                                    'mp_qr_code', 'mp_qr_code_base64', 'status', 'paid_at', 'updated_at',
+                                    'valor_total', 'mp_payment_id', 'mp_external_reference', 'mp_status',
+                                    'mp_status_detail', 'mp_qr_code', 'mp_qr_code_base64', 'status',
+                                    'paid_at', 'updated_at',
                                 ])
                                 if pagamento.mp_status == 'approved':
                                     pagamento.mensalidades.filter(status=MensalidadeAventureiro.STATUS_PENDENTE).update(
                                         status=MensalidadeAventureiro.STATUS_PAGA
                                     )
+                                    self._apply_cashback_debito_mensalidade(pagamento)
                                     self._send_whatsapp_pagamento_aprovado(pagamento)
                         except ValueError as exc:
                             messages.error(request, str(exc))

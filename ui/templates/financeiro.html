@@ -374,10 +374,12 @@
         </form>
 
         {% if responsavel_rows %}
-          <form method="post">
+          <form method="post" id="formPagarMensalidades">
             {% csrf_token %}
             <input type="hidden" name="action" value="pagar_mensalidades" />
             <input type="hidden" name="incluir_ano_todo" value="{% if responsavel_incluir_ano_todo %}1{% else %}0{% endif %}" />
+            <input type="hidden" name="cashback_aventureiro_id" id="cashbackAventureiroId" value="" />
+            <input type="hidden" name="cashback_desconto_valor" id="cashbackDescontoValor" value="0" />
             <table>
               <thead>
                 <tr>
@@ -405,10 +407,53 @@
                 {% endfor %}
               </tbody>
             </table>
+
+            {% if cashback_rows %}
+              {% with cashback_com_saldo=cashback_rows %}
+                {% if cashback_com_saldo %}
+                <div id="mensalidadeCashbackBox" style="margin:1rem 0;padding:12px 16px;background:#f4faf6;border:1px solid #b6dfca;border-radius:8px;display:none;">
+                  <p style="margin:0 0 .6rem;font-weight:600;font-size:.9rem;color:#1a6640;">Usar saldo de Cashback</p>
+                  <div style="display:flex;flex-direction:column;gap:8px;">
+                    {% for row in cashback_com_saldo %}
+                      {% if row.disponivel > 0 %}
+                        <label style="display:flex;align-items:center;gap:10px;font-size:.88rem;cursor:pointer;">
+                          <input
+                            type="radio"
+                            name="cashback_radio"
+                            class="cashbackRadio"
+                            data-av-id="{{ row.id }}"
+                            data-disponivel="{{ row.disponivel }}"
+                            data-nome="{{ row.nome }}"
+                          />
+                          <span>
+                            <strong>{{ row.nome }}</strong>
+                            — saldo disponível: <strong style="color:#2a9d5c;">{{ row.disponivel_fmt }}</strong>
+                          </span>
+                        </label>
+                      {% endif %}
+                    {% endfor %}
+                    <label style="display:flex;align-items:center;gap:10px;font-size:.88rem;cursor:pointer;">
+                      <input type="radio" name="cashback_radio" class="cashbackRadio" data-av-id="" data-disponivel="0" checked />
+                      <span>Não usar cashback</span>
+                    </label>
+                  </div>
+                  <div id="cashbackDescontoInfo" style="margin-top:.7rem;font-size:.88rem;color:#555;display:none;">
+                    Desconto aplicado: <strong id="cashbackDescontoDisplay" style="color:#2a9d5c;"></strong>
+                  </div>
+                </div>
+                {% endif %}
+              {% endwith %}
+            {% endif %}
+
             <div class="financeiro-actions-wrap">
-              <div class="financeiro-total-selecionado" id="financeiroTotalSelecionado" aria-live="polite">
-                <small>Total selecionado:</small>
-                <span id="financeiroTotalSelecionadoValor">R$ 0,00</span>
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <div class="financeiro-total-selecionado" id="financeiroTotalSelecionado" aria-live="polite">
+                  <small>Total selecionado:</small>
+                  <span id="financeiroTotalSelecionadoValor">R$ 0,00</span>
+                </div>
+                <div id="financeiroTotalComDesconto" style="display:none;font-size:.88rem;color:#2a9d5c;font-weight:600;">
+                  Total a pagar (com desconto): <span id="financeiroTotalComDescontoValor">R$ 0,00</span>
+                </div>
               </div>
               <div class="financeiro-actions">
                 <button type="button" class="secondary" id="financeiroSelecionarTodas">Selecionar todas</button>
@@ -417,6 +462,70 @@
               </div>
             </div>
           </form>
+
+          <script>
+            (function () {
+              var checkboxes = document.querySelectorAll('input[name="mensalidades_ids"]');
+              var radios = document.querySelectorAll('.cashbackRadio');
+              var cashbackBox = document.getElementById('mensalidadeCashbackBox');
+              var avIdInput = document.getElementById('cashbackAventureiroId');
+              var descontoInput = document.getElementById('cashbackDescontoValor');
+              var descontoInfo = document.getElementById('cashbackDescontoInfo');
+              var descontoDisplay = document.getElementById('cashbackDescontoDisplay');
+              var totalComDesconto = document.getElementById('financeiroTotalComDesconto');
+              var totalComDescontoValor = document.getElementById('financeiroTotalComDescontoValor');
+
+              function getTotal() {
+                var total = 0;
+                checkboxes.forEach(function (cb) {
+                  if (cb.checked) {
+                    var v = parseFloat((cb.dataset.valor || '0').toString().replace(',', '.')) || 0;
+                    total += v;
+                  }
+                });
+                return Math.round(total * 100) / 100;
+              }
+
+              function fmt(v) {
+                return 'R$ ' + v.toFixed(2).replace('.', ',');
+              }
+
+              function update() {
+                var total = getTotal();
+                // Mostra ou oculta caixa de cashback
+                if (cashbackBox) {
+                  cashbackBox.style.display = total > 0 ? 'block' : 'none';
+                }
+                // Calcula desconto
+                var selectedRadio = document.querySelector('.cashbackRadio:checked');
+                var avId = selectedRadio ? (selectedRadio.dataset.avId || '') : '';
+                var disponivel = selectedRadio ? (parseFloat(selectedRadio.dataset.disponivel) || 0) : 0;
+                var desconto = 0;
+                if (avId && disponivel > 0 && total > 0) {
+                  desconto = Math.min(disponivel, total);
+                  desconto = Math.round(desconto * 100) / 100;
+                }
+                // Atualiza hidden inputs
+                avIdInput.value = avId;
+                descontoInput.value = desconto.toFixed(2);
+                // Exibe desconto
+                if (desconto > 0) {
+                  descontoDisplay.textContent = fmt(desconto);
+                  descontoInfo.style.display = 'block';
+                  var pagar = Math.max(0.01, total - desconto);
+                  totalComDescontoValor.textContent = fmt(pagar);
+                  totalComDesconto.style.display = 'block';
+                } else {
+                  descontoInfo.style.display = 'none';
+                  totalComDesconto.style.display = 'none';
+                }
+              }
+
+              checkboxes.forEach(function (cb) { cb.addEventListener('change', update); });
+              if (radios) { radios.forEach(function (r) { r.addEventListener('change', update); }); }
+              update();
+            })();
+          </script>
         {% elif responsavel_tem_aventureiros %}
           <p class="panel-note">Nenhuma mensalidade pendente (atrasada ou do mês atual) foi encontrada para seus aventureiros.</p>
           <div class="financeiro-actions">
