@@ -11369,6 +11369,54 @@ class FinanceiroView(LoginRequiredMixin, View):
             'resumo_rows': list(resumo_rows_map.values()),
         }
 
+    def _cashback_diretor_context(self):
+        aventureiros_rows = []
+        for av in (
+            Aventureiro.objects
+            .filter(ativo=True)
+            .select_related('responsavel')
+            .order_by('nome')
+        ):
+            saldo = Decimal(str(av.cashback_saldo or '0')).quantize(Decimal('0.01'))
+            aventureiros_rows.append({
+                'id': av.id,
+                'nome': str(av.nome or '').strip(),
+                'codigo_indicacao': str(av.codigo_indicacao or '').strip(),
+                'responsavel_nome': str(getattr(av.responsavel, 'nome', '') or '').strip() if av.responsavel_id else '-',
+                'saldo': saldo,
+                'saldo_fmt': self._format_currency(saldo),
+                'tem_saldo': saldo > 0,
+            })
+
+        lancamentos_rows = []
+        for item in (
+            AventureiroCashbackLancamento.objects
+            .select_related('aventureiro', 'evento_inscricao', 'evento_inscricao__evento', 'loja_pedido')
+            .order_by('-created_at')[:500]
+        ):
+            is_credit = item.tipo == AventureiroCashbackLancamento.TYPE_CREDITO_INDICACAO
+            origem = str(item.descricao or '').strip() or 'Ajuste'
+            if item.evento_inscricao_id and getattr(item.evento_inscricao, 'evento', None):
+                origem = f'Evento: {item.evento_inscricao.evento.name}'
+            elif item.loja_pedido_id:
+                origem = f'Pedido loja #{item.loja_pedido_id}'
+            lancamentos_rows.append({
+                'aventureiro_nome': str(getattr(item.aventureiro, 'nome', '') or '').strip(),
+                'tipo_label': item.get_tipo_display(),
+                'valor_fmt': self._format_currency(abs(Decimal(str(item.valor or '0')))),
+                'valor_sinal': '+' if is_credit else '-',
+                'saldo_apos_fmt': self._format_currency(Decimal(str(item.saldo_apos or '0'))),
+                'origem': origem,
+                'descricao': str(item.descricao or '').strip(),
+                'created_at_label': timezone.localtime(item.created_at).strftime('%d/%m/%Y %H:%M'),
+                'is_credit': is_credit,
+            })
+
+        return {
+            'cashback_aventureiros_rows': aventureiros_rows,
+            'cashback_lancamentos_rows_diretor': lancamentos_rows,
+        }
+
     def _relatorios_context(self, comprovante_query='', open_comprovante_modal=False):
         comprovante_query = str(comprovante_query or '').strip()
         def _row(data_ref, descricao, valor_decimal):
@@ -12097,6 +12145,9 @@ class FinanceiroView(LoginRequiredMixin, View):
         elif str(request.GET.get('tab') or '').strip().lower() == 'relatorios' and self._is_diretor_mode(request):
             context = self._relatorios_context(request.GET.get('comprovante_q', ''))
             active_tab = 'relatorios'
+        elif str(request.GET.get('tab') or '').strip().lower() == 'cashback' and self._is_diretor_mode(request):
+            context = self._cashback_diretor_context()
+            active_tab = 'cashback'
         else:
             context = self._mensalidades_context(
                 request.GET.get('aventureiro'),

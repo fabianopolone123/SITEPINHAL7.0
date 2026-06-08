@@ -351,6 +351,7 @@
         <a class="financeiro-tab{% if active_financeiro_tab == 'mensalidades' %} is-active{% endif %}" href="{% url 'accounts:financeiro' %}" {% if active_financeiro_tab == 'mensalidades' %}aria-current="page"{% endif %}>Mensalidades</a>
         {% if show_financeiro_relatorios_tab %}
           <a class="financeiro-tab{% if active_financeiro_tab == 'relatorios' %} is-active{% endif %}" href="{% url 'accounts:financeiro' %}?tab=relatorios" {% if active_financeiro_tab == 'relatorios' %}aria-current="page"{% endif %}>Relatórios</a>
+          <a class="financeiro-tab{% if active_financeiro_tab == 'cashback' %} is-active{% endif %}" href="{% url 'accounts:financeiro' %}?tab=cashback" {% if active_financeiro_tab == 'cashback' %}aria-current="page"{% endif %}>Cashback</a>
         {% endif %}
       </div>
 
@@ -491,6 +492,150 @@
             <p class="panel-note">Nenhum lançamento de cashback encontrado.</p>
           {% endif %}
         </div>
+      </div>
+      {% elif active_financeiro_tab == 'cashback' %}
+      <div class="financeiro-cashback">
+
+        <style>
+          .cb-saldo-table { width:100%; border-collapse:collapse; font-size:.9rem; }
+          .cb-saldo-table th { text-align:left; padding:8px 10px; background:#f4f4f4; border-bottom:2px solid #ddd; font-size:.8rem; text-transform:uppercase; color:#666; }
+          .cb-saldo-table td { padding:8px 10px; border-bottom:1px solid #f0f0f0; vertical-align:middle; }
+          .cb-saldo-table tr:hover td { background:#fafafa; }
+          .cb-saldo-positive { color:#2a9d5c; font-weight:700; }
+          .cb-saldo-zero { color:#aaa; }
+          .cb-filter-bar { display:flex; gap:10px; align-items:center; margin-bottom:1rem; flex-wrap:wrap; }
+          .cb-filter-bar input { padding:7px 12px; border:1px solid #ccc; border-radius:4px; font-size:.88rem; min-width:220px; }
+          .cb-toggle-btn { font-size:.82rem; padding:5px 12px; cursor:pointer; border:1px solid #ccc; border-radius:4px; background:#fff; }
+          .cb-toggle-btn.is-active { background:#2a9d5c; color:#fff; border-color:#2a9d5c; }
+          .cb-hist-table { width:100%; border-collapse:collapse; font-size:.85rem; margin-top:.5rem; }
+          .cb-hist-table th { text-align:left; padding:7px 10px; background:#f4f4f4; border-bottom:2px solid #ddd; font-size:.78rem; text-transform:uppercase; color:#666; }
+          .cb-hist-table td { padding:7px 10px; border-bottom:1px solid #f0f0f0; }
+          .cb-hist-credit { color:#2a9d5c; font-weight:600; }
+          .cb-hist-debit  { color:#c0392b; font-weight:600; }
+          .cb-section-title { font-size:.95rem; font-weight:700; margin:1.4rem 0 .6rem; color:#333; border-bottom:1px solid #eee; padding-bottom:.3rem; }
+          .cb-empty { color:#999; font-size:.88rem; padding:.5rem 0; }
+        </style>
+
+        <section>
+          <h3 style="margin:.2rem 0 1rem;">Saldo de Cashback por Aventureiro</h3>
+
+          <div class="cb-filter-bar">
+            <input type="search" id="cb-dir-filter" placeholder="Filtrar por nome, código ou responsável" autocomplete="off" />
+            <button type="button" class="cb-toggle-btn" id="cb-dir-only-saldo">Só com saldo</button>
+          </div>
+
+          {% if cashback_aventureiros_rows %}
+            <div class="table-scroll">
+              <table class="cb-saldo-table">
+                <thead>
+                  <tr>
+                    <th>Aventureiro</th>
+                    <th>Responsável</th>
+                    <th>Código indicação</th>
+                    <th>Saldo cashback</th>
+                  </tr>
+                </thead>
+                <tbody id="cb-dir-tbody">
+                  {% for row in cashback_aventureiros_rows %}
+                    <tr
+                      class="cb-dir-row"
+                      data-search="{{ row.nome }} {{ row.responsavel_nome }} {{ row.codigo_indicacao }}"
+                      data-tem-saldo="{% if row.tem_saldo %}1{% else %}0{% endif %}"
+                    >
+                      <td><strong>{{ row.nome }}</strong></td>
+                      <td>{{ row.responsavel_nome }}</td>
+                      <td><code>{{ row.codigo_indicacao|default:"—" }}</code></td>
+                      <td>
+                        {% if row.tem_saldo %}
+                          <span class="cb-saldo-positive">{{ row.saldo_fmt }}</span>
+                        {% else %}
+                          <span class="cb-saldo-zero">{{ row.saldo_fmt }}</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <p id="cb-dir-empty-msg" hidden class="cb-empty">Nenhum aventureiro encontrado.</p>
+          {% else %}
+            <p class="cb-empty">Nenhum aventureiro cadastrado.</p>
+          {% endif %}
+        </section>
+
+        <section>
+          <p class="cb-section-title">Histórico de lançamentos</p>
+          {% if cashback_lancamentos_rows_diretor %}
+            <div class="table-scroll">
+              <table class="cb-hist-table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Aventureiro</th>
+                    <th>Tipo</th>
+                    <th>Valor</th>
+                    <th>Saldo após</th>
+                    <th>Origem / Descrição</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for item in cashback_lancamentos_rows_diretor %}
+                    <tr>
+                      <td style="white-space:nowrap;">{{ item.created_at_label }}</td>
+                      <td><strong>{{ item.aventureiro_nome }}</strong></td>
+                      <td>{{ item.tipo_label }}</td>
+                      <td>
+                        {% if item.is_credit %}
+                          <span class="cb-hist-credit">+ {{ item.valor_fmt }}</span>
+                        {% else %}
+                          <span class="cb-hist-debit">− {{ item.valor_fmt }}</span>
+                        {% endif %}
+                      </td>
+                      <td>{{ item.saldo_apos_fmt }}</td>
+                      <td>{{ item.origem }}{% if item.descricao and item.descricao != item.origem %} — <small>{{ item.descricao }}</small>{% endif %}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="cb-empty">Nenhum lançamento de cashback registrado.</p>
+          {% endif %}
+        </section>
+
+        <script>
+          (function () {
+            const filterInput = document.getElementById('cb-dir-filter');
+            const onlySaldoBtn = document.getElementById('cb-dir-only-saldo');
+            const rows = document.querySelectorAll('.cb-dir-row');
+            const emptyMsg = document.getElementById('cb-dir-empty-msg');
+            if (!filterInput) return;
+
+            let onlySaldo = false;
+
+            onlySaldoBtn.addEventListener('click', function () {
+              onlySaldo = !onlySaldo;
+              onlySaldoBtn.classList.toggle('is-active', onlySaldo);
+              applyFilter();
+            });
+
+            filterInput.addEventListener('input', applyFilter);
+
+            function applyFilter() {
+              const term = filterInput.value.trim().toLowerCase();
+              let visible = 0;
+              rows.forEach(function (row) {
+                const matchSearch = !term || (row.dataset.search || '').toLowerCase().includes(term);
+                const matchSaldo = !onlySaldo || row.dataset.temSaldo === '1';
+                const show = matchSearch && matchSaldo;
+                row.style.display = show ? '' : 'none';
+                if (show) visible++;
+              });
+              emptyMsg.hidden = visible > 0;
+            }
+          })();
+        </script>
+
       </div>
       {% elif active_financeiro_tab == 'relatorios' %}
       <div class="financeiro-report-groups">
