@@ -8625,6 +8625,20 @@ class EventoPedidoCreatePixApiView(View):
         if apenas_itens:
             fee_total = Decimal('0.00')
 
+        # Desconta taxa de inscrição já paga em pedidos anteriores confirmados
+        if fee_total > 0 and inscricao:
+            ja_pago_fee = (
+                LojaPedidoItem.objects
+                .filter(
+                    pedido__evento_inscricao=inscricao,
+                    pedido__status=LojaPedido.STATUS_PAGO,
+                    produto__isnull=True,
+                )
+                .aggregate(total=Sum('valor_total'))
+                .get('total') or Decimal('0.00')
+            )
+            fee_total = max(Decimal('0.00'), (fee_total - Decimal(ja_pago_fee)).quantize(Decimal('0.01')))
+
         loja_view = LojaView()
         if request.user.is_authenticated:
             responsavel = loja_view._ensure_loja_responsavel(request.user, create=True)
