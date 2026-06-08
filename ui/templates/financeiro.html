@@ -395,7 +395,7 @@
                       <div class="mensalidade-checks">
                         {% for item in row.mensalidades %}
                           <label>
-                            <input type="checkbox" name="mensalidades_ids" value="{{ item.id }}" data-valor="{{ item.valor }}" />
+                            <input type="checkbox" name="mensalidades_ids" value="{{ item.id }}" data-valor="{{ item.valor_raw }}" />
                             <span>{{ item.competencia }}</span>
                             <small>{{ item.valor }}</small>
                             {% if item.is_atrasada %}<small class="tag-atrasada">Atrasada</small>{% endif %}

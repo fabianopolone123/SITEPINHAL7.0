@@ -11302,6 +11302,7 @@ class FinanceiroView(LoginRequiredMixin, View):
                         'tipo': item.tipo,
                         'tipo_label': item.get_tipo_display(),
                         'valor': self._format_currency(item.valor),
+                        'valor_raw': str(item.valor),
                         'is_atrasada': (item.ano_referencia < hoje.year) or (item.ano_referencia == hoje.year and item.mes_referencia < hoje.month),
                     })
                 rows = [row for row in rows_map.values() if row['mensalidades']]
