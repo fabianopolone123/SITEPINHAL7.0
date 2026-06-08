@@ -3864,7 +3864,7 @@ class EventosView(LoginRequiredMixin, View):
                 inscricoes = list(
                     EventoInscricao.objects
                     .filter(evento=evento, confirmada=True, cancelada=False)
-                    .select_related('user', 'responsavel', 'responsavel__user')
+                    .select_related('user', 'responsavel', 'responsavel__user', 'indicador_aventureiro')
                     .order_by('-created_at')[:20]
                 )
                 for inscricao in inscricoes:
@@ -16194,3 +16194,140 @@ class UsuarioPermissaoEditarView(LoginRequiredMixin, View):
             messages.success(request, 'Permissões atualizadas com sucesso.')
             return redirect('accounts:usuarios')
         return render(request, self.template_name, self._base_context(request, target_user, form))
+
+
+class EventoInscricaoAplicarCashbackManualApiView(LoginRequiredMixin, View):
+    """Permite que o diretor aplique cashback manualmente a uma inscrição de evento
+    que não teve o código de indicação preenchido no momento da inscrição."""
+
+    def post(self, request, event_id, inscricao_id):
+        from django.db import transaction as db_transaction
+
+        if not _has_menu_permission(request, 'eventos'):
+            return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+
+        if _get_active_profile(request) not in {UserAccess.ROLE_DIRETOR}:
+            return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+
+        try:
+            body = json.loads(request.body or '{}')
+        except Exception:
+            return JsonResponse({'ok': False, 'error': 'json_invalido'}, status=400)
+
+        codigo_raw = str(body.get('codigo_indicacao') or '').strip()
+        if not codigo_raw:
+            return JsonResponse({'ok': False, 'error': 'codigo_obrigatorio', 'message': 'Informe o código de indicação do aventureiro.'}, status=400)
+
+        loja_helper = LojaView()
+        codigo_normalizado = loja_helper._normalize_indicacao_code(codigo_raw)
+        if not codigo_normalizado:
+            return JsonResponse({'ok': False, 'error': 'codigo_invalido', 'message': 'Código de indicação inválido.'}, status=400)
+
+        inscricao = get_object_or_404(EventoInscricao, pk=inscricao_id, evento_id=event_id)
+
+        if inscricao.cashback_creditado:
+            return JsonResponse({'ok': False, 'error': 'cashback_ja_aplicado', 'message': 'Esta inscrição já possui cashback aplicado.'}, status=400)
+
+        if inscricao.cancelada:
+            return JsonResponse({'ok': False, 'error': 'inscricao_cancelada', 'message': 'Esta inscrição está cancelada.'}, status=400)
+
+        valor_base = Decimal(str(inscricao.valor_inscricao or '0')).quantize(Decimal('0.01'))
+        if valor_base <= 0:
+            return JsonResponse({'ok': False, 'error': 'valor_inscricao_zero', 'message': 'O valor da inscrição é zero, não é possível calcular cashback.'}, status=400)
+
+        indicador = loja_helper._resolve_indicador_from_code(codigo_normalizado)
+        if not indicador:
+            return JsonResponse({'ok': False, 'error': 'aventureiro_nao_encontrado', 'message': f'Nenhum aventureiro encontrado com o código "{codigo_normalizado}".'}, status=404)
+
+        if loja_helper._is_self_indicacao_responsavel(indicador, inscricao.responsavel):
+            return JsonResponse({'ok': False, 'error': 'self_indicacao', 'message': 'O aventureiro indicador pertence ao mesmo responsável da inscrição.'}, status=400)
+
+        valor_credito = (valor_base * Decimal('0.15')).quantize(Decimal('0.01'))
+        if valor_credito <= 0:
+            return JsonResponse({'ok': False, 'error': 'valor_credito_zero', 'message': 'Valor de cashback calculado é zero.'}, status=400)
+
+        with db_transaction.atomic():
+            inscricao_locked = (
+                EventoInscricao.objects
+                .select_for_update()
+                .select_related('evento')
+                .filter(pk=inscricao_id)
+                .first()
+            )
+            if not inscricao_locked:
+                return JsonResponse({'ok': False, 'error': 'inscricao_nao_encontrada'}, status=404)
+
+            if inscricao_locked.cashback_creditado:
+                return JsonResponse({'ok': False, 'error': 'cashback_ja_aplicado', 'message': 'Esta inscrição já possui cashback aplicado.'}, status=400)
+
+            existing = AventureiroCashbackLancamento.objects.filter(
+                tipo=AventureiroCashbackLancamento.TYPE_CREDITO_INDICACAO,
+                evento_inscricao=inscricao_locked,
+            ).first()
+            if existing:
+                inscricao_locked.cashback_creditado = True
+                inscricao_locked.cashback_creditado_valor = Decimal(str(existing.valor or '0')).quantize(Decimal('0.01'))
+                inscricao_locked.save(update_fields=['cashback_creditado', 'cashback_creditado_valor', 'updated_at'])
+                return JsonResponse({'ok': False, 'error': 'cashback_ja_aplicado', 'message': 'Esta inscrição já possui cashback aplicado.'}, status=400)
+
+            indicador_locked = (
+                Aventureiro.objects
+                .select_for_update()
+                .filter(pk=indicador.id)
+                .first()
+            )
+            if not indicador_locked:
+                return JsonResponse({'ok': False, 'error': 'aventureiro_nao_encontrado'}, status=404)
+
+            saldo_atual = Decimal(str(indicador_locked.cashback_saldo or '0')).quantize(Decimal('0.01'))
+            saldo_novo = (saldo_atual + valor_credito).quantize(Decimal('0.01'))
+            indicador_locked.cashback_saldo = saldo_novo
+            indicador_locked.save(update_fields=['cashback_saldo'])
+
+            evento_nome = str(getattr(inscricao_locked.evento, 'name', '') or inscricao_locked.evento_id)
+            codigo_insc = inscricao_locked.codigo_inscricao or '-'
+            descricao = f'Indicacao manual por diretor - evento {evento_nome} (inscricao {codigo_insc})'
+
+            AventureiroCashbackLancamento.objects.create(
+                aventureiro=indicador_locked,
+                tipo=AventureiroCashbackLancamento.TYPE_CREDITO_INDICACAO,
+                valor=valor_credito,
+                saldo_apos=saldo_novo,
+                descricao=descricao[:255],
+                evento_inscricao=inscricao_locked,
+                created_by=request.user,
+            )
+
+            inscricao_locked.indicador_aventureiro = indicador_locked
+            inscricao_locked.cashback_creditado = True
+            inscricao_locked.cashback_creditado_valor = valor_credito
+            if not inscricao_locked.codigo_indicacao_usado:
+                inscricao_locked.codigo_indicacao_usado = indicador_locked.codigo_indicacao or ''
+            inscricao_locked.save(update_fields=[
+                'indicador_aventureiro',
+                'cashback_creditado',
+                'cashback_creditado_valor',
+                'codigo_indicacao_usado',
+                'updated_at',
+            ])
+
+        record_audit(
+            action='Cashback manual aplicado',
+            user=request.user,
+            request=request,
+            location='Eventos',
+            details=(
+                f'Evento id={event_id} | '
+                f'Inscricao id={inscricao_id} (codigo={inscricao.codigo_inscricao or "-"}) | '
+                f'Indicador aventureiro id={indicador.id} nome="{getattr(indicador, "nome", "-")}" | '
+                f'Valor=R${valor_credito}'
+            ),
+        )
+
+        return JsonResponse({
+            'ok': True,
+            'message': f'Cashback de R$ {valor_credito} creditado para {getattr(indicador, "nome", "")}.',
+            'valor_creditado': str(valor_credito),
+            'aventureiro_nome': str(getattr(indicador, 'nome', '') or ''),
+            'saldo_novo': str(saldo_novo),
+        })

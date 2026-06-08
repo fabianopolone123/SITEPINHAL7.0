@@ -675,9 +675,11 @@
                       <tr>
                         <th>Código</th>
                         <th>Responsável</th>
-                        <th>Valor inscricao</th>
-                        <th>Dados</th>
+                        <th>Valor inscrição</th>
+                        <th>Indicação</th>
+                        <th>Cashback</th>
                         <th>Data</th>
+                        {% if active_profile == 'diretor' %}<th>Ação</th>{% endif %}
                       </tr>
                     </thead>
                     <tbody>
@@ -685,9 +687,45 @@
                         <tr>
                           <td>{{ item.codigo_inscricao|default:"-" }}</td>
                           <td>{{ item.responsavel_label|default:"-" }}</td>
-                          <td>{{ item.valor_inscricao }}</td>
-                          <td>{{ item.dados }}</td>
+                          <td>R$ {{ item.valor_inscricao }}</td>
+                          <td>
+                            {% if item.indicador_aventureiro %}
+                              {{ item.indicador_aventureiro.nome }}
+                              {% if item.codigo_indicacao_usado %}
+                                <small>({{ item.codigo_indicacao_usado }})</small>
+                              {% endif %}
+                            {% elif item.codigo_indicacao_usado %}
+                              <small>{{ item.codigo_indicacao_usado }}</small>
+                            {% else %}
+                              -
+                            {% endif %}
+                          </td>
+                          <td>
+                            {% if item.cashback_creditado %}
+                              <span style="color:#2a9d5c;font-weight:600;">✓ R$ {{ item.cashback_creditado_valor }}</span>
+                            {% else %}
+                              <span style="color:#999;">—</span>
+                            {% endif %}
+                          </td>
                           <td>{{ item.created_at|date:"d/m/Y H:i" }}</td>
+                          {% if active_profile == 'diretor' %}
+                            <td>
+                              {% if not item.cashback_creditado and item.valor_inscricao %}
+                                <button
+                                  type="button"
+                                  class="btn-cashback-manual"
+                                  data-inscricao-id="{{ item.id }}"
+                                  data-evento-id="{{ row.evento.id }}"
+                                  data-codigo="{{ item.codigo_inscricao|default:'' }}"
+                                  data-responsavel="{{ item.responsavel_label|default:'' }}"
+                                  data-valor="{{ item.valor_inscricao }}"
+                                  style="font-size:0.78rem;padding:3px 8px;cursor:pointer;"
+                                >
+                                  Lançar cashback
+                                </button>
+                              {% endif %}
+                            </td>
+                          {% endif %}
                         </tr>
                       {% endfor %}
                     </tbody>
@@ -1840,6 +1878,213 @@
       if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
       modal.addEventListener('click', (event) => {
         if (event.target === modal) closeModal();
+      });
+    })();
+  </script>
+
+  <!-- Modal: Lançar Cashback Manual -->
+  <div class="modal event-modal" id="cashback-manual-modal" aria-hidden="true">
+    <div class="modal-content" style="max-width:480px;">
+      <header>
+        <h3>Lançar Cashback de Indicação</h3>
+        <button type="button" id="close-cashback-manual-modal" class="modal-close" aria-label="Fechar">&times;</button>
+      </header>
+      <div class="modal-body" style="padding:1.2rem;">
+        <p id="cashback-manual-info" style="margin-bottom:1rem;color:#555;font-size:0.9rem;"></p>
+
+        <div style="margin-bottom:1rem;">
+          <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:4px;">
+            Código de indicação do aventureiro indicador
+          </label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input
+              type="text"
+              id="cashback-manual-codigo"
+              maxlength="12"
+              autocomplete="off"
+              placeholder="Ex.: ABJOSE"
+              style="text-transform:uppercase;flex:1;padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:0.9rem;"
+            />
+            <button type="button" id="cashback-manual-buscar" style="padding:6px 14px;font-size:0.85rem;cursor:pointer;">
+              Verificar
+            </button>
+          </div>
+          <p id="cashback-manual-lookup-msg" style="margin-top:6px;font-size:0.82rem;min-height:18px;"></p>
+        </div>
+
+        <div id="cashback-manual-preview" style="display:none;background:#f4faf6;border:1px solid #b6dfca;border-radius:6px;padding:10px 14px;margin-bottom:1rem;font-size:0.88rem;">
+          <p style="margin:0 0 4px;">
+            Aventureiro indicador: <strong id="cashback-manual-aventureiro-nome"></strong>
+          </p>
+          <p style="margin:0;">
+            Cashback a creditar (15%): <strong id="cashback-manual-valor-calc" style="color:#2a9d5c;"></strong>
+          </p>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:0.5rem;">
+          <button type="button" id="cancel-cashback-manual-modal" style="padding:7px 18px;cursor:pointer;">Cancelar</button>
+          <button type="button" id="confirm-cashback-manual" disabled style="padding:7px 18px;cursor:pointer;background:#2a9d5c;color:#fff;border:none;border-radius:4px;font-weight:600;">
+            Confirmar
+          </button>
+        </div>
+        <p id="cashback-manual-error" style="color:#c0392b;font-size:0.82rem;margin-top:8px;display:none;"></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const modal = document.getElementById('cashback-manual-modal');
+      const closeBtn = document.getElementById('close-cashback-manual-modal');
+      const cancelBtn = document.getElementById('cancel-cashback-manual-modal');
+      const buscarBtn = document.getElementById('cashback-manual-buscar');
+      const confirmBtn = document.getElementById('confirm-cashback-manual');
+      const codigoInput = document.getElementById('cashback-manual-codigo');
+      const lookupMsg = document.getElementById('cashback-manual-lookup-msg');
+      const preview = document.getElementById('cashback-manual-preview');
+      const aventureiroNomeEl = document.getElementById('cashback-manual-aventureiro-nome');
+      const valorCalcEl = document.getElementById('cashback-manual-valor-calc');
+      const infoEl = document.getElementById('cashback-manual-info');
+      const errorEl = document.getElementById('cashback-manual-error');
+
+      if (!modal) return;
+
+      let currentInscricaoId = null;
+      let currentEventoId = null;
+      let currentCodigoIndicacao = null;
+      let currentValorInscricao = '0';
+
+      function openModal(btn) {
+        currentInscricaoId = btn.dataset.inscricaoId;
+        currentEventoId = btn.dataset.eventoId;
+        currentValorInscricao = btn.dataset.valor || '0';
+        const codigo = btn.dataset.codigo || '-';
+        const responsavel = btn.dataset.responsavel || '-';
+
+        infoEl.textContent = `Inscrição ${codigo} — Responsável: ${responsavel} — Valor: R$ ${parseFloat(currentValorInscricao).toFixed(2)}`;
+        codigoInput.value = '';
+        lookupMsg.textContent = '';
+        lookupMsg.style.color = '#555';
+        preview.style.display = 'none';
+        confirmBtn.disabled = true;
+        errorEl.style.display = 'none';
+        currentCodigoIndicacao = null;
+
+        modal.classList.add('show');
+        modal.setAttribute('aria-hidden', 'false');
+        codigoInput.focus();
+      }
+
+      function closeModal() {
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+      }
+
+      document.querySelectorAll('.btn-cashback-manual').forEach(function (btn) {
+        btn.addEventListener('click', function () { openModal(btn); });
+      });
+
+      if (closeBtn) closeBtn.addEventListener('click', closeModal);
+      if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+      modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+
+      codigoInput.addEventListener('input', function () {
+        this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        preview.style.display = 'none';
+        confirmBtn.disabled = true;
+        currentCodigoIndicacao = null;
+        lookupMsg.textContent = '';
+        errorEl.style.display = 'none';
+      });
+
+      codigoInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') buscarBtn.click();
+      });
+
+      buscarBtn.addEventListener('click', function () {
+        const codigo = codigoInput.value.trim();
+        if (!codigo) {
+          lookupMsg.style.color = '#c0392b';
+          lookupMsg.textContent = 'Digite o código de indicação.';
+          return;
+        }
+        buscarBtn.disabled = true;
+        buscarBtn.textContent = '...';
+        lookupMsg.textContent = '';
+        preview.style.display = 'none';
+        confirmBtn.disabled = true;
+        currentAventureiroId = null;
+
+        const url = `/eventos/${currentEventoId}/indicacao/lookup/?codigo=${encodeURIComponent(codigo)}`;
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            buscarBtn.disabled = false;
+            buscarBtn.textContent = 'Verificar';
+            if (!data.ok) {
+              lookupMsg.style.color = '#c0392b';
+              lookupMsg.textContent = data.message || 'Erro ao buscar código.';
+              return;
+            }
+            if (!data.found) {
+              lookupMsg.style.color = '#c0392b';
+              lookupMsg.textContent = 'Código não encontrado. Verifique e tente novamente.';
+              return;
+            }
+            lookupMsg.style.color = '#2a9d5c';
+            lookupMsg.textContent = 'Código encontrado!';
+            currentCodigoIndicacao = data.codigo || codigo;
+            aventureiroNomeEl.textContent = data.aventureiro_nome || '-';
+            const val = parseFloat(currentValorInscricao) || 0;
+            const cashback = (val * 0.15).toFixed(2);
+            valorCalcEl.textContent = 'R$ ' + cashback;
+            preview.style.display = 'block';
+            confirmBtn.disabled = false;
+          })
+          .catch(function () {
+            buscarBtn.disabled = false;
+            buscarBtn.textContent = 'Verificar';
+            lookupMsg.style.color = '#c0392b';
+            lookupMsg.textContent = 'Erro de comunicação. Tente novamente.';
+          });
+      });
+
+      confirmBtn.addEventListener('click', function () {
+        if (!currentCodigoIndicacao || !currentInscricaoId || !currentEventoId) return;
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Aguarde...';
+        errorEl.style.display = 'none';
+
+        const csrfToken = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+        const url = `/eventos/${currentEventoId}/inscricoes/${currentInscricaoId}/aplicar-cashback-manual/`;
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: JSON.stringify({ codigo_indicacao: currentCodigoIndicacao }),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            confirmBtn.textContent = 'Confirmar';
+            if (!data.ok) {
+              confirmBtn.disabled = false;
+              errorEl.textContent = data.message || 'Erro ao aplicar cashback.';
+              errorEl.style.display = 'block';
+              return;
+            }
+            closeModal();
+            alert('Cashback aplicado com sucesso!\n' + data.message);
+            window.location.reload();
+          })
+          .catch(function () {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Confirmar';
+            errorEl.textContent = 'Erro de comunicação. Tente novamente.';
+            errorEl.style.display = 'block';
+          });
       });
     })();
   </script>
