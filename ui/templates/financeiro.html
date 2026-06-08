@@ -475,13 +475,19 @@
               var totalComDesconto = document.getElementById('financeiroTotalComDesconto');
               var totalComDescontoValor = document.getElementById('financeiroTotalComDescontoValor');
 
+              function parseValor(s) {
+                s = (s || '0').toString().replace(/R\$\s*/g, '').trim();
+                // Formato BR "1.234,56" — tem vírgula como decimal
+                if (s.indexOf(',') !== -1) {
+                  s = s.replace(/\./g, '').replace(',', '.');
+                }
+                return parseFloat(s) || 0;
+              }
+
               function getTotal() {
                 var total = 0;
                 checkboxes.forEach(function (cb) {
-                  if (cb.checked) {
-                    var v = parseFloat((cb.dataset.valor || '0').toString().replace(',', '.')) || 0;
-                    total += v;
-                  }
+                  if (cb.checked) total += parseValor(cb.dataset.valor);
                 });
                 return Math.round(total * 100) / 100;
               }
