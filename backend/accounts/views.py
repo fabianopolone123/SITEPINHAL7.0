@@ -92,7 +92,7 @@ from .whatsapp import (
 )
 from django.http import HttpResponse, JsonResponse
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.views.decorators.csrf import csrf_exempt
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
@@ -11561,7 +11561,7 @@ class FinanceiroView(LoginRequiredMixin, View):
         total_mensalidades_pago = (
             PagamentoMensalidade.objects
             .filter(status=PagamentoMensalidade.STATUS_PAGO)
-            .aggregate(total=Sum('valor_total'))
+            .aggregate(total=Sum(F('valor_total') - F('cashback_desconto_valor')))
             .get('total')
             or Decimal('0.00')
         )
@@ -11756,11 +11756,15 @@ class FinanceiroView(LoginRequiredMixin, View):
                 competencias.append(
                     f'{item.aventureiro.nome} - {item.get_tipo_display()} - {self._month_label(item.mes_referencia)}/{item.ano_referencia}'
                 )
+            valor_pago_liquido = (
+                Decimal(pagamento.valor_total or Decimal('0.00'))
+                - Decimal(pagamento.cashback_desconto_valor or Decimal('0.00'))
+            ).quantize(Decimal('0.01'))
             mensalidades_rows.append({
                 'id': pagamento.pk,
                 'responsavel_nome': responsavel_nome,
                 'username': pagamento.responsavel.user.username,
-                'valor_total': self._format_currency(pagamento.valor_total),
+                'valor_total': self._format_currency(valor_pago_liquido),
                 'pago_em': timezone.localtime(pagamento.paid_at or pagamento.created_at).strftime('%d/%m/%Y %H:%M'),
                 'competencias': competencias,
             })
@@ -11768,8 +11772,8 @@ class FinanceiroView(LoginRequiredMixin, View):
                 'created_at': pagamento.paid_at or pagamento.created_at,
                 'tipo': 'Mensalidade paga',
                 'descricao': f'Pagamento #{pagamento.pk} - {responsavel_nome}',
-                'valor': Decimal(pagamento.valor_total).quantize(Decimal('0.01')),
-                'impacto_liquido': Decimal(pagamento.valor_total).quantize(Decimal('0.01')),
+                'valor': valor_pago_liquido,
+                'impacto_liquido': valor_pago_liquido,
                 'impacta_liquido': True,
             })
 
@@ -11940,9 +11944,11 @@ class FinanceiroView(LoginRequiredMixin, View):
                 or pagamento.responsavel.pai_nome
                 or pagamento.responsavel.user.username
             )
-            valor_total = Decimal(pagamento.valor_total or Decimal('0.00')).quantize(Decimal('0.01'))
-            taxa = (valor_total * taxa_transacao_percentual).quantize(Decimal('0.01'))
-            valor_liquido = (valor_total - taxa).quantize(Decimal('0.01'))
+            valor_bruto = Decimal(pagamento.valor_total or Decimal('0.00')).quantize(Decimal('0.01'))
+            cashback_desc = Decimal(pagamento.cashback_desconto_valor or Decimal('0.00')).quantize(Decimal('0.01'))
+            valor_recebido = (valor_bruto - cashback_desc).quantize(Decimal('0.01'))
+            taxa = (valor_recebido * taxa_transacao_percentual).quantize(Decimal('0.01'))
+            valor_liquido = (valor_recebido - taxa).quantize(Decimal('0.01'))
             relatorios_card_mensalidades_rows.append(
                 _row(data_ref, f'Mensalidade paga #{pagamento.pk} - {responsavel_nome} (liquido)', valor_liquido)
             )

@@ -1761,12 +1761,12 @@
       const btnLimparSelecao = document.getElementById('financeiroLimparSelecao');
 
       function parseMoedaBRL(texto) {
-        const normalizado = String(texto || '')
-          .replace('R$', '')
-          .replace(/\s+/g, '')
-          .replace(/\./g, '')
-          .replace(',', '.');
-        const valor = Number(normalizado);
+        let s = String(texto || '').replace(/R\$\s*/g, '').trim();
+        // Formato BR "1.234,56": vírgula como decimal, ponto como milhar
+        if (s.indexOf(',') !== -1) {
+          s = s.replace(/\./g, '').replace(',', '.');
+        }
+        const valor = Number(s);
         return Number.isFinite(valor) ? valor : 0;
       }
 
