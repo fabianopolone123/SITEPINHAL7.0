@@ -11134,12 +11134,14 @@ class FinanceiroView(LoginRequiredMixin, View):
             )
 
     def _pix_modal_context(self, pagamento):
+        desconto = Decimal(getattr(pagamento, 'cashback_desconto_valor', Decimal('0.00')) or Decimal('0.00'))
+        valor_cobrado = (Decimal(pagamento.valor_total) - desconto).quantize(Decimal('0.01'))
         return {
             'id': pagamento.pk,
             'payment_id': pagamento.mp_payment_id,
             'status': pagamento.status,
             'status_label': self._mp_status_label(pagamento),
-            'valor_total': self._format_currency(pagamento.valor_total),
+            'valor_total': self._format_currency(valor_cobrado),
             'qr_base64': pagamento.mp_qr_code_base64,
             'pix_code': pagamento.mp_qr_code,
         }
