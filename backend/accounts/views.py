@@ -496,20 +496,9 @@ def _sidebar_context(request):
             eventos_qs = (
                 Evento.objects
                 .filter(mostrar_no_menu_responsavel=True, pagina_ativa=True)
-                .prefetch_related('produtos_loja__variacoes')
                 .order_by('event_date', 'event_time', 'name')
             )
             for evento in eventos_qs:
-                has_fields = bool(evento.fields_data or [])
-                has_produtos = False
-                for produto in evento.produtos_loja.all():
-                    if not produto.ativo:
-                        continue
-                    if any(variacao.ativo for variacao in produto.variacoes.all()):
-                        has_produtos = True
-                        break
-                if not (has_fields and has_produtos):
-                    continue
                 eventos_atalho_responsavel.append({
                     'id': int(evento.id),
                     'name': str(evento.name or f'Evento {evento.id}'),
