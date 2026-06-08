@@ -13625,6 +13625,26 @@ class LojaView(LoginRequiredMixin, View):
         except Exception:
             return ''
 
+    def _mp_checkout_back_urls_loja(self, request, pedido):
+        try:
+            if getattr(pedido, 'evento_id', None):
+                base_url = request.build_absolute_uri(reverse('accounts:evento_publico', args=[pedido.evento_id]))
+            else:
+                base_url = request.build_absolute_uri(reverse('accounts:loja'))
+        except Exception:
+            base_url = ''
+        if not base_url:
+            return {}
+        separator = '&' if '?' in base_url else '?'
+        success_url = f'{base_url}{separator}checkout_return=1&pedido_id={pedido.pk}&checkout_status=approved'
+        failure_url = f'{base_url}{separator}checkout_return=1&pedido_id={pedido.pk}&checkout_status=failure'
+        pending_url = f'{base_url}{separator}checkout_return=1&pedido_id={pedido.pk}&checkout_status=pending'
+        return {
+            'success': success_url,
+            'failure': failure_url,
+            'pending': pending_url,
+        }
+
     def _mp_payer_email_loja(self, request, responsavel, pedido):
         candidate_emails = []
         if getattr(request.user, 'email', ''):
@@ -13695,6 +13715,74 @@ class LojaView(LoginRequiredMixin, View):
             'status_detail': payment.get('status_detail') or '',
             'pix_code': pix_code,
             'qr_base64': qr_base64,
+        }
+
+    def _create_mp_checkout_preference_loja(self, request, pedido, *, installments=1):
+        responsavel = pedido.responsavel
+        responsible_name = (
+            responsavel.responsavel_nome
+            or responsavel.mae_nome
+            or responsavel.pai_nome
+            or getattr(request.user, 'get_full_name', lambda: '')()
+            or getattr(request.user, 'username', '')
+            or 'Responsavel'
+        ).strip()
+        payer_email = self._mp_payer_email_loja(request, responsavel, pedido)
+        external_reference = f'LOJA_PEDIDO_{pedido.pk}'
+        items = []
+        for item in pedido.itens.all():
+            titulo = str(item.produto_titulo or item.variacao_nome or f'Pedido #{pedido.pk}').strip() or f'Pedido #{pedido.pk}'
+            descricao = str(item.variacao_nome or '').strip()
+            if descricao and descricao != titulo:
+                titulo = f'{titulo} - {descricao}'
+            items.append({
+                'id': str(item.pk or ''),
+                'title': titulo[:256],
+                'quantity': int(item.quantidade or 0) or 1,
+                'currency_id': 'BRL',
+                'unit_price': float(Decimal(item.valor_unitario or Decimal('0.00')).quantize(Decimal('0.01'))),
+            })
+        if not items:
+            items.append({
+                'id': f'pedido-{pedido.pk}',
+                'title': f'Pedido loja #{pedido.pk}',
+                'quantity': 1,
+                'currency_id': 'BRL',
+                'unit_price': float(Decimal(pedido.valor_total or Decimal('0.00')).quantize(Decimal('0.01'))),
+            })
+
+        payload = {
+            'items': items,
+            'external_reference': external_reference,
+            'payer': {
+                'email': payer_email,
+                'name': responsible_name[:120],
+            },
+            'payment_methods': {
+                'installments': max(1, min(int(installments or 1), 18)),
+                'excluded_payment_types': [
+                    {'id': 'ticket'},
+                    {'id': 'bank_transfer'},
+                    {'id': 'atm'},
+                ],
+            },
+            'auto_return': 'approved',
+        }
+        back_urls = self._mp_checkout_back_urls_loja(request, pedido)
+        if back_urls:
+            payload['back_urls'] = back_urls
+        notification_url = self._mp_notification_url_loja(request)
+        if notification_url:
+            payload['notification_url'] = notification_url
+        preference = self._mp_api_request('POST', '/checkout/preferences', payload)
+        redirect_url = str(preference.get('init_point') or '').strip()
+        if not redirect_url:
+            raise ValueError('Mercado Pago não retornou a URL de checkout para este pedido.')
+        return {
+            'preference_id': str(preference.get('id') or ''),
+            'external_reference': external_reference,
+            'redirect_url': redirect_url,
+            'sandbox_url': str(preference.get('sandbox_init_point') or '').strip(),
         }
 
     def _pedido_loja_status_label(self, pedido):
@@ -15761,8 +15849,9 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
             return JsonResponse({'ok': False, 'error': 'invalid_json'}, status=400)
 
         payment_method = str(payload.get('payment_method') or '').strip().lower()
-        if payment_method != LojaPedido.FORMA_PAGAMENTO_PIX:
-            return JsonResponse({'ok': False, 'error': 'unsupported_payment_method', 'message': 'Somente Pix está disponível no momento.'}, status=400)
+        installments = 1
+        if payment_method not in {LojaPedido.FORMA_PAGAMENTO_PIX, LojaPedido.FORMA_PAGAMENTO_CARTAO}:
+            return JsonResponse({'ok': False, 'error': 'unsupported_payment_method', 'message': 'Forma de pagamento indisponivel no momento.'}, status=400)
 
         raw_items = payload.get('items')
         if not isinstance(raw_items, list) or not raw_items:
@@ -15876,7 +15965,10 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
         if not parsed_items:
             return JsonResponse({'ok': False, 'error': 'empty_cart', 'message': 'Carrinho vazio.'}, status=400)
 
-        total_bruto = Decimal(total or Decimal('0.00')).quantize(Decimal('0.01'))
+        subtotal = Decimal(total or Decimal('0.00')).quantize(Decimal('0.01'))
+        taxa_percentual = _mercadopago_payment_fee_percent(payment_method, installments=installments)
+        taxa_valor = _mercadopago_payment_fee_amount(subtotal, payment_method, installments=installments)
+        total_bruto = (subtotal + taxa_valor).quantize(Decimal('0.01'))
         cashback_aventureiro = None
         cashback_desconto = Decimal('0.00')
         cashback_aventureiro, cashback_desconto, cashback_error = loja_view._resolve_cashback_checkout(
@@ -15903,7 +15995,7 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
                     created_by=request.user,
                     status=LojaPedido.STATUS_PENDENTE,
                 )
-                LojaPedidoItem.objects.bulk_create([
+                pedido_items = [
                     LojaPedidoItem(
                         pedido=pedido,
                         produto=item['produto'],
@@ -15918,21 +16010,52 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
                         foto_url=item['foto_url'],
                     )
                     for item in parsed_items
-                ])
+                ]
+                if taxa_valor > 0:
+                    pedido_items.append(
+                        LojaPedidoItem(
+                            pedido=pedido,
+                            produto=None,
+                            variacao=None,
+                            aventureiro=None,
+                            produto_titulo='Taxa de pagamento',
+                            variacao_nome='Cartao (1x)' if payment_method == LojaPedido.FORMA_PAGAMENTO_CARTAO else 'Pix',
+                            aventureiro_nome='',
+                            quantidade=1,
+                            valor_unitario=taxa_valor,
+                            valor_total=taxa_valor,
+                            foto_url='',
+                        )
+                    )
+                LojaPedidoItem.objects.bulk_create(pedido_items)
                 if total_final > 0:
-                    mp_payload = loja_view._create_mp_pix_payment_loja(request, pedido)
-                    pedido.mp_qr_code = mp_payload['pix_code']
-                    pedido.mp_qr_code_base64 = mp_payload['qr_base64']
-                    pedido.save(update_fields=[
-                        'mp_qr_code', 'mp_qr_code_base64', 'updated_at',
-                    ])
-                    loja_view._sync_pedido_loja_from_mp(pedido, {
-                        'id': mp_payload['payment_id'],
-                        'external_reference': mp_payload['external_reference'],
-                        'status': mp_payload['status'],
-                        'status_detail': mp_payload['status_detail'],
-                    })
-                    pedido.refresh_from_db()
+                    if payment_method == LojaPedido.FORMA_PAGAMENTO_CARTAO:
+                        checkout_payload = loja_view._create_mp_checkout_preference_loja(
+                            request,
+                            pedido,
+                            installments=installments,
+                        )
+                        pedido.mp_external_reference = checkout_payload['external_reference']
+                        pedido.mp_status = 'pending'
+                        pedido.mp_status_detail = 'checkout_pro_created'
+                        pedido.save(update_fields=[
+                            'mp_external_reference', 'mp_status', 'mp_status_detail', 'updated_at',
+                        ])
+                        pedido.refresh_from_db()
+                    else:
+                        mp_payload = loja_view._create_mp_pix_payment_loja(request, pedido)
+                        pedido.mp_qr_code = mp_payload['pix_code']
+                        pedido.mp_qr_code_base64 = mp_payload['qr_base64']
+                        pedido.save(update_fields=[
+                            'mp_qr_code', 'mp_qr_code_base64', 'updated_at',
+                        ])
+                        loja_view._sync_pedido_loja_from_mp(pedido, {
+                            'id': mp_payload['payment_id'],
+                            'external_reference': mp_payload['external_reference'],
+                            'status': mp_payload['status'],
+                            'status_detail': mp_payload['status_detail'],
+                        })
+                        pedido.refresh_from_db()
                 else:
                     loja_view._sync_pedido_loja_from_mp(pedido, {
                         'id': str(pedido.mp_payment_id or ''),
@@ -15944,10 +16067,26 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
         except ValueError as exc:
             return JsonResponse({'ok': False, 'error': 'mercadopago', 'message': str(exc)}, status=400)
         except Exception:
-            return JsonResponse({'ok': False, 'error': 'pedido_create_failed', 'message': 'Não foi possível gerar o pagamento Pix do pedido agora.'}, status=500)
+            return JsonResponse({'ok': False, 'error': 'pedido_create_failed', 'message': 'Não foi possível iniciar o pagamento do pedido agora.'}, status=500)
+
+        if payment_method == LojaPedido.FORMA_PAGAMENTO_CARTAO and total_final > 0:
+            return JsonResponse({
+                'ok': True,
+                'payment_flow': 'checkout_pro',
+                'redirect_url': checkout_payload.get('redirect_url') or checkout_payload.get('sandbox_url') or '',
+                'pedido': {
+                    'pedido_id': pedido.pk,
+                    'status': pedido.status,
+                    'status_label': loja_view._pedido_loja_status_label(pedido),
+                    'valor_total': loja_view._format_currency(pedido.valor_total),
+                    'taxa_percentual': f'{taxa_percentual}',
+                    'taxa_valor': loja_view._format_currency(taxa_valor),
+                },
+            })
 
         return JsonResponse({
             'ok': True,
+            'payment_flow': 'pix',
             'pedido': loja_view._pix_modal_context_loja(pedido),
         })
 

@@ -1889,6 +1889,7 @@
           <span class="catalog-label">Forma de pagamento</span>
           <select class="cart-payment-select" id="catalogCartPaymentMethod">
             <option value="pix" selected>Pix</option>
+            <option value="cartao">Cartao (1x)</option>
           </select>
         </label>
         <div class="cart-total-row">
@@ -2464,7 +2465,7 @@
         }, 5000);
       }
 
-      async function createPixPedidoFromCart() {
+      async function createPedidoFromCart() {
         if (!PIX_CREATE_URL) throw new Error('URL de criação de pedido não configurada.');
         const payloadItems = [];
         (cartState.items || []).forEach(function (item) {
@@ -2484,7 +2485,7 @@
           });
         });
         const payload = {
-          payment_method: 'pix',
+          payment_method: String(cartState.payment_method || 'pix').trim().toLowerCase() || 'pix',
           items: payloadItems,
         };
         if (cartUseCashbackInput && cartUseCashbackInput.checked) {
@@ -2505,9 +2506,9 @@
         });
         const data = await response.json().catch(function () { return {}; });
         if (!response.ok || !data.ok) {
-          throw new Error(data.message || data.error || 'Não foi possível gerar o pagamento Pix.');
+          throw new Error(data.message || data.error || 'Não foi possível iniciar o pagamento.');
         }
-        return data.pedido || null;
+        return data || {};
       }
 
       function openCartDrawer() {
@@ -2740,8 +2741,22 @@
           }
           try {
             cartFinalizeBtn.disabled = true;
-            setCartFeedback('Gerando pagamento Pix do pedido...');
-            const pedidoPix = await createPixPedidoFromCart();
+            const paymentMethod = String(cartState.payment_method || 'pix').trim().toLowerCase() || 'pix';
+            const paymentLabel = paymentMethod === 'cartao' ? 'checkout do cartao' : 'pagamento Pix';
+            setCartFeedback('Gerando ' + paymentLabel + ' do pedido...');
+            const checkoutResult = await createPedidoFromCart();
+            if (String(checkoutResult.payment_flow || '') === 'checkout_pro') {
+              const redirectUrl = String(checkoutResult.redirect_url || '').trim();
+              if (!redirectUrl) throw new Error('Resposta inválida ao iniciar checkout do cartão.');
+              cartState.items = [];
+              saveCartState();
+              renderCart();
+              closeCartDrawer();
+              setCartFeedback('Redirecionando para o Mercado Pago...');
+              window.location.href = redirectUrl;
+              return;
+            }
+            const pedidoPix = checkoutResult.pedido || null;
             if (!pedidoPix) throw new Error('Resposta inválida ao gerar pagamento.');
             renderPixModal(pedidoPix);
             if (pedidoPix.status !== 'pago') {
@@ -2755,7 +2770,7 @@
             }
             setCartFeedback('');
           } catch (error) {
-            setCartFeedback((error && error.message) ? error.message : 'Não foi possível gerar o pagamento Pix agora.');
+            setCartFeedback((error && error.message) ? error.message : 'Não foi possível iniciar o pagamento agora.');
           } finally {
             renderCart();
           }
