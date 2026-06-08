@@ -7070,6 +7070,42 @@ class EventoPublicoView(View):
                     })
             except Exception:
                 logger.exception('Falha ao montar sugestoes publicas de vendas-inscritos para evento id=%s.', evento.id)
+        # Dados para o modal de lançamento manual de cashback (somente diretor)
+        cashback_lancamento_inscricoes = []
+        cashback_lancamento_aventureiros = []
+        if can_manage_evento and _get_active_profile(request) == UserAccess.ROLE_DIRETOR:
+            try:
+                for insc in (
+                    EventoInscricao.objects
+                    .filter(evento=evento, confirmada=True, cancelada=False, cashback_creditado=False)
+                    .select_related('responsavel', 'responsavel__user', 'user')
+                    .order_by('-created_at')[:300]
+                ):
+                    valor_raw = Decimal(str(insc.valor_inscricao or '0')).quantize(Decimal('0.01'))
+                    if valor_raw <= 0:
+                        continue
+                    cashback_lancamento_inscricoes.append({
+                        'id': insc.id,
+                        'codigo': insc.codigo_inscricao or '-',
+                        'responsavel': self._responsavel_label_from_inscricao(insc),
+                        'valor_fmt': self._format_currency(valor_raw),
+                        'valor_raw': str(valor_raw),
+                        'cashback_calc_fmt': self._format_currency((valor_raw * Decimal('0.15')).quantize(Decimal('0.01'))),
+                    })
+                for av in (
+                    Aventureiro.objects
+                    .select_related('responsavel')
+                    .filter(ativo=True)
+                    .order_by('nome')[:500]
+                ):
+                    cashback_lancamento_aventureiros.append({
+                        'id': av.id,
+                        'nome': str(av.nome or '').strip(),
+                        'codigo_indicacao': str(av.codigo_indicacao or '').strip(),
+                    })
+            except Exception:
+                logger.exception('Falha ao montar dados de cashback manual para evento id=%s.', evento.id)
+
         pedido_modal = {}
         if request.user.is_authenticated and 'last_evento_pedido_id' in request.session:
             pedido_id = request.session.pop('last_evento_pedido_id', None)
@@ -7140,6 +7176,8 @@ class EventoPublicoView(View):
             'pedidos_preview_rows': pedidos_preview_rows,
             'inscritos_detalhes': inscritos_detalhes,
             'sale_inscricoes_detalhes': sale_inscricoes_detalhes,
+            'cashback_lancamento_inscricoes': cashback_lancamento_inscricoes,
+            'cashback_lancamento_aventureiros': cashback_lancamento_aventureiros,
             'inscricao_faixas_resumo': inscricao_faixas_resumo,
             'event_extrato_rows': event_extrato_rows,
             'cashback_rows': cashback_rows,

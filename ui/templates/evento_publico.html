@@ -1868,6 +1868,9 @@
             <button type="submit" class="secondary">{% if evento.inscricao_publica %}Tornar privado{% else %}Tornar publico{% endif %}</button>
           </form>
           <button type="button" class="secondary" id="open-event-inscritos">Inscritos</button>
+          {% if active_profile == 'diretor' and cashback_lancamento_inscricoes %}
+            <button type="button" class="secondary" id="open-cashback-lancamento-modal">Lançar Cashback</button>
+          {% endif %}
           <button type="button" class="secondary" id="open-event-consulta-atendente">Consultar</button>
           <button type="button" class="secondary" id="open-event-sale">Vender</button>
           <a href="{% url 'accounts:evento_vendas_inscritos' evento.id %}?vtab=comprar" class="{% if active_mode == 'vendasinscritos' %}primary{% else %}secondary{% endif %}" style="text-decoration:none;">Vendas inscritos</a>
@@ -2604,6 +2607,264 @@
           {% endif %}
         </div>
       </div>
+
+      {% if active_profile == 'diretor' and cashback_lancamento_inscricoes %}
+        <div class="modal event-report-modal" id="cashback-lancamento-modal" aria-hidden="true">
+          <div class="modal-content" style="max-width:860px;width:95vw;">
+            <header>
+              <h3>Lançar Cashback de Indicação — {{ evento.name }}</h3>
+              <button type="button" id="close-cashback-lancamento-modal" aria-label="Fechar">X</button>
+            </header>
+            <div style="padding:0 1.2rem 1rem;">
+              <p style="margin:.4rem 0 1rem;color:#555;font-size:.88rem;">
+                Selecione uma inscrição (esquerda) e o aventureiro indicador (direita). O cashback de <strong>15%</strong> do valor da inscrição será creditado ao aventureiro.
+              </p>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;min-height:320px;">
+
+                <!-- Coluna esquerda: inscrições sem cashback -->
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <strong style="font-size:.82rem;text-transform:uppercase;color:#888;letter-spacing:.04em;">Inscrições sem cashback</strong>
+                  <input
+                    type="search"
+                    id="cb-filter-inscricao"
+                    placeholder="Filtrar por código ou responsável"
+                    autocomplete="off"
+                    style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:.85rem;"
+                  />
+                  <div id="cb-inscricao-list" style="overflow-y:auto;max-height:340px;border:1px solid #e0e0e0;border-radius:6px;">
+                    {% for item in cashback_lancamento_inscricoes %}
+                      <button
+                        type="button"
+                        class="cb-inscricao-item"
+                        data-id="{{ item.id }}"
+                        data-codigo="{{ item.codigo }}"
+                        data-responsavel="{{ item.responsavel }}"
+                        data-valor-raw="{{ item.valor_raw }}"
+                        data-valor-fmt="{{ item.valor_fmt }}"
+                        data-cashback-fmt="{{ item.cashback_calc_fmt }}"
+                        data-search="{{ item.codigo }} {{ item.responsavel }}"
+                        style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;border-bottom:1px solid #f0f0f0;background:transparent;cursor:pointer;transition:background .15s;"
+                      >
+                        <span style="font-weight:600;font-size:.88rem;">Cód. {{ item.codigo }}</span>
+                        <span style="display:block;font-size:.82rem;color:#555;margin-top:2px;">{{ item.responsavel }}</span>
+                        <span style="display:block;font-size:.8rem;color:#2a9d5c;margin-top:1px;">{{ item.valor_fmt }} → cashback {{ item.cashback_calc_fmt }}</span>
+                      </button>
+                    {% endfor %}
+                    <p id="cb-inscricao-empty" hidden style="padding:12px;font-size:.85rem;color:#999;">Nenhuma inscrição encontrada.</p>
+                  </div>
+                </div>
+
+                <!-- Coluna direita: aventureiros -->
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <strong style="font-size:.82rem;text-transform:uppercase;color:#888;letter-spacing:.04em;">Aventureiro indicador</strong>
+                  <input
+                    type="search"
+                    id="cb-filter-aventureiro"
+                    placeholder="Filtrar por nome ou código"
+                    autocomplete="off"
+                    style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:.85rem;"
+                  />
+                  <div id="cb-aventureiro-list" style="overflow-y:auto;max-height:340px;border:1px solid #e0e0e0;border-radius:6px;">
+                    {% for av in cashback_lancamento_aventureiros %}
+                      <button
+                        type="button"
+                        class="cb-aventureiro-item"
+                        data-id="{{ av.id }}"
+                        data-nome="{{ av.nome }}"
+                        data-codigo="{{ av.codigo_indicacao }}"
+                        data-search="{{ av.nome }} {{ av.codigo_indicacao }}"
+                        style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;border-bottom:1px solid #f0f0f0;background:transparent;cursor:pointer;transition:background .15s;"
+                      >
+                        <span style="font-weight:600;font-size:.88rem;">{{ av.nome }}</span>
+                        {% if av.codigo_indicacao %}
+                          <span style="display:block;font-size:.8rem;color:#888;margin-top:2px;">Código: {{ av.codigo_indicacao }}</span>
+                        {% endif %}
+                      </button>
+                    {% endfor %}
+                    <p id="cb-aventureiro-empty" hidden style="padding:12px;font-size:.85rem;color:#999;">Nenhum aventureiro encontrado.</p>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Resumo da seleção -->
+              <div id="cb-resumo" hidden style="margin-top:1rem;padding:12px 16px;background:#f4faf6;border:1px solid #b6dfca;border-radius:6px;font-size:.9rem;">
+                <p style="margin:0 0 4px;">
+                  Inscrição: <strong id="cb-resumo-inscricao"></strong>
+                </p>
+                <p style="margin:0 0 4px;">
+                  Aventureiro indicador: <strong id="cb-resumo-aventureiro"></strong>
+                </p>
+                <p style="margin:0;">
+                  Cashback a creditar (15%): <strong id="cb-resumo-valor" style="color:#2a9d5c;font-size:1rem;"></strong>
+                </p>
+              </div>
+
+              <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:1rem;">
+                <button type="button" id="cancel-cashback-lancamento-modal" style="padding:8px 20px;cursor:pointer;">Cancelar</button>
+                <button type="button" id="confirm-cashback-lancamento" disabled
+                  style="padding:8px 22px;cursor:pointer;background:#2a9d5c;color:#fff;border:none;border-radius:4px;font-weight:600;font-size:.95rem;">
+                  Lançar
+                </button>
+              </div>
+              <p id="cb-error-msg" hidden style="color:#c0392b;font-size:.83rem;margin-top:8px;"></p>
+            </div>
+          </div>
+        </div>
+
+        <style>
+          .cb-inscricao-item.is-selected,
+          .cb-aventureiro-item.is-selected { background:#e8f5ee !important; outline:2px solid #2a9d5c; outline-offset:-2px; }
+          .cb-inscricao-item:hover,
+          .cb-aventureiro-item:hover { background:#f5f5f5; }
+        </style>
+
+        <script>
+          (function () {
+            const modal = document.getElementById('cashback-lancamento-modal');
+            const openBtn = document.getElementById('open-cashback-lancamento-modal');
+            const closeBtn = document.getElementById('close-cashback-lancamento-modal');
+            const cancelBtn = document.getElementById('cancel-cashback-lancamento-modal');
+            const confirmBtn = document.getElementById('confirm-cashback-lancamento');
+            const filterInscricao = document.getElementById('cb-filter-inscricao');
+            const filterAventureiro = document.getElementById('cb-filter-aventureiro');
+            const inscricaoList = document.getElementById('cb-inscricao-list');
+            const aventureiroList = document.getElementById('cb-aventureiro-list');
+            const resumo = document.getElementById('cb-resumo');
+            const resumoInscricao = document.getElementById('cb-resumo-inscricao');
+            const resumoAventureiro = document.getElementById('cb-resumo-aventureiro');
+            const resumoValor = document.getElementById('cb-resumo-valor');
+            const errorMsg = document.getElementById('cb-error-msg');
+
+            if (!modal || !openBtn) return;
+
+            let selectedInscricao = null;
+            let selectedAventureiro = null;
+
+            const openModal = () => {
+              selectedInscricao = null;
+              selectedAventureiro = null;
+              filterInscricao.value = '';
+              filterAventureiro.value = '';
+              document.querySelectorAll('.cb-inscricao-item.is-selected,.cb-aventureiro-item.is-selected')
+                .forEach(el => el.classList.remove('is-selected'));
+              resumo.hidden = true;
+              confirmBtn.disabled = true;
+              errorMsg.hidden = true;
+              applyFilter('inscricao', '');
+              applyFilter('aventureiro', '');
+              modal.classList.add('show');
+              modal.setAttribute('aria-hidden', 'false');
+            };
+
+            const closeModal = () => {
+              modal.classList.remove('show');
+              modal.setAttribute('aria-hidden', 'true');
+            };
+
+            openBtn.addEventListener('click', openModal);
+            closeBtn.addEventListener('click', closeModal);
+            cancelBtn.addEventListener('click', closeModal);
+            modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+            function applyFilter(side, term) {
+              const selector = side === 'inscricao' ? '.cb-inscricao-item' : '.cb-aventureiro-item';
+              const emptyEl = document.getElementById('cb-' + side + '-empty');
+              const normalized = term.trim().toLowerCase();
+              let visible = 0;
+              document.querySelectorAll(selector).forEach(btn => {
+                const match = !normalized || (btn.dataset.search || '').toLowerCase().includes(normalized);
+                btn.style.display = match ? 'block' : 'none';
+                if (match) visible++;
+              });
+              emptyEl.hidden = visible > 0;
+            }
+
+            filterInscricao.addEventListener('input', e => applyFilter('inscricao', e.target.value));
+            filterAventureiro.addEventListener('input', e => applyFilter('aventureiro', e.target.value));
+
+            function updateResumo() {
+              if (selectedInscricao && selectedAventureiro) {
+                const valorRaw = parseFloat(selectedInscricao.dataset.valorRaw) || 0;
+                const cashback = (valorRaw * 0.15).toFixed(2).replace('.', ',');
+                resumoInscricao.textContent =
+                  'Cód. ' + selectedInscricao.dataset.codigo + ' — ' + selectedInscricao.dataset.responsavel +
+                  ' (inscrição: ' + selectedInscricao.dataset.valorFmt + ')';
+                resumoAventureiro.textContent =
+                  selectedAventureiro.dataset.nome +
+                  (selectedAventureiro.dataset.codigo ? ' (código: ' + selectedAventureiro.dataset.codigo + ')' : '');
+                resumoValor.textContent = 'R$ ' + cashback;
+                resumo.hidden = false;
+                confirmBtn.disabled = false;
+              } else {
+                resumo.hidden = true;
+                confirmBtn.disabled = true;
+              }
+            }
+
+            inscricaoList.addEventListener('click', e => {
+              const btn = e.target.closest('.cb-inscricao-item');
+              if (!btn) return;
+              document.querySelectorAll('.cb-inscricao-item.is-selected').forEach(el => el.classList.remove('is-selected'));
+              btn.classList.add('is-selected');
+              selectedInscricao = btn;
+              updateResumo();
+            });
+
+            aventureiroList.addEventListener('click', e => {
+              const btn = e.target.closest('.cb-aventureiro-item');
+              if (!btn) return;
+              document.querySelectorAll('.cb-aventureiro-item.is-selected').forEach(el => el.classList.remove('is-selected'));
+              btn.classList.add('is-selected');
+              selectedAventureiro = btn;
+              updateResumo();
+            });
+
+            confirmBtn.addEventListener('click', () => {
+              if (!selectedInscricao || !selectedAventureiro) return;
+              confirmBtn.disabled = true;
+              confirmBtn.textContent = 'Aguarde...';
+              errorMsg.hidden = true;
+
+              const csrfToken = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+              const eventoId = '{{ evento.id }}';
+              const inscricaoId = selectedInscricao.dataset.id;
+              const codigoIndicacao = selectedAventureiro.dataset.codigo;
+
+              fetch(`/eventos/${eventoId}/inscricoes/${inscricaoId}/aplicar-cashback-manual/`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-CSRFToken': csrfToken,
+                  'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({ codigo_indicacao: codigoIndicacao }),
+              })
+                .then(r => r.json())
+                .then(data => {
+                  confirmBtn.textContent = 'Lançar';
+                  if (!data.ok) {
+                    confirmBtn.disabled = false;
+                    errorMsg.textContent = data.message || 'Erro ao aplicar cashback.';
+                    errorMsg.hidden = false;
+                    return;
+                  }
+                  closeModal();
+                  alert('Cashback aplicado!\n' + data.message);
+                  window.location.reload();
+                })
+                .catch(() => {
+                  confirmBtn.disabled = false;
+                  confirmBtn.textContent = 'Lançar';
+                  errorMsg.textContent = 'Erro de comunicação. Tente novamente.';
+                  errorMsg.hidden = false;
+                });
+            });
+          })();
+        </script>
+      {% endif %}
+
     {% endif %}
 
     {% if active_mode == 'inscricao' or active_mode == 'vendasinscritos' and vendas_tab == 'comprar' %}
