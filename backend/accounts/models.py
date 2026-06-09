@@ -470,6 +470,9 @@ class MercadoPagoFeeConfig(models.Model):
 
     def percent_for(self, payment_method, installments=1):
         method = str(payment_method or '').strip().lower()
+        # 'cartao' is the LojaPedido constant; normalize to internal 'credit'
+        if method == 'cartao':
+            method = self.PAYMENT_METHOD_CREDIT
         if method == self.PAYMENT_METHOD_PIX:
             return Decimal(self.pix_percent or Decimal('0.00'))
         if method == self.PAYMENT_METHOD_DEBIT:
