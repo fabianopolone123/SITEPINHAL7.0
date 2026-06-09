@@ -2881,6 +2881,8 @@
         <input type="hidden" name="edit_registration_id" id="event-edit-registration-id" value="{{ form_edit_registration_id }}" />
         <input type="hidden" name="finalize_after_save" id="event-finalize-after-save" value="0" />
         <input type="hidden" name="admin_test_items_json" id="event-admin-test-items-json" value="[]" />
+        <input type="hidden" name="checkout_payment_method" id="event-checkout-payment-method-hidden" value="{{ checkout_payment_method|default:'pix' }}" />
+        <input type="hidden" name="checkout_installments" id="event-checkout-installments-hidden" value="{{ checkout_installments|default:'1' }}" />
         <div class="field-section">
           {% for field in schema %}
             {% if field.type == 'repetidor' %}
@@ -3072,7 +3074,7 @@
         <div class="event-checkout-item">
           <span>Forma de pagamento</span>
           <select id="event-payment-method">
-            <option value="pix">Pix</option>
+            <option value="pix" {% if checkout_payment_method == 'pix' %}selected{% endif %}>Pix</option>
             <option value="cartao">Cartão de crédito</option>
           </select>
           <select id="event-payment-installments" style="display:none;margin-top:.45rem;">
@@ -3255,6 +3257,8 @@
       const indicacaoInput = registerForm ? registerForm.querySelector('input[name="codigo_indicacao"]') : null;
       const indicacaoFeedbackNode = document.getElementById('event-indicacao-feedback');
       const finalizeAfterSaveInput = document.getElementById('event-finalize-after-save');
+      const checkoutPaymentMethodHidden = document.getElementById('event-checkout-payment-method-hidden');
+      const checkoutInstallmentsHidden = document.getElementById('event-checkout-installments-hidden');
       const adminTestItemsInput = document.getElementById('event-admin-test-items-json');
       const deleteSelectedInscricoesForm = document.getElementById('event-delete-selected-inscricoes-form');
       const deleteSelectedPasswordInput = document.getElementById('event-delete-selected-password');
@@ -3500,6 +3504,34 @@
           if (method !== 'cartao') {
             paymentInstallmentsSelect.value = '1';
           }
+        }
+      };
+
+      const syncCheckoutHiddenInputs = () => {
+        if (checkoutPaymentMethodHidden) {
+          checkoutPaymentMethodHidden.value = paymentMethodSelect instanceof HTMLSelectElement
+            ? String(paymentMethodSelect.value || 'pix').trim().toLowerCase()
+            : 'pix';
+        }
+        if (checkoutInstallmentsHidden) {
+          checkoutInstallmentsHidden.value = paymentInstallmentsSelect instanceof HTMLSelectElement
+            ? String(Math.max(1, Math.min(12, parseInt(paymentInstallmentsSelect.value || '1', 10) || 1)))
+            : '1';
+        }
+      };
+
+      const applyInitialCheckoutSelection = () => {
+        const initialMethod = checkoutPaymentMethodHidden
+          ? String(checkoutPaymentMethodHidden.value || 'pix').trim().toLowerCase()
+          : 'pix';
+        const initialInstallments = checkoutInstallmentsHidden
+          ? Math.max(1, Math.min(12, parseInt(checkoutInstallmentsHidden.value || '1', 10) || 1))
+          : 1;
+        if (paymentMethodSelect instanceof HTMLSelectElement) {
+          paymentMethodSelect.value = initialMethod === 'cartao' ? 'cartao' : 'pix';
+        }
+        if (paymentInstallmentsSelect instanceof HTMLSelectElement) {
+          paymentInstallmentsSelect.value = String(initialInstallments);
         }
       };
 
@@ -3977,6 +4009,7 @@
             paymentInstallmentsSelect.value = String(installments);
           }
           syncEventPaymentUi();
+          syncCheckoutHiddenInputs();
         } catch (error) {
           // ignore restore failures
         }
@@ -4807,13 +4840,19 @@
       if (paymentMethodSelect) {
         paymentMethodSelect.addEventListener('change', () => {
           syncEventPaymentUi();
+          syncCheckoutHiddenInputs();
           updateCheckoutSummary();
         });
       }
       if (paymentInstallmentsSelect) {
-        paymentInstallmentsSelect.addEventListener('change', updateCheckoutSummary);
+        paymentInstallmentsSelect.addEventListener('change', () => {
+          syncCheckoutHiddenInputs();
+          updateCheckoutSummary();
+        });
       }
+      applyInitialCheckoutSelection();
       syncEventPaymentUi();
+      syncCheckoutHiddenInputs();
 
       const openCartDrawer = () => {
         if (!cartOverlay) return;
@@ -5911,6 +5950,7 @@
         restoreCartAfterSave();
         restorePaymentSelectionAfterSave();
       }
+      syncCheckoutHiddenInputs();
       renderCart();
       updateCheckoutSummary();
       if (autoStartPixAfterSave) {

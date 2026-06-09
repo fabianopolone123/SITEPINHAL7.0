@@ -6606,6 +6606,8 @@ class EventoPublicoView(View):
         consulta_results=None,
         edit_target_inscricao=None,
         auto_start_pix=False,
+        checkout_payment_method='pix',
+        checkout_installments=1,
         open_event_extrato=False,
         open_event_taxas=False,
     ):
@@ -7133,6 +7135,8 @@ class EventoPublicoView(View):
             'register_summary_fee_units': register_summary_fee_units,
             'register_summary_fee_value_fmt': register_summary_fee_value_fmt,
             'auto_start_pix': bool(auto_start_pix),
+            'checkout_payment_method': 'cartao' if str(checkout_payment_method or '').strip().lower() == 'cartao' else 'pix',
+            'checkout_installments': max(1, min(12, int(checkout_installments or 1))) if str(checkout_installments or '1').strip().isdigit() else 1,
             'produtos': produtos,
             'has_produtos': bool(produtos),
             'can_buy': bool(produtos),
@@ -8359,6 +8363,8 @@ class EventoPublicoView(View):
                 show_register_summary=bool(inscricao_salva and not finalize_after_save and not admin_confirm_without_pix),
                 active_mode='inscricao',
                 auto_start_pix=bool(finalize_after_save and inscricao_salva and not sale_registration_mode and not admin_confirm_without_pix),
+                checkout_payment_method=str(request.POST.get('checkout_payment_method') or 'pix').strip().lower(),
+                checkout_installments=str(request.POST.get('checkout_installments') or '1').strip(),
             ),
         )
 
