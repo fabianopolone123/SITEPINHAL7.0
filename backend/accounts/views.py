@@ -13759,7 +13759,7 @@ class LojaView(LoginRequiredMixin, View):
                 'name': responsible_name[:120],
             },
             'payment_methods': {
-                'installments': max(1, min(int(installments or 1), 18)),
+                'installments': max(1, min(int(installments or 1), 12)),
                 'excluded_payment_types': [
                     {'id': 'ticket'},
                     {'id': 'bank_transfer'},
@@ -15853,7 +15853,7 @@ class LojaPedidoCreatePixApiView(LoginRequiredMixin, View):
             installments = int(payload.get('installments') or 1)
         except (TypeError, ValueError):
             installments = 1
-        installments = max(1, min(18, installments))
+        installments = max(1, min(12, installments))
         if payment_method != LojaPedido.FORMA_PAGAMENTO_CARTAO:
             installments = 1
         if payment_method not in {LojaPedido.FORMA_PAGAMENTO_PIX, LojaPedido.FORMA_PAGAMENTO_CARTAO}:

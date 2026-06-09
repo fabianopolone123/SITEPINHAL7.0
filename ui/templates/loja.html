@@ -1907,12 +1907,6 @@
             <option value="10">10x</option>
             <option value="11">11x</option>
             <option value="12">12x</option>
-            <option value="13">13x</option>
-            <option value="14">14x</option>
-            <option value="15">15x</option>
-            <option value="16">16x</option>
-            <option value="17">17x</option>
-            <option value="18">18x</option>
           </select>
         </label>
         <div class="cart-total-row">
@@ -2195,7 +2189,7 @@
         const items = Array.isArray(base.items) ? base.items : [];
         return {
           payment_method: String(base.payment_method || 'pix') || 'pix',
-          installments: Math.max(1, Math.min(18, parseInt(base.installments || 1, 10) || 1)),
+          installments: Math.max(1, Math.min(12, parseInt(base.installments || 1, 10) || 1)),
           use_cashback: !!base.use_cashback,
           cashback_aventureiro_id: String(base.cashback_aventureiro_id || '').trim(),
           items: items
@@ -2265,7 +2259,7 @@
       function paymentFeeMeta(paymentMethod, installments) {
         const method = String(paymentMethod || 'pix').trim().toLowerCase() || 'pix';
         if (method === 'cartao') {
-          const parcelas = Math.max(1, Math.min(18, parseInt(installments || 1, 10) || 1));
+          const parcelas = Math.max(1, Math.min(12, parseInt(installments || 1, 10) || 1));
           if (parcelas <= 1) {
             const percent = parsePercent(mpFeeConfig.credit_1x_percent);
             return { label: 'Taxa cartao (1x)', percent: percent, installments: parcelas };
@@ -2278,8 +2272,8 @@
             const percent = parsePercent(mpFeeConfig.credit_7_12_percent);
             return { label: 'Taxa cartao (7x a 12x)', percent: percent, installments: parcelas };
           }
-          const percent = parsePercent(mpFeeConfig.credit_13_18_percent);
-          return { label: 'Taxa cartao (13x a 18x)', percent: percent, installments: parcelas };
+          const percent = parsePercent(mpFeeConfig.credit_7_12_percent);
+          return { label: 'Taxa cartao (7x a 12x)', percent: percent, installments: parcelas };
         }
         if (method === 'debito') {
           const percent = parsePercent(mpFeeConfig.debit_percent);
@@ -2332,7 +2326,7 @@
         }
         const cashbackDesconto = calculateCashbackPreview(subtotal);
         if (!cartState.payment_method) cartState.payment_method = 'pix';
-        cartState.installments = Math.max(1, Math.min(18, parseInt(cartState.installments || 1, 10) || 1));
+        cartState.installments = Math.max(1, Math.min(12, parseInt(cartState.installments || 1, 10) || 1));
         const feeMeta = paymentFeeMeta(cartState.payment_method, cartState.installments);
         const feeAmount = subtotal > 0 ? (subtotal * feeMeta.percent / 100) : 0;
         const total = Math.max(0, subtotal + feeAmount - cashbackDesconto);
@@ -2528,7 +2522,7 @@
         });
         const payload = {
           payment_method: String(cartState.payment_method || 'pix').trim().toLowerCase() || 'pix',
-          installments: Math.max(1, Math.min(18, parseInt(cartState.installments || 1, 10) || 1)),
+          installments: Math.max(1, Math.min(12, parseInt(cartState.installments || 1, 10) || 1)),
           items: payloadItems,
         };
         if (cartUseCashbackInput && cartUseCashbackInput.checked) {
@@ -2746,7 +2740,7 @@
       }
       if (cartInstallmentsSelect) {
         cartInstallmentsSelect.addEventListener('change', function () {
-          cartState.installments = Math.max(1, Math.min(18, parseInt(cartInstallmentsSelect.value || 1, 10) || 1));
+          cartState.installments = Math.max(1, Math.min(12, parseInt(cartInstallmentsSelect.value || 1, 10) || 1));
           saveCartState();
           renderCart();
           setCartFeedback('');
