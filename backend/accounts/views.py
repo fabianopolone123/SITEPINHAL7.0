@@ -8657,8 +8657,13 @@ class EventoPedidoCreatePixApiView(View):
             inscricao.save(update_fields=['responsavel', 'updated_at'])
 
         payment_method = str(payload.get('payment_method') or '').strip().lower()
-        if payment_method != LojaPedido.FORMA_PAGAMENTO_PIX:
-            return JsonResponse({'ok': False, 'error': 'unsupported_payment_method', 'message': 'Somente Pix esta disponivel no momento.'}, status=400)
+        if payment_method not in {LojaPedido.FORMA_PAGAMENTO_PIX, LojaPedido.FORMA_PAGAMENTO_CARTAO}:
+            return JsonResponse({'ok': False, 'error': 'unsupported_payment_method', 'message': 'Metodo de pagamento nao suportado para este evento.'}, status=400)
+        installments_raw = str(payload.get('installments') or '').strip()
+        installments = int(installments_raw) if installments_raw.isdigit() else 1
+        installments = max(1, min(installments, 12))
+        if payment_method != LojaPedido.FORMA_PAGAMENTO_CARTAO:
+            installments = 1
 
         raw_items = payload.get('items')
         if raw_items is None:
@@ -8733,7 +8738,10 @@ class EventoPedidoCreatePixApiView(View):
             })
             itens_total += line_total
 
-        total_bruto = (itens_total + fee_total).quantize(Decimal('0.01'))
+        subtotal = (itens_total + fee_total).quantize(Decimal('0.01'))
+        taxa_percentual = _mercadopago_payment_fee_percent(payment_method, installments=installments)
+        taxa_valor = _mercadopago_payment_fee_amount(subtotal, payment_method, installments=installments)
+        total_bruto = (subtotal + taxa_valor).quantize(Decimal('0.01'))
         cashback_aventureiro = None
         cashback_desconto = Decimal('0.00')
         if request.user.is_authenticated:
@@ -8763,7 +8771,7 @@ class EventoPedidoCreatePixApiView(View):
                     evento_inscricao=inscricao,
                     cashback_aventureiro=cashback_aventureiro,
                     cashback_desconto_valor=cashback_desconto,
-                    forma_pagamento=LojaPedido.FORMA_PAGAMENTO_PIX,
+                    forma_pagamento=payment_method,
                     valor_total=total,
                     created_by=request.user if request.user.is_authenticated else None,
                     status=LojaPedido.STATUS_PENDENTE,
@@ -8797,22 +8805,50 @@ class EventoPedidoCreatePixApiView(View):
                             foto_url='',
                         )
                     )
+                if taxa_valor > 0:
+                    pedido_items.append(
+                        LojaPedidoItem(
+                            pedido=pedido,
+                            produto=None,
+                            variacao=None,
+                            produto_titulo='Taxa de pagamento',
+                            variacao_nome=(f'Cartao ({installments}x)' if payment_method == LojaPedido.FORMA_PAGAMENTO_CARTAO else 'Pix'),
+                            quantidade=1,
+                            valor_unitario=taxa_valor,
+                            valor_total=taxa_valor,
+                            foto_url='',
+                        )
+                    )
                 LojaPedidoItem.objects.bulk_create(pedido_items)
 
                 if total > 0:
-                    mp_payload = loja_view._create_mp_pix_payment_loja(request, pedido)
-                    pedido.mp_qr_code = mp_payload['pix_code']
-                    pedido.mp_qr_code_base64 = mp_payload['qr_base64']
-                    pedido.save(update_fields=[
-                        'mp_qr_code', 'mp_qr_code_base64', 'updated_at',
-                    ])
-                    loja_view._sync_pedido_loja_from_mp(pedido, {
-                        'id': mp_payload['payment_id'],
-                        'external_reference': mp_payload['external_reference'],
-                        'status': mp_payload['status'],
-                        'status_detail': mp_payload['status_detail'],
-                    })
-                    pedido.refresh_from_db()
+                    if payment_method == LojaPedido.FORMA_PAGAMENTO_CARTAO:
+                        checkout_payload = loja_view._create_mp_checkout_preference_loja(
+                            request,
+                            pedido,
+                            installments=installments,
+                        )
+                        pedido.mp_external_reference = checkout_payload['external_reference']
+                        pedido.mp_status = 'pending'
+                        pedido.mp_status_detail = 'checkout_pro_created'
+                        pedido.save(update_fields=[
+                            'mp_external_reference', 'mp_status', 'mp_status_detail', 'updated_at',
+                        ])
+                        pedido.refresh_from_db()
+                    else:
+                        mp_payload = loja_view._create_mp_pix_payment_loja(request, pedido)
+                        pedido.mp_qr_code = mp_payload['pix_code']
+                        pedido.mp_qr_code_base64 = mp_payload['qr_base64']
+                        pedido.save(update_fields=[
+                            'mp_qr_code', 'mp_qr_code_base64', 'updated_at',
+                        ])
+                        loja_view._sync_pedido_loja_from_mp(pedido, {
+                            'id': mp_payload['payment_id'],
+                            'external_reference': mp_payload['external_reference'],
+                            'status': mp_payload['status'],
+                            'status_detail': mp_payload['status_detail'],
+                        })
+                        pedido.refresh_from_db()
                 else:
                     loja_view._sync_pedido_loja_from_mp(pedido, {
                         'id': str(pedido.mp_payment_id or ''),
@@ -8849,10 +8885,29 @@ class EventoPedidoCreatePixApiView(View):
             summary_lines.append(
                 f'Inscricao do evento ({str(inscricao.codigo_inscricao or "-").strip()}): {loja_view._format_currency(fee_total)}'
             )
+        if taxa_valor > 0:
+            summary_lines.append(
+                f'Taxa de pagamento: {loja_view._format_currency(taxa_valor)}'
+            )
         for item in parsed_items:
             summary_lines.append(
                 f'{item["produto_titulo"]} - {item["variacao_nome"]} x{item["quantidade"]} ({loja_view._format_currency(item["valor_total"])})'
             )
+        if payment_method == LojaPedido.FORMA_PAGAMENTO_CARTAO and total > 0:
+            return JsonResponse({
+                'ok': True,
+                'payment_flow': 'checkout_pro',
+                'redirect_url': checkout_payload.get('redirect_url') or checkout_payload.get('sandbox_url') or '',
+                'pedido': {
+                    'pedido_id': pedido.pk,
+                    'status': pedido.status,
+                    'status_label': loja_view._pedido_loja_status_label(pedido),
+                    'valor_total': loja_view._format_currency(pedido.valor_total),
+                    'taxa_percentual': f'{taxa_percentual}',
+                    'taxa_valor': loja_view._format_currency(taxa_valor),
+                    'resumo_linhas': summary_lines,
+                },
+            })
         pedido_payload = loja_view._pix_modal_context_loja(pedido)
         pedido_payload.update({
             'inscricao_id': int(inscricao.id),
@@ -8865,6 +8920,7 @@ class EventoPedidoCreatePixApiView(View):
 
         return JsonResponse({
             'ok': True,
+            'payment_flow': 'pix',
             'pedido': pedido_payload,
         })
 
@@ -11033,6 +11089,75 @@ class FinanceiroView(LoginRequiredMixin, View):
             'qr_base64': qr_base64,
         }
 
+    def _mp_checkout_back_urls_mensalidade(self, request, pagamento):
+        try:
+            base_url = request.build_absolute_uri(reverse('accounts:financeiro'))
+        except Exception:
+            base_url = ''
+        if not base_url:
+            return {}
+        separator = '&' if '?' in base_url else '?'
+        return {
+            'success': f'{base_url}{separator}checkout_return=1&pagamento_id={pagamento.pk}&checkout_status=approved',
+            'failure': f'{base_url}{separator}checkout_return=1&pagamento_id={pagamento.pk}&checkout_status=failure',
+            'pending': f'{base_url}{separator}checkout_return=1&pagamento_id={pagamento.pk}&checkout_status=pending',
+        }
+
+    def _create_mp_checkout_preference_mensalidade(self, request, pagamento, *, installments=1):
+        responsible_name = (
+            pagamento.responsavel.responsavel_nome
+            or pagamento.responsavel.mae_nome
+            or pagamento.responsavel.pai_nome
+            or getattr(request.user, 'get_full_name', lambda: '')()
+            or getattr(request.user, 'username', '')
+            or 'Responsavel'
+        ).strip()
+        payer_email = self._mp_payer_email(request, pagamento)
+        external_reference = f'MENSALIDADE_{pagamento.pk}'
+        desconto = Decimal(getattr(pagamento, 'cashback_desconto_valor', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+        valor_cobrado = (Decimal(pagamento.valor_total or Decimal('0.00')) - desconto).quantize(Decimal('0.01'))
+        if valor_cobrado < Decimal('0.01'):
+            valor_cobrado = Decimal('0.01')
+        payload = {
+            'items': [{
+                'id': f'mensalidade-{pagamento.pk}',
+                'title': f'Mensalidades aventureiros - Pagamento #{pagamento.pk}',
+                'quantity': 1,
+                'currency_id': 'BRL',
+                'unit_price': float(valor_cobrado),
+            }],
+            'external_reference': external_reference,
+            'payer': {
+                'email': payer_email,
+                'name': responsible_name[:120],
+            },
+            'payment_methods': {
+                'installments': max(1, min(int(installments or 1), 12)),
+                'excluded_payment_types': [
+                    {'id': 'ticket'},
+                    {'id': 'bank_transfer'},
+                    {'id': 'atm'},
+                ],
+            },
+            'auto_return': 'approved',
+        }
+        back_urls = self._mp_checkout_back_urls_mensalidade(request, pagamento)
+        if back_urls:
+            payload['back_urls'] = back_urls
+        notification_url = self._mp_notification_url(request)
+        if notification_url:
+            payload['notification_url'] = notification_url
+        preference = self._mp_api_request('POST', '/checkout/preferences', payload)
+        redirect_url = str(preference.get('init_point') or '').strip()
+        if not redirect_url:
+            raise ValueError('Mercado Pago nao retornou a URL de checkout para esta mensalidade.')
+        return {
+            'preference_id': str(preference.get('id') or ''),
+            'external_reference': external_reference,
+            'redirect_url': redirect_url,
+            'sandbox_url': str(preference.get('sandbox_init_point') or '').strip(),
+        }
+
     def _get_mp_payment(self, payment_id):
         return self._mp_api_request('GET', f'/v1/payments/{payment_id}')
 
@@ -11349,6 +11474,7 @@ class FinanceiroView(LoginRequiredMixin, View):
             'mes_atual_label': self._month_label(hoje.month),
             'ano_atual': hoje.year,
             'responsavel_pix_pagamento': None,
+            'mercadopago_fee_config': _mercadopago_fee_config_payload(),
             'cashback_rows': cashback_rows,
             'cashback_lancamentos_rows': cashback_lancamentos_rows,
         }
@@ -12258,6 +12384,14 @@ class FinanceiroView(LoginRequiredMixin, View):
                         messages.error(request, 'Algumas mensalidades selecionadas são inválidas ou não pertencem ao responsável logado.')
                     else:
                         total = sum((item.valor for item in mensalidades), Decimal('0.00')).quantize(Decimal('0.01'))
+                        payment_method = str(request.POST.get('payment_method') or '').strip().lower()
+                        if payment_method not in {LojaPedido.FORMA_PAGAMENTO_PIX, LojaPedido.FORMA_PAGAMENTO_CARTAO}:
+                            payment_method = LojaPedido.FORMA_PAGAMENTO_PIX
+                        installments_raw = str(request.POST.get('installments') or '').strip()
+                        installments = int(installments_raw) if installments_raw.isdigit() else 1
+                        installments = max(1, min(installments, 12))
+                        if payment_method != LojaPedido.FORMA_PAGAMENTO_CARTAO:
+                            installments = 1
 
                         # Cashback: valida aventureiro e desconto
                         cashback_av_id_raw = str(request.POST.get('cashback_aventureiro_id') or '').strip()
@@ -12280,7 +12414,9 @@ class FinanceiroView(LoginRequiredMixin, View):
                                 if cashback_desconto > 0:
                                     cashback_aventureiro = av_candidato
 
-                        valor_cobrado = (total - cashback_desconto).quantize(Decimal('0.01'))
+                        taxa_valor = _mercadopago_payment_fee_amount(total, payment_method, installments=installments)
+                        total_bruto = (total + taxa_valor).quantize(Decimal('0.01'))
+                        valor_cobrado = (total_bruto - cashback_desconto).quantize(Decimal('0.01'))
                         if valor_cobrado < Decimal('0.01'):
                             valor_cobrado = Decimal('0.01')
 
@@ -12288,30 +12424,39 @@ class FinanceiroView(LoginRequiredMixin, View):
                             with transaction.atomic():
                                 pagamento = PagamentoMensalidade.objects.create(
                                     responsavel=responsavel,
-                                    valor_total=total,
+                                    valor_total=total_bruto,
                                     cashback_aventureiro=cashback_aventureiro,
                                     cashback_desconto_valor=cashback_desconto,
                                     created_by=request.user,
                                     status=PagamentoMensalidade.STATUS_PENDENTE,
                                 )
                                 pagamento.mensalidades.set(mensalidades)
-                                # Ajusta valor cobrado no MP pelo desconto cashback
-                                pagamento.valor_total = valor_cobrado
-                                mp_payload = self._create_mp_pix_payment(request, pagamento)
-                                pagamento.valor_total = total
-                                pagamento.mp_payment_id = mp_payload['payment_id']
-                                pagamento.mp_external_reference = mp_payload['external_reference']
-                                pagamento.mp_status = mp_payload['status']
-                                pagamento.mp_status_detail = mp_payload['status_detail']
-                                pagamento.mp_qr_code = mp_payload['pix_code']
-                                pagamento.mp_qr_code_base64 = mp_payload['qr_base64']
-                                if mp_payload['status'] == 'approved':
-                                    pagamento.status = PagamentoMensalidade.STATUS_PAGO
-                                    pagamento.paid_at = timezone.now()
-                                elif mp_payload['status'] == 'in_process':
-                                    pagamento.status = PagamentoMensalidade.STATUS_PROCESSANDO
+                                if payment_method == LojaPedido.FORMA_PAGAMENTO_CARTAO:
+                                    checkout_payload = self._create_mp_checkout_preference_mensalidade(
+                                        request,
+                                        pagamento,
+                                        installments=installments,
+                                    )
+                                    pagamento.mp_external_reference = checkout_payload['external_reference']
+                                    pagamento.mp_status = 'pending'
+                                    pagamento.mp_status_detail = 'checkout_pro_created'
                                 else:
-                                    pagamento.status = PagamentoMensalidade.STATUS_PENDENTE
+                                    pagamento.valor_total = valor_cobrado
+                                    mp_payload = self._create_mp_pix_payment(request, pagamento)
+                                    pagamento.valor_total = total_bruto
+                                    pagamento.mp_payment_id = mp_payload['payment_id']
+                                    pagamento.mp_external_reference = mp_payload['external_reference']
+                                    pagamento.mp_status = mp_payload['status']
+                                    pagamento.mp_status_detail = mp_payload['status_detail']
+                                    pagamento.mp_qr_code = mp_payload['pix_code']
+                                    pagamento.mp_qr_code_base64 = mp_payload['qr_base64']
+                                    if mp_payload['status'] == 'approved':
+                                        pagamento.status = PagamentoMensalidade.STATUS_PAGO
+                                        pagamento.paid_at = timezone.now()
+                                    elif mp_payload['status'] == 'in_process':
+                                        pagamento.status = PagamentoMensalidade.STATUS_PROCESSANDO
+                                    else:
+                                        pagamento.status = PagamentoMensalidade.STATUS_PENDENTE
                                 pagamento.save(update_fields=[
                                     'valor_total', 'mp_payment_id', 'mp_external_reference', 'mp_status',
                                     'mp_status_detail', 'mp_qr_code', 'mp_qr_code_base64', 'status',
@@ -12338,12 +12483,18 @@ class FinanceiroView(LoginRequiredMixin, View):
                             else:
                                 messages.error(request, 'Não foi possível iniciar o pagamento no Mercado Pago agora.')
                         else:
-                            if pagamento.status == PagamentoMensalidade.STATUS_PAGO:
+                            if payment_method == LojaPedido.FORMA_PAGAMENTO_CARTAO:
+                                redirect_url = checkout_payload.get('redirect_url') or checkout_payload.get('sandbox_url') or ''
+                                if redirect_url:
+                                    return redirect(redirect_url)
+                                messages.success(request, 'Checkout de cartao criado com sucesso.')
+                            elif pagamento.status == PagamentoMensalidade.STATUS_PAGO:
                                 messages.success(request, 'Pagamento aprovado e mensalidades marcadas como pagas.')
                             else:
                                 messages.success(request, 'Pagamento Pix gerado com sucesso. Use o QR Code para concluir.')
                             context = self._mensalidades_responsavel_context(request, incluir_ano_todo=incluir_ano_todo)
-                            context['responsavel_pix_pagamento'] = self._pix_modal_context(pagamento)
+                            if payment_method != LojaPedido.FORMA_PAGAMENTO_CARTAO:
+                                context['responsavel_pix_pagamento'] = self._pix_modal_context(pagamento)
             context.update({'active_financeiro_tab': 'mensalidades'})
             context.update({'show_financeiro_relatorios_tab': self._is_diretor_mode(request)})
             context.update(_sidebar_context(request))

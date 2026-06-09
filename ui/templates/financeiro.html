@@ -445,14 +445,35 @@
               {% endwith %}
             {% endif %}
 
+            {{ mercadopago_fee_config|default:"{}"|json_script:"financeiro-mp-fee-config-data" }}
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:1rem 0;padding:12px 16px;background:#f8fafc;border:1px solid #dbe4f0;border-radius:8px;">
+              <label style="display:flex;flex-direction:column;gap:6px;">
+                <span style="font-weight:600;color:#0f172a;">Forma de pagamento</span>
+                <select name="payment_method" id="financeiroPaymentMethod">
+                  <option value="pix">Pix</option>
+                  <option value="cartao">Cartão de crédito</option>
+                </select>
+              </label>
+              <label style="display:none;flex-direction:column;gap:6px;" id="financeiroInstallmentsWrap">
+                <span style="font-weight:600;color:#0f172a;">Parcelas</span>
+                <select name="installments" id="financeiroInstallments">
+                  {% for parcela in "123456789012" %}
+                    <option value="{{ forloop.counter }}">{{ forloop.counter }}x</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
             <div class="financeiro-actions-wrap">
               <div style="display:flex;flex-direction:column;gap:4px;">
                 <div class="financeiro-total-selecionado" id="financeiroTotalSelecionado" aria-live="polite">
                   <small>Total selecionado:</small>
                   <span id="financeiroTotalSelecionadoValor">R$ 0,00</span>
                 </div>
+                <div id="financeiroTaxaInfo" style="display:none;font-size:.88rem;color:#475569;font-weight:600;">
+                  <span id="financeiroTaxaLabel">Taxa Pix</span>: <span id="financeiroTaxaValor">R$ 0,00</span>
+                </div>
                 <div id="financeiroTotalComDesconto" style="display:none;font-size:.88rem;color:#2a9d5c;font-weight:600;">
-                  Total a pagar (com desconto): <span id="financeiroTotalComDescontoValor">R$ 0,00</span>
+                  Total final: <span id="financeiroTotalComDescontoValor">R$ 0,00</span>
                 </div>
               </div>
               <div class="financeiro-actions">
@@ -463,8 +484,8 @@
             </div>
           </form>
 
-          <script>
-            (function () {
+            <script>
+              (function () {
               var checkboxes = document.querySelectorAll('input[name="mensalidades_ids"]');
               var radios = document.querySelectorAll('.cashbackRadio');
               var cashbackBox = document.getElementById('mensalidadeCashbackBox');
@@ -472,8 +493,23 @@
               var descontoInput = document.getElementById('cashbackDescontoValor');
               var descontoInfo = document.getElementById('cashbackDescontoInfo');
               var descontoDisplay = document.getElementById('cashbackDescontoDisplay');
+              var paymentMethodSelect = document.getElementById('financeiroPaymentMethod');
+              var installmentsWrap = document.getElementById('financeiroInstallmentsWrap');
+              var installmentsSelect = document.getElementById('financeiroInstallments');
+              var taxaInfo = document.getElementById('financeiroTaxaInfo');
+              var taxaLabel = document.getElementById('financeiroTaxaLabel');
+              var taxaValor = document.getElementById('financeiroTaxaValor');
               var totalComDesconto = document.getElementById('financeiroTotalComDesconto');
               var totalComDescontoValor = document.getElementById('financeiroTotalComDescontoValor');
+              var totalSelecionadoValor = document.getElementById('financeiroTotalSelecionadoValor');
+              var feeConfigNode = document.getElementById('financeiro-mp-fee-config-data');
+              var feeConfig = {};
+
+              try {
+                feeConfig = feeConfigNode ? JSON.parse(feeConfigNode.textContent || '{}') : {};
+              } catch (error) {
+                feeConfig = {};
+              }
 
               function parseValor(s) {
                 s = (s || '0').toString().replace(/R\$\s*/g, '').trim();
@@ -496,8 +532,37 @@
                 return 'R$ ' + v.toFixed(2).replace('.', ',');
               }
 
+              function parsePercent(raw) {
+                var normalized = String(raw || '0').trim().replace(',', '.');
+                var parsed = parseFloat(normalized);
+                return isNaN(parsed) ? 0 : parsed;
+              }
+
+              function paymentFeeMeta() {
+                var method = paymentMethodSelect ? String(paymentMethodSelect.value || 'pix').trim().toLowerCase() : 'pix';
+                if (method === 'cartao') {
+                  var installments = installmentsSelect ? parseInt(installmentsSelect.value || '1', 10) || 1 : 1;
+                  if (installments <= 1) return { label: 'Taxa cartao', percent: parsePercent(feeConfig.credit_1x_percent) };
+                  if (installments <= 6) return { label: 'Taxa cartao', percent: parsePercent(feeConfig.credit_2_6_percent) };
+                  return { label: 'Taxa cartao', percent: parsePercent(feeConfig.credit_7_12_percent) };
+                }
+                return { label: 'Taxa Pix', percent: parsePercent(feeConfig.pix_percent) };
+              }
+
+              function syncPaymentMethodUi() {
+                var method = paymentMethodSelect ? String(paymentMethodSelect.value || 'pix').trim().toLowerCase() : 'pix';
+                if (installmentsWrap) {
+                  installmentsWrap.style.display = method === 'cartao' ? 'flex' : 'none';
+                }
+                if (installmentsSelect && method !== 'cartao') {
+                  installmentsSelect.value = '1';
+                }
+              }
+
               function update() {
                 var total = getTotal();
+                var feeMeta = paymentFeeMeta();
+                var feeAmount = total > 0 ? Math.round(total * feeMeta.percent) / 100 : 0;
                 // Mostra ou oculta caixa de cashback
                 if (cashbackBox) {
                   cashbackBox.style.display = total > 0 ? 'block' : 'none';
@@ -508,17 +573,25 @@
                 var disponivel = selectedRadio ? (parseFloat(selectedRadio.dataset.disponivel) || 0) : 0;
                 var desconto = 0;
                 if (avId && disponivel > 0 && total > 0) {
-                  desconto = Math.min(disponivel, total);
+                  desconto = Math.min(disponivel, total + feeAmount);
                   desconto = Math.round(desconto * 100) / 100;
                 }
                 // Atualiza hidden inputs
                 avIdInput.value = avId;
                 descontoInput.value = desconto.toFixed(2);
+                if (totalSelecionadoValor) {
+                  totalSelecionadoValor.textContent = fmt(total);
+                }
+                if (taxaInfo && taxaLabel && taxaValor) {
+                  taxaInfo.style.display = total > 0 ? 'block' : 'none';
+                  taxaLabel.textContent = feeMeta.label + ' (' + feeMeta.percent.toFixed(2).replace('.', ',') + '%)';
+                  taxaValor.textContent = fmt(feeAmount);
+                }
                 // Exibe desconto
-                if (desconto > 0) {
+                if (desconto > 0 || total > 0) {
                   descontoDisplay.textContent = fmt(desconto);
-                  descontoInfo.style.display = 'block';
-                  var pagar = Math.max(0.01, total - desconto);
+                  descontoInfo.style.display = desconto > 0 ? 'block' : 'none';
+                  var pagar = Math.max(0.01, total + feeAmount - desconto);
                   totalComDescontoValor.textContent = fmt(pagar);
                   totalComDesconto.style.display = 'block';
                 } else {
@@ -529,6 +602,9 @@
 
               checkboxes.forEach(function (cb) { cb.addEventListener('change', update); });
               if (radios) { radios.forEach(function (r) { r.addEventListener('change', update); }); }
+              if (paymentMethodSelect) { paymentMethodSelect.addEventListener('change', function () { syncPaymentMethodUi(); update(); }); }
+              if (installmentsSelect) { installmentsSelect.addEventListener('change', update); }
+              syncPaymentMethodUi();
               update();
             })();
           </script>

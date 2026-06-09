@@ -3069,6 +3069,24 @@
           <strong id="event-items-total">R$ 0,00</strong>
           <small id="event-items-meta">0 item(ns)</small>
         </div>
+        <div class="event-checkout-item">
+          <span>Forma de pagamento</span>
+          <select id="event-payment-method">
+            <option value="pix">Pix</option>
+            <option value="cartao">Cartão de crédito</option>
+          </select>
+          <select id="event-payment-installments" style="display:none;margin-top:.45rem;">
+            {% for parcela in "123456789012" %}
+              <option value="{{ forloop.counter }}">{{ forloop.counter }}x</option>
+            {% endfor %}
+          </select>
+          <small id="event-payment-help">No cartão, o total já inclui a taxa.</small>
+        </div>
+        <div class="event-checkout-item">
+          <span id="event-payment-fee-label">Taxa Pix</span>
+          <strong id="event-payment-fee-total">R$ 0,00</strong>
+          <small id="event-payment-fee-meta">0,00%</small>
+        </div>
         {% if cashback_rows %}
           <div class="event-checkout-item">
             <span>Cashback</span>
@@ -3095,7 +3113,7 @@
         <div class="event-checkout-item event-checkout-item-total">
           <span>Total geral</span>
           <strong id="event-grand-total">R$ 0,00</strong>
-          <small>Inscricao + carrinho - cashback</small>
+          <small>Inscricao + carrinho + taxa - cashback</small>
         </div>
       </div>
       <div class="action-row">
@@ -3189,6 +3207,11 @@
       const feeBreakdownNode = document.getElementById('event-fee-breakdown');
       const itemsTotalNode = document.getElementById('event-items-total');
       const itemsMetaNode = document.getElementById('event-items-meta');
+      const paymentMethodSelect = document.getElementById('event-payment-method');
+      const paymentInstallmentsSelect = document.getElementById('event-payment-installments');
+      const paymentFeeLabelNode = document.getElementById('event-payment-fee-label');
+      const paymentFeeTotalNode = document.getElementById('event-payment-fee-total');
+      const paymentFeeMetaNode = document.getElementById('event-payment-fee-meta');
       const grandTotalNode = document.getElementById('event-grand-total');
       const cashbackTotalNode = document.getElementById('event-cashback-total');
       const cashbackMetaNode = document.getElementById('event-cashback-available');
@@ -3445,6 +3468,39 @@
       const toMoney = (value) => {
         const number = Number(value || 0);
         return number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      };
+
+      const parsePercent = (raw) => {
+        const normalized = String(raw || '0').trim().replace(',', '.');
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+
+      const paymentFeeMeta = () => {
+        const method = paymentMethodSelect instanceof HTMLSelectElement
+          ? String(paymentMethodSelect.value || 'pix').trim().toLowerCase()
+          : 'pix';
+        if (method === 'cartao') {
+          const installments = paymentInstallmentsSelect instanceof HTMLSelectElement
+            ? Math.max(1, parseInt(paymentInstallmentsSelect.value || '1', 10) || 1)
+            : 1;
+          if (installments <= 1) return { method: 'cartao', installments: 1, label: 'Taxa cartao', percent: parsePercent(mpFeeConfig.credit_1x_percent) };
+          if (installments <= 6) return { method: 'cartao', installments: installments, label: 'Taxa cartao', percent: parsePercent(mpFeeConfig.credit_2_6_percent) };
+          return { method: 'cartao', installments: installments, label: 'Taxa cartao', percent: parsePercent(mpFeeConfig.credit_7_12_percent) };
+        }
+        return { method: 'pix', installments: 1, label: 'Taxa Pix', percent: parsePercent(mpFeeConfig.pix_percent) };
+      };
+
+      const syncEventPaymentUi = () => {
+        const method = paymentMethodSelect instanceof HTMLSelectElement
+          ? String(paymentMethodSelect.value || 'pix').trim().toLowerCase()
+          : 'pix';
+        if (paymentInstallmentsSelect instanceof HTMLSelectElement) {
+          paymentInstallmentsSelect.style.display = method === 'cartao' ? '' : 'none';
+          if (method !== 'cartao') {
+            paymentInstallmentsSelect.value = '1';
+          }
+        }
       };
 
       const escapeHtml = (value) => {
@@ -3759,13 +3815,15 @@
         if (!PIX_CREATE_URL) {
           throw new Error('URL de pagamento do evento nao configurada.');
         }
+        const feeMeta = paymentFeeMeta();
         const stockSnapshot = cart.map((item) => ({
           productId: Number(item.productId || 0),
           variationId: Number(item.variationId || 0),
           quantity: Math.max(0, Number(item.quantity || 0)),
         })).filter((item) => item.variationId && item.quantity > 0);
         const payload = {
-          payment_method: 'pix',
+          payment_method: feeMeta.method,
+          installments: feeMeta.installments,
           items: cart.map((item) => ({
             product_id: item.productId,
             variation_id: item.variationId,
@@ -3805,7 +3863,7 @@
         if (pedidoId && stockSnapshot.length) {
           pendingStockByPedido[String(pedidoId)] = stockSnapshot;
         }
-        return pedido;
+        return data;
       };
 
       const persistCartForPostSavePix = () => {
@@ -3890,17 +3948,26 @@
             return;
           }
         }
-        const previewTotal = Math.max(0, Number(currentFeeTotal || 0) + Number(currentCartTotal || 0) - Number(currentCashbackDesconto || 0));
+        const previewTotal = getCheckoutPreviewTotal();
         if (previewTotal <= 0 && Number(currentCashbackDesconto || 0) <= 0) {
           setCheckoutFeedback('Nao ha valor para pagar neste evento.', 'error');
           return;
         }
         try {
           if (finalizarPagarBtn) finalizarPagarBtn.disabled = true;
-          setCheckoutFeedback('Gerando Pix do valor total do evento...');
-          const pedido = await createPixPedidoFromEvent(isVendasInscritosComprar ? inscricaoVinculoId : null);
+          setCheckoutFeedback('Iniciando pagamento do valor total do evento...');
+          const paymentResponse = await createPixPedidoFromEvent(isVendasInscritosComprar ? inscricaoVinculoId : null);
+          const pedido = paymentResponse ? paymentResponse.pedido : null;
           if (!pedido) {
             throw new Error('Resposta invalida ao gerar pagamento.');
+          }
+          if (paymentResponse.payment_flow === 'checkout_pro') {
+            const redirectUrl = String(paymentResponse.redirect_url || '').trim();
+            if (!redirectUrl) {
+              throw new Error('Checkout de cartao nao retornou URL de redirecionamento.');
+            }
+            window.location.href = redirectUrl;
+            return;
           }
           renderPixModal(pedido);
           if (pedido.status === 'pago') {
@@ -3913,7 +3980,7 @@
             showPaidFinalization(pedido);
           } else {
             schedulePixPolling();
-            setCheckoutFeedback('Pix gerado. Finalize o pagamento e acompanhe o status.', 'success');
+              setCheckoutFeedback('Pix gerado. Finalize o pagamento e acompanhe o status.', 'success');
           }
         } catch (error) {
           setCheckoutFeedback((error && error.message) ? error.message : 'Nao foi possivel gerar o pagamento Pix agora.', 'error');
@@ -4329,6 +4396,13 @@
         return Math.max(0, Math.min(disponivel, total));
       };
 
+      const getCheckoutPreviewTotal = () => {
+        const subtotal = Number(currentFeeTotal || 0) + Number(currentCartTotal || 0);
+        const feeMeta = paymentFeeMeta();
+        const paymentFeeTotal = subtotal > 0 ? Math.round(subtotal * feeMeta.percent) / 100 : 0;
+        return Math.max(0, subtotal + paymentFeeTotal - Number(currentCashbackDesconto || 0));
+      };
+
       const updateCheckoutSummary = () => {
         const feePreview = isVendasInscritosComprar
           ? { units: 0, total: 0, breakdown: [] }
@@ -4336,8 +4410,10 @@
         currentFeeUnits = Number(feePreview.units || 0);
         currentFeeTotal = Number(feePreview.total || 0);
         const subtotal = currentFeeTotal + currentCartTotal;
-        currentCashbackDesconto = calculateCashbackPreview(subtotal);
-        const grandTotal = Math.max(0, subtotal - currentCashbackDesconto);
+        const feeMeta = paymentFeeMeta();
+        const paymentFeeTotal = subtotal > 0 ? Math.round(subtotal * feeMeta.percent) / 100 : 0;
+        currentCashbackDesconto = calculateCashbackPreview(subtotal + paymentFeeTotal);
+        const grandTotal = Math.max(0, subtotal + paymentFeeTotal - currentCashbackDesconto);
         if (feeTotalNode) feeTotalNode.textContent = toMoney(currentFeeTotal);
         if (feeMetaNode) feeMetaNode.textContent = currentFeeUnits + ' unidade(s)';
         if (feeBreakdownNode) {
@@ -4357,6 +4433,9 @@
         }
         if (itemsTotalNode) itemsTotalNode.textContent = toMoney(currentCartTotal);
         if (itemsMetaNode) itemsMetaNode.textContent = currentCartItems + ' item(ns)';
+        if (paymentFeeLabelNode) paymentFeeLabelNode.textContent = feeMeta.label;
+        if (paymentFeeTotalNode) paymentFeeTotalNode.textContent = toMoney(paymentFeeTotal);
+        if (paymentFeeMetaNode) paymentFeeMetaNode.textContent = feeMeta.percent.toFixed(2).replace('.', ',') + '%';
         if (cashbackTotalNode) cashbackTotalNode.textContent = toMoney(currentCashbackDesconto);
         if (cashbackMetaNode) cashbackMetaNode.textContent = 'Disponivel: ' + toMoney(getSelectedCashbackDisponivel());
         if (grandTotalNode) grandTotalNode.textContent = toMoney(grandTotal);
@@ -4665,6 +4744,16 @@
           updateCheckoutSummary();
         });
       }
+      if (paymentMethodSelect) {
+        paymentMethodSelect.addEventListener('change', () => {
+          syncEventPaymentUi();
+          updateCheckoutSummary();
+        });
+      }
+      if (paymentInstallmentsSelect) {
+        paymentInstallmentsSelect.addEventListener('change', updateCheckoutSummary);
+      }
+      syncEventPaymentUi();
 
       const openCartDrawer = () => {
         if (!cartOverlay) return;
@@ -4857,7 +4946,7 @@
       if (finalizarPagarBtn) {
         finalizarPagarBtn.addEventListener('click', async () => {
           if (registerForm && !skipSaveBeforePix) {
-            const previewTotal = Math.max(0, Number(currentFeeTotal || 0) + Number(currentCartTotal || 0) - Number(currentCashbackDesconto || 0));
+            const previewTotal = getCheckoutPreviewTotal();
             if (previewTotal <= 0 && Number(currentCashbackDesconto || 0) <= 0) {
               setCheckoutFeedback('Nao ha valor para pagar neste evento.', 'error');
               return;
@@ -4911,9 +5000,16 @@
           }
           try {
             button.disabled = true;
-            setCheckoutFeedback('Gerando Pix da inscricao...');
-            const pedido = await createPixPedidoFromEvent(inscricaoId);
+            setCheckoutFeedback('Iniciando pagamento da inscricao...');
+            const paymentResponse = await createPixPedidoFromEvent(inscricaoId);
+            const pedido = paymentResponse ? paymentResponse.pedido : null;
             if (!pedido) throw new Error('Resposta invalida ao gerar pagamento.');
+            if (paymentResponse.payment_flow === 'checkout_pro') {
+              const redirectUrl = String(paymentResponse.redirect_url || '').trim();
+              if (!redirectUrl) throw new Error('Checkout de cartao nao retornou URL de redirecionamento.');
+              window.location.href = redirectUrl;
+              return;
+            }
             pedido.inscricao_codigo = inscricaoCodigo || pedido.inscricao_codigo || '';
             renderPixModal(pedido);
             if (pedido.status === 'pago') {
