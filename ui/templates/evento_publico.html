@@ -3261,6 +3261,7 @@
       const inscritosSelectAll = document.getElementById('event-inscritos-select-all');
       const autoStartPixAfterSave = String('{{ auto_start_pix|yesno:"1,0" }}') === '1';
       const pendingCartStorageKey = 'evento_pending_cart_{{ evento.id }}';
+      const pendingPaymentStorageKey = 'evento_pending_payment_{{ evento.id }}';
       let skipSaveBeforePix = autoStartPixAfterSave;
       const feeConfigNode = document.getElementById('event-fee-config-data');
       const mpFeeConfigNode = document.getElementById('event-mp-fee-config-data');
@@ -3907,6 +3908,23 @@
         }
       };
 
+      const persistPaymentSelectionForPostSave = () => {
+        try {
+          if (!window.sessionStorage) return;
+          const feeMeta = paymentFeeMeta();
+          window.sessionStorage.setItem(
+            pendingPaymentStorageKey,
+            JSON.stringify({
+              method: String(feeMeta.method || 'pix'),
+              installments: Math.max(1, Math.min(12, Number(feeMeta.installments || 1))),
+              savedAt: Date.now(),
+            })
+          );
+        } catch (error) {
+          // ignore storage failures
+        }
+      };
+
       const serializeAdminTestItemsFromCart = () => {
         return cart.map((item) => ({
           variation_id: Number(item.variationId || 0),
@@ -3938,6 +3956,27 @@
               stockLimit: item && item.stockLimit == null ? null : Number(item.stockLimit),
             });
           });
+        } catch (error) {
+          // ignore restore failures
+        }
+      };
+
+      const restorePaymentSelectionAfterSave = () => {
+        try {
+          if (!window.sessionStorage) return;
+          const raw = window.sessionStorage.getItem(pendingPaymentStorageKey);
+          if (!raw) return;
+          window.sessionStorage.removeItem(pendingPaymentStorageKey);
+          const parsed = JSON.parse(raw);
+          const method = String(parsed && parsed.method || '').trim().toLowerCase();
+          const installments = Math.max(1, Math.min(12, Number(parsed && parsed.installments || 1) || 1));
+          if (paymentMethodSelect instanceof HTMLSelectElement) {
+            paymentMethodSelect.value = method === 'cartao' ? 'cartao' : 'pix';
+          }
+          if (paymentInstallmentsSelect instanceof HTMLSelectElement) {
+            paymentInstallmentsSelect.value = String(installments);
+          }
+          syncEventPaymentUi();
         } catch (error) {
           // ignore restore failures
         }
@@ -4973,10 +5012,11 @@
               return;
             }
             persistCartForPostSavePix();
+            persistPaymentSelectionForPostSave();
             if (finalizeAfterSaveInput) {
               finalizeAfterSaveInput.value = '1';
             }
-            setCheckoutFeedback('Salvando inscricao antes de gerar o Pix...');
+            setCheckoutFeedback('Salvando inscricao antes de iniciar o pagamento...');
             registerForm.requestSubmit();
             return;
           }
@@ -5869,6 +5909,7 @@
       initRepeatFields();
       if (autoStartPixAfterSave) {
         restoreCartAfterSave();
+        restorePaymentSelectionAfterSave();
       }
       renderCart();
       updateCheckoutSummary();
