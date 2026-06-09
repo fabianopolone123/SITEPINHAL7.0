@@ -223,14 +223,15 @@ def _mercadopago_fee_config():
 
 def _mercadopago_fee_config_payload():
     config = _mercadopago_fee_config()
-    return {
+    payload = {
         'pix_percent': f'{Decimal(config.pix_percent or Decimal("0.00")).quantize(Decimal("0.01"))}',
         'debit_percent': f'{Decimal(config.debit_percent or Decimal("0.00")).quantize(Decimal("0.01"))}',
-        'credit_1x_percent': f'{Decimal(config.credit_1x_percent or Decimal("0.00")).quantize(Decimal("0.01"))}',
-        'credit_2_6_percent': f'{Decimal(config.credit_2_6_percent or Decimal("0.00")).quantize(Decimal("0.01"))}',
-        'credit_7_12_percent': f'{Decimal(config.credit_7_12_percent or Decimal("0.00")).quantize(Decimal("0.01"))}',
-        'credit_13_18_percent': f'{Decimal(config.credit_13_18_percent or Decimal("0.00")).quantize(Decimal("0.01"))}',
     }
+    for n in range(1, 13):
+        field = f'credit_{n}x_percent'
+        val = Decimal(getattr(config, field, Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+        payload[field] = f'{val}'
+    return payload
 
 
 def _mercadopago_payment_fee_percent(payment_method, installments=1):

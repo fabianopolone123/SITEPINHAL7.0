@@ -3481,12 +3481,11 @@
           ? String(paymentMethodSelect.value || 'pix').trim().toLowerCase()
           : 'pix';
         if (method === 'cartao') {
-          const installments = paymentInstallmentsSelect instanceof HTMLSelectElement
-            ? Math.max(1, parseInt(paymentInstallmentsSelect.value || '1', 10) || 1)
-            : 1;
-          if (installments <= 1) return { method: 'cartao', installments: 1, label: 'Taxa cartao', percent: parsePercent(mpFeeConfig.credit_1x_percent) };
-          if (installments <= 6) return { method: 'cartao', installments: installments, label: 'Taxa cartao', percent: parsePercent(mpFeeConfig.credit_2_6_percent) };
-          return { method: 'cartao', installments: installments, label: 'Taxa cartao', percent: parsePercent(mpFeeConfig.credit_7_12_percent) };
+          const installments = Math.max(1, Math.min(12, paymentInstallmentsSelect instanceof HTMLSelectElement
+            ? parseInt(paymentInstallmentsSelect.value || '1', 10) || 1
+            : 1));
+          const key = `credit_${installments}x_percent`;
+          return { method: 'cartao', installments, label: `Taxa cartao (${installments}x)`, percent: parsePercent(mpFeeConfig[key]) };
         }
         return { method: 'pix', installments: 1, label: 'Taxa Pix', percent: parsePercent(mpFeeConfig.pix_percent) };
       };
@@ -5405,7 +5404,10 @@
             return { label: 'Taxa dinheiro', percent: 0 };
           }
           if (method === 'cartao') {
-            return { label: 'Taxa cartao (1x)', percent: parsePercent(mpFeeConfig.credit_1x_percent) };
+            const inst = Math.max(1, Math.min(12, paymentInstallmentsSelect instanceof HTMLSelectElement
+              ? parseInt(paymentInstallmentsSelect.value || '1', 10) || 1 : 1));
+            const key = `credit_${inst}x_percent`;
+            return { label: `Taxa cartao (${inst}x)`, percent: parsePercent(mpFeeConfig[key]) };
           }
           return { label: 'Taxa Pix', percent: parsePercent(mpFeeConfig.pix_percent) };
         };

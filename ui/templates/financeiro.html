@@ -541,10 +541,9 @@
               function paymentFeeMeta() {
                 var method = paymentMethodSelect ? String(paymentMethodSelect.value || 'pix').trim().toLowerCase() : 'pix';
                 if (method === 'cartao') {
-                  var installments = installmentsSelect ? parseInt(installmentsSelect.value || '1', 10) || 1 : 1;
-                  if (installments <= 1) return { label: 'Taxa cartao', percent: parsePercent(feeConfig.credit_1x_percent) };
-                  if (installments <= 6) return { label: 'Taxa cartao', percent: parsePercent(feeConfig.credit_2_6_percent) };
-                  return { label: 'Taxa cartao', percent: parsePercent(feeConfig.credit_7_12_percent) };
+                  var installments = Math.max(1, Math.min(12, installmentsSelect ? parseInt(installmentsSelect.value || '1', 10) || 1 : 1));
+                  var key = 'credit_' + installments + 'x_percent';
+                  return { label: 'Taxa cartao (' + installments + 'x)', percent: parsePercent(feeConfig[key]) };
                 }
                 return { label: 'Taxa Pix', percent: parsePercent(feeConfig.pix_percent) };
               }
