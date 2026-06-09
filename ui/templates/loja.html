@@ -2262,18 +2262,18 @@
           const parcelas = Math.max(1, Math.min(12, parseInt(installments || 1, 10) || 1));
           if (parcelas <= 1) {
             const percent = parsePercent(mpFeeConfig.credit_1x_percent);
-            return { label: 'Taxa cartao (1x)', percent: percent, installments: parcelas };
+            return { label: 'Taxa cartao', percent: percent, installments: parcelas };
           }
           if (parcelas <= 6) {
             const percent = parsePercent(mpFeeConfig.credit_2_6_percent);
-            return { label: 'Taxa cartao (2x a 6x)', percent: percent, installments: parcelas };
+            return { label: 'Taxa cartao', percent: percent, installments: parcelas };
           }
           if (parcelas <= 12) {
             const percent = parsePercent(mpFeeConfig.credit_7_12_percent);
-            return { label: 'Taxa cartao (7x a 12x)', percent: percent, installments: parcelas };
+            return { label: 'Taxa cartao', percent: percent, installments: parcelas };
           }
           const percent = parsePercent(mpFeeConfig.credit_7_12_percent);
-          return { label: 'Taxa cartao (7x a 12x)', percent: percent, installments: parcelas };
+          return { label: 'Taxa cartao', percent: percent, installments: parcelas };
         }
         if (method === 'debito') {
           const percent = parsePercent(mpFeeConfig.debit_percent);
