@@ -417,22 +417,25 @@ class MercadoPagoFeeConfig(models.Model):
 
     pix_percent = models.DecimalField('taxa Pix (%)', max_digits=5, decimal_places=2, default=Decimal('0.49'))
     debit_percent = models.DecimalField('taxa débito (%)', max_digits=5, decimal_places=2, default=Decimal('1.99'))
-    credit_1x_percent  = models.DecimalField('taxa crédito 1x (%)',  max_digits=5, decimal_places=2, default=Decimal('4.98'))
-    credit_2x_percent  = models.DecimalField('taxa crédito 2x (%)',  max_digits=5, decimal_places=2, default=Decimal('5.98'))
-    credit_3x_percent  = models.DecimalField('taxa crédito 3x (%)',  max_digits=5, decimal_places=2, default=Decimal('8.97'))
-    credit_4x_percent  = models.DecimalField('taxa crédito 4x (%)',  max_digits=5, decimal_places=2, default=Decimal('11.96'))
-    credit_5x_percent  = models.DecimalField('taxa crédito 5x (%)',  max_digits=5, decimal_places=2, default=Decimal('14.95'))
-    credit_6x_percent  = models.DecimalField('taxa crédito 6x (%)',  max_digits=5, decimal_places=2, default=Decimal('17.94'))
-    credit_7x_percent  = models.DecimalField('taxa crédito 7x (%)',  max_digits=5, decimal_places=2, default=Decimal('21.63'))
-    credit_8x_percent  = models.DecimalField('taxa crédito 8x (%)',  max_digits=5, decimal_places=2, default=Decimal('24.72'))
-    credit_9x_percent  = models.DecimalField('taxa crédito 9x (%)',  max_digits=5, decimal_places=2, default=Decimal('27.81'))
-    credit_10x_percent = models.DecimalField('taxa crédito 10x (%)', max_digits=5, decimal_places=2, default=Decimal('30.90'))
-    credit_11x_percent = models.DecimalField('taxa crédito 11x (%)', max_digits=5, decimal_places=2, default=Decimal('33.99'))
-    credit_12x_percent = models.DecimalField('taxa crédito 12x (%)', max_digits=5, decimal_places=2, default=Decimal('37.08'))
-    # campos legados mantidos para compatibilidade com migration 0083
-    credit_2_6_percent   = models.DecimalField('taxa crédito 2x a 6x (legado)',   max_digits=5, decimal_places=2, default=Decimal('9.90'))
-    credit_7_12_percent  = models.DecimalField('taxa crédito 7x a 12x (legado)',  max_digits=5, decimal_places=2, default=Decimal('16.55'))
-    credit_13_18_percent = models.DecimalField('taxa crédito 13x a 18x (legado)', max_digits=5, decimal_places=2, default=Decimal('22.59'))
+    # crédito: 1x tem taxa fixa; 2x-6x e 7x-12x são taxas POR PARCELA (n × taxa = total)
+    credit_1x_percent           = models.DecimalField('crédito à vista 1x (%)',              max_digits=5, decimal_places=2, default=Decimal('4.98'))
+    credit_per_parcel_2_6x      = models.DecimalField('crédito 2x–6x (% por parcela)',       max_digits=5, decimal_places=2, default=Decimal('2.99'))
+    credit_per_parcel_7_12x     = models.DecimalField('crédito 7x–12x (% por parcela)',      max_digits=5, decimal_places=2, default=Decimal('3.09'))
+    # campos legados mantidos para compatibilidade com migrations anteriores (não usar)
+    credit_2x_percent  = models.DecimalField('(legado) 2x',  max_digits=5, decimal_places=2, default=Decimal('5.98'))
+    credit_3x_percent  = models.DecimalField('(legado) 3x',  max_digits=5, decimal_places=2, default=Decimal('8.97'))
+    credit_4x_percent  = models.DecimalField('(legado) 4x',  max_digits=5, decimal_places=2, default=Decimal('11.96'))
+    credit_5x_percent  = models.DecimalField('(legado) 5x',  max_digits=5, decimal_places=2, default=Decimal('14.95'))
+    credit_6x_percent  = models.DecimalField('(legado) 6x',  max_digits=5, decimal_places=2, default=Decimal('17.94'))
+    credit_7x_percent  = models.DecimalField('(legado) 7x',  max_digits=5, decimal_places=2, default=Decimal('21.63'))
+    credit_8x_percent  = models.DecimalField('(legado) 8x',  max_digits=5, decimal_places=2, default=Decimal('24.72'))
+    credit_9x_percent  = models.DecimalField('(legado) 9x',  max_digits=5, decimal_places=2, default=Decimal('27.81'))
+    credit_10x_percent = models.DecimalField('(legado) 10x', max_digits=5, decimal_places=2, default=Decimal('30.90'))
+    credit_11x_percent = models.DecimalField('(legado) 11x', max_digits=5, decimal_places=2, default=Decimal('33.99'))
+    credit_12x_percent = models.DecimalField('(legado) 12x', max_digits=5, decimal_places=2, default=Decimal('37.08'))
+    credit_2_6_percent   = models.DecimalField('(legado) 2-6x',   max_digits=5, decimal_places=2, default=Decimal('9.90'))
+    credit_7_12_percent  = models.DecimalField('(legado) 7-12x',  max_digits=5, decimal_places=2, default=Decimal('16.55'))
+    credit_13_18_percent = models.DecimalField('(legado) 13-18x', max_digits=5, decimal_places=2, default=Decimal('22.59'))
     updated_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -465,8 +468,13 @@ class MercadoPagoFeeConfig(models.Model):
             count = max(1, min(int(installments or 1), 12))
         except (TypeError, ValueError):
             count = 1
-        field = f'credit_{count}x_percent'
-        return Decimal(getattr(self, field, self.credit_1x_percent) or Decimal('0.00'))
+        if count == 1:
+            return Decimal(self.credit_1x_percent or Decimal('0.00'))
+        if count <= 6:
+            rate = Decimal(self.credit_per_parcel_2_6x or Decimal('0.00'))
+        else:
+            rate = Decimal(self.credit_per_parcel_7_12x or Decimal('0.00'))
+        return (rate * count).quantize(Decimal('0.01'))
 
     def percent_for(self, payment_method, installments=1):
         method = str(payment_method or '').strip().lower()

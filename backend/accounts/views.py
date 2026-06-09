@@ -228,9 +228,8 @@ def _mercadopago_fee_config_payload():
         'debit_percent': f'{Decimal(config.debit_percent or Decimal("0.00")).quantize(Decimal("0.01"))}',
     }
     for n in range(1, 13):
-        field = f'credit_{n}x_percent'
-        val = Decimal(getattr(config, field, Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
-        payload[field] = f'{val}'
+        val = config.credit_percent_for_installments(n).quantize(Decimal('0.01'))
+        payload[f'credit_{n}x_percent'] = f'{val}'
     return payload
 
 
