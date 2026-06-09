@@ -558,6 +558,31 @@
                 }
               }
 
+              function toMoneyFmt(v) {
+                return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+              }
+
+              function updateInstallmentOptions(subtotal) {
+                if (!installmentsSelect) return;
+                Array.from(installmentsSelect.options).forEach(function (option) {
+                  var n = parseInt(option.value || '1', 10) || 1;
+                  if (!subtotal || subtotal <= 0) {
+                    option.textContent = n + 'x';
+                    return;
+                  }
+                  var key = 'credit_' + n + 'x_percent';
+                  var pct = parsePercent(feeConfig[key]);
+                  var feeAmt = Math.round(subtotal * pct) / 100;
+                  var total = subtotal + feeAmt;
+                  var perParc = total / n;
+                  if (n === 1) {
+                    option.textContent = '1x – ' + toMoneyFmt(total);
+                  } else {
+                    option.textContent = n + 'x – ' + toMoneyFmt(perParc) + '/parc. (total ' + toMoneyFmt(total) + ')';
+                  }
+                });
+              }
+
               function update() {
                 var total = getTotal();
                 var feeMeta = paymentFeeMeta();
@@ -597,6 +622,7 @@
                   descontoInfo.style.display = 'none';
                   totalComDesconto.style.display = 'none';
                 }
+                updateInstallmentOptions(total);
               }
 
               checkboxes.forEach(function (cb) { cb.addEventListener('change', update); });
