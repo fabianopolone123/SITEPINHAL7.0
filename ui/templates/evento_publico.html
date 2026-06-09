@@ -3502,6 +3502,27 @@
         }
       };
 
+      const updateInstallmentOptions = () => {
+        if (!(paymentInstallmentsSelect instanceof HTMLSelectElement)) return;
+        const subtotal = Number(currentFeeTotal || 0) + Number(currentCartTotal || 0);
+        Array.from(paymentInstallmentsSelect.options).forEach((option) => {
+          const n = parseInt(option.value || '1', 10) || 1;
+          if (subtotal <= 0) {
+            option.textContent = n + 'x';
+            return;
+          }
+          const percent = parsePercent(mpFeeConfig['credit_' + n + 'x_percent']);
+          const feeAmount = Math.round(subtotal * percent) / 100;
+          const total = subtotal + feeAmount;
+          const perParc = total / n;
+          if (n === 1) {
+            option.textContent = '1x – ' + toMoney(total);
+          } else {
+            option.textContent = n + 'x – ' + toMoney(perParc) + '/parc. (total ' + toMoney(total) + ')';
+          }
+        });
+      };
+
       const escapeHtml = (value) => {
         return String(value || '')
           .replace(/&/g, '&amp;')
@@ -4438,6 +4459,7 @@
         if (cashbackTotalNode) cashbackTotalNode.textContent = toMoney(currentCashbackDesconto);
         if (cashbackMetaNode) cashbackMetaNode.textContent = 'Disponivel: ' + toMoney(getSelectedCashbackDisponivel());
         if (grandTotalNode) grandTotalNode.textContent = toMoney(grandTotal);
+        updateInstallmentOptions();
       };
 
       const parseRepeatSchema = (fieldWrap) => {

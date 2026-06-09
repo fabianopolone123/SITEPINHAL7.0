@@ -2301,6 +2301,27 @@
           .replace(/'/g, '&#39;');
       }
 
+      function updateInstallmentOptions(subtotal) {
+        if (!(cartInstallmentsSelect instanceof HTMLSelectElement)) return;
+        Array.from(cartInstallmentsSelect.options).forEach(function (option) {
+          const n = parseInt(option.value || '1', 10) || 1;
+          if (!subtotal || subtotal <= 0) {
+            option.textContent = n + 'x';
+            return;
+          }
+          const key = 'credit_' + n + 'x_percent';
+          const pct = parsePercent(mpFeeConfig[key]);
+          const feeAmt = Math.round(subtotal * pct) / 100;
+          const total = subtotal + feeAmt;
+          const perParc = total / n;
+          if (n === 1) {
+            option.textContent = '1x – ' + formatPriceNumber(total);
+          } else {
+            option.textContent = n + 'x – ' + formatPriceNumber(perParc) + '/parc. (total ' + formatPriceNumber(total) + ')';
+          }
+        });
+      }
+
       function renderCart() {
         if (!cartItemsWrap || !cartTotalEl) return;
         const items = cartState.items || [];
@@ -2327,6 +2348,7 @@
         cartTotalEl.textContent = formatPriceNumber(total);
         if (cartPaymentSelect) cartPaymentSelect.value = cartState.payment_method || 'pix';
         if (cartInstallmentsWrap) cartInstallmentsWrap.hidden = (cartState.payment_method || 'pix') !== 'cartao';
+        updateInstallmentOptions(subtotal);
         if (cartInstallmentsSelect) cartInstallmentsSelect.value = String(cartState.installments || 1);
         if (cartCashbackTotalEl) cartCashbackTotalEl.textContent = formatPriceNumber(cashbackDesconto);
         if (cartCashbackMetaEl) cartCashbackMetaEl.textContent = 'Disponivel: ' + formatPriceNumber(getSelectedCashbackDisponivel());
