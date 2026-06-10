@@ -3118,6 +3118,9 @@
           <small>Inscricao + carrinho + taxa - cashback</small>
         </div>
       </div>
+      <p class="panel-note" style="margin:.65rem 0 0;">
+        No checkout do Mercado Pago podem aparecer encargos adicionais conforme a parcela escolhida.
+      </p>
       <div class="action-row">
         <button type="button" class="primary" id="event-finalizar-pagar">Finalizar e pagar</button>
       </div>
@@ -3490,7 +3493,7 @@
             ? parseInt(paymentInstallmentsSelect.value || '1', 10) || 1
             : 1));
           const key = `credit_${installments}x_percent`;
-          return { method: 'cartao', installments, label: `Taxa cartao (${installments}x)`, percent: parsePercent(mpFeeConfig[key]) };
+          return { method: 'cartao', installments, label: 'Taxa cartao', percent: parsePercent(mpFeeConfig[key]) };
         }
         return { method: 'pix', installments: 1, label: 'Taxa Pix', percent: parsePercent(mpFeeConfig.pix_percent) };
       };
@@ -5508,7 +5511,7 @@
             const inst = Math.max(1, Math.min(12, paymentInstallmentsSelect instanceof HTMLSelectElement
               ? parseInt(paymentInstallmentsSelect.value || '1', 10) || 1 : 1));
             const key = `credit_${inst}x_percent`;
-            return { label: `Taxa cartao (${inst}x)`, percent: parsePercent(mpFeeConfig[key]) };
+            return { label: 'Taxa cartao', percent: parsePercent(mpFeeConfig[key]) };
           }
           return { label: 'Taxa Pix', percent: parsePercent(mpFeeConfig.pix_percent) };
         };

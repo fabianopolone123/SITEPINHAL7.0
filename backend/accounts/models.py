@@ -415,7 +415,7 @@ class MercadoPagoFeeConfig(models.Model):
     PAYMENT_METHOD_DEBIT = 'debit'
     PAYMENT_METHOD_CREDIT = 'credit'
 
-    pix_percent = models.DecimalField('taxa Pix (%)', max_digits=5, decimal_places=2, default=Decimal('0.49'))
+    pix_percent = models.DecimalField('taxa Pix (%)', max_digits=5, decimal_places=2, default=Decimal('1.00'))
     debit_percent = models.DecimalField('taxa débito (%)', max_digits=5, decimal_places=2, default=Decimal('1.99'))
     # crédito: 1x tem taxa fixa; 2x-6x e 7x-12x são taxas POR PARCELA (n × taxa = total)
     credit_1x_percent           = models.DecimalField('crédito à vista 1x (%)',              max_digits=5, decimal_places=2, default=Decimal('4.98'))
@@ -471,10 +471,8 @@ class MercadoPagoFeeConfig(models.Model):
         if count == 1:
             return Decimal(self.credit_1x_percent or Decimal('0.00'))
         if count <= 6:
-            rate = Decimal(self.credit_per_parcel_2_6x or Decimal('0.00'))
-        else:
-            rate = Decimal(self.credit_per_parcel_7_12x or Decimal('0.00'))
-        return (rate * count).quantize(Decimal('0.01'))
+            return Decimal(self.credit_per_parcel_2_6x or Decimal('0.00')).quantize(Decimal('0.01'))
+        return Decimal(self.credit_per_parcel_7_12x or Decimal('0.00')).quantize(Decimal('0.01'))
 
     def percent_for(self, payment_method, installments=1):
         method = str(payment_method or '').strip().lower()

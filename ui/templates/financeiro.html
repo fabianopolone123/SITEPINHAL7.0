@@ -463,6 +463,9 @@
                 </select>
               </label>
             </div>
+            <p class="panel-note" style="margin:.35rem 0 1rem;">
+              No checkout do Mercado Pago podem aparecer encargos adicionais conforme a parcela escolhida.
+            </p>
             <div class="financeiro-actions-wrap">
               <div style="display:flex;flex-direction:column;gap:4px;">
                 <div class="financeiro-total-selecionado" id="financeiroTotalSelecionado" aria-live="polite">
@@ -543,7 +546,7 @@
                 if (method === 'cartao') {
                   var installments = Math.max(1, Math.min(12, installmentsSelect ? parseInt(installmentsSelect.value || '1', 10) || 1 : 1));
                   var key = 'credit_' + installments + 'x_percent';
-                  return { label: 'Taxa cartao (' + installments + 'x)', percent: parsePercent(feeConfig[key]) };
+                  return { label: 'Taxa cartao', percent: parsePercent(feeConfig[key]) };
                 }
                 return { label: 'Taxa Pix', percent: parsePercent(feeConfig.pix_percent) };
               }
