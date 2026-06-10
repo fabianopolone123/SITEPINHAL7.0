@@ -10098,12 +10098,16 @@ class WhatsAppView(LoginRequiredMixin, View):
         try:
             config, _ = WhatsAppGatewayConfig.objects.get_or_create(pk=1)
             db_token = str(config.wapi_token or '').strip()
+            db_instance = str(config.wapi_instance or '').strip()
         except Exception:
             logger.exception('Falha ao carregar configuracao do gateway WhatsApp.')
             config = None
             db_token = ''
+            db_instance = ''
         env_token = str(os.environ.get('WAPI_TOKEN', '') or '').strip()
+        env_instance = str(os.environ.get('WAPI_INSTANCE', '') or '').strip()
         effective_token = db_token or env_token
+        effective_instance = db_instance or env_instance
         if db_token:
             source_label = 'Painel (banco)'
         elif env_token:
@@ -10117,11 +10121,19 @@ class WhatsAppView(LoginRequiredMixin, View):
                 masked_token = f'{effective_token[:4]}...{effective_token[-4:]}'
         else:
             masked_token = '-'
+        if effective_instance:
+            if len(effective_instance) <= 6:
+                masked_instance = effective_instance
+            else:
+                masked_instance = f'{effective_instance[:4]}...{effective_instance[-4:]}'
+        else:
+            masked_instance = 'Nao configurado'
         return {
             'gateway_config': config,
             'wapi_token_source_label': source_label,
             'wapi_token_masked': masked_token,
             'wapi_token_configured': bool(effective_token),
+            'wapi_instance_masked': masked_instance,
         }
 
     def _context(self, request):
@@ -10164,16 +10176,28 @@ class WhatsAppView(LoginRequiredMixin, View):
             return guard
 
         new_wapi_token = str(request.POST.get('wapi_token') or '').strip()
-        if new_wapi_token:
+        new_wapi_instance = str(request.POST.get('wapi_instance') or '').strip()
+        if new_wapi_token or new_wapi_instance:
             try:
                 gateway_config, _ = WhatsAppGatewayConfig.objects.get_or_create(pk=1)
-                gateway_config.wapi_token = new_wapi_token
+                update_fields = ['updated_by', 'updated_at']
+                if new_wapi_token:
+                    gateway_config.wapi_token = new_wapi_token
+                    update_fields.append('wapi_token')
+                if new_wapi_instance:
+                    gateway_config.wapi_instance = new_wapi_instance
+                    update_fields.append('wapi_instance')
                 gateway_config.updated_by = request.user
-                gateway_config.save(update_fields=['wapi_token', 'updated_by', 'updated_at'])
-                messages.info(request, 'Token W-API atualizado com sucesso pelo painel.')
+                gateway_config.save(update_fields=update_fields)
+                saved = []
+                if new_wapi_token:
+                    saved.append('Token')
+                if new_wapi_instance:
+                    saved.append('Instance ID')
+                messages.info(request, f'{" e ".join(saved)} W-API atualizado(s) com sucesso pelo painel.')
             except Exception:
-                logger.exception('Falha ao salvar token W-API pelo painel.')
-                messages.error(request, 'Nao foi possivel salvar o token W-API.')
+                logger.exception('Falha ao salvar configuracao W-API pelo painel.')
+                messages.error(request, 'Nao foi possivel salvar a configuracao W-API.')
 
         rows = self._users_context()
         cadastro_enabled = []

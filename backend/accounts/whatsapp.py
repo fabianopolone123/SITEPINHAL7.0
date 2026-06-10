@@ -246,8 +246,12 @@ def send_wapi_text(phone_number, message_text):
         (gateway_config.wapi_token if gateway_config else '')
         or os.environ.get('WAPI_TOKEN', '')
     ).strip()
-    if not url or 'instanceId=' not in url:
+    if not url:
         return False, '', 'WAPI_URL/WAPI_INSTANCE nao configurado.'
+    # Detecta instanceId vazio: ?instanceId= sem valor
+    import re as _re
+    if _re.search(r'[?&]instanceId=(&|$)', url) or url.rstrip().endswith('instanceId='):
+        return False, '', 'WAPI_INSTANCE nao configurado (instanceId vazio).'
     if not token:
         return False, '', 'WAPI_TOKEN nao configurado.'
 

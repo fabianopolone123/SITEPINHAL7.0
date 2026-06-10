@@ -38,10 +38,15 @@
     <section class="painel-card">
       <h3>Gateway WhatsApp (W-API)</h3>
       <p><strong>Token atual:</strong> {{ wapi_token_masked }} | <strong>Origem:</strong> {{ wapi_token_source_label }}</p>
-      <p class="panel-note">Se o provedor trocar o token, cole o novo token abaixo e clique em "Salvar preferências".</p>
+      <p><strong>Instance ID atual:</strong> {{ wapi_instance_masked }}</p>
+      <p class="panel-note">Se o provedor trocar o token ou instance ID, preencha abaixo e clique em "Salvar preferências".</p>
       <label>
         Novo token W-API (opcional)
         <input type="password" name="wapi_token" form="whatsapp-form" placeholder="Cole o novo token aqui" autocomplete="off" />
+      </label>
+      <label>
+        Instance ID W-API (opcional)
+        <input type="text" name="wapi_instance" form="whatsapp-form" placeholder="Ex: ABC123XYZ (deixe vazio para manter o atual)" autocomplete="off" />
       </label>
     </section>
 
