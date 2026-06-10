@@ -12624,18 +12624,20 @@ class FinanceiroView(LoginRequiredMixin, View):
                         'Nenhuma mensalidade pendente (mes atual e anteriores) foi encontrada.',
                     )
                 else:
-                    messages.success(
-                        request,
-                        (
-                            'Cobranca finalizada: '
-                            f"responsaveis_notificados={result.get('sent_responsaveis', 0)} | "
-                            f"mensalidades_notificadas={result.get('sent_mensalidades', 0)} | "
-                            f"sem_telefone={result.get('skipped_sem_telefone_responsaveis', 0)} | "
-                            f"sem_usuario={result.get('skipped_sem_usuario_responsaveis', 0)} | "
-                            f"falhas={result.get('failed_responsaveis', 0)} | "
-                            f"pausa={result.get('pause_seconds', 0)}s"
-                        ),
+                    sent = result.get('sent_responsaveis', 0)
+                    failed = result.get('failed_responsaveis', 0)
+                    resumo = (
+                        f"enviados={sent} | "
+                        f"mensalidades={result.get('sent_mensalidades', 0)} | "
+                        f"sem_telefone={result.get('skipped_sem_telefone_responsaveis', 0)} | "
+                        f"sem_usuario={result.get('skipped_sem_usuario_responsaveis', 0)} | "
+                        f"falhas={failed} | "
+                        f"pausa={result.get('pause_seconds', 0)}s"
                     )
+                    if sent > 0:
+                        messages.success(request, f'Cobranca finalizada: {resumo}')
+                    else:
+                        messages.error(request, f'Nenhuma mensagem foi enviada (verifique configuracao do WhatsApp): {resumo}')
                     sem_telefone_labels = result.get('skipped_sem_telefone_labels') or []
                     if sem_telefone_labels:
                         messages.warning(

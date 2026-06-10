@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 from datetime import datetime
@@ -6,6 +7,8 @@ from urllib import error, request
 
 from django.db import transaction
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 from .models import WhatsAppGatewayConfig, WhatsAppPreference, WhatsAppQueue, WhatsAppTemplate
 
@@ -259,6 +262,7 @@ def send_wapi_text(phone_number, message_text):
         with request.urlopen(req, timeout=30) as response:
             body = response.read().decode('utf-8', errors='ignore')
             provider_id = ''
+            parsed = {}
             try:
                 parsed = json.loads(body) if body else {}
                 provider_id = str(
@@ -268,12 +272,26 @@ def send_wapi_text(phone_number, message_text):
                     or ''
                 )
             except json.JSONDecodeError:
-                provider_id = ''
+                pass
+            # Verifica se a API retornou 200 mas com indicação de falha no body
+            api_success = parsed.get('success')
+            api_error = parsed.get('error') or parsed.get('message') if api_success is False else None
+            if api_success is False:
+                err_msg = str(api_error or 'API retornou success=false').strip()[:250]
+                logger.warning('W-API send_wapi_text success=false phone=%s body=%s', phone_number, body[:300])
+                return False, '', err_msg
+            if not provider_id and parsed.get('error'):
+                err_msg = str(parsed['error'])[:250]
+                logger.warning('W-API send_wapi_text error field phone=%s body=%s', phone_number, body[:300])
+                return False, '', err_msg
+            logger.debug('W-API send_wapi_text ok phone=%s messageId=%s', phone_number, provider_id)
             return True, provider_id, ''
     except error.HTTPError as exc:
         body = exc.read().decode('utf-8', errors='ignore')
+        logger.warning('W-API HTTPError %s phone=%s body=%s', exc.code, phone_number, body[:250])
         return False, '', f'HTTP {exc.code}: {body[:250]}'
     except Exception as exc:  # noqa: BLE001
+        logger.warning('W-API exception phone=%s exc=%s', phone_number, exc)
         return False, '', str(exc)
 
 
