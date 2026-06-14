@@ -3618,10 +3618,18 @@ class EventosView(LoginRequiredMixin, View):
                 min_age = int(item.get('min'))
                 max_age = int(item.get('max'))
                 value = Decimal(str(item.get('value') or '0')).quantize(Decimal('0.01'))
+                diretoria_value_raw = item.get('diretoria_value')
+                diretoria_value = None
+                if diretoria_value_raw not in {None, ''}:
+                    diretoria_value = Decimal(str(diretoria_value_raw or '0')).quantize(Decimal('0.01'))
             except (TypeError, ValueError, InvalidOperation):
                 continue
             value_text = f'{value:.2f}'.replace('.', ',')
-            chunks.append(f'{min_age}-{max_age}={value_text}')
+            if diretoria_value is not None:
+                diretoria_text = f'{diretoria_value:.2f}'.replace('.', ',')
+                chunks.append(f'{min_age}-{max_age}={value_text},diretoria={diretoria_text}')
+            else:
+                chunks.append(f'{min_age}-{max_age}={value_text}')
         return '; '.join(chunks)
 
     def _parse_inscricao_faixas_texto(self, raw_value):
@@ -3631,9 +3639,14 @@ class EventosView(LoginRequiredMixin, View):
             return rows, 'Informe as faixas de idade (ex.: 1-4=20; 5-12=40).'
         chunks = [part.strip() for part in re.split(r'[\n;]+', text) if str(part or '').strip()]
         for token in chunks:
-            match = re.fullmatch(r'(\d+)\s*[-aA]\s*(\d+)\s*[:=]\s*([0-9]+(?:[.,][0-9]{1,2})?)', token)
+            match = re.fullmatch(
+                r'(\d+)\s*[-aA]\s*(\d+)\s*[:=]\s*([0-9]+(?:[.,][0-9]{1,2})?)'
+                r'(?:\s*,\s*diretoria\s*[:=]\s*([0-9]+(?:[.,][0-9]{1,2})?))?',
+                token,
+                flags=re.IGNORECASE,
+            )
             if not match:
-                return [], f'Faixa invalida: "{token}". Use formato 1-4=20.'
+                return [], f'Faixa invalida: "{token}". Use formato 1-4=20 ou 1-4=20,diretoria=10.'
             min_age = int(match.group(1))
             max_age = int(match.group(2))
             if max_age < min_age:
@@ -3641,11 +3654,19 @@ class EventosView(LoginRequiredMixin, View):
             valor = self._parse_valor(match.group(3))
             if valor is None or valor < 0:
                 return [], f'Valor invalido na faixa "{token}".'
-            rows.append({
+            diretoria_valor = None
+            if match.group(4):
+                diretoria_valor = self._parse_valor(match.group(4))
+                if diretoria_valor is None or diretoria_valor < 0:
+                    return [], f'Valor de diretoria invalido na faixa "{token}".'
+            row_obj = {
                 'min': min_age,
                 'max': max_age,
                 'value': str(valor),
-            })
+            }
+            if diretoria_valor is not None:
+                row_obj['diretoria_value'] = str(diretoria_valor)
+            rows.append(row_obj)
         if not rows:
             return [], 'Informe ao menos uma faixa de idade.'
         rows.sort(key=lambda item: (int(item.get('min', 0)), int(item.get('max', 0))))
@@ -5224,6 +5245,12 @@ class EventoPublicoView(View):
     def _event_repeat_discount_field_key(self, evento=None):
         return self._normalize_lookup_text(self._event_repeat_discount_field_label(evento))
 
+    def _event_repeat_diretoria_field_label(self, evento=None):
+        return 'Integrante diretoria'
+
+    def _event_repeat_diretoria_field_key(self, evento=None):
+        return self._normalize_lookup_text(self._event_repeat_diretoria_field_label(evento))
+
     def _get_row_value_by_normalized_key(self, row_obj, target_key):
         if not isinstance(row_obj, dict):
             return ''
@@ -5245,6 +5272,11 @@ class EventoPublicoView(View):
             if self._normalize_lookup_text(key) == normalized_target:
                 return str(key or '').strip()
         return ''
+
+    def _row_is_diretoria_member(self, row_obj, evento=None):
+        value = self._get_row_value_by_normalized_key(row_obj, self._event_repeat_diretoria_field_label(evento))
+        normalized = self._normalize_lookup_text(value)
+        return normalized in {'sim', 's', 'true', '1', 'yes'}
 
     def _event_age_repeat_fee_details(self, evento, dados, *, inscricao=None):
         mode = self._normalize_inscricao_valor_modo(getattr(evento, 'inscricao_valor_modo', ''))
@@ -5325,6 +5357,7 @@ class EventoPublicoView(View):
         seen_codes = set()
         discount_field_label = self._event_repeat_discount_field_label(evento)
         discount_field_key = self._event_repeat_discount_field_key(evento)
+        diretoria_field_key = self._event_repeat_diretoria_field_key(evento)
         age_field_key = self._normalize_lookup_text(age_field)
 
         for idx, row in enumerate(repeat_rows, start=1):
@@ -5349,6 +5382,7 @@ class EventoPublicoView(View):
                 }
             age = int(age_match.group(0))
             matched_value = None
+            matched_diretoria_value = None
             for item in ranges:
                 if not isinstance(item, dict):
                     continue
@@ -5356,10 +5390,17 @@ class EventoPublicoView(View):
                     min_age = int(item.get('min'))
                     max_age = int(item.get('max'))
                     item_value = Decimal(str(item.get('value') or '0')).quantize(Decimal('0.01'))
+                    diretoria_value_raw = item.get('diretoria_value')
+                    diretoria_value = (
+                        Decimal(str(diretoria_value_raw or '0')).quantize(Decimal('0.01'))
+                        if diretoria_value_raw not in {None, ''}
+                        else None
+                    )
                 except (TypeError, ValueError, InvalidOperation):
                     continue
                 if min_age <= age <= max_age:
                     matched_value = item_value
+                    matched_diretoria_value = diretoria_value
                     break
             if matched_value is None:
                 return {
@@ -5381,7 +5422,7 @@ class EventoPublicoView(View):
             for key, value in row.items():
                 normalized_key = self._normalize_lookup_text(key)
                 value_text = str(value or '').strip()
-                if not value_text or normalized_key in {age_field_key, discount_field_key}:
+                if not value_text or normalized_key in {age_field_key, discount_field_key, diretoria_field_key}:
                     continue
                 if self._is_nome_key(normalized_key) and not self._is_responsavel_key(normalized_key):
                     nome = value_text
@@ -5390,20 +5431,24 @@ class EventoPublicoView(View):
                 for key, value in row.items():
                     normalized_key = self._normalize_lookup_text(key)
                     value_text = str(value or '').strip()
-                    if not value_text or normalized_key in {age_field_key, discount_field_key}:
+                    if not value_text or normalized_key in {age_field_key, discount_field_key, diretoria_field_key}:
                         continue
                     nome = value_text
                     break
             if not nome:
                 nome = f'Participante {idx}'
 
+            is_diretoria = self._row_is_diretoria_member(row, evento=evento)
+            valor_base = matched_diretoria_value if is_diretoria and matched_diretoria_value is not None else matched_value
+            valor_base = Decimal(valor_base or Decimal('0.00')).quantize(Decimal('0.01'))
+
             codigo_raw = self._get_row_value_by_normalized_key(row, discount_field_label)
             codigo = ''
             percentual = Decimal('0.00')
             valor_desconto = Decimal('0.00')
-            valor_final = matched_value
+            valor_final = valor_base
             code_obj = None
-            if codigo_raw and matched_value > Decimal('0.00'):
+            if codigo_raw and valor_base > Decimal('0.00'):
                 codigo, code_obj, error = self._resolve_event_discount_code(evento, codigo_raw, inscricao=inscricao)
                 if error:
                     return {
@@ -5437,28 +5482,29 @@ class EventoPublicoView(View):
                     }
                 seen_codes.add(codigo)
                 percentual = Decimal(code_obj.percentual_desconto or Decimal('0.00')).quantize(Decimal('0.01'))
-                valor_desconto = ((matched_value * percentual) / Decimal('100.00')).quantize(Decimal('0.01'))
-                valor_final = (matched_value - valor_desconto).quantize(Decimal('0.01'))
+                valor_desconto = ((valor_base * percentual) / Decimal('100.00')).quantize(Decimal('0.01'))
+                valor_final = (valor_base - valor_desconto).quantize(Decimal('0.01'))
                 if valor_final < Decimal('0.00'):
                     valor_final = Decimal('0.00')
                 used_codes.append(codigo)
                 used_code_objs.append(code_obj)
 
-            total_original += matched_value
+            total_original += valor_base
             total_discount += valor_desconto
             total_final += valor_final
             units += 1
             breakdown.append({
                 'nome': nome,
                 'idade': age,
-                'valor_original': matched_value,
+                'is_diretoria': is_diretoria,
+                'valor_original': valor_base,
                 'valor_final': valor_final,
                 'valor_desconto': valor_desconto,
                 'desconto_codigo': codigo,
                 'desconto_percentual': percentual,
                 'valor_raw': str(valor_final),
                 'valor_fmt': self._format_currency(valor_final),
-                'valor_original_fmt': self._format_currency(matched_value),
+                'valor_original_fmt': self._format_currency(valor_base),
                 'valor_desconto_fmt': self._format_currency(valor_desconto),
             })
 
@@ -5702,6 +5748,12 @@ class EventoPublicoView(View):
                 min_age = int(item.get('min'))
                 max_age = int(item.get('max'))
                 value = Decimal(str(item.get('value') or '0')).quantize(Decimal('0.01'))
+                diretoria_value_raw = item.get('diretoria_value')
+                diretoria_value = (
+                    Decimal(str(diretoria_value_raw or '0')).quantize(Decimal('0.01'))
+                    if diretoria_value_raw not in {None, ''}
+                    else None
+                )
             except (TypeError, ValueError, InvalidOperation):
                 continue
             if max_age < min_age:
@@ -5710,7 +5762,9 @@ class EventoPublicoView(View):
                 'min': min_age,
                 'max': max_age,
                 'value': value,
+                'diretoria_value': diretoria_value,
                 'quantidade': 0,
+                'quantidade_diretoria': 0,
                 'valor_total': Decimal('0.00'),
             })
         if not faixas:
@@ -5731,10 +5785,14 @@ class EventoPublicoView(View):
                 if not age_match:
                     continue
                 age = int(age_match.group(0))
+                is_diretoria = self._row_is_diretoria_member(row, evento=evento)
                 for faixa in faixas:
                     if faixa['min'] <= age <= faixa['max']:
+                        valor_faixa = faixa['diretoria_value'] if is_diretoria and faixa['diretoria_value'] is not None else faixa['value']
                         faixa['quantidade'] += 1
-                        faixa['valor_total'] = (faixa['valor_total'] + faixa['value']).quantize(Decimal('0.01'))
+                        if is_diretoria:
+                            faixa['quantidade_diretoria'] += 1
+                        faixa['valor_total'] = (faixa['valor_total'] + valor_faixa).quantize(Decimal('0.01'))
                         break
 
         resumo = []
@@ -5743,6 +5801,7 @@ class EventoPublicoView(View):
             resumo.append({
                 'label': label,
                 'quantidade': int(faixa['quantidade']),
+                'quantidade_diretoria': int(faixa['quantidade_diretoria']),
                 'valor_total_raw': str(faixa['valor_total']),
                 'valor_total_fmt': self._format_currency(faixa['valor_total']),
             })
@@ -5902,6 +5961,7 @@ class EventoPublicoView(View):
         fee_config = getattr(evento, 'inscricao_valor_config', {}) or {}
         fee_repeat_field = str(fee_config.get('repeat_field') or '').strip() if isinstance(fee_config, dict) else ''
         discount_field_label = self._event_repeat_discount_field_label(evento)
+        diretoria_field_label = self._event_repeat_diretoria_field_label(evento)
         for index, field in enumerate(fields_source):
             if not isinstance(field, dict):
                 continue
@@ -5937,6 +5997,18 @@ class EventoPublicoView(View):
                     repeat_fields_data = list(repeat_fields_data) + [{
                         'name': discount_field_label,
                         'type': 'texto',
+                        'options': [],
+                        'required': False,
+                    }]
+                has_diretoria_field = any(
+                    self._normalize_lookup_text(item.get('name')) == self._normalize_lookup_text(diretoria_field_label)
+                    for item in repeat_fields_data
+                    if isinstance(item, dict)
+                )
+                if not has_diretoria_field:
+                    repeat_fields_data = list(repeat_fields_data) + [{
+                        'name': diretoria_field_label,
+                        'type': 'booleano',
                         'options': [],
                         'required': False,
                     }]

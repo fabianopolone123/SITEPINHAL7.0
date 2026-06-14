@@ -1859,7 +1859,7 @@
           <span class="event-metric-pill">Lucro liquido: {{ lucro_liquido_fmt }}</span>
           <span class="event-metric-pill">Cobranca: {{ inscricao_valor_config_text }}</span>
           {% for faixa in inscricao_faixas_resumo %}
-            <span class="event-metric-pill">Faixa {{ faixa.label }}: {{ faixa.quantidade }} inscrito(s) | {{ faixa.valor_total_fmt }}</span>
+            <span class="event-metric-pill">Faixa {{ faixa.label }}: {{ faixa.quantidade }} inscrito(s){% if faixa.quantidade_diretoria %} | Diretoria: {{ faixa.quantidade_diretoria }}{% endif %} | {{ faixa.valor_total_fmt }}</span>
           {% endfor %}
           <span class="event-metric-pill">Pagina: {% if evento.inscricao_publica %}Publica{% else %}Privada{% endif %}</span>
         </div>
@@ -3022,7 +3022,7 @@
           </div>
         {% else %}
           <div class="field-section" style="margin-top:.2rem;">
-            <p class="panel-note" style="margin:0;">Cada participante adicionado no botao repetidor possui o proprio campo opcional <strong>Codigo de desconto</strong>. O desconto vale somente para aquele participante.</p>
+            <p class="panel-note" style="margin:0;">Cada participante adicionado no botao repetidor possui os campos opcionais <strong>Codigo de desconto</strong> e <strong>Integrante diretoria</strong>. O desconto e o valor de diretoria valem somente para aquele participante.</p>
           </div>
         {% endif %}
         <div class="field-section" style="margin-top:.2rem;">
@@ -3427,6 +3427,7 @@
       let descontoAtual = { codigo: '', percentual: 0, valor: 0, valido: false };
       const repeatDiscountLookupCache = {};
       const repeatDiscountFieldKey = 'codigo de desconto';
+      const repeatDiretoriaFieldKey = 'integrante diretoria';
       {% if sale_registration_mode and show_register_summary and is_embedded_modal %}
         try {
           window.parent.postMessage(
@@ -3636,6 +3637,12 @@
           return;
         }
         feedbackNode.style.color = '';
+      };
+
+      const isRepeatDiretoriaMember = (rowObj) => {
+        const raw = findValueByKey(rowObj, repeatDiretoriaFieldKey);
+        const normalized = normalizeLookupText(raw);
+        return ['sim', 's', 'true', '1', 'yes'].includes(normalized);
       };
 
       const lookupRepeatDiscountCode = async (input) => {
@@ -4713,9 +4720,13 @@
             for (const rangeItem of ranges) {
               const minAge = Number(rangeItem && rangeItem.min);
               const maxAge = Number(rangeItem && rangeItem.max);
-              const rangeValue = safeMoneyNumber(rangeItem && rangeItem.value);
+              const normalRangeValue = safeMoneyNumber(rangeItem && rangeItem.value);
+              const hasDiretoriaRangeValue = !!(rangeItem && Object.prototype.hasOwnProperty.call(rangeItem, 'diretoria_value') && String(rangeItem.diretoria_value).trim() !== '');
+              const diretoriaRangeValue = safeMoneyNumber(rangeItem && rangeItem.diretoria_value);
               if (!Number.isFinite(minAge) || !Number.isFinite(maxAge)) continue;
               if (age < minAge || age > maxAge) continue;
+              const isDiretoria = isRepeatDiretoriaMember(row);
+              const rangeValue = (isDiretoria && hasDiretoriaRangeValue) ? diretoriaRangeValue : normalRangeValue;
               const discountCode = normalizeDescontoCode(findValueByKey(row, repeatDiscountFieldKey));
               const discountEntry = discountCode ? repeatDiscountLookupCache[discountCode] : null;
               const discountPercent = (!seenDiscountCodes.has(discountCode) && discountEntry && discountEntry.found) ? Number(discountEntry.percent || 0) : 0;
@@ -4736,6 +4747,7 @@
                 descontoValor: rowDiscount,
                 descontoCodigo: discountCode,
                 descontoPercentual: discountPercent,
+                isDiretoria: isDiretoria,
               });
               break;
             }
@@ -4819,14 +4831,14 @@
                 const descontoPercentualLinha = Number(item.descontoPercentual || 0);
                 if (descontoValorLinha > 0 && descontoCodigoLinha) {
                   return (
-                    '<strong>' + nome + idadeLabel + '</strong><br>' +
+                    '<strong>' + nome + idadeLabel + (item.isDiretoria ? ' [Diretoria]' : '') + '</strong><br>' +
                     'Valor original: ' + toMoney(valorOriginal) + '<br>' +
                     'Cupom: ' + escapeHtml(descontoCodigoLinha) + ' (' + descontoPercentualLinha.toFixed(2).replace('.', ',') + '%)<br>' +
                     'Desconto: -' + toMoney(descontoValorLinha) + '<br>' +
                     'Valor final: ' + toMoney(valorFinal)
                   );
                 }
-                return nome + idadeLabel + ' - Inscricao - ' + toMoney(valorFinal);
+                return nome + idadeLabel + (item.isDiretoria ? ' [Diretoria]' : '') + ' - Inscricao - ' + toMoney(valorFinal);
               })
               .join('<br><br>');
           }
