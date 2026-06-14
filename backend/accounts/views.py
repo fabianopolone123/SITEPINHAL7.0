@@ -5126,6 +5126,18 @@ class EventoPublicoView(View):
             return False
         return str(getattr(request.user, 'username', '') or '').strip().lower() == 'fabianop'
 
+    def _auto_confirm_free_registration(self, inscricao):
+        if not inscricao or getattr(inscricao, 'cancelada', False):
+            return False
+        valor = Decimal(getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+        if valor > Decimal('0.00'):
+            return False
+        if inscricao.confirmada:
+            return False
+        inscricao.confirmada = True
+        inscricao.save(update_fields=['confirmada', 'updated_at'])
+        return True
+
     def _authenticated_profile_allowed(self, request):
         if not request.user.is_authenticated:
             return False
@@ -9053,6 +9065,9 @@ class EventoPublicoView(View):
                     messages.success(request, feedback)
                 else:
                     messages.error(request, feedback)
+
+        if not admin_confirm_without_pix and self._auto_confirm_free_registration(inscricao_salva):
+            messages.success(request, 'Inscricao confirmada sem cobranca.')
 
         return render(
             request,
