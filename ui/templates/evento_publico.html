@@ -4812,13 +4812,23 @@
                 const nome = String(item.nome || 'Crianca');
                 const idade = Number(item.idade || 0);
                 const idadeLabel = Number.isFinite(idade) && idade > 0 ? ' (' + String(idade) + ' anos)' : '';
-                const baseLabel = nome + idadeLabel + ' - Inscricao - ' + toMoney(item.valor || 0);
-                if (Number(item.descontoValor || 0) > 0 && String(item.descontoCodigo || '').trim()) {
-                  return baseLabel + ' | cupom ' + String(item.descontoCodigo).trim() + ' (-' + toMoney(item.descontoValor || 0) + ')';
+                const valorFinal = Number(item.valor || 0);
+                const valorOriginal = Number(item.valorOriginal || valorFinal || 0);
+                const descontoValorLinha = Number(item.descontoValor || 0);
+                const descontoCodigoLinha = String(item.descontoCodigo || '').trim();
+                const descontoPercentualLinha = Number(item.descontoPercentual || 0);
+                if (descontoValorLinha > 0 && descontoCodigoLinha) {
+                  return (
+                    '<strong>' + nome + idadeLabel + '</strong><br>' +
+                    'Valor original: ' + toMoney(valorOriginal) + '<br>' +
+                    'Cupom: ' + escapeHtml(descontoCodigoLinha) + ' (' + descontoPercentualLinha.toFixed(2).replace('.', ',') + '%)<br>' +
+                    'Desconto: -' + toMoney(descontoValorLinha) + '<br>' +
+                    'Valor final: ' + toMoney(valorFinal)
+                  );
                 }
-                return baseLabel;
+                return nome + idadeLabel + ' - Inscricao - ' + toMoney(valorFinal);
               })
-              .join('<br>');
+              .join('<br><br>');
           }
         }
         if (itemsTotalNode) itemsTotalNode.textContent = toMoney(currentCartTotal);
