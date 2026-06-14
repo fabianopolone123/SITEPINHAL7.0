@@ -5218,6 +5218,265 @@ class EventoPublicoView(View):
     def _normalize_event_discount_code(self, raw_value):
         return EventoDescontoCodigo.normalize_codigo(raw_value)
 
+    def _event_repeat_discount_field_label(self, evento=None):
+        return 'Codigo de desconto'
+
+    def _event_repeat_discount_field_key(self, evento=None):
+        return self._normalize_lookup_text(self._event_repeat_discount_field_label(evento))
+
+    def _get_row_value_by_normalized_key(self, row_obj, target_key):
+        if not isinstance(row_obj, dict):
+            return ''
+        normalized_target = self._normalize_lookup_text(target_key)
+        if not normalized_target:
+            return ''
+        for key, value in row_obj.items():
+            if self._normalize_lookup_text(key) == normalized_target:
+                return str(value or '').strip()
+        return ''
+
+    def _find_row_key_by_normalized_key(self, row_obj, target_key):
+        if not isinstance(row_obj, dict):
+            return ''
+        normalized_target = self._normalize_lookup_text(target_key)
+        if not normalized_target:
+            return ''
+        for key in row_obj.keys():
+            if self._normalize_lookup_text(key) == normalized_target:
+                return str(key or '').strip()
+        return ''
+
+    def _event_age_repeat_fee_details(self, evento, dados, *, inscricao=None):
+        mode = self._normalize_inscricao_valor_modo(getattr(evento, 'inscricao_valor_modo', ''))
+        if mode != Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR:
+            return {
+                'mode': mode,
+                'units': 0,
+                'total_original': Decimal('0.00'),
+                'total_discount': Decimal('0.00'),
+                'total_final': Decimal('0.00'),
+                'valor_original': Decimal('0.00'),
+                'valor_desconto': Decimal('0.00'),
+                'valor_final': Decimal('0.00'),
+                'breakdown': [],
+                'codes': [],
+                'code_objs': [],
+                'error': '',
+            }
+        config = getattr(evento, 'inscricao_valor_config', {}) or {}
+        if not isinstance(config, dict):
+            return {
+                'mode': mode,
+                'units': 0,
+                'total_original': Decimal('0.00'),
+                'total_discount': Decimal('0.00'),
+                'total_final': Decimal('0.00'),
+                'valor_original': Decimal('0.00'),
+                'valor_desconto': Decimal('0.00'),
+                'valor_final': Decimal('0.00'),
+                'breakdown': [],
+                'codes': [],
+                'code_objs': [],
+                'error': 'Configuracao de faixa de idade invalida no evento.',
+            }
+        repeat_field = str(config.get('repeat_field') or '').strip()
+        age_field = str(config.get('age_field') or '').strip()
+        ranges = config.get('ranges') if isinstance(config.get('ranges'), list) else []
+        if not repeat_field or not age_field or not ranges:
+            return {
+                'mode': mode,
+                'units': 0,
+                'total_original': Decimal('0.00'),
+                'total_discount': Decimal('0.00'),
+                'total_final': Decimal('0.00'),
+                'valor_original': Decimal('0.00'),
+                'valor_desconto': Decimal('0.00'),
+                'valor_final': Decimal('0.00'),
+                'breakdown': [],
+                'codes': [],
+                'code_objs': [],
+                'error': 'Configuracao de faixa de idade incompleta no evento.',
+            }
+        dados_obj = dados if isinstance(dados, dict) else {}
+        repeat_rows = dados_obj.get(repeat_field)
+        if not isinstance(repeat_rows, list):
+            return {
+                'mode': mode,
+                'units': 0,
+                'total_original': Decimal('0.00'),
+                'total_discount': Decimal('0.00'),
+                'total_final': Decimal('0.00'),
+                'valor_original': Decimal('0.00'),
+                'valor_desconto': Decimal('0.00'),
+                'valor_final': Decimal('0.00'),
+                'breakdown': [],
+                'codes': [],
+                'code_objs': [],
+                'error': '',
+            }
+
+        total_original = Decimal('0.00')
+        total_discount = Decimal('0.00')
+        total_final = Decimal('0.00')
+        units = 0
+        breakdown = []
+        used_codes = []
+        used_code_objs = []
+        seen_codes = set()
+        discount_field_label = self._event_repeat_discount_field_label(evento)
+        discount_field_key = self._event_repeat_discount_field_key(evento)
+        age_field_key = self._normalize_lookup_text(age_field)
+
+        for idx, row in enumerate(repeat_rows, start=1):
+            if not self._row_has_any_value(row) or not isinstance(row, dict):
+                continue
+            age_text = self._get_row_value_by_normalized_key(row, age_field)
+            age_match = re.search(r'\d{1,3}', age_text)
+            if not age_match:
+                return {
+                    'mode': mode,
+                    'units': 0,
+                    'total_original': Decimal('0.00'),
+                    'total_discount': Decimal('0.00'),
+                    'total_final': Decimal('0.00'),
+                    'valor_original': Decimal('0.00'),
+                    'valor_desconto': Decimal('0.00'),
+                    'valor_final': Decimal('0.00'),
+                    'breakdown': [],
+                    'codes': [],
+                    'code_objs': [],
+                    'error': f'Preencha o subcampo "{age_field}" com idade numerica em todos os itens de "{repeat_field}".',
+                }
+            age = int(age_match.group(0))
+            matched_value = None
+            for item in ranges:
+                if not isinstance(item, dict):
+                    continue
+                try:
+                    min_age = int(item.get('min'))
+                    max_age = int(item.get('max'))
+                    item_value = Decimal(str(item.get('value') or '0')).quantize(Decimal('0.01'))
+                except (TypeError, ValueError, InvalidOperation):
+                    continue
+                if min_age <= age <= max_age:
+                    matched_value = item_value
+                    break
+            if matched_value is None:
+                return {
+                    'mode': mode,
+                    'units': 0,
+                    'total_original': Decimal('0.00'),
+                    'total_discount': Decimal('0.00'),
+                    'total_final': Decimal('0.00'),
+                    'valor_original': Decimal('0.00'),
+                    'valor_desconto': Decimal('0.00'),
+                    'valor_final': Decimal('0.00'),
+                    'breakdown': [],
+                    'codes': [],
+                    'code_objs': [],
+                    'error': f'Idade {age} sem faixa de cobranca configurada no evento.',
+                }
+
+            nome = ''
+            for key, value in row.items():
+                normalized_key = self._normalize_lookup_text(key)
+                value_text = str(value or '').strip()
+                if not value_text or normalized_key in {age_field_key, discount_field_key}:
+                    continue
+                if self._is_nome_key(normalized_key) and not self._is_responsavel_key(normalized_key):
+                    nome = value_text
+                    break
+            if not nome:
+                for key, value in row.items():
+                    normalized_key = self._normalize_lookup_text(key)
+                    value_text = str(value or '').strip()
+                    if not value_text or normalized_key in {age_field_key, discount_field_key}:
+                        continue
+                    nome = value_text
+                    break
+            if not nome:
+                nome = f'Participante {idx}'
+
+            codigo_raw = self._get_row_value_by_normalized_key(row, discount_field_label)
+            codigo = ''
+            percentual = Decimal('0.00')
+            valor_desconto = Decimal('0.00')
+            valor_final = matched_value
+            code_obj = None
+            if codigo_raw and matched_value > Decimal('0.00'):
+                codigo, code_obj, error = self._resolve_event_discount_code(evento, codigo_raw, inscricao=inscricao)
+                if error:
+                    return {
+                        'mode': mode,
+                        'units': 0,
+                        'total_original': Decimal('0.00'),
+                        'total_discount': Decimal('0.00'),
+                        'total_final': Decimal('0.00'),
+                        'valor_original': Decimal('0.00'),
+                        'valor_desconto': Decimal('0.00'),
+                        'valor_final': Decimal('0.00'),
+                        'breakdown': [],
+                        'codes': [],
+                        'code_objs': [],
+                        'error': f'Participante "{nome}": {error}',
+                    }
+                if codigo in seen_codes:
+                    return {
+                        'mode': mode,
+                        'units': 0,
+                        'total_original': Decimal('0.00'),
+                        'total_discount': Decimal('0.00'),
+                        'total_final': Decimal('0.00'),
+                        'valor_original': Decimal('0.00'),
+                        'valor_desconto': Decimal('0.00'),
+                        'valor_final': Decimal('0.00'),
+                        'breakdown': [],
+                        'codes': [],
+                        'code_objs': [],
+                        'error': f'Participante "{nome}": o codigo {codigo} foi informado mais de uma vez nesta inscricao.',
+                    }
+                seen_codes.add(codigo)
+                percentual = Decimal(code_obj.percentual_desconto or Decimal('0.00')).quantize(Decimal('0.01'))
+                valor_desconto = ((matched_value * percentual) / Decimal('100.00')).quantize(Decimal('0.01'))
+                valor_final = (matched_value - valor_desconto).quantize(Decimal('0.01'))
+                if valor_final < Decimal('0.00'):
+                    valor_final = Decimal('0.00')
+                used_codes.append(codigo)
+                used_code_objs.append(code_obj)
+
+            total_original += matched_value
+            total_discount += valor_desconto
+            total_final += valor_final
+            units += 1
+            breakdown.append({
+                'nome': nome,
+                'idade': age,
+                'valor_original': matched_value,
+                'valor_final': valor_final,
+                'valor_desconto': valor_desconto,
+                'desconto_codigo': codigo,
+                'desconto_percentual': percentual,
+                'valor_raw': str(valor_final),
+                'valor_fmt': self._format_currency(valor_final),
+                'valor_original_fmt': self._format_currency(matched_value),
+                'valor_desconto_fmt': self._format_currency(valor_desconto),
+            })
+
+        return {
+            'mode': mode,
+            'units': int(units),
+            'total_original': total_original.quantize(Decimal('0.01')),
+            'total_discount': total_discount.quantize(Decimal('0.01')),
+            'total_final': total_final.quantize(Decimal('0.01')),
+            'valor_original': total_original.quantize(Decimal('0.01')),
+            'valor_desconto': total_discount.quantize(Decimal('0.01')),
+            'valor_final': total_final.quantize(Decimal('0.01')),
+            'breakdown': breakdown,
+            'codes': used_codes,
+            'code_objs': used_code_objs,
+            'error': '',
+        }
+
     def _generate_event_discount_code(self, evento):
         event_part = str(getattr(evento, 'id', '') or '')
         prefix = f'E{event_part}'[-4:] if event_part else 'EVT'
@@ -5297,31 +5556,55 @@ class EventoPublicoView(View):
     def _bind_event_discount_code(self, inscricao, discount_result):
         if not inscricao:
             return
+        code_objs = [code for code in (discount_result.get('code_objs') or []) if code]
         code_obj = discount_result.get('code_obj')
-        codigo = str(discount_result.get('codigo') or '').strip()
-        percentual = Decimal(discount_result.get('percentual') or Decimal('0.00')).quantize(Decimal('0.01'))
-        valor_desconto = Decimal(discount_result.get('valor_desconto') or Decimal('0.00')).quantize(Decimal('0.01'))
-        valor_original = Decimal(discount_result.get('valor_original') or Decimal('0.00')).quantize(Decimal('0.01'))
-        valor_final = Decimal(discount_result.get('valor_final') or Decimal('0.00')).quantize(Decimal('0.01'))
+        if code_obj and code_obj not in code_objs:
+            code_objs.append(code_obj)
+        raw_codes = discount_result.get('codes') or []
+        if not raw_codes:
+            raw_single = str(discount_result.get('codigo') or '').strip()
+            if raw_single:
+                raw_codes = [raw_single]
+        codes = []
+        seen_codes = set()
+        for raw_code in raw_codes:
+            normalized = self._normalize_event_discount_code(raw_code)
+            if not normalized or normalized in seen_codes:
+                continue
+            seen_codes.add(normalized)
+            codes.append(normalized)
+        codigo = ', '.join(codes)
+        valor_original = Decimal(discount_result.get('valor_original') or discount_result.get('total_original') or Decimal('0.00')).quantize(Decimal('0.01'))
+        valor_desconto = Decimal(discount_result.get('valor_desconto') or discount_result.get('total_discount') or Decimal('0.00')).quantize(Decimal('0.01'))
+        valor_final = Decimal(discount_result.get('valor_final') or discount_result.get('total_final') or Decimal('0.00')).quantize(Decimal('0.01'))
+        percentual = Decimal('0.00')
+        if valor_original > Decimal('0.00') and valor_desconto > Decimal('0.00'):
+            percentual = ((valor_desconto * Decimal('100.00')) / valor_original).quantize(Decimal('0.01'))
+        elif discount_result.get('percentual') not in {None, ''}:
+            percentual = Decimal(discount_result.get('percentual') or Decimal('0.00')).quantize(Decimal('0.01'))
+        existing_codes = list(EventoDescontoCodigo.objects.filter(usado_por_inscricao=inscricao))
+        desired_code_ids = {code.id for code in code_objs if getattr(code, 'id', None)}
 
-        old_code = None
-        if getattr(inscricao, 'desconto_codigo_id', None):
-            old_code = EventoDescontoCodigo.objects.filter(pk=inscricao.desconto_codigo_id).first()
-
-        inscricao.desconto_codigo = code_obj
+        inscricao.desconto_codigo = code_objs[0] if len(code_objs) == 1 else None
         inscricao.desconto_codigo_texto = codigo
         inscricao.desconto_percentual = percentual
         inscricao.desconto_valor = valor_desconto
         inscricao.valor_inscricao_original = valor_original
         inscricao.valor_inscricao = valor_final
 
-        if old_code and (not code_obj or old_code.id != code_obj.id):
+        for old_code in existing_codes:
+            if old_code.id in desired_code_ids:
+                continue
             old_code.usado = False
             old_code.usado_at = None
             old_code.usado_por_inscricao = None
             old_code.save(update_fields=['usado', 'usado_at', 'usado_por_inscricao', 'updated_at'])
 
-        if code_obj and (not code_obj.usado or code_obj.usado_por_inscricao_id != inscricao.id):
+        for code_obj in code_objs:
+            if not code_obj:
+                continue
+            if code_obj.usado and code_obj.usado_por_inscricao_id == inscricao.id:
+                continue
             code_obj.usado = True
             code_obj.usado_at = timezone.now()
             code_obj.usado_por_inscricao = inscricao
@@ -5381,53 +5664,10 @@ class EventoPublicoView(View):
                 if isinstance(value, list):
                     units += len([row for row in value if self._row_has_any_value(row)])
         elif mode == Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR:
-            config = getattr(evento, 'inscricao_valor_config', {}) or {}
-            if not isinstance(config, dict):
-                return mode, 0, Decimal('0.00'), 'Configuracao de faixa de idade invalida no evento.'
-            repeat_field = str(config.get('repeat_field') or '').strip()
-            age_field = str(config.get('age_field') or '').strip()
-            ranges = config.get('ranges') if isinstance(config.get('ranges'), list) else []
-            if not repeat_field or not age_field or not ranges:
-                return mode, 0, Decimal('0.00'), 'Configuracao de faixa de idade incompleta no evento.'
-            repeat_rows = dados_obj.get(repeat_field)
-            if not isinstance(repeat_rows, list):
-                return mode, 0, Decimal('0.00'), ''
-            total = Decimal('0.00')
-            for row in repeat_rows:
-                if not self._row_has_any_value(row):
-                    continue
-                if not isinstance(row, dict):
-                    continue
-                age_text = str(row.get(age_field) or '').strip()
-                age_match = re.search(r'\d{1,3}', age_text)
-                if not age_match:
-                    return mode, 0, Decimal('0.00'), (
-                        f'Preencha o subcampo "{age_field}" com idade numerica em todos os itens de "{repeat_field}".'
-                    )
-                age = int(age_match.group(0))
-                matched_range = None
-                for item in ranges:
-                    if not isinstance(item, dict):
-                        continue
-                    try:
-                        min_age = int(item.get('min'))
-                        max_age = int(item.get('max'))
-                        item_value = Decimal(str(item.get('value') or '0'))
-                    except (TypeError, ValueError, InvalidOperation):
-                        continue
-                    if age < min_age or age > max_age:
-                        continue
-                    matched_range = item_value.quantize(Decimal('0.01'))
-                    break
-                if matched_range is None:
-                    return mode, 0, Decimal('0.00'), (
-                        f'Idade {age} sem faixa de cobranca configurada no evento.'
-                    )
-                total += matched_range
-                units += 1
-            if units <= 0:
-                return mode, 0, Decimal('0.00'), ''
-            return mode, int(units), total.quantize(Decimal('0.01')), ''
+            fee_details = self._event_age_repeat_fee_details(evento, dados_obj)
+            if fee_details.get('error'):
+                return mode, 0, Decimal('0.00'), fee_details['error']
+            return mode, int(fee_details.get('units') or 0), Decimal(fee_details.get('total_final') or Decimal('0.00')).quantize(Decimal('0.01')), ''
 
         if units <= 0:
             return mode, 0, Decimal('0.00'), ''
@@ -5438,73 +5678,8 @@ class EventoPublicoView(View):
         mode = self._normalize_inscricao_valor_modo(getattr(evento, 'inscricao_valor_modo', ''))
         if mode != Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR:
             return []
-        config = getattr(evento, 'inscricao_valor_config', {}) or {}
-        if not isinstance(config, dict):
-            return []
-        repeat_field = str(config.get('repeat_field') or '').strip()
-        age_field = str(config.get('age_field') or '').strip()
-        ranges = config.get('ranges') if isinstance(config.get('ranges'), list) else []
-        if not repeat_field or not age_field or not ranges:
-            return []
-        dados_obj = dados if isinstance(dados, dict) else {}
-        repeat_rows = dados_obj.get(repeat_field)
-        if not isinstance(repeat_rows, list):
-            return []
-
-        breakdown = []
-        for idx, row in enumerate(repeat_rows):
-            if not self._row_has_any_value(row) or not isinstance(row, dict):
-                continue
-            age_text = str(row.get(age_field) or '').strip()
-            age_match = re.search(r'\d{1,3}', age_text)
-            if not age_match:
-                continue
-            age = int(age_match.group(0))
-            matched_value = None
-            for item in ranges:
-                if not isinstance(item, dict):
-                    continue
-                try:
-                    min_age = int(item.get('min'))
-                    max_age = int(item.get('max'))
-                    item_value = Decimal(str(item.get('value') or '0')).quantize(Decimal('0.01'))
-                except (TypeError, ValueError, InvalidOperation):
-                    continue
-                if min_age <= age <= max_age:
-                    matched_value = item_value
-                    break
-            if matched_value is None:
-                continue
-
-            nome = ''
-            for key, value in row.items():
-                if self._normalize_lookup_text(key) == self._normalize_lookup_text(age_field):
-                    continue
-                value_text = str(value or '').strip()
-                if not value_text:
-                    continue
-                norm_key = self._normalize_lookup_text(key)
-                if self._is_nome_key(norm_key) and not self._is_responsavel_key(norm_key):
-                    nome = value_text
-                    break
-            if not nome:
-                for key, value in row.items():
-                    if self._normalize_lookup_text(key) == self._normalize_lookup_text(age_field):
-                        continue
-                    value_text = str(value or '').strip()
-                    if value_text:
-                        nome = value_text
-                        break
-            if not nome:
-                nome = f'Crianca {idx + 1}'
-
-            breakdown.append({
-                'nome': nome,
-                'idade': age,
-                'valor_raw': str(matched_value),
-                'valor_fmt': self._format_currency(matched_value),
-            })
-        return breakdown
+        fee_details = self._event_age_repeat_fee_details(evento, dados)
+        return fee_details.get('breakdown') or []
 
     def _inscricao_faixas_resumo(self, evento, inscricoes):
         mode = self._normalize_inscricao_valor_modo(getattr(evento, 'inscricao_valor_modo', ''))
@@ -5723,6 +5898,10 @@ class EventoPublicoView(View):
         allowed_types = {'texto', 'data', 'hora', 'numero', 'booleano', 'seletor', 'repetidor'}
         raw_fields = getattr(evento, 'fields_data', None)
         fields_source = raw_fields if isinstance(raw_fields, (list, tuple)) else []
+        fee_mode = self._normalize_inscricao_valor_modo(getattr(evento, 'inscricao_valor_modo', ''))
+        fee_config = getattr(evento, 'inscricao_valor_config', {}) or {}
+        fee_repeat_field = str(fee_config.get('repeat_field') or '').strip() if isinstance(fee_config, dict) else ''
+        discount_field_label = self._event_repeat_discount_field_label(evento)
         for index, field in enumerate(fields_source):
             if not isinstance(field, dict):
                 continue
@@ -5743,6 +5922,24 @@ class EventoPublicoView(View):
                     range_start = ''
                     range_end = ''
             repeat_fields_data = self._repeat_fields_schema_from_field(field) if field_type == 'repetidor' else []
+            if (
+                field_type == 'repetidor'
+                and fee_mode == Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR
+                and fee_repeat_field
+                and self._normalize_lookup_text(label) == self._normalize_lookup_text(fee_repeat_field)
+            ):
+                has_discount_field = any(
+                    self._normalize_lookup_text(item.get('name')) == self._normalize_lookup_text(discount_field_label)
+                    for item in repeat_fields_data
+                    if isinstance(item, dict)
+                )
+                if not has_discount_field:
+                    repeat_fields_data = list(repeat_fields_data) + [{
+                        'name': discount_field_label,
+                        'type': 'texto',
+                        'options': [],
+                        'required': False,
+                    }]
             repeat_fields = [str(item.get('name') or '').strip() for item in repeat_fields_data if str(item.get('name') or '').strip()]
             repeat_button_label = self._fix_event_field_label_pt((field or {}).get('repeat_button_label') or label) or label
             is_required = bool((field or {}).get('required'))
@@ -6780,6 +6977,8 @@ class EventoPublicoView(View):
                 form_initial_by_input[field['input_name']] = '' if raw_value is None else str(raw_value)
         form_codigo_indicacao = str(getattr(form_source, 'codigo_indicacao_usado', '') or '').strip()
         form_codigo_desconto_evento = str(getattr(form_source, 'desconto_codigo_texto', '') or '').strip()
+        if self._normalize_inscricao_valor_modo(getattr(evento, 'inscricao_valor_modo', '')) == Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR:
+            form_codigo_desconto_evento = ''
         cashback_rows = []
         if request.user.is_authenticated:
             loja_view = LojaView()
@@ -7132,12 +7331,19 @@ class EventoPublicoView(View):
                         try:
                             _fee_mode, fee_units_item, fee_total_item, fee_error_item = self._calcular_inscricao_valor(evento, schema, dados_obj)
                             if not fee_error_item:
-                                discount_preview = self._apply_event_discount_to_fee(
-                                    evento,
-                                    fee_total_item,
-                                    getattr(inscricao, 'desconto_codigo_texto', ''),
-                                    inscricao=inscricao,
-                                )
+                                if _fee_mode == Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR:
+                                    discount_preview = self._event_age_repeat_fee_details(
+                                        evento,
+                                        dados_obj,
+                                        inscricao=inscricao,
+                                    )
+                                else:
+                                    discount_preview = self._apply_event_discount_to_fee(
+                                        evento,
+                                        fee_total_item,
+                                        getattr(inscricao, 'desconto_codigo_texto', ''),
+                                        inscricao=inscricao,
+                                    )
                                 valor_inscricao_item = discount_preview.get('valor_final') or fee_total_item
                                 valor_inscricao_unidades_item = int(fee_units_item or 0)
                         except Exception:
@@ -7621,12 +7827,19 @@ class EventoPublicoView(View):
             if fee_error:
                 messages.error(request, fee_error)
                 return render(request, self.template_name, self._context(request, evento))
-            discount_result = self._apply_event_discount_to_fee(
-                evento,
-                fee_total,
-                getattr(inscricao, 'desconto_codigo_texto', ''),
-                inscricao=inscricao,
-            )
+            if _fee_mode == Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR:
+                discount_result = self._event_age_repeat_fee_details(
+                    evento,
+                    dados_inscricao,
+                    inscricao=inscricao,
+                )
+            else:
+                discount_result = self._apply_event_discount_to_fee(
+                    evento,
+                    fee_total,
+                    getattr(inscricao, 'desconto_codigo_texto', ''),
+                    inscricao=inscricao,
+                )
             inscricao_valor_pendente = Decimal(discount_result.get('valor_final') or Decimal('0.00')).quantize(Decimal('0.01'))
             if (
                 inscricao_valor_pendente != Decimal(getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
@@ -8180,10 +8393,12 @@ class EventoPublicoView(View):
                         'cancelada_by',
                         'updated_at',
                     ])
-                    if getattr(inscricao_cancelar, 'desconto_codigo_id', None):
+                    if str(getattr(inscricao_cancelar, 'desconto_codigo_texto', '') or '').strip():
                         self._bind_event_discount_code(inscricao_cancelar, {
                             'codigo': '',
                             'code_obj': None,
+                            'codes': [],
+                            'code_objs': [],
                             'percentual': Decimal('0.00'),
                             'valor_desconto': Decimal('0.00'),
                             'valor_original': Decimal(getattr(inscricao_cancelar, 'valor_inscricao_original', Decimal('0.00')) or Decimal('0.00')),
@@ -8240,10 +8455,12 @@ class EventoPublicoView(View):
                             'cancelada_by',
                             'updated_at',
                         ])
-                        if getattr(inscricao_cancelar, 'desconto_codigo_id', None):
+                        if str(getattr(inscricao_cancelar, 'desconto_codigo_texto', '') or '').strip():
                             self._bind_event_discount_code(inscricao_cancelar, {
                                 'codigo': '',
                                 'code_obj': None,
+                                'codes': [],
+                                'code_objs': [],
                                 'percentual': Decimal('0.00'),
                                 'valor_desconto': Decimal('0.00'),
                                 'valor_original': Decimal(getattr(inscricao_cancelar, 'valor_inscricao_original', Decimal('0.00')) or Decimal('0.00')),
@@ -8279,10 +8496,12 @@ class EventoPublicoView(View):
                         'cancelada_by',
                         'updated_at',
                     ])
-                    if getattr(inscricao, 'desconto_codigo_id', None):
+                    if str(getattr(inscricao, 'desconto_codigo_texto', '') or '').strip():
                         self._bind_event_discount_code(inscricao, {
                             'codigo': '',
                             'code_obj': None,
+                            'codes': [],
+                            'code_objs': [],
                             'percentual': Decimal('0.00'),
                             'valor_desconto': Decimal('0.00'),
                             'valor_original': Decimal(getattr(inscricao, 'valor_inscricao_original', Decimal('0.00')) or Decimal('0.00')),
@@ -8327,6 +8546,7 @@ class EventoPublicoView(View):
                 return render(request, self.template_name, self._context(request, evento, active_mode='inscricao'))
 
         schema = self._event_schema(evento)
+        sale_registration_mode_pre = str(request.POST.get('sale_registration_mode') or '').strip() in {'1', 'true', 'yes'}
         dados = {}
         for field in schema:
             if field['type'] == 'repetidor':
@@ -8425,13 +8645,40 @@ class EventoPublicoView(View):
         if fee_error:
             messages.error(request, fee_error)
             return render(request, self.template_name, self._context(request, evento))
-        codigo_desconto_evento_raw = str(request.POST.get('codigo_desconto_evento') or '').strip()
-        discount_result = self._apply_event_discount_to_fee(
-            evento,
-            fee_total,
-            codigo_desconto_evento_raw,
-            inscricao=edit_target_inscricao,
-        )
+        discount_target_inscricao = edit_target_inscricao
+        if not discount_target_inscricao:
+            if request.user.is_authenticated and not sale_registration_mode_pre:
+                discount_target_inscricao = (
+                    EventoInscricao.objects
+                    .filter(evento=evento, user=request.user, cancelada=False)
+                    .order_by('-created_at')
+                    .first()
+                )
+            elif not sale_registration_mode_pre:
+                existing_session_id = request.session.get(_evento_public_inscricao_session_key(evento.id))
+                if str(existing_session_id or '').isdigit():
+                    discount_target_inscricao = (
+                        EventoInscricao.objects
+                        .filter(pk=int(existing_session_id), evento=evento, user__isnull=True, cancelada=False)
+                        .first()
+                    )
+        if _fee_mode == Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR:
+            discount_result = self._event_age_repeat_fee_details(
+                evento,
+                dados,
+                inscricao=discount_target_inscricao,
+            )
+            discount_result['valor_original'] = Decimal(discount_result.get('total_original') or Decimal('0.00')).quantize(Decimal('0.01'))
+            discount_result['valor_desconto'] = Decimal(discount_result.get('total_discount') or Decimal('0.00')).quantize(Decimal('0.01'))
+            discount_result['valor_final'] = Decimal(discount_result.get('total_final') or Decimal('0.00')).quantize(Decimal('0.01'))
+        else:
+            codigo_desconto_evento_raw = str(request.POST.get('codigo_desconto_evento') or '').strip()
+            discount_result = self._apply_event_discount_to_fee(
+                evento,
+                fee_total,
+                codigo_desconto_evento_raw,
+                inscricao=discount_target_inscricao,
+            )
         if discount_result.get('error'):
             messages.error(request, discount_result['error'])
             return render(
@@ -8454,7 +8701,7 @@ class EventoPublicoView(View):
         indicador_aventureiro = loja_view._resolve_indicador_from_code(codigo_indicacao_input) if codigo_indicacao_input else None
         finalize_after_save = str(request.POST.get('finalize_after_save') or '').strip() == '1'
         admin_confirm_without_pix = str(request.POST.get('admin_confirm_without_pix') or '').strip() == '1'
-        sale_registration_mode = str(request.POST.get('sale_registration_mode') or '').strip() in {'1', 'true', 'yes'}
+        sale_registration_mode = sale_registration_mode_pre
         inscricao_salva = None
         if edit_target_inscricao:
             codigo_indicacao_save = codigo_indicacao_input

@@ -3002,23 +3002,29 @@
             <p class="panel-note">Este evento não exige campos extras de inscrição.</p>
           {% endfor %}
         </div>
-        <div class="field-section" style="margin-top:.2rem;">
-          <label>
-            Codigo de desconto (opcional)
-            <input
-              type="text"
-              id="event-codigo-desconto"
-              name="codigo_desconto_evento"
-              value="{{ form_codigo_desconto_evento|default:'' }}"
-              maxlength="24"
-              autocomplete="off"
-              placeholder="Ex.: EVT123ABC"
-              style="text-transform: uppercase;"
-            />
-          </label>
-          <p class="panel-note" style="margin:0;">Se voce recebeu um codigo de desconto deste evento, informe aqui. O desconto sera aplicado sobre o valor da inscricao conforme a faixa etaria configurada.</p>
-          <p class="panel-note" id="event-desconto-feedback" style="margin:.2rem 0 0;">Digite o codigo para validar o desconto.</p>
-        </div>
+        {% if evento.inscricao_valor_modo != 'faixa_idade_repetidor' %}
+          <div class="field-section" style="margin-top:.2rem;">
+            <label>
+              Codigo de desconto (opcional)
+              <input
+                type="text"
+                id="event-codigo-desconto"
+                name="codigo_desconto_evento"
+                value="{{ form_codigo_desconto_evento|default:'' }}"
+                maxlength="24"
+                autocomplete="off"
+                placeholder="Ex.: EVT123ABC"
+                style="text-transform: uppercase;"
+              />
+            </label>
+            <p class="panel-note" style="margin:0;">Se voce recebeu um codigo de desconto deste evento, informe aqui. O desconto sera aplicado sobre o valor da inscricao.</p>
+            <p class="panel-note" id="event-desconto-feedback" style="margin:.2rem 0 0;">Digite o codigo para validar o desconto.</p>
+          </div>
+        {% else %}
+          <div class="field-section" style="margin-top:.2rem;">
+            <p class="panel-note" style="margin:0;">Cada participante adicionado no botao repetidor possui o proprio campo opcional <strong>Codigo de desconto</strong>. O desconto vale somente para aquele participante.</p>
+          </div>
+        {% endif %}
         <div class="field-section" style="margin-top:.2rem;">
           <label>
             Codigo de indicacao (opcional)
@@ -3419,6 +3425,8 @@
       let descontoLookupTimer = null;
       let descontoLookupController = null;
       let descontoAtual = { codigo: '', percentual: 0, valor: 0, valido: false };
+      const repeatDiscountLookupCache = {};
+      const repeatDiscountFieldKey = 'codigo de desconto';
       {% if sale_registration_mode and show_register_summary and is_embedded_modal %}
         try {
           window.parent.postMessage(
@@ -3605,6 +3613,70 @@
           setDescontoFeedback('Nao foi possivel validar o codigo agora.', 'error');
           updateCheckoutSummary();
         }
+      };
+
+      const getRepeatDiscountFeedbackNode = (input) => {
+        if (!(input instanceof HTMLElement)) return null;
+        const labelNode = input.closest('label');
+        if (!labelNode) return null;
+        return labelNode.querySelector('.event-repeat-discount-feedback');
+      };
+
+      const setRepeatDiscountFeedback = (input, text, tone) => {
+        const feedbackNode = getRepeatDiscountFeedbackNode(input);
+        if (!feedbackNode) return;
+        feedbackNode.textContent = String(text || '');
+        const currentTone = String(tone || 'neutral').toLowerCase();
+        if (currentTone === 'success') {
+          feedbackNode.style.color = '#0f766e';
+          return;
+        }
+        if (currentTone === 'error') {
+          feedbackNode.style.color = '#b42318';
+          return;
+        }
+        feedbackNode.style.color = '';
+      };
+
+      const lookupRepeatDiscountCode = async (input) => {
+        if (!(input instanceof HTMLInputElement) || !DESCONTO_LOOKUP_URL) return;
+        const normalized = normalizeDescontoCode(input.value);
+        if (String(input.value || '') !== normalized) {
+          input.value = normalized;
+        }
+        if (!normalized) {
+          setRepeatDiscountFeedback(input, 'Opcional.', 'neutral');
+          updateCheckoutSummary();
+          return;
+        }
+        if (repeatDiscountLookupCache[normalized]) {
+          const cached = repeatDiscountLookupCache[normalized];
+          setRepeatDiscountFeedback(input, cached.message || '', cached.found ? 'success' : 'error');
+          updateCheckoutSummary();
+          return;
+        }
+        try {
+          const response = await fetch(
+            DESCONTO_LOOKUP_URL + '?codigo=' + encodeURIComponent(normalized),
+            {
+              method: 'GET',
+              headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+              },
+            }
+          );
+          const payload = await response.json().catch(() => ({}));
+          const entry = {
+            found: Boolean(response.ok && payload && payload.ok === true && payload.found),
+            percent: parsePercent(payload && payload.percentual),
+            message: String((payload && payload.message) || (response.ok ? 'Codigo nao encontrado.' : 'Nao foi possivel validar o codigo agora.')),
+          };
+          repeatDiscountLookupCache[normalized] = entry;
+          setRepeatDiscountFeedback(input, entry.message, entry.found ? 'success' : 'error');
+        } catch (error) {
+          setRepeatDiscountFeedback(input, 'Nao foi possivel validar o codigo agora.', 'error');
+        }
+        updateCheckoutSummary();
       };
       const openModeSelectorModal = (targetUrl) => {
         if (!modeSelectorModal || !modeSelectorFrame) {
@@ -4556,13 +4628,14 @@
       };
 
       const calculateFeePreview = () => {
-        const result = { units: 0, total: 0, breakdown: [] };
+        const result = { units: 0, total: 0, originalTotal: 0, discountTotal: 0, breakdown: [] };
         if (!registerForm) return result;
         const mode = feeMode;
         if (mode === 'nenhum') return result;
         if (mode === 'fixo_inscricao') {
           result.units = 1;
           result.total = Math.max(0, feeUnit);
+          result.originalTotal = result.total;
           return result;
         }
 
@@ -4575,6 +4648,7 @@
           });
           result.units = units;
           result.total = Math.max(0, feeUnit) * units;
+          result.originalTotal = result.total;
           return result;
         }
 
@@ -4601,6 +4675,7 @@
           });
           result.units = units;
           result.total = Math.max(0, feeUnit) * units;
+          result.originalTotal = result.total;
           return result;
         }
 
@@ -4613,7 +4688,10 @@
           if (!targetGroup || !targetGroup.wrap) return result;
           const rows = collectRepeatRows(targetGroup.wrap);
           let total = 0;
+          let originalTotal = 0;
+          let discountTotal = 0;
           let units = 0;
+          const seenDiscountCodes = new Set();
           rows.forEach((row) => {
             if (!rowHasAnyValue(row)) return;
             const ageRaw = findValueByKey(row, ageFieldName);
@@ -4638,14 +4716,34 @@
               const rangeValue = safeMoneyNumber(rangeItem && rangeItem.value);
               if (!Number.isFinite(minAge) || !Number.isFinite(maxAge)) continue;
               if (age < minAge || age > maxAge) continue;
-              total += rangeValue;
+              const discountCode = normalizeDescontoCode(findValueByKey(row, repeatDiscountFieldKey));
+              const discountEntry = discountCode ? repeatDiscountLookupCache[discountCode] : null;
+              const discountPercent = (!seenDiscountCodes.has(discountCode) && discountEntry && discountEntry.found) ? Number(discountEntry.percent || 0) : 0;
+              const rowDiscount = discountPercent > 0 ? Math.round((rangeValue * discountPercent)) / 100 : 0;
+              const finalValue = Math.max(0, rangeValue - rowDiscount);
+              if (discountPercent > 0 && discountCode) {
+                seenDiscountCodes.add(discountCode);
+              }
+              originalTotal += rangeValue;
+              discountTotal += rowDiscount;
+              total += finalValue;
               units += 1;
-              result.breakdown.push({ nome: kidName, idade: age, valor: rangeValue });
+              result.breakdown.push({
+                nome: kidName,
+                idade: age,
+                valor: finalValue,
+                valorOriginal: rangeValue,
+                descontoValor: rowDiscount,
+                descontoCodigo: discountCode,
+                descontoPercentual: discountPercent,
+              });
               break;
             }
           });
           result.units = units;
           result.total = total;
+          result.originalTotal = originalTotal;
+          result.discountTotal = discountTotal;
           return result;
         }
 
@@ -4681,16 +4779,22 @@
 
       const updateCheckoutSummary = () => {
         const feePreview = isVendasInscritosComprar
-          ? { units: 0, total: 0, breakdown: [] }
+          ? { units: 0, total: 0, originalTotal: 0, discountTotal: 0, breakdown: [] }
           : calculateFeePreview();
         currentFeeUnits = Number(feePreview.units || 0);
-        const feeOriginalTotal = Number(feePreview.total || 0);
-        let descontoValor = 0;
-        if (descontoAtual && descontoAtual.valido && feeOriginalTotal > 0) {
-          descontoValor = Math.round((feeOriginalTotal * Number(descontoAtual.percentual || 0))) / 100;
+        const isFaixaAgeMode = feeMode === 'faixa_idade_repetidor';
+        const feeOriginalTotal = Number(isFaixaAgeMode ? feePreview.originalTotal : feePreview.total) || 0;
+        let descontoValor = Number(feePreview.discountTotal || 0);
+        if (!isFaixaAgeMode) {
+          descontoValor = 0;
+          if (descontoAtual && descontoAtual.valido && feeOriginalTotal > 0) {
+            descontoValor = Math.round((feeOriginalTotal * Number(descontoAtual.percentual || 0))) / 100;
+          }
+          descontoAtual.valor = descontoValor;
+          currentFeeTotal = Math.max(0, feeOriginalTotal - descontoValor);
+        } else {
+          currentFeeTotal = Number(feePreview.total || 0);
         }
-        descontoAtual.valor = descontoValor;
-        currentFeeTotal = Math.max(0, feeOriginalTotal - descontoValor);
         const subtotal = currentFeeTotal + currentCartTotal;
         const feeMeta = paymentFeeMeta();
         const paymentFeeTotal = subtotal > 0 ? Math.round(subtotal * feeMeta.percent) / 100 : 0;
@@ -4708,7 +4812,11 @@
                 const nome = String(item.nome || 'Crianca');
                 const idade = Number(item.idade || 0);
                 const idadeLabel = Number.isFinite(idade) && idade > 0 ? ' (' + String(idade) + ' anos)' : '';
-                return nome + idadeLabel + ' - Inscricao - ' + toMoney(item.valor || 0);
+                const baseLabel = nome + idadeLabel + ' - Inscricao - ' + toMoney(item.valor || 0);
+                if (Number(item.descontoValor || 0) > 0 && String(item.descontoCodigo || '').trim()) {
+                  return baseLabel + ' | cupom ' + String(item.descontoCodigo).trim() + ' (-' + toMoney(item.descontoValor || 0) + ')';
+                }
+                return baseLabel;
               })
               .join('<br>');
           }
@@ -4720,9 +4828,11 @@
         if (paymentFeeMetaNode) paymentFeeMetaNode.textContent = feeMeta.percent.toFixed(2).replace('.', ',') + '%';
         if (discountTotalNode) discountTotalNode.textContent = toMoney(descontoValor);
         if (discountMetaNode) {
-          discountMetaNode.textContent = descontoAtual && descontoAtual.valido
+          discountMetaNode.textContent = isFaixaAgeMode
+            ? (descontoValor > 0 ? 'Descontos aplicados por participante' : 'Nenhum desconto aplicado')
+            : (descontoAtual && descontoAtual.valido
             ? 'Codigo ' + String(descontoAtual.codigo || '') + ' - ' + Number(descontoAtual.percentual || 0).toFixed(2).replace('.', ',') + '%'
-            : 'Nenhum desconto aplicado';
+            : 'Nenhum desconto aplicado');
         }
         if (cashbackTotalNode) cashbackTotalNode.textContent = toMoney(currentCashbackDesconto);
         if (cashbackMetaNode) cashbackMetaNode.textContent = 'Disponivel: ' + toMoney(getSelectedCashbackDisponivel());
@@ -4850,6 +4960,18 @@
           input.setAttribute('data-repeat-key', label);
           input.setAttribute('data-repeat-type', fieldType);
           input.setAttribute('data-repeat-required-key', fieldRequired ? '1' : '0');
+          if (normalizeLookupText(label) === repeatDiscountFieldKey) {
+            input.setAttribute('maxlength', '24');
+            input.setAttribute('autocomplete', 'off');
+            input.style.textTransform = 'uppercase';
+            if (input instanceof HTMLInputElement && input.type === 'text') {
+              input.placeholder = 'Cupom opcional';
+            }
+            const feedbackNode = document.createElement('small');
+            feedbackNode.className = 'event-repeat-discount-feedback panel-note';
+            feedbackNode.textContent = 'Opcional.';
+            labelNode.appendChild(feedbackNode);
+          }
           if (Object.prototype.hasOwnProperty.call(sourceRow, label)) {
             input.value = String(sourceRow[label] == null ? '' : sourceRow[label]);
           }
@@ -4941,6 +5063,24 @@
             list.addEventListener('input', () => {
               serializeRepeatField(fieldWrap);
             });
+            list.addEventListener('input', (event) => {
+              const target = event.target;
+              if (!(target instanceof HTMLInputElement)) return;
+              if (normalizeLookupText(target.getAttribute('data-repeat-key') || '') !== repeatDiscountFieldKey) return;
+              setRepeatDiscountFeedback(target, 'Validando codigo...', 'neutral');
+            });
+            list.addEventListener('change', (event) => {
+              const target = event.target;
+              if (!(target instanceof HTMLInputElement)) return;
+              if (normalizeLookupText(target.getAttribute('data-repeat-key') || '') !== repeatDiscountFieldKey) return;
+              lookupRepeatDiscountCode(target);
+            });
+            list.addEventListener('focusout', (event) => {
+              const target = event.target;
+              if (!(target instanceof HTMLInputElement)) return;
+              if (normalizeLookupText(target.getAttribute('data-repeat-key') || '') !== repeatDiscountFieldKey) return;
+              lookupRepeatDiscountCode(target);
+            });
           }
           const initialRows = (repeatInputName && Array.isArray(formInitialByInput[repeatInputName]))
             ? formInitialByInput[repeatInputName]
@@ -4955,6 +5095,15 @@
             addRepeatItem(fieldWrap);
           } else {
             serializeRepeatField(fieldWrap);
+          }
+          if (list) {
+            list.querySelectorAll('input[data-repeat-key]').forEach((input) => {
+              if (!(input instanceof HTMLInputElement)) return;
+              if (normalizeLookupText(input.getAttribute('data-repeat-key') || '') !== repeatDiscountFieldKey) return;
+              if (String(input.value || '').trim()) {
+                lookupRepeatDiscountCode(input);
+              }
+            });
           }
         });
 
