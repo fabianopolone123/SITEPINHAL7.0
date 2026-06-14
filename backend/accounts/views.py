@@ -7439,6 +7439,7 @@ class EventoPublicoView(View):
                             logger.exception('Falha ao recalcular valor da inscricao pendente id=%s.', inscricao.id)
                     criancas_info = self._criancas_info_from_inscricao(inscricao, evento=evento)
                     fee_breakdown = self._inscricao_fee_breakdown(evento, schema, dados_obj)
+                    fee_breakdown_json = self._to_json_safe(fee_breakdown)
                     sale_inscricoes_detalhes.append({
                         'id': inscricao.id,
                         'codigo': inscricao.codigo_inscricao or '-',
@@ -7451,7 +7452,7 @@ class EventoPublicoView(View):
                         'valor_inscricao_fmt': self._format_currency(valor_inscricao_item),
                         'valor_inscricao_unidades': valor_inscricao_unidades_item,
                         'fee_breakdown': fee_breakdown,
-                        'fee_breakdown_json': json.dumps(fee_breakdown, ensure_ascii=False),
+                        'fee_breakdown_json': json.dumps(fee_breakdown_json, ensure_ascii=False),
                     })
             except Exception:
                 logger.exception('Falha ao montar dados de gestao do evento id=%s.', evento.id)
