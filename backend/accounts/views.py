@@ -9417,12 +9417,7 @@ class EventoPedidoCreatePixApiView(View):
         total = (total_bruto - cashback_desconto).quantize(Decimal('0.01'))
         if total < 0:
             total = Decimal('0.00')
-        if total <= 0 and cashback_desconto <= 0:
-            return JsonResponse({
-                'ok': False,
-                'error': 'empty_total',
-                'message': 'Nao ha valor para pagamento. Adicione itens ou configure cobranca de inscricao.',
-            }, status=400)
+        auto_confirmed_free = total <= 0
 
         try:
             with transaction.atomic():
@@ -9515,7 +9510,7 @@ class EventoPedidoCreatePixApiView(View):
                         'id': str(pedido.mp_payment_id or ''),
                         'external_reference': str(pedido.mp_external_reference or ''),
                         'status': 'approved',
-                        'status_detail': 'cashback_full',
+                        'status_detail': 'free_checkout',
                     })
                     pedido.refresh_from_db()
         except ValueError as exc:
@@ -9578,6 +9573,13 @@ class EventoPedidoCreatePixApiView(View):
             'cashback_desconto': loja_view._format_currency(cashback_desconto),
             'resumo_linhas': summary_lines,
         })
+
+        if auto_confirmed_free:
+            return JsonResponse({
+                'ok': True,
+                'payment_flow': 'free',
+                'pedido': pedido_payload,
+            })
 
         return JsonResponse({
             'ok': True,

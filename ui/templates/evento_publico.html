@@ -4303,11 +4303,6 @@
             return;
           }
         }
-        const previewTotal = getCheckoutPreviewTotal();
-        if (previewTotal <= 0 && Number(currentCashbackDesconto || 0) <= 0) {
-          setCheckoutFeedback('Nao ha valor para pagar neste evento.', 'error');
-          return;
-        }
         try {
           if (finalizarPagarBtn) finalizarPagarBtn.disabled = true;
           setCheckoutFeedback('Iniciando pagamento do valor total do evento...');
@@ -4322,6 +4317,16 @@
               throw new Error('Checkout de cartao nao retornou URL de redirecionamento.');
             }
             window.location.href = redirectUrl;
+            return;
+          }
+          if (paymentResponse.payment_flow === 'free') {
+            const paidPedidoId = String(pedido.pedido_id || pedido.id || '');
+            applyLocalPaidStock(paidPedidoId);
+            cart.length = 0;
+            renderCart();
+            closeCartDrawer();
+            setCheckoutFeedback('Inscricao confirmada com sucesso.', 'success');
+            showPaidFinalization(pedido);
             return;
           }
           renderPixModal(pedido);
