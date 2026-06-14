@@ -5009,6 +5009,12 @@
             feedbackNode.textContent = 'Opcional.';
             labelNode.appendChild(feedbackNode);
           }
+          if (isDiretoriaField) {
+            const diretoriaNoteNode = document.createElement('small');
+            diretoriaNoteNode.className = 'panel-note';
+            diretoriaNoteNode.textContent = 'Marque somente se esta pessoa faz parte da diretoria e ajuda no clube.';
+            labelNode.appendChild(diretoriaNoteNode);
+          }
           if (Object.prototype.hasOwnProperty.call(sourceRow, label)) {
             const rawValue = String(sourceRow[label] == null ? '' : sourceRow[label]);
             if (isDiretoriaField && input instanceof HTMLInputElement && input.type === 'checkbox') {
@@ -5119,6 +5125,16 @@
             list.addEventListener('change', (event) => {
               const target = event.target;
               if (!(target instanceof HTMLInputElement)) return;
+              if (normalizeLookupText(target.getAttribute('data-repeat-key') || '') === repeatDiretoriaFieldKey) {
+                if (target.type === 'checkbox' && target.checked) {
+                  const confirmed = window.confirm('Confirme somente se esta pessoa faz parte da diretoria e ajuda no clube.');
+                  if (!confirmed) {
+                    target.checked = false;
+                  }
+                }
+                serializeRepeatField(fieldWrap);
+                return;
+              }
               if (normalizeLookupText(target.getAttribute('data-repeat-key') || '') !== repeatDiscountFieldKey) return;
               lookupRepeatDiscountCode(target);
             });
