@@ -6895,7 +6895,7 @@ class EventoPublicoView(View):
                 'criancas_linhas': criancas_info.get('linhas', []),
                 'criancas_total': int(criancas_info.get('total', 0) or 0),
                 'dados_resumo': self._dados_resumo(dados_obj),
-                'dados_json': json.dumps(dados_obj, ensure_ascii=False, indent=2) if dados_obj else '',
+                'dados_json': json.dumps(self._to_json_safe(dados_obj), ensure_ascii=False, indent=2) if dados_obj else '',
                 'dados': dados_obj,
                 'outros_dados_rows': self._consulta_outros_dados_rows(dados_obj),
                 'pedidos': pedidos_rows,
@@ -7395,7 +7395,7 @@ class EventoPublicoView(View):
                         'pedidos_loja': self._pedidos_summary_for_inscrito(linked),
                         'pedidos_detalhes': pedidos_detalhes,
                         'dados_resumo': self._dados_resumo(dados_obj),
-                        'dados_json': json.dumps(dados_obj, ensure_ascii=False, indent=2) if dados_obj else '',
+                        'dados_json': json.dumps(self._to_json_safe(dados_obj), ensure_ascii=False, indent=2) if dados_obj else '',
                         'valor_inscricao_fmt': self._format_currency(
                             getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
                         ),
