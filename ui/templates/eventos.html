@@ -426,7 +426,7 @@
                     </label>
                     <label class="full js-fee-age-wrap">
                       Faixas de idade e valor
-                      <textarea name="inscricao_faixas_texto" rows="2" placeholder="Ex.: 1-4=20,diretoria=10; 5-12=40">{{ row.inscricao_valor_faixas_texto }}</textarea>
+                      <textarea name="inscricao_faixas_texto" rows="2" placeholder="Ex.: 0-5=0; 6-9=45; 10-12=60; 13-17=80; 18-120=150; diretoria=80">{{ row.inscricao_valor_faixas_texto }}</textarea>
                     </label>
                   </div>
                   <div class="field-section">
@@ -970,7 +970,7 @@
           </label>
           <label class="full js-fee-age-wrap">
             Faixas de idade e valor
-            <textarea name="inscricao_faixas_texto" id="event-inscricao-faixas-texto" rows="2" placeholder="Ex.: 1-4=20,diretoria=10; 5-12=40"></textarea>
+            <textarea name="inscricao_faixas_texto" id="event-inscricao-faixas-texto" rows="2" placeholder="Ex.: 0-5=0; 6-9=45; 10-12=60; 13-17=80; 18-120=150; diretoria=80"></textarea>
           </label>
         </div>
 
@@ -978,7 +978,7 @@
           <h3>Campos do evento</h3>
           <p class="panel-note">Se um campo do tipo Numero deve receber o WhatsApp do inscrito, marque "Numero WhatsApp para notificacao: Sim".</p>
           <p class="panel-note">Use o botão + para adicionar os campos que esse evento precisa.</p>
-          <p class="panel-note">No tipo Botao repetidor, clique em "Montar subcampos" para preencher sem codigo. Se quiser, ainda pode usar: Nome:texto; Idade:numero; Camiseta:seletor(P|M|G). Quando a cobranca estiver em "Valor por faixa de idade (botao repetidor)", o sistema adiciona automaticamente os subcampos opcionais "Codigo de desconto" e "Integrante diretoria" em cada participante. Nas faixas voce pode informar valor normal e valor de diretoria, por exemplo: 18-120=150,diretoria=80.</p>
+          <p class="panel-note">No tipo Botao repetidor, clique em "Montar subcampos" para preencher sem codigo. Se quiser, ainda pode usar: Nome:texto; Idade:numero; Camiseta:seletor(P|M|G). Quando a cobranca estiver em "Valor por faixa de idade (botao repetidor)", o sistema adiciona automaticamente os subcampos opcionais "Codigo de desconto" e "Integrante diretoria" em cada participante. Nas faixas informe os valores normais e, ao final, um valor global para diretoria, por exemplo: 0-5=0; 6-9=45; 10-12=60; 13-17=80; 18-120=150; diretoria=80.</p>
 
           <div class="event-fields" id="event-fields">
             <div class="event-field-row">

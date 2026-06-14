@@ -3610,6 +3610,13 @@ class EventosView(LoginRequiredMixin, View):
         if not isinstance(config, dict):
             return ''
         ranges = config.get('ranges') if isinstance(config.get('ranges'), list) else []
+        diretoria_value_raw = config.get('diretoria_value')
+        diretoria_value = None
+        if diretoria_value_raw not in {None, ''}:
+            try:
+                diretoria_value = Decimal(str(diretoria_value_raw or '0')).quantize(Decimal('0.01'))
+            except (TypeError, ValueError, InvalidOperation):
+                diretoria_value = None
         chunks = []
         for item in ranges:
             if not isinstance(item, dict):
@@ -3618,57 +3625,54 @@ class EventosView(LoginRequiredMixin, View):
                 min_age = int(item.get('min'))
                 max_age = int(item.get('max'))
                 value = Decimal(str(item.get('value') or '0')).quantize(Decimal('0.01'))
-                diretoria_value_raw = item.get('diretoria_value')
-                diretoria_value = None
-                if diretoria_value_raw not in {None, ''}:
-                    diretoria_value = Decimal(str(diretoria_value_raw or '0')).quantize(Decimal('0.01'))
             except (TypeError, ValueError, InvalidOperation):
                 continue
             value_text = f'{value:.2f}'.replace('.', ',')
-            if diretoria_value is not None:
-                diretoria_text = f'{diretoria_value:.2f}'.replace('.', ',')
-                chunks.append(f'{min_age}-{max_age}={value_text},diretoria={diretoria_text}')
-            else:
-                chunks.append(f'{min_age}-{max_age}={value_text}')
+            chunks.append(f'{min_age}-{max_age}={value_text}')
+        if diretoria_value is not None:
+            diretoria_text = f'{diretoria_value:.2f}'.replace('.', ',')
+            chunks.append(f'diretoria={diretoria_text}')
         return '; '.join(chunks)
 
     def _parse_inscricao_faixas_texto(self, raw_value):
         rows = []
+        diretoria_value = None
         text = str(raw_value or '').strip()
         if not text:
             return rows, 'Informe as faixas de idade (ex.: 1-4=20; 5-12=40).'
         chunks = [part.strip() for part in re.split(r'[\n;]+', text) if str(part or '').strip()]
         for token in chunks:
+            diretoria_match = re.fullmatch(
+                r'diretoria\s*[:=]\s*([0-9]+(?:[.,][0-9]{1,2})?)',
+                token,
+                flags=re.IGNORECASE,
+            )
+            if diretoria_match:
+                diretoria_value = self._parse_valor(diretoria_match.group(1))
+                if diretoria_value is None or diretoria_value < 0:
+                    return [], None, f'Valor de diretoria invalido em "{token}".'
+                continue
             match = re.fullmatch(
-                r'(\d+)\s*[-aA]\s*(\d+)\s*[:=]\s*([0-9]+(?:[.,][0-9]{1,2})?)'
-                r'(?:\s*,\s*diretoria\s*[:=]\s*([0-9]+(?:[.,][0-9]{1,2})?))?',
+                r'(\d+)\s*[-aA]\s*(\d+)\s*[:=]\s*([0-9]+(?:[.,][0-9]{1,2})?)',
                 token,
                 flags=re.IGNORECASE,
             )
             if not match:
-                return [], f'Faixa invalida: "{token}". Use formato 1-4=20 ou 1-4=20,diretoria=10.'
+                return [], None, f'Faixa invalida: "{token}". Use formato 1-4=20 ou diretoria=80.'
             min_age = int(match.group(1))
             max_age = int(match.group(2))
             if max_age < min_age:
-                return [], f'Faixa invalida: "{token}". O maximo precisa ser maior ou igual ao minimo.'
+                return [], None, f'Faixa invalida: "{token}". O maximo precisa ser maior ou igual ao minimo.'
             valor = self._parse_valor(match.group(3))
             if valor is None or valor < 0:
-                return [], f'Valor invalido na faixa "{token}".'
-            diretoria_valor = None
-            if match.group(4):
-                diretoria_valor = self._parse_valor(match.group(4))
-                if diretoria_valor is None or diretoria_valor < 0:
-                    return [], f'Valor de diretoria invalido na faixa "{token}".'
-            row_obj = {
+                return [], None, f'Valor invalido na faixa "{token}".'
+            rows.append({
                 'min': min_age,
                 'max': max_age,
                 'value': str(valor),
-            }
-            if diretoria_valor is not None:
-                row_obj['diretoria_value'] = str(diretoria_valor)
-            rows.append(row_obj)
+            })
         if not rows:
-            return [], 'Informe ao menos uma faixa de idade.'
+            return [], None, 'Informe ao menos uma faixa de idade.'
         rows.sort(key=lambda item: (int(item.get('min', 0)), int(item.get('max', 0))))
         for idx in range(1, len(rows)):
             previous = rows[idx - 1]
@@ -3679,11 +3683,11 @@ class EventosView(LoginRequiredMixin, View):
             except (TypeError, ValueError):
                 continue
             if current_min <= previous_max:
-                return [], (
+                return [], None, (
                     'As faixas de idade estao sobrepostas. Ajuste para nao repetir idades '
                     f'({previous.get("min")}-{previous.get("max")} e {current.get("min")}-{current.get("max")}).'
                 )
-        return rows, ''
+        return rows, diretoria_value, ''
 
     def _parse_inscricao_valor_config_request(self, request):
         mode = self._normalize_inscricao_valor_modo(request.POST.get('inscricao_valor_modo'))
@@ -3692,7 +3696,7 @@ class EventosView(LoginRequiredMixin, View):
         if mode == Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR:
             repeat_field = str(request.POST.get('inscricao_faixa_repeat_field') or '').strip()
             age_field = str(request.POST.get('inscricao_faixa_age_field') or '').strip()
-            ranges, ranges_error = self._parse_inscricao_faixas_texto(request.POST.get('inscricao_faixas_texto'))
+            ranges, diretoria_value, ranges_error = self._parse_inscricao_faixas_texto(request.POST.get('inscricao_faixas_texto'))
             if not repeat_field:
                 messages.error(request, 'Informe o nome do campo repetidor para regra por faixa de idade.')
                 return None, None, None
@@ -3766,6 +3770,7 @@ class EventosView(LoginRequiredMixin, View):
                 'repeat_field': repeat_field,
                 'age_field': age_field,
                 'ranges': ranges,
+                'diretoria_value': str(diretoria_value) if diretoria_value is not None else '',
             }
         valor = self._parse_valor(request.POST.get('inscricao_valor_unitario'))
         if valor is None or valor <= 0:
@@ -5359,6 +5364,13 @@ class EventoPublicoView(View):
         discount_field_key = self._event_repeat_discount_field_key(evento)
         diretoria_field_key = self._event_repeat_diretoria_field_key(evento)
         age_field_key = self._normalize_lookup_text(age_field)
+        global_diretoria_value_raw = config.get('diretoria_value')
+        global_diretoria_value = None
+        if global_diretoria_value_raw not in {None, ''}:
+            try:
+                global_diretoria_value = Decimal(str(global_diretoria_value_raw or '0')).quantize(Decimal('0.01'))
+            except (TypeError, ValueError, InvalidOperation):
+                global_diretoria_value = None
 
         for idx, row in enumerate(repeat_rows, start=1):
             if not self._row_has_any_value(row) or not isinstance(row, dict):
@@ -5382,7 +5394,6 @@ class EventoPublicoView(View):
                 }
             age = int(age_match.group(0))
             matched_value = None
-            matched_diretoria_value = None
             for item in ranges:
                 if not isinstance(item, dict):
                     continue
@@ -5390,17 +5401,10 @@ class EventoPublicoView(View):
                     min_age = int(item.get('min'))
                     max_age = int(item.get('max'))
                     item_value = Decimal(str(item.get('value') or '0')).quantize(Decimal('0.01'))
-                    diretoria_value_raw = item.get('diretoria_value')
-                    diretoria_value = (
-                        Decimal(str(diretoria_value_raw or '0')).quantize(Decimal('0.01'))
-                        if diretoria_value_raw not in {None, ''}
-                        else None
-                    )
                 except (TypeError, ValueError, InvalidOperation):
                     continue
                 if min_age <= age <= max_age:
                     matched_value = item_value
-                    matched_diretoria_value = diretoria_value
                     break
             if matched_value is None:
                 return {
@@ -5439,7 +5443,7 @@ class EventoPublicoView(View):
                 nome = f'Participante {idx}'
 
             is_diretoria = self._row_is_diretoria_member(row, evento=evento)
-            valor_base = matched_diretoria_value if is_diretoria and matched_diretoria_value is not None else matched_value
+            valor_base = global_diretoria_value if is_diretoria and global_diretoria_value is not None else matched_value
             valor_base = Decimal(valor_base or Decimal('0.00')).quantize(Decimal('0.01'))
 
             codigo_raw = self._get_row_value_by_normalized_key(row, discount_field_label)
@@ -5741,6 +5745,13 @@ class EventoPublicoView(View):
             return []
 
         faixas = []
+        global_diretoria_value_raw = config.get('diretoria_value')
+        global_diretoria_value = None
+        if global_diretoria_value_raw not in {None, ''}:
+            try:
+                global_diretoria_value = Decimal(str(global_diretoria_value_raw or '0')).quantize(Decimal('0.01'))
+            except (TypeError, ValueError, InvalidOperation):
+                global_diretoria_value = None
         for item in ranges:
             if not isinstance(item, dict):
                 continue
@@ -5748,12 +5759,6 @@ class EventoPublicoView(View):
                 min_age = int(item.get('min'))
                 max_age = int(item.get('max'))
                 value = Decimal(str(item.get('value') or '0')).quantize(Decimal('0.01'))
-                diretoria_value_raw = item.get('diretoria_value')
-                diretoria_value = (
-                    Decimal(str(diretoria_value_raw or '0')).quantize(Decimal('0.01'))
-                    if diretoria_value_raw not in {None, ''}
-                    else None
-                )
             except (TypeError, ValueError, InvalidOperation):
                 continue
             if max_age < min_age:
@@ -5762,7 +5767,6 @@ class EventoPublicoView(View):
                 'min': min_age,
                 'max': max_age,
                 'value': value,
-                'diretoria_value': diretoria_value,
                 'quantidade': 0,
                 'quantidade_diretoria': 0,
                 'valor_total': Decimal('0.00'),
@@ -5788,7 +5792,7 @@ class EventoPublicoView(View):
                 is_diretoria = self._row_is_diretoria_member(row, evento=evento)
                 for faixa in faixas:
                     if faixa['min'] <= age <= faixa['max']:
-                        valor_faixa = faixa['diretoria_value'] if is_diretoria and faixa['diretoria_value'] is not None else faixa['value']
+                        valor_faixa = global_diretoria_value if is_diretoria and global_diretoria_value is not None else faixa['value']
                         faixa['quantidade'] += 1
                         if is_diretoria:
                             faixa['quantidade_diretoria'] += 1

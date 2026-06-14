@@ -4721,8 +4721,8 @@
               const minAge = Number(rangeItem && rangeItem.min);
               const maxAge = Number(rangeItem && rangeItem.max);
               const normalRangeValue = safeMoneyNumber(rangeItem && rangeItem.value);
-              const hasDiretoriaRangeValue = !!(rangeItem && Object.prototype.hasOwnProperty.call(rangeItem, 'diretoria_value') && String(rangeItem.diretoria_value).trim() !== '');
-              const diretoriaRangeValue = safeMoneyNumber(rangeItem && rangeItem.diretoria_value);
+              const hasDiretoriaRangeValue = !!(feeConfig && Object.prototype.hasOwnProperty.call(feeConfig, 'diretoria_value') && String(feeConfig.diretoria_value).trim() !== '');
+              const diretoriaRangeValue = safeMoneyNumber(feeConfig && feeConfig.diretoria_value);
               if (!Number.isFinite(minAge) || !Number.isFinite(maxAge)) continue;
               if (age < minAge || age > maxAge) continue;
               const isDiretoria = isRepeatDiretoriaMember(row);
