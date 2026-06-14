@@ -5104,6 +5104,23 @@ class EventoPublicoView(View):
     template_name = 'evento_publico.html'
     delete_inscricao_password = '1580'
 
+    def _to_json_safe(self, value):
+        if isinstance(value, dict):
+            return {str(k): self._to_json_safe(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [self._to_json_safe(item) for item in value]
+        if isinstance(value, Decimal):
+            return str(value)
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, date):
+            return value.isoformat()
+        if isinstance(value, datetime_time):
+            return value.strftime('%H:%M:%S')
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return value
+        return str(value)
+
     def _can_calcular_taxa_evento(self, request):
         if not getattr(request.user, 'is_authenticated', False):
             return False
