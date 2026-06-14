@@ -846,6 +846,59 @@ class EventoPreset(models.Model):
         return self.preset_name
 
 
+class EventoDescontoCodigo(models.Model):
+    evento = models.ForeignKey('Evento', on_delete=models.CASCADE, related_name='desconto_codigos')
+    codigo = models.CharField('codigo de desconto', max_length=24, unique=True, db_index=True)
+    percentual_desconto = models.DecimalField('percentual de desconto', max_digits=5, decimal_places=2)
+    usado = models.BooleanField('usado', default=False)
+    usado_at = models.DateTimeField('usado em', null=True, blank=True)
+    usado_por_inscricao = models.ForeignKey(
+        'EventoInscricao',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='desconto_codigos_utilizados',
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='eventos_descontos_criados',
+    )
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        verbose_name = 'codigo de desconto do evento'
+        verbose_name_plural = 'codigos de desconto dos eventos'
+
+    def __str__(self):
+        return f'{self.evento.name} - {self.codigo}'
+
+    @staticmethod
+    def normalize_codigo(raw_value):
+        text = str(raw_value or '').upper().strip()
+        return ''.join(ch for ch in text if ch.isalnum())[:24]
+
+    def save(self, *args, **kwargs):
+        self.codigo = self.normalize_codigo(self.codigo)
+        if self.percentual_desconto is None:
+            self.percentual_desconto = Decimal('0.00')
+        self.percentual_desconto = Decimal(self.percentual_desconto).quantize(Decimal('0.01'))
+        if self.percentual_desconto < Decimal('0.00'):
+            self.percentual_desconto = Decimal('0.00')
+        if self.percentual_desconto > Decimal('100.00'):
+            self.percentual_desconto = Decimal('100.00')
+        if self.usado and not self.usado_at:
+            self.usado_at = timezone.now()
+        if not self.usado:
+            self.usado_at = None
+            self.usado_por_inscricao = None
+        super().save(*args, **kwargs)
+
+
 class EventoInscricao(models.Model):
     evento = models.ForeignKey(Evento, on_delete=models.CASCADE, related_name='inscricoes')
     user = models.ForeignKey(
@@ -872,6 +925,11 @@ class EventoInscricao(models.Model):
         blank=True,
         related_name='inscricoes_indicadas',
     )
+    desconto_codigo = models.ForeignKey('EventoDescontoCodigo', on_delete=models.SET_NULL, null=True, blank=True, related_name='inscricoes_com_desconto')
+    desconto_codigo_texto = models.CharField('codigo de desconto usado', max_length=24, blank=True)
+    desconto_percentual = models.DecimalField('percentual desconto', max_digits=5, decimal_places=2, default=Decimal('0.00'))
+    desconto_valor = models.DecimalField('valor desconto', max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    valor_inscricao_original = models.DecimalField('valor original da inscricao', max_digits=10, decimal_places=2, default=Decimal('0.00'))
     valor_inscricao = models.DecimalField('valor da inscrição', max_digits=10, decimal_places=2, default=Decimal('0.00'))
     valor_inscricao_unidades = models.PositiveIntegerField('unidades da cobrança de inscrição', default=0)
     cashback_creditado = models.BooleanField('cashback creditado', default=False)

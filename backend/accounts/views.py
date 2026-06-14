@@ -23,7 +23,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView as DjangoLoginView
 from django.views import View
 from django.utils import timezone
-from django.utils.crypto import constant_time_compare
+from django.utils.crypto import constant_time_compare, get_random_string
 from django.utils.decorators import method_decorator
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.core.validators import validate_email
@@ -61,6 +61,7 @@ from .models import (
     EventoCusto,
     FinanceiroComprovante,
     EventoPreset,
+    EventoDescontoCodigo,
     EventoInscricao,
     EventoPresenca,
     EventoFaltaInscricao,
@@ -5214,6 +5215,118 @@ class EventoPublicoView(View):
             return 'Sem cobranca'
         return f'{self._inscricao_valor_mode_label(mode)} ({self._format_currency(unit)})'
 
+    def _normalize_event_discount_code(self, raw_value):
+        return EventoDescontoCodigo.normalize_codigo(raw_value)
+
+    def _generate_event_discount_code(self, evento):
+        event_part = str(getattr(evento, 'id', '') or '')
+        prefix = f'E{event_part}'[-4:] if event_part else 'EVT'
+        for _attempt in range(60):
+            candidate = self._normalize_event_discount_code(
+                f'{prefix}{get_random_string(6, allowed_chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789")}'
+            )
+            if candidate and not EventoDescontoCodigo.objects.filter(codigo=candidate).exists():
+                return candidate
+        raise ValueError('Nao foi possivel gerar codigo unico de desconto para este evento.')
+
+    def _resolve_event_discount_code(self, evento, codigo_raw, *, inscricao=None):
+        codigo = self._normalize_event_discount_code(codigo_raw)
+        if not codigo:
+            return '', None, 'Informe um codigo de desconto valido.'
+        code_obj = (
+            EventoDescontoCodigo.objects
+            .filter(evento=evento, codigo__iexact=codigo)
+            .select_related('usado_por_inscricao')
+            .first()
+        )
+        if not code_obj:
+            return codigo, None, 'Codigo de desconto invalido para este evento.'
+        if code_obj.usado and (not inscricao or code_obj.usado_por_inscricao_id != inscricao.id):
+            return codigo, None, 'Este codigo de desconto ja foi utilizado.'
+        return codigo, code_obj, ''
+
+    def _apply_event_discount_to_fee(self, evento, fee_total, codigo_raw, *, inscricao=None):
+        total_original = Decimal(fee_total or Decimal('0.00')).quantize(Decimal('0.01'))
+        if total_original <= 0:
+            return {
+                'codigo': '',
+                'code_obj': None,
+                'percentual': Decimal('0.00'),
+                'valor_desconto': Decimal('0.00'),
+                'valor_original': total_original,
+                'valor_final': total_original,
+                'error': '',
+            }
+        codigo_text = str(codigo_raw or '').strip()
+        if not codigo_text:
+            return {
+                'codigo': '',
+                'code_obj': None,
+                'percentual': Decimal('0.00'),
+                'valor_desconto': Decimal('0.00'),
+                'valor_original': total_original,
+                'valor_final': total_original,
+                'error': '',
+            }
+        codigo, code_obj, error = self._resolve_event_discount_code(evento, codigo_text, inscricao=inscricao)
+        if error:
+            return {
+                'codigo': codigo,
+                'code_obj': None,
+                'percentual': Decimal('0.00'),
+                'valor_desconto': Decimal('0.00'),
+                'valor_original': total_original,
+                'valor_final': total_original,
+                'error': error,
+            }
+        percentual = Decimal(code_obj.percentual_desconto or Decimal('0.00')).quantize(Decimal('0.01'))
+        valor_desconto = ((total_original * percentual) / Decimal('100.00')).quantize(Decimal('0.01'))
+        valor_final = (total_original - valor_desconto).quantize(Decimal('0.01'))
+        if valor_final < Decimal('0.00'):
+            valor_final = Decimal('0.00')
+        return {
+            'codigo': codigo,
+            'code_obj': code_obj,
+            'percentual': percentual,
+            'valor_desconto': valor_desconto,
+            'valor_original': total_original,
+            'valor_final': valor_final,
+            'error': '',
+        }
+
+    def _bind_event_discount_code(self, inscricao, discount_result):
+        if not inscricao:
+            return
+        code_obj = discount_result.get('code_obj')
+        codigo = str(discount_result.get('codigo') or '').strip()
+        percentual = Decimal(discount_result.get('percentual') or Decimal('0.00')).quantize(Decimal('0.01'))
+        valor_desconto = Decimal(discount_result.get('valor_desconto') or Decimal('0.00')).quantize(Decimal('0.01'))
+        valor_original = Decimal(discount_result.get('valor_original') or Decimal('0.00')).quantize(Decimal('0.01'))
+        valor_final = Decimal(discount_result.get('valor_final') or Decimal('0.00')).quantize(Decimal('0.01'))
+
+        old_code = None
+        if getattr(inscricao, 'desconto_codigo_id', None):
+            old_code = EventoDescontoCodigo.objects.filter(pk=inscricao.desconto_codigo_id).first()
+
+        inscricao.desconto_codigo = code_obj
+        inscricao.desconto_codigo_texto = codigo
+        inscricao.desconto_percentual = percentual
+        inscricao.desconto_valor = valor_desconto
+        inscricao.valor_inscricao_original = valor_original
+        inscricao.valor_inscricao = valor_final
+
+        if old_code and (not code_obj or old_code.id != code_obj.id):
+            old_code.usado = False
+            old_code.usado_at = None
+            old_code.usado_por_inscricao = None
+            old_code.save(update_fields=['usado', 'usado_at', 'usado_por_inscricao', 'updated_at'])
+
+        if code_obj and (not code_obj.usado or code_obj.usado_por_inscricao_id != inscricao.id):
+            code_obj.usado = True
+            code_obj.usado_at = timezone.now()
+            code_obj.usado_por_inscricao = inscricao
+            code_obj.save(update_fields=['usado', 'usado_at', 'usado_por_inscricao', 'updated_at'])
+
     def _row_has_any_value(self, row_obj):
         if not isinstance(row_obj, dict):
             return False
@@ -6610,6 +6723,7 @@ class EventoPublicoView(View):
         checkout_installments=1,
         open_event_extrato=False,
         open_event_taxas=False,
+        open_event_discount_codes=False,
     ):
         schema = self._event_schema(evento)
         produtos = self._produto_rows_evento(evento)
@@ -6665,6 +6779,7 @@ class EventoPublicoView(View):
             else:
                 form_initial_by_input[field['input_name']] = '' if raw_value is None else str(raw_value)
         form_codigo_indicacao = str(getattr(form_source, 'codigo_indicacao_usado', '') or '').strip()
+        form_codigo_desconto_evento = str(getattr(form_source, 'desconto_codigo_texto', '') or '').strip()
         cashback_rows = []
         if request.user.is_authenticated:
             loja_view = LojaView()
@@ -6676,6 +6791,9 @@ class EventoPublicoView(View):
         register_summary_fee_mode_label = ''
         register_summary_fee_units = 0
         register_summary_fee_value_fmt = ''
+        register_summary_discount_code = ''
+        register_summary_discount_percent_fmt = ''
+        register_summary_discount_value_fmt = ''
         if show_register_summary and inscricao:
             dados_obj = inscricao.dados if isinstance(inscricao.dados, dict) else {}
             used_keys = set()
@@ -6710,6 +6828,12 @@ class EventoPublicoView(View):
             register_summary_fee_units = int(getattr(inscricao, 'valor_inscricao_unidades', 0) or 0)
             if fee_value > 0:
                 register_summary_fee_value_fmt = self._format_currency(fee_value)
+            if getattr(inscricao, 'desconto_codigo_texto', ''):
+                register_summary_discount_code = str(inscricao.desconto_codigo_texto or '').strip()
+                register_summary_discount_percent_fmt = f'{Decimal(getattr(inscricao, "desconto_percentual", Decimal("0.00")) or Decimal("0.00")).quantize(Decimal("0.01"))}%'
+                register_summary_discount_value_fmt = self._format_currency(
+                    Decimal(getattr(inscricao, 'desconto_valor', Decimal('0.00')) or Decimal('0.00'))
+                )
         can_manage_evento = self._can_manage_evento_page(request, evento)
         can_calcular_taxa_evento = bool(can_manage_evento and self._can_calcular_taxa_evento(request))
         inscricoes_count = 0
@@ -6736,6 +6860,7 @@ class EventoPublicoView(View):
         lucro_bruto = Decimal('0.00')
         taxa_cartao_evento = Decimal('0.00')
         lucro_liquido = Decimal('0.00')
+        event_discount_code_rows = []
         if can_manage_evento:
             try:
                 for produto_row in produtos:
@@ -6987,6 +7112,9 @@ class EventoPublicoView(View):
                             getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')
                         ),
                         'valor_inscricao_unidades': int(getattr(inscricao, 'valor_inscricao_unidades', 0) or 0),
+                        'desconto_codigo_texto': str(getattr(inscricao, 'desconto_codigo_texto', '') or '').strip(),
+                        'desconto_percentual_fmt': f'{Decimal(getattr(inscricao, "desconto_percentual", Decimal("0.00")) or Decimal("0.00")).quantize(Decimal("0.01"))}%',
+                        'desconto_valor_fmt': self._format_currency(getattr(inscricao, 'desconto_valor', Decimal('0.00')) or Decimal('0.00')),
                         'data_inscricao': inscricao.created_at,
                     })
                 sale_inscricoes_qs = (
@@ -7004,7 +7132,13 @@ class EventoPublicoView(View):
                         try:
                             _fee_mode, fee_units_item, fee_total_item, fee_error_item = self._calcular_inscricao_valor(evento, schema, dados_obj)
                             if not fee_error_item:
-                                valor_inscricao_item = fee_total_item
+                                discount_preview = self._apply_event_discount_to_fee(
+                                    evento,
+                                    fee_total_item,
+                                    getattr(inscricao, 'desconto_codigo_texto', ''),
+                                    inscricao=inscricao,
+                                )
+                                valor_inscricao_item = discount_preview.get('valor_final') or fee_total_item
                                 valor_inscricao_unidades_item = int(fee_units_item or 0)
                         except Exception:
                             logger.exception('Falha ao recalcular valor da inscricao pendente id=%s.', inscricao.id)
@@ -7024,6 +7158,22 @@ class EventoPublicoView(View):
                         'fee_breakdown': fee_breakdown,
                         'fee_breakdown_json': json.dumps(fee_breakdown, ensure_ascii=False),
                     })
+                if _get_active_profile(request) == UserAccess.ROLE_DIRETOR:
+                    for code in (
+                        EventoDescontoCodigo.objects
+                        .filter(evento=evento)
+                        .select_related('usado_por_inscricao')
+                        .order_by('-created_at')[:300]
+                    ):
+                        inscricao_usada = getattr(code, 'usado_por_inscricao', None)
+                        event_discount_code_rows.append({
+                            'codigo': code.codigo,
+                            'percentual_fmt': f'{Decimal(code.percentual_desconto or Decimal("0.00")).quantize(Decimal("0.01"))}%',
+                            'usado': bool(code.usado),
+                            'usado_label': 'Usado' if code.usado else 'Disponivel',
+                            'usado_at': code.usado_at,
+                            'inscricao_codigo': str(getattr(inscricao_usada, 'codigo_inscricao', '') or '-').strip() or '-',
+                        })
             except Exception:
                 logger.exception('Falha ao montar dados de gestao do evento id=%s.', evento.id)
         # Na rota publica de vendas-inscritos, precisamos de sugestoes de busca
@@ -7127,6 +7277,7 @@ class EventoPublicoView(View):
             'consulta_results': consulta_results if isinstance(consulta_results, list) else [],
             'form_initial_by_input': form_initial_by_input,
             'form_codigo_indicacao': form_codigo_indicacao,
+            'form_codigo_desconto_evento': form_codigo_desconto_evento,
             'form_edit_registration_id': str(edit_target_inscricao.id) if edit_target_inscricao else '',
             'show_register_summary': bool(show_register_summary and inscricao),
             'register_summary_items': register_summary_items,
@@ -7134,6 +7285,9 @@ class EventoPublicoView(View):
             'register_summary_fee_mode_label': register_summary_fee_mode_label,
             'register_summary_fee_units': register_summary_fee_units,
             'register_summary_fee_value_fmt': register_summary_fee_value_fmt,
+            'register_summary_discount_code': register_summary_discount_code,
+            'register_summary_discount_percent_fmt': register_summary_discount_percent_fmt,
+            'register_summary_discount_value_fmt': register_summary_discount_value_fmt,
             'auto_start_pix': bool(auto_start_pix),
             'checkout_payment_method': 'cartao' if str(checkout_payment_method or '').strip().lower() == 'cartao' else 'pix',
             'checkout_installments': max(1, min(12, int(checkout_installments or 1))) if str(checkout_installments or '1').strip().isdigit() else 1,
@@ -7172,6 +7326,8 @@ class EventoPublicoView(View):
             'cashback_lancamento_inscricoes': cashback_lancamento_inscricoes,
             'cashback_lancamento_aventureiros': cashback_lancamento_aventureiros,
             'inscricao_faixas_resumo': inscricao_faixas_resumo,
+            'event_discount_code_rows': event_discount_code_rows,
+            'open_event_discount_codes': bool(open_event_discount_codes),
             'event_extrato_rows': event_extrato_rows,
             'cashback_rows': cashback_rows,
             'mercadopago_fee_config': _mercadopago_fee_config_payload(),
@@ -7465,14 +7621,29 @@ class EventoPublicoView(View):
             if fee_error:
                 messages.error(request, fee_error)
                 return render(request, self.template_name, self._context(request, evento))
-            inscricao_valor_pendente = Decimal(fee_total or Decimal('0.00')).quantize(Decimal('0.01'))
+            discount_result = self._apply_event_discount_to_fee(
+                evento,
+                fee_total,
+                getattr(inscricao, 'desconto_codigo_texto', ''),
+                inscricao=inscricao,
+            )
+            inscricao_valor_pendente = Decimal(discount_result.get('valor_final') or Decimal('0.00')).quantize(Decimal('0.01'))
             if (
                 inscricao_valor_pendente != Decimal(getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
                 or int(getattr(inscricao, 'valor_inscricao_unidades', 0) or 0) != int(fee_units or 0)
             ):
-                inscricao.valor_inscricao = inscricao_valor_pendente
+                self._bind_event_discount_code(inscricao, discount_result)
                 inscricao.valor_inscricao_unidades = int(fee_units or 0)
-                inscricao.save(update_fields=['valor_inscricao', 'valor_inscricao_unidades', 'updated_at'])
+                inscricao.save(update_fields=[
+                    'desconto_codigo',
+                    'desconto_codigo_texto',
+                    'desconto_percentual',
+                    'desconto_valor',
+                    'valor_inscricao_original',
+                    'valor_inscricao',
+                    'valor_inscricao_unidades',
+                    'updated_at',
+                ])
 
         forma_pagamento = str(request.POST.get('sale_payment_method') or '').strip().lower()
         formas_validas = {
@@ -7820,6 +7991,54 @@ class EventoPublicoView(View):
             )
             return render(request, self.template_name, self._context(request, evento))
 
+        if action == 'generate_event_discount_codes':
+            if not can_manage_evento:
+                messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
+                return render(request, self.template_name, self._context(request, evento))
+            if _get_active_profile(request) != UserAccess.ROLE_DIRETOR:
+                messages.error(request, 'Somente diretor pode gerar codigos de desconto para o evento.')
+                return render(request, self.template_name, self._context(request, evento, open_event_discount_codes=True))
+            percent_raw = str(request.POST.get('discount_percent') or '').strip()
+            quantity_raw = str(request.POST.get('discount_quantity') or '').strip()
+            try:
+                percent = Decimal(percent_raw.replace(',', '.')).quantize(Decimal('0.01'))
+            except (InvalidOperation, TypeError, ValueError):
+                percent = None
+            try:
+                quantity = int(quantity_raw)
+            except (TypeError, ValueError):
+                quantity = 0
+            if percent is None or percent <= 0 or percent > Decimal('100.00'):
+                messages.error(request, 'Informe um percentual de desconto valido entre 0,01% e 100%.')
+                return render(request, self.template_name, self._context(request, evento, open_event_discount_codes=True))
+            if quantity <= 0 or quantity > 500:
+                messages.error(request, 'Informe uma quantidade valida de codigos entre 1 e 500.')
+                return render(request, self.template_name, self._context(request, evento, open_event_discount_codes=True))
+            created_codes = []
+            try:
+                with transaction.atomic():
+                    for _idx in range(quantity):
+                        codigo = self._generate_event_discount_code(evento)
+                        EventoDescontoCodigo.objects.create(
+                            evento=evento,
+                            codigo=codigo,
+                            percentual_desconto=percent,
+                            created_by=request.user if request.user.is_authenticated else None,
+                        )
+                        created_codes.append(codigo)
+            except Exception:
+                logger.exception('Falha ao gerar codigos de desconto do evento id=%s.', evento.id)
+                messages.error(request, 'Nao foi possivel gerar os codigos de desconto agora.')
+                return render(request, self.template_name, self._context(request, evento, open_event_discount_codes=True))
+            preview = ', '.join(created_codes[:8])
+            if len(created_codes) > 8:
+                preview += ', ...'
+            messages.success(
+                request,
+                f'{len(created_codes)} codigo(s) de desconto gerado(s) com {percent}%: {preview}',
+            )
+            return render(request, self.template_name, self._context(request, evento, open_event_discount_codes=True))
+
         if action == 'calcular_taxa_cartao_evento':
             if not can_manage_evento:
                 messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
@@ -7961,6 +8180,24 @@ class EventoPublicoView(View):
                         'cancelada_by',
                         'updated_at',
                     ])
+                    if getattr(inscricao_cancelar, 'desconto_codigo_id', None):
+                        self._bind_event_discount_code(inscricao_cancelar, {
+                            'codigo': '',
+                            'code_obj': None,
+                            'percentual': Decimal('0.00'),
+                            'valor_desconto': Decimal('0.00'),
+                            'valor_original': Decimal(getattr(inscricao_cancelar, 'valor_inscricao_original', Decimal('0.00')) or Decimal('0.00')),
+                            'valor_final': Decimal(getattr(inscricao_cancelar, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')),
+                        })
+                        inscricao_cancelar.save(update_fields=[
+                            'desconto_codigo',
+                            'desconto_codigo_texto',
+                            'desconto_percentual',
+                            'desconto_valor',
+                            'valor_inscricao_original',
+                            'valor_inscricao',
+                            'updated_at',
+                        ])
                     cancelled_total += 1
             if cancelled_total <= 0:
                 messages.error(request, 'Nenhuma inscricao foi cancelada.')
@@ -8003,6 +8240,24 @@ class EventoPublicoView(View):
                             'cancelada_by',
                             'updated_at',
                         ])
+                        if getattr(inscricao_cancelar, 'desconto_codigo_id', None):
+                            self._bind_event_discount_code(inscricao_cancelar, {
+                                'codigo': '',
+                                'code_obj': None,
+                                'percentual': Decimal('0.00'),
+                                'valor_desconto': Decimal('0.00'),
+                                'valor_original': Decimal(getattr(inscricao_cancelar, 'valor_inscricao_original', Decimal('0.00')) or Decimal('0.00')),
+                                'valor_final': Decimal(getattr(inscricao_cancelar, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')),
+                            })
+                            inscricao_cancelar.save(update_fields=[
+                                'desconto_codigo',
+                                'desconto_codigo_texto',
+                                'desconto_percentual',
+                                'desconto_valor',
+                                'valor_inscricao_original',
+                                'valor_inscricao',
+                                'updated_at',
+                            ])
                         cancelled_total += 1
             else:
                 inscricao = self._current_inscricao(request, evento)
@@ -8024,6 +8279,24 @@ class EventoPublicoView(View):
                         'cancelada_by',
                         'updated_at',
                     ])
+                    if getattr(inscricao, 'desconto_codigo_id', None):
+                        self._bind_event_discount_code(inscricao, {
+                            'codigo': '',
+                            'code_obj': None,
+                            'percentual': Decimal('0.00'),
+                            'valor_desconto': Decimal('0.00'),
+                            'valor_original': Decimal(getattr(inscricao, 'valor_inscricao_original', Decimal('0.00')) or Decimal('0.00')),
+                            'valor_final': Decimal(getattr(inscricao, 'valor_inscricao', Decimal('0.00')) or Decimal('0.00')),
+                        })
+                        inscricao.save(update_fields=[
+                            'desconto_codigo',
+                            'desconto_codigo_texto',
+                            'desconto_percentual',
+                            'desconto_valor',
+                            'valor_inscricao_original',
+                            'valor_inscricao',
+                            'updated_at',
+                        ])
                     cancelled_total = 1
                 request.session.pop(_evento_public_inscricao_session_key(evento.id), None)
 
@@ -8152,6 +8425,26 @@ class EventoPublicoView(View):
         if fee_error:
             messages.error(request, fee_error)
             return render(request, self.template_name, self._context(request, evento))
+        codigo_desconto_evento_raw = str(request.POST.get('codigo_desconto_evento') or '').strip()
+        discount_result = self._apply_event_discount_to_fee(
+            evento,
+            fee_total,
+            codigo_desconto_evento_raw,
+            inscricao=edit_target_inscricao,
+        )
+        if discount_result.get('error'):
+            messages.error(request, discount_result['error'])
+            return render(
+                request,
+                self.template_name,
+                self._context(
+                    request,
+                    evento,
+                    active_mode='inscricao',
+                    edit_target_inscricao=edit_target_inscricao,
+                ),
+            )
+        fee_total = discount_result['valor_final']
         loja_view = LojaView()
         codigo_indicacao_raw = str(request.POST.get('codigo_indicacao') or '').strip()
         codigo_indicacao_input = loja_view._normalize_indicacao_code(codigo_indicacao_raw)
@@ -8182,13 +8475,18 @@ class EventoPublicoView(View):
             edit_target_inscricao.dados = dados
             edit_target_inscricao.codigo_indicacao_usado = codigo_indicacao_save
             edit_target_inscricao.indicador_aventureiro = indicador_save
-            edit_target_inscricao.valor_inscricao = fee_total
             edit_target_inscricao.valor_inscricao_unidades = fee_units
+            self._bind_event_discount_code(edit_target_inscricao, discount_result)
             edit_target_inscricao.save(update_fields=[
                 'responsavel',
                 'dados',
                 'codigo_indicacao_usado',
                 'indicador_aventureiro',
+                'desconto_codigo',
+                'desconto_codigo_texto',
+                'desconto_percentual',
+                'desconto_valor',
+                'valor_inscricao_original',
                 'valor_inscricao',
                 'valor_inscricao_unidades',
                 'updated_at',
@@ -8222,13 +8520,18 @@ class EventoPublicoView(View):
                     existing_inscricao.dados = dados
                     existing_inscricao.codigo_indicacao_usado = codigo_indicacao_save
                     existing_inscricao.indicador_aventureiro = indicador_save
-                    existing_inscricao.valor_inscricao = fee_total
                     existing_inscricao.valor_inscricao_unidades = fee_units
+                    self._bind_event_discount_code(existing_inscricao, discount_result)
                     existing_inscricao.save(update_fields=[
                         'responsavel',
                         'dados',
                         'codigo_indicacao_usado',
                         'indicador_aventureiro',
+                        'desconto_codigo',
+                        'desconto_codigo_texto',
+                        'desconto_percentual',
+                        'desconto_valor',
+                        'valor_inscricao_original',
                         'valor_inscricao',
                         'valor_inscricao_unidades',
                         'updated_at',
@@ -8249,10 +8552,21 @@ class EventoPublicoView(View):
                                 dados=dados,
                                 codigo_indicacao_usado=codigo_indicacao_input,
                                 indicador_aventureiro=indicador_aventureiro,
-                                valor_inscricao=fee_total,
+                                valor_inscricao_original=Decimal(discount_result.get('valor_original') or Decimal('0.00')),
+                                valor_inscricao=Decimal(discount_result.get('valor_final') or Decimal('0.00')),
                                 valor_inscricao_unidades=fee_units,
                                 confirmada=False,
                             )
+                            self._bind_event_discount_code(inscricao_salva, discount_result)
+                            inscricao_salva.save(update_fields=[
+                                'desconto_codigo',
+                                'desconto_codigo_texto',
+                                'desconto_percentual',
+                                'desconto_valor',
+                                'valor_inscricao_original',
+                                'valor_inscricao',
+                                'updated_at',
+                            ])
                             created = True
                             break
                         except IntegrityError:
@@ -8286,12 +8600,17 @@ class EventoPublicoView(View):
                     existing_inscricao.dados = dados
                     existing_inscricao.codigo_indicacao_usado = codigo_indicacao_save
                     existing_inscricao.indicador_aventureiro = indicador_save
-                    existing_inscricao.valor_inscricao = fee_total
                     existing_inscricao.valor_inscricao_unidades = fee_units
+                    self._bind_event_discount_code(existing_inscricao, discount_result)
                     existing_inscricao.save(update_fields=[
                         'dados',
                         'codigo_indicacao_usado',
                         'indicador_aventureiro',
+                        'desconto_codigo',
+                        'desconto_codigo_texto',
+                        'desconto_percentual',
+                        'desconto_valor',
+                        'valor_inscricao_original',
                         'valor_inscricao',
                         'valor_inscricao_unidades',
                         'updated_at',
@@ -8313,10 +8632,21 @@ class EventoPublicoView(View):
                                 dados=dados,
                                 codigo_indicacao_usado=codigo_indicacao_input,
                                 indicador_aventureiro=indicador_aventureiro,
-                                valor_inscricao=fee_total,
+                                valor_inscricao_original=Decimal(discount_result.get('valor_original') or Decimal('0.00')),
+                                valor_inscricao=Decimal(discount_result.get('valor_final') or Decimal('0.00')),
                                 valor_inscricao_unidades=fee_units,
                                 confirmada=False,
                             )
+                            self._bind_event_discount_code(inscricao_obj, discount_result)
+                            inscricao_obj.save(update_fields=[
+                                'desconto_codigo',
+                                'desconto_codigo_texto',
+                                'desconto_percentual',
+                                'desconto_valor',
+                                'valor_inscricao_original',
+                                'valor_inscricao',
+                                'updated_at',
+                            ])
                             break
                         except IntegrityError:
                             continue
@@ -9053,6 +9383,41 @@ class EventoIndicacaoLookupApiView(View):
             'codigo': codigo_normalizado,
             'aventureiro_nome': str(getattr(indicador, 'nome', '') or '').strip(),
             'message': 'Codigo validado.',
+        })
+
+
+class EventoDescontoLookupApiView(View):
+    def get(self, request, event_id):
+        evento = get_object_or_404(Evento, pk=event_id)
+        evento_publico_view = EventoPublicoView()
+        if not evento_publico_view._can_access_page(request, evento):
+            return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+
+        codigo_raw = str(request.GET.get('codigo') or '').strip()
+        codigo, code_obj, error = evento_publico_view._resolve_event_discount_code(evento, codigo_raw)
+        if not codigo:
+            return JsonResponse({
+                'ok': True,
+                'found': False,
+                'codigo': '',
+                'percentual': '0.00',
+                'message': 'Digite um codigo valido.',
+            })
+        if error or not code_obj:
+            return JsonResponse({
+                'ok': True,
+                'found': False,
+                'codigo': codigo,
+                'percentual': '0.00',
+                'message': error or 'Codigo nao encontrado.',
+            })
+        percentual = Decimal(getattr(code_obj, 'percentual_desconto', Decimal('0.00')) or Decimal('0.00')).quantize(Decimal('0.01'))
+        return JsonResponse({
+            'ok': True,
+            'found': True,
+            'codigo': codigo,
+            'percentual': f'{percentual:.2f}',
+            'message': f'Codigo valido: {percentual}% de desconto.',
         })
 
 

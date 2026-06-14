@@ -1820,6 +1820,9 @@
             {% if register_summary_fee_value_fmt %}
               <p class="panel-note"><strong>Valor da inscricao:</strong> {{ register_summary_fee_value_fmt }}{% if register_summary_fee_units %} ({{ register_summary_fee_units }} unidade(s) - {{ register_summary_fee_mode_label }}){% endif %}</p>
             {% endif %}
+            {% if register_summary_discount_code %}
+              <p class="panel-note"><strong>Desconto aplicado:</strong> codigo {{ register_summary_discount_code }} - {{ register_summary_discount_percent_fmt }} ({{ register_summary_discount_value_fmt }})</p>
+            {% endif %}
           </section>
           <section class="field-section">
             <h4>Dados enviados no cadastro</h4>
@@ -1880,6 +1883,9 @@
           {% if can_calcular_taxa_evento %}
             <button type="button" class="secondary" id="open-event-taxas">Calcular taxas</button>
           {% endif %}
+          {% if active_profile == 'diretor' %}
+            <button type="button" class="secondary" id="open-event-discount-codes">Codigos desconto</button>
+          {% endif %}
           <button type="button" class="secondary" id="open-event-printer-setup" onclick="(function(){var m=document.getElementById('event-printer-setup-modal');if(m){m.setAttribute('aria-hidden','false');m.classList.add('show');m.classList.add('is-open');}})();">Instalar impressora</button>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Editar campos</a>
           <a href="{% url 'accounts:eventos' %}#evento-edit-{{ evento.id }}" class="secondary">Cadastrar produtos</a>
@@ -1935,6 +1941,9 @@
                         <td>{{ item.pedidos_loja }}</td>
                         <td>{{ item.valor_inscricao_fmt }}{% if item.valor_inscricao_unidades %} ({{ item.valor_inscricao_unidades }}x){% endif %}</td>
                         <td>
+                          {% if item.desconto_codigo_texto %}
+                            <div><strong>Desconto:</strong> {{ item.desconto_codigo_texto }} - {{ item.desconto_percentual_fmt }} ({{ item.desconto_valor_fmt }})</div>
+                          {% endif %}
                           <div>{{ item.dados_resumo }}</div>
                           {% if item.dados_json %}
                             <details>
@@ -2529,6 +2538,65 @@
         </div>
       {% endif %}
 
+      {% if active_profile == 'diretor' %}
+        <div class="modal event-report-modal" id="event-discount-codes-modal" aria-hidden="true" {% if open_event_discount_codes %}data-autoshow="1"{% endif %}>
+          <div class="modal-content">
+            <header>
+              <h3>Codigos de desconto - {{ evento.name }}</h3>
+              <button type="button" id="close-event-discount-codes" aria-label="Fechar">X</button>
+            </header>
+            <section class="field-section">
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="generate_event_discount_codes" />
+                <div class="action-row">
+                  <label style="min-width:180px;">
+                    % de desconto
+                    <input type="number" name="discount_percent" min="0.01" max="100" step="0.01" required />
+                  </label>
+                  <label style="min-width:180px;">
+                    Quantidade
+                    <input type="number" name="discount_quantity" min="1" max="500" step="1" value="1" required />
+                  </label>
+                  <button type="submit" class="primary">Gerar codigos</button>
+                </div>
+              </form>
+            </section>
+            <section class="field-section">
+              <h4>Codigos gerados</h4>
+              {% if event_discount_code_rows %}
+                <div class="table-scroll">
+                  <table class="users-table">
+                    <thead>
+                      <tr>
+                        <th>Codigo</th>
+                        <th>Desconto</th>
+                        <th>Status</th>
+                        <th>Inscricao</th>
+                        <th>Usado em</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for row in event_discount_code_rows %}
+                        <tr>
+                          <td>{{ row.codigo }}</td>
+                          <td>{{ row.percentual_fmt }}</td>
+                          <td>{{ row.usado_label }}</td>
+                          <td>{{ row.inscricao_codigo }}</td>
+                          <td>{% if row.usado_at %}{{ row.usado_at|date:"d/m/Y H:i" }}{% else %}-{% endif %}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <p class="panel-note">Nenhum codigo gerado para este evento.</p>
+              {% endif %}
+            </section>
+          </div>
+        </div>
+      {% endif %}
+
       <div class="modal event-report-modal" id="event-costs-modal" aria-hidden="true">
         <div class="modal-content">
           <header>
@@ -2936,6 +3004,23 @@
         </div>
         <div class="field-section" style="margin-top:.2rem;">
           <label>
+            Codigo de desconto (opcional)
+            <input
+              type="text"
+              id="event-codigo-desconto"
+              name="codigo_desconto_evento"
+              value="{{ form_codigo_desconto_evento|default:'' }}"
+              maxlength="24"
+              autocomplete="off"
+              placeholder="Ex.: EVT123ABC"
+              style="text-transform: uppercase;"
+            />
+          </label>
+          <p class="panel-note" style="margin:0;">Se voce recebeu um codigo de desconto deste evento, informe aqui. O desconto sera aplicado sobre o valor da inscricao conforme a faixa etaria configurada.</p>
+          <p class="panel-note" id="event-desconto-feedback" style="margin:.2rem 0 0;">Digite o codigo para validar o desconto.</p>
+        </div>
+        <div class="field-section" style="margin-top:.2rem;">
+          <label>
             Codigo de indicacao (opcional)
             <input
               type="text"
@@ -3067,6 +3152,11 @@
           <div id="event-fee-breakdown" class="panel-note" style="margin-top:.35rem;"></div>
         </div>
         <div class="event-checkout-item">
+          <span>Desconto da inscricao</span>
+          <strong id="event-discount-total">{% if register_summary_discount_value_fmt %}{{ register_summary_discount_value_fmt }}{% else %}R$ 0,00{% endif %}</strong>
+          <small id="event-discount-meta">{% if register_summary_discount_code %}Codigo {{ register_summary_discount_code }} - {{ register_summary_discount_percent_fmt }}{% else %}Nenhum desconto aplicado{% endif %}</small>
+        </div>
+        <div class="event-checkout-item">
           <span>Total dos itens no carrinho</span>
           <strong id="event-items-total">R$ 0,00</strong>
           <small id="event-items-meta">0 item(ns)</small>
@@ -3133,6 +3223,7 @@
       data-create-url="{% url 'accounts:evento_comprar_pix' evento.id %}"
       data-status-url-template="{% url 'accounts:evento_pedido_status' evento.id 0 %}"
       data-indicacao-lookup-url="{% url 'accounts:evento_indicacao_lookup' evento.id %}"
+      data-desconto-lookup-url="{% url 'accounts:evento_desconto_lookup' evento.id %}"
     ></div>
     <div class="event-pix-modal" id="eventPixModal" hidden aria-hidden="true">
       <div class="event-pix-dialog" role="dialog" aria-modal="true" aria-labelledby="eventPixTitle">
@@ -3217,6 +3308,8 @@
       const paymentFeeLabelNode = document.getElementById('event-payment-fee-label');
       const paymentFeeTotalNode = document.getElementById('event-payment-fee-total');
       const paymentFeeMetaNode = document.getElementById('event-payment-fee-meta');
+      const discountTotalNode = document.getElementById('event-discount-total');
+      const discountMetaNode = document.getElementById('event-discount-meta');
       const grandTotalNode = document.getElementById('event-grand-total');
       const cashbackTotalNode = document.getElementById('event-cashback-total');
       const cashbackMetaNode = document.getElementById('event-cashback-available');
@@ -3246,6 +3339,9 @@
       const taxasModal = document.getElementById('event-taxas-modal');
       const openTaxasBtn = document.getElementById('open-event-taxas');
       const closeTaxasBtn = document.getElementById('close-event-taxas');
+      const discountCodesModal = document.getElementById('event-discount-codes-modal');
+      const openDiscountCodesBtn = document.getElementById('open-event-discount-codes');
+      const closeDiscountCodesBtn = document.getElementById('close-event-discount-codes');
       const printerSetupModal = document.getElementById('event-printer-setup-modal');
       const openPrinterSetupBtn = document.getElementById('open-event-printer-setup');
       const closePrinterSetupBtn = document.getElementById('close-event-printer-setup');
@@ -3257,6 +3353,8 @@
       const closeRegisterSummaryBtn = document.getElementById('close-event-register-summary');
       const togglePublicForm = document.getElementById('toggle-public-form');
       const registerForm = document.getElementById('event-register-form');
+      const descontoInput = registerForm ? registerForm.querySelector('input[name="codigo_desconto_evento"]') : null;
+      const descontoFeedbackNode = document.getElementById('event-desconto-feedback');
       const indicacaoInput = registerForm ? registerForm.querySelector('input[name="codigo_indicacao"]') : null;
       const indicacaoFeedbackNode = document.getElementById('event-indicacao-feedback');
       const finalizeAfterSaveInput = document.getElementById('event-finalize-after-save');
@@ -3310,6 +3408,7 @@
       const PIX_CREATE_URL = pixApiConfig ? String(pixApiConfig.dataset.createUrl || '') : '';
       const PIX_STATUS_URL_TEMPLATE = pixApiConfig ? String(pixApiConfig.dataset.statusUrlTemplate || '') : '';
       const INDICACAO_LOOKUP_URL = pixApiConfig ? String(pixApiConfig.dataset.indicacaoLookupUrl || '') : '';
+      const DESCONTO_LOOKUP_URL = pixApiConfig ? String(pixApiConfig.dataset.descontoLookupUrl || '') : '';
       const modeLauncherLinks = Array.from(document.querySelectorAll('[data-open-event-mode]'));
       let pixPedidoAtual = null;
       let pixPollingTimer = null;
@@ -3317,6 +3416,9 @@
       const pendingStockByPedido = {};
       let indicacaoLookupTimer = null;
       let indicacaoLookupController = null;
+      let descontoLookupTimer = null;
+      let descontoLookupController = null;
+      let descontoAtual = { codigo: '', percentual: 0, valor: 0, valido: false };
       {% if sale_registration_mode and show_register_summary and is_embedded_modal %}
         try {
           window.parent.postMessage(
@@ -3365,6 +3467,13 @@
           .slice(0, 12);
       };
 
+      const normalizeDescontoCode = (rawValue) => {
+        return String(rawValue || '')
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, '')
+          .slice(0, 24);
+      };
+
       const setIndicacaoFeedback = (text, tone) => {
         if (!indicacaoFeedbackNode) return;
         indicacaoFeedbackNode.textContent = text || '';
@@ -3378,6 +3487,21 @@
           return;
         }
         indicacaoFeedbackNode.style.color = '';
+      };
+
+      const setDescontoFeedback = (text, tone) => {
+        if (!descontoFeedbackNode) return;
+        descontoFeedbackNode.textContent = text || '';
+        const currentTone = String(tone || 'neutral').toLowerCase();
+        if (currentTone === 'success') {
+          descontoFeedbackNode.style.color = '#0f766e';
+          return;
+        }
+        if (currentTone === 'error') {
+          descontoFeedbackNode.style.color = '#b42318';
+          return;
+        }
+        descontoFeedbackNode.style.color = '';
       };
 
       const runIndicacaoLookup = async (rawValue) => {
@@ -3423,6 +3547,63 @@
         } catch (error) {
           if (error && error.name === 'AbortError') return;
           setIndicacaoFeedback('Nao foi possivel validar o codigo agora.', 'error');
+        }
+      };
+
+      const runDescontoLookup = async (rawValue) => {
+        if (!descontoInput || !DESCONTO_LOOKUP_URL) return;
+        const normalized = normalizeDescontoCode(rawValue);
+        if (String(descontoInput.value || '') !== normalized) {
+          descontoInput.value = normalized;
+        }
+        if (!normalized) {
+          if (descontoLookupController) {
+            descontoLookupController.abort();
+            descontoLookupController = null;
+          }
+          descontoAtual = { codigo: '', percentual: 0, valor: 0, valido: false };
+          setDescontoFeedback('Digite o codigo para validar o desconto.', 'neutral');
+          updateCheckoutSummary();
+          return;
+        }
+        if (descontoLookupController) {
+          descontoLookupController.abort();
+        }
+        descontoLookupController = new AbortController();
+        try {
+          const response = await fetch(
+            DESCONTO_LOOKUP_URL + '?codigo=' + encodeURIComponent(normalized),
+            {
+              method: 'GET',
+              headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+              },
+              signal: descontoLookupController.signal,
+            }
+          );
+          const payload = await response.json().catch(() => ({}));
+          if (String(descontoInput.value || '') !== normalized) return;
+          if (!response.ok || !payload || payload.ok !== true) {
+            descontoAtual = { codigo: normalized, percentual: 0, valor: 0, valido: false };
+            setDescontoFeedback('Nao foi possivel validar o codigo agora.', 'error');
+            updateCheckoutSummary();
+            return;
+          }
+          if (payload.found) {
+            const percentual = parsePercent(payload.percentual);
+            descontoAtual = { codigo: normalized, percentual, valor: 0, valido: percentual > 0 };
+            setDescontoFeedback(String(payload.message || 'Codigo validado.'), 'success');
+            updateCheckoutSummary();
+            return;
+          }
+          descontoAtual = { codigo: normalized, percentual: 0, valor: 0, valido: false };
+          setDescontoFeedback(String(payload.message || 'Codigo nao encontrado.'), 'error');
+          updateCheckoutSummary();
+        } catch (error) {
+          if (error && error.name === 'AbortError') return;
+          descontoAtual = { codigo: normalized, percentual: 0, valor: 0, valido: false };
+          setDescontoFeedback('Nao foi possivel validar o codigo agora.', 'error');
+          updateCheckoutSummary();
         }
       };
       const openModeSelectorModal = (targetUrl) => {
@@ -4503,7 +4684,13 @@
           ? { units: 0, total: 0, breakdown: [] }
           : calculateFeePreview();
         currentFeeUnits = Number(feePreview.units || 0);
-        currentFeeTotal = Number(feePreview.total || 0);
+        const feeOriginalTotal = Number(feePreview.total || 0);
+        let descontoValor = 0;
+        if (descontoAtual && descontoAtual.valido && feeOriginalTotal > 0) {
+          descontoValor = Math.round((feeOriginalTotal * Number(descontoAtual.percentual || 0))) / 100;
+        }
+        descontoAtual.valor = descontoValor;
+        currentFeeTotal = Math.max(0, feeOriginalTotal - descontoValor);
         const subtotal = currentFeeTotal + currentCartTotal;
         const feeMeta = paymentFeeMeta();
         const paymentFeeTotal = subtotal > 0 ? Math.round(subtotal * feeMeta.percent) / 100 : 0;
@@ -4531,6 +4718,12 @@
         if (paymentFeeLabelNode) paymentFeeLabelNode.textContent = feeMeta.label;
         if (paymentFeeTotalNode) paymentFeeTotalNode.textContent = toMoney(paymentFeeTotal);
         if (paymentFeeMetaNode) paymentFeeMetaNode.textContent = feeMeta.percent.toFixed(2).replace('.', ',') + '%';
+        if (discountTotalNode) discountTotalNode.textContent = toMoney(descontoValor);
+        if (discountMetaNode) {
+          discountMetaNode.textContent = descontoAtual && descontoAtual.valido
+            ? 'Codigo ' + String(descontoAtual.codigo || '') + ' - ' + Number(descontoAtual.percentual || 0).toFixed(2).replace('.', ',') + '%'
+            : 'Nenhum desconto aplicado';
+        }
         if (cashbackTotalNode) cashbackTotalNode.textContent = toMoney(currentCashbackDesconto);
         if (cashbackMetaNode) cashbackMetaNode.textContent = 'Disponivel: ' + toMoney(getSelectedCashbackDisponivel());
         if (grandTotalNode) grandTotalNode.textContent = toMoney(grandTotal);
@@ -4823,6 +5016,26 @@
           });
           if (String(indicacaoInput.value || '').trim()) {
             runIndicacaoLookup(indicacaoInput.value);
+          }
+        }
+        if (descontoInput) {
+          const scheduleDescontoLookup = () => {
+            if (descontoLookupTimer) {
+              window.clearTimeout(descontoLookupTimer);
+            }
+            descontoLookupTimer = window.setTimeout(() => {
+              runDescontoLookup(descontoInput.value);
+            }, 260);
+          };
+          descontoInput.addEventListener('input', scheduleDescontoLookup);
+          descontoInput.addEventListener('blur', () => {
+            if (descontoLookupTimer) {
+              window.clearTimeout(descontoLookupTimer);
+            }
+            runDescontoLookup(descontoInput.value);
+          });
+          if (String(descontoInput.value || '').trim()) {
+            runDescontoLookup(descontoInput.value);
           }
         }
       };
@@ -5316,6 +5529,27 @@
         });
         if (String(taxasModal.getAttribute('data-autoshow') || '').trim() === '1') {
           openModal(taxasModal);
+        }
+      }
+
+      if (openDiscountCodesBtn && discountCodesModal) {
+        openDiscountCodesBtn.addEventListener('click', () => {
+          openModal(discountCodesModal);
+        });
+      }
+      if (closeDiscountCodesBtn && discountCodesModal) {
+        closeDiscountCodesBtn.addEventListener('click', () => {
+          closeModal(discountCodesModal);
+        });
+      }
+      if (discountCodesModal) {
+        discountCodesModal.addEventListener('click', (event) => {
+          if (event.target === discountCodesModal) {
+            closeModal(discountCodesModal);
+          }
+        });
+        if (String(discountCodesModal.getAttribute('data-autoshow') || '').trim() === '1') {
+          openModal(discountCodesModal);
         }
       }
 
