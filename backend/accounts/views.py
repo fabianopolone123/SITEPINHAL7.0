@@ -7364,24 +7364,26 @@ class EventoPublicoView(View):
                         'fee_breakdown': fee_breakdown,
                         'fee_breakdown_json': json.dumps(fee_breakdown, ensure_ascii=False),
                     })
-                if _get_active_profile(request) == UserAccess.ROLE_DIRETOR:
-                    for code in (
-                        EventoDescontoCodigo.objects
-                        .filter(evento=evento)
-                        .select_related('usado_por_inscricao')
-                        .order_by('-created_at')[:300]
-                    ):
-                        inscricao_usada = getattr(code, 'usado_por_inscricao', None)
-                        event_discount_code_rows.append({
-                            'codigo': code.codigo,
-                            'percentual_fmt': f'{Decimal(code.percentual_desconto or Decimal("0.00")).quantize(Decimal("0.01"))}%',
-                            'usado': bool(code.usado),
-                            'usado_label': 'Usado' if code.usado else 'Disponivel',
-                            'usado_at': code.usado_at,
-                            'inscricao_codigo': str(getattr(inscricao_usada, 'codigo_inscricao', '') or '-').strip() or '-',
-                        })
             except Exception:
                 logger.exception('Falha ao montar dados de gestao do evento id=%s.', evento.id)
+            try:
+                for code in (
+                    EventoDescontoCodigo.objects
+                    .filter(evento=evento)
+                    .select_related('usado_por_inscricao')
+                    .order_by('-created_at')[:300]
+                ):
+                    inscricao_usada = getattr(code, 'usado_por_inscricao', None)
+                    event_discount_code_rows.append({
+                        'codigo': code.codigo,
+                        'percentual_fmt': f'{Decimal(code.percentual_desconto or Decimal("0.00")).quantize(Decimal("0.01"))}%',
+                        'usado': bool(code.usado),
+                        'usado_label': 'Usado' if code.usado else 'Disponivel',
+                        'usado_at': code.usado_at,
+                        'inscricao_codigo': str(getattr(inscricao_usada, 'codigo_inscricao', '') or '-').strip() or '-',
+                    })
+            except Exception:
+                logger.exception('Falha ao montar lista de codigos de desconto do evento id=%s.', evento.id)
         # Na rota publica de vendas-inscritos, precisamos de sugestoes de busca
         # mesmo sem permissao de gestao para permitir filtragem em tempo real.
         if normalized_mode == 'vendasinscritos' and not sale_inscricoes_detalhes:
@@ -8208,9 +8210,6 @@ class EventoPublicoView(View):
             if not can_manage_evento:
                 messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
                 return render(request, self.template_name, self._context(request, evento))
-            if _get_active_profile(request) != UserAccess.ROLE_DIRETOR:
-                messages.error(request, 'Somente diretor pode gerar codigos de desconto para o evento.')
-                return render(request, self.template_name, self._context(request, evento, open_event_discount_codes=True))
             percent_raw = str(request.POST.get('discount_percent') or '').strip()
             quantity_raw = str(request.POST.get('discount_quantity') or '').strip()
             try:
