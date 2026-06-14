@@ -3428,10 +3428,29 @@
       const repeatDiscountLookupCache = {};
       const repeatDiscountFieldKey = 'codigo de desconto';
       const repeatDiretoriaFieldKey = 'integrante diretoria';
+      {% if auto_finalize_payment %}
+        window.setTimeout(() => {
+          runPixCheckoutFlow();
+        }, 180);
+      {% endif %}
       {% if sale_registration_mode and show_register_summary and is_embedded_modal %}
         try {
           window.parent.postMessage(
             { type: 'event-sale-registration-saved', inscricaoId: '{{ inscricao.id|default:"" }}' },
+            window.location.origin
+          );
+        } catch (error) {
+          // ignore
+        }
+      {% endif %}
+      {% if auto_start_pix and is_embedded_modal %}
+        try {
+          window.parent.postMessage(
+            {
+              type: 'event-registration-finalize',
+              paymentMethod: '{{ checkout_payment_method|default:"pix"|escapejs }}',
+              installments: '{{ checkout_installments|default:"1"|escapejs }}',
+            },
             window.location.origin
           );
         } catch (error) {
@@ -3740,12 +3759,23 @@
       window.addEventListener('message', (event) => {
         if (event.origin !== window.location.origin) return;
         const payload = event.data || {};
-        if (!payload || payload.type !== 'event-sale-registration-saved') return;
-        const inscricaoId = String(payload.inscricaoId || '').trim();
-        const nextUrl = new URL(window.location.href);
-        nextUrl.searchParams.set('open_sale', '1');
-        if (inscricaoId) nextUrl.searchParams.set('sale_selected', inscricaoId);
-        window.location.href = nextUrl.toString();
+        if (!payload) return;
+        if (payload.type === 'event-sale-registration-saved') {
+          const inscricaoId = String(payload.inscricaoId || '').trim();
+          const nextUrl = new URL(window.location.href);
+          nextUrl.searchParams.set('open_sale', '1');
+          if (inscricaoId) nextUrl.searchParams.set('sale_selected', inscricaoId);
+          window.location.href = nextUrl.toString();
+          return;
+        }
+        if (payload.type === 'event-registration-finalize') {
+          const nextUrl = new URL(window.location.href);
+          nextUrl.searchParams.set('modo', 'inscricao');
+          nextUrl.searchParams.set('auto_finalize_payment', '1');
+          nextUrl.searchParams.set('checkout_payment_method', String(payload.paymentMethod || 'pix').trim().toLowerCase() === 'cartao' ? 'cartao' : 'pix');
+          nextUrl.searchParams.set('checkout_installments', String(payload.installments || '1').trim() || '1');
+          window.location.href = nextUrl.toString();
+        }
       });
 
       const toMoney = (value) => {
@@ -6399,6 +6429,14 @@
       }
 
       initRepeatFields();
+      if (String('{{ auto_finalize_payment|yesno:"1,0" }}') === '1') {
+        const cleanParams = new URLSearchParams(window.location.search);
+        cleanParams.delete('auto_finalize_payment');
+        cleanParams.delete('checkout_payment_method');
+        cleanParams.delete('checkout_installments');
+        const cleanUrl = window.location.pathname + (cleanParams.toString() ? ('?' + cleanParams.toString()) : '') + window.location.hash;
+        window.history.replaceState({}, '', cleanUrl);
+      }
       if (autoStartPixAfterSave) {
         restoreCartAfterSave();
         restorePaymentSelectionAfterSave();

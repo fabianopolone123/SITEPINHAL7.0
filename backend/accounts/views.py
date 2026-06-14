@@ -7002,6 +7002,7 @@ class EventoPublicoView(View):
         produtos = self._produto_rows_evento(evento)
         evento_fluxo_selector = bool(schema or produtos)
         is_embedded_modal = str(request.GET.get('embedded') or '').strip().lower() in {'1', 'true', 'yes'}
+        auto_finalize_payment = str(request.GET.get('auto_finalize_payment') or '').strip().lower() in {'1', 'true', 'yes'}
         sale_registration_mode = str(request.GET.get('sale') or request.POST.get('sale_registration_mode') or '').strip().lower() in {'1', 'true', 'yes'}
         vendas_tab = str(request.GET.get('vtab') or request.POST.get('vtab') or '').strip().lower()
         if vendas_tab not in {'comprar', 'consultar'}:
@@ -7055,6 +7056,18 @@ class EventoPublicoView(View):
         form_codigo_desconto_evento = str(getattr(form_source, 'desconto_codigo_texto', '') or '').strip()
         if self._normalize_inscricao_valor_modo(getattr(evento, 'inscricao_valor_modo', '')) == Evento.INSCRICAO_VALOR_MODO_FAIXA_IDADE_REPETIDOR:
             form_codigo_desconto_evento = ''
+        checkout_payment_method = str(
+            request.POST.get('checkout_payment_method')
+            or request.GET.get('checkout_payment_method')
+            or checkout_payment_method
+            or 'pix'
+        ).strip().lower()
+        checkout_installments = str(
+            request.POST.get('checkout_installments')
+            or request.GET.get('checkout_installments')
+            or checkout_installments
+            or '1'
+        ).strip()
         cashback_rows = []
         if request.user.is_authenticated:
             loja_view = LojaView()
@@ -7572,6 +7585,7 @@ class EventoPublicoView(View):
             'register_summary_discount_code': register_summary_discount_code,
             'register_summary_discount_percent_fmt': register_summary_discount_percent_fmt,
             'register_summary_discount_value_fmt': register_summary_discount_value_fmt,
+            'auto_finalize_payment': bool(auto_finalize_payment and inscricao and not is_embedded_modal),
             'auto_start_pix': bool(auto_start_pix),
             'checkout_payment_method': 'cartao' if str(checkout_payment_method or '').strip().lower() == 'cartao' else 'pix',
             'checkout_installments': max(1, min(12, int(checkout_installments or 1))) if str(checkout_installments or '1').strip().isdigit() else 1,
@@ -9023,7 +9037,13 @@ class EventoPublicoView(View):
                 evento,
                 show_register_summary=bool(inscricao_salva and not finalize_after_save and not admin_confirm_without_pix),
                 active_mode='inscricao',
-                auto_start_pix=bool(finalize_after_save and inscricao_salva and not sale_registration_mode and not admin_confirm_without_pix),
+                auto_start_pix=bool(
+                    finalize_after_save
+                    and inscricao_salva
+                    and not sale_registration_mode
+                    and not admin_confirm_without_pix
+                    and not str(request.GET.get('embedded') or '').strip().lower() in {'1', 'true', 'yes'}
+                ),
                 checkout_payment_method=str(request.POST.get('checkout_payment_method') or 'pix').strip().lower(),
                 checkout_installments=str(request.POST.get('checkout_installments') or '1').strip(),
             ),
