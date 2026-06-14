@@ -3746,13 +3746,15 @@
             let targetUrl = rawHref;
             try {
               const urlObj = new URL(rawHref, window.location.href);
-              urlObj.searchParams.set('embedded', '1');
+              urlObj.searchParams.delete('embedded');
               targetUrl = urlObj.toString();
             } catch (error) {
-              if (rawHref.indexOf('?') >= 0) targetUrl = rawHref + '&embedded=1';
-              else targetUrl = rawHref + '?embedded=1';
+              targetUrl = rawHref
+                .replace(/[?&]embedded=1\b/g, '')
+                .replace(/\?&/, '?')
+                .replace(/[?&]$/, '');
             }
-            openModeSelectorModal(targetUrl);
+            window.location.href = targetUrl;
           });
         });
       }
@@ -6008,7 +6010,7 @@
             registrationLink.click();
             return;
           }
-          openModeSelectorModal('?modo=inscricao&sale=1&embedded=1');
+          window.location.href = '?modo=inscricao&sale=1';
         };
         const selectInscricao = (button) => {
           if (!button) return;
