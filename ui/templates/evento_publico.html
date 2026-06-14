@@ -4932,6 +4932,7 @@
           const fieldType = String(fieldDef.type || 'texto').trim().toLowerCase() || 'texto';
           const fieldOptions = Array.isArray(fieldDef.options) ? fieldDef.options : [];
           const fieldRequired = fieldDef.required !== false;
+          const isDiretoriaField = normalizeLookupText(label) === repeatDiretoriaFieldKey;
           const labelNode = document.createElement('label');
           labelNode.textContent = fieldRequired ? (label + ' *') : label;
           let input = null;
@@ -4964,6 +4965,11 @@
             select.appendChild(yes);
             select.appendChild(no);
             input = select;
+          } else if (isDiretoriaField) {
+            input = document.createElement('input');
+            input.type = 'checkbox';
+            input.value = 'sim';
+            input.className = 'event-repeat-checkbox';
           } else {
             input = document.createElement('input');
             if (fieldType === 'numero') {
@@ -4995,7 +5001,12 @@
             labelNode.appendChild(feedbackNode);
           }
           if (Object.prototype.hasOwnProperty.call(sourceRow, label)) {
-            input.value = String(sourceRow[label] == null ? '' : sourceRow[label]);
+            const rawValue = String(sourceRow[label] == null ? '' : sourceRow[label]);
+            if (isDiretoriaField && input instanceof HTMLInputElement && input.type === 'checkbox') {
+              input.checked = ['sim', 's', 'true', '1', 'yes'].includes(normalizeLookupText(rawValue));
+            } else {
+              input.value = rawValue;
+            }
           }
           grid.appendChild(labelNode);
         });
@@ -5021,7 +5032,12 @@
           let hasValue = false;
           row.querySelectorAll('[data-repeat-key]').forEach((input) => {
             const key = String(input.getAttribute('data-repeat-key') || '').trim();
-            const value = String(input.value || '').trim();
+            let value = '';
+            if (input instanceof HTMLInputElement && input.type === 'checkbox') {
+              value = input.checked ? 'sim' : '';
+            } else {
+              value = String(input.value || '').trim();
+            }
             if (!key) return;
             rowObj[key] = value;
             if (value) hasValue = true;
