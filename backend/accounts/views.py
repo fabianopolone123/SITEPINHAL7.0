@@ -8210,6 +8210,9 @@ class EventoPublicoView(View):
             if not can_manage_evento:
                 messages.error(request, 'Seu perfil nao possui permissao de eventos para esta acao.')
                 return render(request, self.template_name, self._context(request, evento))
+            if _get_active_profile(request) != UserAccess.ROLE_DIRETOR:
+                messages.error(request, 'Somente diretor pode gerar codigos de desconto para o evento.')
+                return render(request, self.template_name, self._context(request, evento, open_event_discount_codes=True))
             percent_raw = str(request.POST.get('discount_percent') or '').strip()
             quantity_raw = str(request.POST.get('discount_quantity') or '').strip()
             try:
