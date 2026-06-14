@@ -5484,11 +5484,6 @@
       if (finalizarPagarBtn) {
         finalizarPagarBtn.addEventListener('click', async () => {
           if (registerForm && !skipSaveBeforePix) {
-            const previewTotal = getCheckoutPreviewTotal();
-            if (previewTotal <= 0 && Number(currentCashbackDesconto || 0) <= 0) {
-              setCheckoutFeedback('Nao ha valor para pagar neste evento.', 'error');
-              return;
-            }
             persistCartForPostSavePix();
             persistPaymentSelectionForPostSave();
             if (finalizeAfterSaveInput) {
