@@ -3700,6 +3700,21 @@
         modeSelectorModal.setAttribute('aria-hidden', 'true');
         modeSelectorFrame.src = 'about:blank';
       };
+      const redirectToExternalCheckout = (targetUrl) => {
+        const safeUrl = String(targetUrl || '').trim();
+        if (!safeUrl) {
+          throw new Error('Checkout de cartao nao retornou URL de redirecionamento.');
+        }
+        try {
+          if (window.top && window.top !== window.self) {
+            window.top.location.href = safeUrl;
+            return;
+          }
+        } catch (error) {
+          // fallback below
+        }
+        window.location.href = safeUrl;
+      };
       if (modeLauncherLinks.length) {
         modeLauncherLinks.forEach((link) => {
           link.addEventListener('click', (event) => {
@@ -4312,11 +4327,7 @@
             throw new Error('Resposta invalida ao gerar pagamento.');
           }
           if (paymentResponse.payment_flow === 'checkout_pro') {
-            const redirectUrl = String(paymentResponse.redirect_url || '').trim();
-            if (!redirectUrl) {
-              throw new Error('Checkout de cartao nao retornou URL de redirecionamento.');
-            }
-            window.location.href = redirectUrl;
+            redirectToExternalCheckout(paymentResponse.redirect_url || '');
             return;
           }
           if (paymentResponse.payment_flow === 'free') {
@@ -5533,9 +5544,7 @@
             const pedido = paymentResponse ? paymentResponse.pedido : null;
             if (!pedido) throw new Error('Resposta invalida ao gerar pagamento.');
             if (paymentResponse.payment_flow === 'checkout_pro') {
-              const redirectUrl = String(paymentResponse.redirect_url || '').trim();
-              if (!redirectUrl) throw new Error('Checkout de cartao nao retornou URL de redirecionamento.');
-              window.location.href = redirectUrl;
+              redirectToExternalCheckout(paymentResponse.redirect_url || '');
               return;
             }
             pedido.inscricao_codigo = inscricaoCodigo || pedido.inscricao_codigo || '';
