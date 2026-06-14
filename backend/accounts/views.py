@@ -8652,7 +8652,13 @@ class EventoPublicoView(View):
                         for item in (row.get('options') or [])
                         if str(item or '').strip()
                     ]
+                    normalized_key = self._normalize_lookup_text(key)
                     repeat_required_map[key] = bool(row.get('required', True))
+                    if normalized_key in {
+                        self._normalize_lookup_text(self._evento_discount_field_label()),
+                        self._normalize_lookup_text(self._evento_diretoria_field_label()),
+                    }:
+                        repeat_required_map[key] = False
                 raw_value = str(request.POST.get(field['input_name']) or '').strip()
                 repeat_rows = []
                 if raw_value:

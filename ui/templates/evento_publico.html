@@ -4875,7 +4875,11 @@
           const normalizedOptions = Array.isArray(options)
             ? options.map((item) => String(item || '').trim()).filter((item) => item)
             : [];
-          const normalizedRequired = required === false ? false : true;
+          let normalizedRequired = required === false ? false : true;
+          const normalizedLabelKey = normalizeLookupText(label);
+          if (normalizedLabelKey === repeatDiscountFieldKey || normalizedLabelKey === repeatDiretoriaFieldKey) {
+            normalizedRequired = false;
+          }
           return {
             name: label,
             type: normalizedType,
