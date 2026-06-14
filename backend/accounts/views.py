@@ -8155,6 +8155,13 @@ class EventoPublicoView(View):
         return render(request, self.template_name, self._context(request, evento))
 
     def post(self, request, event_id):
+        try:
+            return self._post_impl(request, event_id)
+        except Exception:
+            logger.exception('Falha no POST publico do evento id=%s.', event_id)
+            raise
+
+    def _post_impl(self, request, event_id):
         evento = get_object_or_404(Evento, pk=event_id)
         if _user_needs_evento_atendente_password_change(request.user):
             return redirect('accounts:atendente_trocar_senha')
