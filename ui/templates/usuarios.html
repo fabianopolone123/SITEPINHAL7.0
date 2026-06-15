@@ -61,6 +61,25 @@
       gap: 0.6rem;
       flex-wrap: wrap;
     }
+    .users-search {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .users-search input[type="search"] {
+      width: min(420px, 100%);
+      padding: 0.7rem 0.85rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #fff;
+      color: #0f172a;
+      font: inherit;
+    }
+    .users-search-note {
+      color: #64748b;
+      font-size: 0.92rem;
+    }
     .users-feedback {
       color: #1d4ed8;
       font-weight: 600;
@@ -152,11 +171,18 @@
       </div>
     </section>
 
+    <section class="painel-card">
+      <div class="users-search">
+        <input id="users-live-search" type="search" placeholder="Pesquisar nome, usuario, responsavel ou serie..." aria-label="Pesquisar usuários" />
+        <span class="users-search-note" id="users-live-search-feedback">Digite para filtrar os resultados da tabela atual.</span>
+      </div>
+    </section>
+
     {% if selected_grupo == 'diretoria' %}
       <section class="painel-card">
         <h3 class="users-section-title">Diretoria</h3>
         <div class="users-table-wrap">
-          <table class="users-table">
+          <table class="users-table" data-users-table="diretoria">
             <thead>
               <tr>
                 <th>Foto</th>
@@ -169,7 +195,7 @@
             </thead>
             <tbody>
               {% for item in diretoria_rows %}
-                <tr>
+                <tr data-users-row data-search="{{ item.user.username }} {{ item.nome_completo }} {{ item.perfis_display }} {% if item.user.is_active %}ativo{% else %}inativo{% endif %}">
                   <td>
                     {% if item.foto_url %}
                       <img class="confirmation-photo" src="{{ item.foto_url }}" alt="Foto de {{ item.nome_completo }}" />
@@ -205,7 +231,7 @@
       <section class="painel-card">
         <h3 class="users-section-title">Responsáveis</h3>
         <div class="users-table-wrap">
-          <table class="users-table">
+          <table class="users-table" data-users-table="responsaveis">
             <thead>
               <tr>
                 <th>Foto</th>
@@ -218,7 +244,7 @@
             </thead>
             <tbody>
               {% for item in responsavel_rows %}
-                <tr>
+                <tr data-users-row data-search="{{ item.user.username }} {{ item.nome_completo }} {{ item.perfis_display }} {% if item.user.is_active %}ativo{% else %}inativo{% endif %} {% if item.responsavel_ativo %}responsavel ativo{% else %}responsavel inativo{% endif %}">
                   <td>
                     {% if item.foto_url %}
                       <img class="confirmation-photo" src="{{ item.foto_url }}" alt="Foto de {{ item.nome_completo }}" />
@@ -274,7 +300,7 @@
       <section class="painel-card">
         <h3 class="users-section-title">Aventureiros</h3>
         <div class="users-table-wrap">
-          <table class="users-table">
+          <table class="users-table" data-users-table="aventureiros">
             <thead>
               <tr>
                 <th>Foto</th>
@@ -287,7 +313,7 @@
             </thead>
             <tbody>
               {% for av in aventureiro_rows %}
-                <tr>
+                <tr data-users-row data-search="{{ av.nome }} {{ av.responsavel_nome }} {{ av.serie }} {% if av.ativo %}ativo{% else %}inativo{% endif %} {% if av.responsavel_ativo %}responsavel ativo{% else %}responsavel inativo{% endif %}">
                   <td>
                     {% if av.foto_url %}
                       <img class="confirmation-photo" src="{{ av.foto_url }}" alt="Foto de {{ av.nome }}" />
@@ -388,5 +414,45 @@
       })();
     </script>
   {% endif %}
+  <script>
+    (function () {
+      var input = document.getElementById('users-live-search');
+      var feedback = document.getElementById('users-live-search-feedback');
+      var table = document.querySelector('[data-users-table]');
+      if (!input || !feedback || !table) return;
+
+      var rows = Array.prototype.slice.call(table.querySelectorAll('[data-users-row]'));
+
+      function normalize(value) {
+        return String(value || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      function applyFilter() {
+        var term = normalize(input.value);
+        var visible = 0;
+        rows.forEach(function (row) {
+          var haystack = normalize(row.getAttribute('data-search'));
+          var match = !term || haystack.indexOf(term) !== -1;
+          row.style.display = match ? '' : 'none';
+          if (match) visible += 1;
+        });
+
+        if (!term) {
+          feedback.textContent = 'Digite para filtrar os resultados da tabela atual.';
+        } else if (visible === 1) {
+          feedback.textContent = '1 resultado encontrado.';
+        } else {
+          feedback.textContent = visible + ' resultados encontrados.';
+        }
+      }
+
+      input.addEventListener('input', applyFilter);
+    })();
+  </script>
 </body>
 </html>
