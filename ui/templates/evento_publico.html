@@ -1859,7 +1859,7 @@
           <span class="event-metric-pill">Lucro liquido: {{ lucro_liquido_fmt }}</span>
           <span class="event-metric-pill">Cobranca: {{ inscricao_valor_config_text }}</span>
           {% for faixa in inscricao_faixas_resumo %}
-            <span class="event-metric-pill">Faixa {{ faixa.label }}: {{ faixa.quantidade }} inscrito(s){% if faixa.quantidade_diretoria %} | Diretoria: {{ faixa.quantidade_diretoria }}{% endif %} | {{ faixa.valor_total_fmt }}</span>
+            <span class="event-metric-pill">{% if faixa.is_diretoria_summary %}Diretoria{% else %}Faixa {{ faixa.label }}{% endif %}: {{ faixa.quantidade }} inscrito(s) | {{ faixa.valor_total_fmt }}</span>
           {% endfor %}
           <span class="event-metric-pill">Pagina: {% if evento.inscricao_publica %}Publica{% else %}Privada{% endif %}</span>
         </div>
@@ -1990,18 +1990,16 @@
                 <table class="users-table">
                   <thead>
                     <tr>
-                      <th>Faixa</th>
+                      <th>Grupo</th>
                       <th>Inscritos</th>
-                      <th>Diretoria</th>
-                      <th>Total da faixa</th>
+                      <th>Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {% for faixa in inscricao_faixas_resumo %}
                       <tr>
-                        <td>{{ faixa.label }}</td>
+                        <td>{% if faixa.is_diretoria_summary %}Diretoria{% else %}Faixa {{ faixa.label }}{% endif %}</td>
                         <td>{{ faixa.quantidade }}</td>
-                        <td>{{ faixa.quantidade_diretoria }}</td>
                         <td>{{ faixa.valor_total_fmt }}</td>
                       </tr>
                     {% endfor %}

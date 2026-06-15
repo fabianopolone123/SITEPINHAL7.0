@@ -5802,6 +5802,10 @@ class EventoPublicoView(View):
             })
         if not faixas:
             return []
+        diretoria_resumo = {
+            'quantidade': 0,
+            'valor_total': Decimal('0.00'),
+        }
 
         for inscricao in (inscricoes or []):
             dados_obj = getattr(inscricao, 'dados', {}) if inscricao is not None else {}
@@ -5822,10 +5826,12 @@ class EventoPublicoView(View):
                 for faixa in faixas:
                     if faixa['min'] <= age <= faixa['max']:
                         valor_faixa = global_diretoria_value if is_diretoria and global_diretoria_value is not None else faixa['value']
-                        faixa['quantidade'] += 1
                         if is_diretoria:
-                            faixa['quantidade_diretoria'] += 1
-                        faixa['valor_total'] = (faixa['valor_total'] + valor_faixa).quantize(Decimal('0.01'))
+                            diretoria_resumo['quantidade'] += 1
+                            diretoria_resumo['valor_total'] = (diretoria_resumo['valor_total'] + valor_faixa).quantize(Decimal('0.01'))
+                        else:
+                            faixa['quantidade'] += 1
+                            faixa['valor_total'] = (faixa['valor_total'] + valor_faixa).quantize(Decimal('0.01'))
                         break
 
         resumo = []
@@ -5834,9 +5840,19 @@ class EventoPublicoView(View):
             resumo.append({
                 'label': label,
                 'quantidade': int(faixa['quantidade']),
-                'quantidade_diretoria': int(faixa['quantidade_diretoria']),
+                'quantidade_diretoria': 0,
+                'is_diretoria_summary': False,
                 'valor_total_raw': str(faixa['valor_total']),
                 'valor_total_fmt': self._format_currency(faixa['valor_total']),
+            })
+        if diretoria_resumo['quantidade'] > 0:
+            resumo.append({
+                'label': 'Diretoria',
+                'quantidade': int(diretoria_resumo['quantidade']),
+                'quantidade_diretoria': int(diretoria_resumo['quantidade']),
+                'is_diretoria_summary': True,
+                'valor_total_raw': str(diretoria_resumo['valor_total']),
+                'valor_total_fmt': self._format_currency(diretoria_resumo['valor_total']),
             })
         return resumo
 
