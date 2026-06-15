@@ -1870,6 +1870,7 @@
             <input type="hidden" name="publico" value="{% if evento.inscricao_publica %}0{% else %}1{% endif %}" />
             <button type="submit" class="secondary">{% if evento.inscricao_publica %}Tornar privado{% else %}Tornar publico{% endif %}</button>
           </form>
+          <button type="button" class="secondary" id="open-event-resumo-inscritos">Resumo inscritos</button>
           <button type="button" class="secondary" id="open-event-inscritos">Inscritos</button>
           {% if active_profile == 'diretor' and cashback_lancamento_inscricoes %}
             <button type="button" class="secondary" id="open-cashback-lancamento-modal">Lançar Cashback</button>
@@ -1965,6 +1966,52 @@
           {% else %}
             <p class="panel-note">Sem inscritos ainda.</p>
           {% endif %}
+        </div>
+      </div>
+
+      <div class="modal event-report-modal" id="event-resumo-inscritos-modal" aria-hidden="true">
+        <div class="modal-content">
+          <header>
+            <h3>Resumo de inscritos - {{ evento.name }}</h3>
+            <button type="button" id="close-event-resumo-inscritos" aria-label="Fechar">X</button>
+          </header>
+          <section class="field-section">
+            <div class="event-manage-metrics">
+              <span class="event-metric-pill">Inscricoes: {{ inscricoes_count }}</span>
+              <span class="event-metric-pill">Total inscricoes: {{ inscricoes_valor_total_fmt }}</span>
+              <span class="event-metric-pill">Inscricoes canceladas: {{ inscricoes_canceladas_count }}</span>
+              <span class="event-metric-pill">Estornado: {{ inscricoes_canceladas_valor_total_fmt }}</span>
+            </div>
+          </section>
+          <section class="field-section">
+            <h4>Quantidade por faixa</h4>
+            {% if inscricao_faixas_resumo %}
+              <div class="table-scroll">
+                <table class="users-table">
+                  <thead>
+                    <tr>
+                      <th>Faixa</th>
+                      <th>Inscritos</th>
+                      <th>Diretoria</th>
+                      <th>Total da faixa</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for faixa in inscricao_faixas_resumo %}
+                      <tr>
+                        <td>{{ faixa.label }}</td>
+                        <td>{{ faixa.quantidade }}</td>
+                        <td>{{ faixa.quantidade_diretoria }}</td>
+                        <td>{{ faixa.valor_total_fmt }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="panel-note">Este evento nao esta usando cobranca por faixa etaria ou ainda nao ha inscritos confirmados.</p>
+            {% endif %}
+          </section>
         </div>
       </div>
 
@@ -3324,6 +3371,9 @@
       const finalizarPagarBtn = document.getElementById('event-finalizar-pagar');
       const vendaInscritoSelectedIdInput = document.getElementById('event-vendasinscrito-selected-id');
       const vendaInscritoSelectedLabel = document.getElementById('event-vendasinscrito-selected-label');
+      const resumoInscritosModal = document.getElementById('event-resumo-inscritos-modal');
+      const openResumoInscritosBtn = document.getElementById('open-event-resumo-inscritos');
+      const closeResumoInscritosBtn = document.getElementById('close-event-resumo-inscritos');
       const inscritosModal = document.getElementById('event-inscritos-modal');
       const openInscritosBtn = document.getElementById('open-event-inscritos');
       const closeInscritosBtn = document.getElementById('close-event-inscritos');
@@ -5839,6 +5889,24 @@
         });
       }
 
+      if (openResumoInscritosBtn && resumoInscritosModal) {
+        openResumoInscritosBtn.addEventListener('click', () => {
+          openModal(resumoInscritosModal);
+        });
+      }
+      if (closeResumoInscritosBtn && resumoInscritosModal) {
+        closeResumoInscritosBtn.addEventListener('click', () => {
+          closeModal(resumoInscritosModal);
+        });
+      }
+      if (resumoInscritosModal) {
+        resumoInscritosModal.addEventListener('click', (event) => {
+          if (event.target === resumoInscritosModal) {
+            closeModal(resumoInscritosModal);
+          }
+        });
+      }
+
       if (openInscritosBtn && inscritosModal) {
         openInscritosBtn.addEventListener('click', () => {
           openModal(inscritosModal);
@@ -6327,6 +6395,10 @@
         }
         if (registerSummaryModal && registerSummaryModal.getAttribute('aria-hidden') === 'false') {
           closeModal(registerSummaryModal);
+          return;
+        }
+        if (resumoInscritosModal && resumoInscritosModal.getAttribute('aria-hidden') === 'false') {
+          closeModal(resumoInscritosModal);
           return;
         }
         if (inscritosModal && inscritosModal.getAttribute('aria-hidden') === 'false') {
