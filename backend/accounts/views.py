@@ -16506,6 +16506,13 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
         repeat_field = str(config.get('repeat_field') or '').strip()
         age_field = str(config.get('age_field') or '').strip()
         ranges_raw = config.get('ranges') if isinstance(config.get('ranges'), list) else []
+        diretoria_value_raw = config.get('diretoria_value')
+        diretoria_value = None
+        if diretoria_value_raw not in {None, ''}:
+            try:
+                diretoria_value = Decimal(str(diretoria_value_raw or '0')).quantize(Decimal('0.01'))
+            except (TypeError, ValueError, InvalidOperation):
+                diretoria_value = None
         faixa_rows = []
         for item in ranges_raw:
             if not isinstance(item, dict):
@@ -16528,6 +16535,16 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
                 'valor_total': Decimal('0.00'),
             })
         faixa_rows = sorted(faixa_rows, key=lambda row: (row['min'], row['max']))
+        diretoria_row = {
+            'min': None,
+            'max': None,
+            'valor': diretoria_value if diretoria_value is not None else Decimal('0.00'),
+            'label': 'Diretoria',
+            'kids': [],
+            'quantidade': 0,
+            'valor_total': Decimal('0.00'),
+            'is_diretoria_summary': True,
+        }
 
         if repeat_field and age_field and faixa_rows:
             for inscricao in inscricoes:
@@ -16538,34 +16555,44 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
                 for idx, row in enumerate(repeat_list):
                     if not isinstance(row, dict) or not helper._row_has_any_value(row):
                         continue
-                    age_text = str(row.get(age_field) or '').strip()
+                    age_text = helper._get_row_value_by_normalized_key(row, age_field)
                     age_match = re.search(r'\d{1,3}', age_text)
                     if not age_match:
                         continue
                     age = int(age_match.group(0))
+                    is_diretoria = helper._row_is_diretoria_member(row, evento=evento)
                     nome = ''
                     for key, value in row.items():
-                        if helper._normalize_lookup_text(key) == helper._normalize_lookup_text(age_field):
+                        normalized_key = helper._normalize_lookup_text(key)
+                        if normalized_key in {
+                            helper._normalize_lookup_text(age_field),
+                            helper._event_repeat_discount_field_key(evento),
+                            helper._event_repeat_diretoria_field_key(evento),
+                        }:
                             continue
                         value_text = str(value or '').strip()
                         if not value_text:
                             continue
-                        norm_key = helper._normalize_lookup_text(key)
-                        if helper._is_nome_key(norm_key) and not helper._is_responsavel_key(norm_key):
+                        if helper._is_nome_key(normalized_key) and not helper._is_responsavel_key(normalized_key):
                             nome = value_text
                             break
                     if not nome:
                         nome = f'Crianca {idx + 1}'
                     for faixa in faixa_rows:
                         if faixa['min'] <= age <= faixa['max']:
-                            faixa['quantidade'] += 1
-                            faixa['valor_total'] = (faixa['valor_total'] + faixa['valor']).quantize(Decimal('0.01'))
-                            faixa['kids'].append({
+                            target_row = diretoria_row if is_diretoria and diretoria_value is not None else faixa
+                            target_row['quantidade'] += 1
+                            target_row['valor_total'] = (
+                                target_row['valor_total'] + target_row['valor']
+                            ).quantize(Decimal('0.01'))
+                            target_row['kids'].append({
                                 'nome': nome,
                                 'idade': age,
-                                'valor': faixa['valor'],
+                                'valor': target_row['valor'],
                             })
                             break
+            if diretoria_row['quantidade'] > 0:
+                faixa_rows.append(diretoria_row)
 
         loja_groups = sorted(
             loja_grouped.values(),
@@ -16646,8 +16673,9 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
         if faixa_rows:
             faixa_chart_rows = []
             for faixa in faixa_rows:
+                faixa_label = 'Diretoria' if faixa.get('is_diretoria_summary') else f'Faixa {faixa["label"]}'
                 faixa_chart_rows.append({
-                    'label': f'Faixa {faixa["label"]} ({faixa["quantidade"]})',
+                    'label': f'{faixa_label} ({faixa["quantidade"]})',
                     'value': Decimal(faixa['valor_total']),
                     'color': '#7c3aed',
                 })
@@ -16701,11 +16729,12 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
         self._pdf_text(commands, 36, y, 'Resumo por faixa etaria', size=12, bold=True, color='#0f172a')
         y -= 18
         for faixa in faixa_rows:
+            faixa_label = 'Diretoria' if faixa.get('is_diretoria_summary') else f'Faixa {faixa["label"]}'
             self._pdf_text(
                 commands,
                 36,
                 y,
-                f'Faixa {faixa["label"]}: {faixa["quantidade"]} inscrito(s) | {self._format_currency(faixa["valor_total"])}',
+                f'{faixa_label}: {faixa["quantidade"]} inscrito(s) | {self._format_currency(faixa["valor_total"])}',
                 size=9,
                 bold=True,
                 color='#1d4ed8',
@@ -16721,7 +16750,8 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
                     generated_by=generated_by,
                     evento_nome=evento.name,
                 )
-            self._pdf_text(commands, 36, y, f'Faixa {faixa["label"]}: {faixa["quantidade"]} inscrito(s)', size=11, bold=True)
+            faixa_label = 'Diretoria' if faixa.get('is_diretoria_summary') else f'Faixa {faixa["label"]}'
+            self._pdf_text(commands, 36, y, f'{faixa_label}: {faixa["quantidade"]} inscrito(s)', size=11, bold=True)
             y -= 14
             if not faixa['kids']:
                 self._pdf_text(commands, 48, y, 'Sem criancas registradas nesta faixa.', size=8, color='#64748b')
@@ -16735,7 +16765,8 @@ class EventoRelatorioPdfView(LojaRelatorioPedidosPagosPdfView):
                         generated_by=generated_by,
                         evento_nome=evento.name,
                     )
-                    self._pdf_text(commands, 36, y, f'Faixa {faixa["label"]} (continuacao)', size=10, bold=True)
+                    faixa_label = 'Diretoria' if faixa.get('is_diretoria_summary') else f'Faixa {faixa["label"]}'
+                    self._pdf_text(commands, 36, y, f'{faixa_label} (continuacao)', size=10, bold=True)
                     y -= 14
                 line = f'- {kid["nome"]} | {kid["idade"]} anos | {self._format_currency(kid["valor"])}'
                 for wrap_line in self._pdf_wrap(line, 92):

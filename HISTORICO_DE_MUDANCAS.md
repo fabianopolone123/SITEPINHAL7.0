@@ -9,6 +9,12 @@ Arquivo oficial de registro das entregas concluidas.
 - Padrao de commit adotado no projeto:
   - `<arquivo_principal>: <descricao objetiva>`
 
+## 19/06/2026 - Eventos: relatorio por faixa com diretoria zerada
+
+- O PDF do relatorio do evento passa a separar participantes marcados como Diretoria no resumo por faixa etaria.
+- Quando o evento possui diretoria=0,00, esses participantes entram na contagem de Diretoria com total zerado, sem somar a faixa normal da idade.
+- O grafico e a listagem do PDF exibem o grupo Diretoria sem prefixo de faixa.
+
 ## 19/06/2026 - Eventos: multiplos comprovantes em custos
 
 - O cadastro de custo do evento passa a aceitar selecao de varios comprovantes no mesmo envio.
