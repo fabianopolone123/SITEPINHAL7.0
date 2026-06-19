@@ -10,6 +10,8 @@ from .models import (
     WhatsAppQueue,
     WhatsAppTemplate,
     EventoPresenca,
+    EventoCusto,
+    EventoCustoComprovante,
     AuditLog,
     MensalidadeAventureiro,
     PagamentoMensalidade,
@@ -98,6 +100,22 @@ class EventoPresencaAdmin(admin.ModelAdmin):
     list_display = ('evento', 'aventureiro', 'presente', 'updated_by', 'updated_at')
     search_fields = ('evento__name', 'aventureiro__nome', 'aventureiro__responsavel__user__username')
     list_filter = ('presente', 'evento')
+
+
+class EventoCustoComprovanteInline(admin.TabularInline):
+    model = EventoCustoComprovante
+    extra = 0
+    readonly_fields = ('created_at',)
+
+
+@admin.register(EventoCusto)
+class EventoCustoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'evento', 'nome', 'valor', 'created_by', 'created_at')
+    search_fields = ('evento__name', 'nome', 'created_by__username')
+    list_filter = ('evento', 'created_at')
+    autocomplete_fields = ('created_by',)
+    readonly_fields = ('created_at', 'updated_at')
+    inlines = (EventoCustoComprovanteInline,)
 
 
 @admin.register(AuditLog)

@@ -2667,8 +2667,8 @@
                 <input type="text" name="cost_value" placeholder="0,00" required />
               </label>
               <label>
-                Comprovante
-                <input type="file" name="cost_receipt" />
+                Comprovantes
+                <input type="file" name="cost_receipt" multiple />
               </label>
             </div>
             <div class="action-row">
@@ -2695,8 +2695,15 @@
                       <td>R$ {{ custo.valor }}</td>
                       <td>
                         {% if custo.comprovante %}
-                          <a href="{{ custo.comprovante.url }}" target="_blank" rel="noopener">Ver comprovante</a>
-                        {% else %}
+                          <a href="{{ custo.comprovante.url }}" target="_blank" rel="noopener">Ver 1</a>
+                          {% if custo.comprovantes.all %}<br />{% endif %}
+                        {% endif %}
+                        {% if custo.comprovantes.all %}
+                          {% for comprovante in custo.comprovantes.all %}
+                            <a href="{{ comprovante.arquivo.url }}" target="_blank" rel="noopener">Ver {{ forloop.counter|add:"1" }}</a>{% if not forloop.last %}<br />{% endif %}
+                          {% endfor %}
+                        {% endif %}
+                        {% if not custo.comprovante and not custo.comprovantes.all %}
                           -
                         {% endif %}
                       </td>

@@ -59,6 +59,7 @@ from .models import (
     Evento,
     EventoAtendente,
     EventoCusto,
+    EventoCustoComprovante,
     FinanceiroComprovante,
     EventoPreset,
     EventoDescontoCodigo,
@@ -7283,6 +7284,7 @@ class EventoPublicoView(View):
                     EventoCusto.objects
                     .filter(evento=evento)
                     .select_related('created_by')
+                    .prefetch_related('comprovantes')
                     .order_by('-created_at')
                 )
                 custos_total = (
@@ -8452,20 +8454,23 @@ class EventoPublicoView(View):
                 return render(request, self.template_name, self._context(request, evento))
             nome = str(request.POST.get('cost_name') or '').strip()
             valor = self._parse_valor(request.POST.get('cost_value'))
-            comprovante = request.FILES.get('cost_receipt')
+            comprovantes = [arquivo for arquivo in request.FILES.getlist('cost_receipt') if arquivo]
+            comprovante_principal = comprovantes[0] if comprovantes else None
             if not nome:
                 messages.error(request, 'Informe o nome do custo do evento.')
                 return render(request, self.template_name, self._context(request, evento))
             if valor is None:
                 messages.error(request, 'Informe um valor válido para o custo do evento.')
                 return render(request, self.template_name, self._context(request, evento))
-            EventoCusto.objects.create(
+            custo = EventoCusto.objects.create(
                 evento=evento,
                 nome=nome,
                 valor=valor,
-                comprovante=comprovante,
+                comprovante=comprovante_principal,
                 created_by=request.user if request.user.is_authenticated else None,
             )
+            for arquivo in comprovantes[1:]:
+                EventoCustoComprovante.objects.create(custo=custo, arquivo=arquivo)
             messages.success(request, 'Custo do evento cadastrado com sucesso.')
             return render(request, self.template_name, self._context(request, evento))
 
@@ -8486,6 +8491,11 @@ class EventoPublicoView(View):
                     custo.comprovante.delete(save=False)
                 except Exception:
                     logger.exception('Falha ao remover comprovante do custo id=%s.', custo.id)
+            for comprovante in list(custo.comprovantes.all()):
+                try:
+                    comprovante.arquivo.delete(save=False)
+                except Exception:
+                    logger.exception('Falha ao remover anexo de comprovante id=%s do custo id=%s.', comprovante.id, custo.id)
             custo.delete()
             messages.success(request, 'Custo do evento removido com sucesso.')
             return render(request, self.template_name, self._context(request, evento))

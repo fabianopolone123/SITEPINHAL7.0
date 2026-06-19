@@ -25,7 +25,10 @@ def presenca_falta_inscricao_upload_to(instance, filename):
 def evento_custo_comprovante_upload_to(instance, filename):
     timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
     safe_name = (filename or 'comprovante').replace(' ', '_')
-    event_part = f'evento_{instance.evento_id or "sem_evento"}'
+    evento_id = getattr(instance, 'evento_id', None)
+    if not evento_id and getattr(instance, 'custo_id', None):
+        evento_id = getattr(instance.custo, 'evento_id', None)
+    event_part = f'evento_{evento_id or "sem_evento"}'
     return f'eventos/custos/{event_part}/{timestamp}_{safe_name}'
 
 
@@ -774,6 +777,20 @@ class EventoCusto(models.Model):
 
     def __str__(self):
         return f'{self.evento.name} - {self.nome}'
+
+
+class EventoCustoComprovante(models.Model):
+    custo = models.ForeignKey(EventoCusto, on_delete=models.CASCADE, related_name='comprovantes')
+    arquivo = models.FileField('comprovante', upload_to=evento_custo_comprovante_upload_to)
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+
+    class Meta:
+        ordering = ('id',)
+        verbose_name = 'comprovante de custo de evento'
+        verbose_name_plural = 'comprovantes de custos de eventos'
+
+    def __str__(self):
+        return f'{self.custo} - comprovante #{self.id}'
 
 
 class FinanceiroComprovante(models.Model):

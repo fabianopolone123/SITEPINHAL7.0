@@ -9,6 +9,13 @@ Arquivo oficial de registro das entregas concluidas.
 - Padrao de commit adotado no projeto:
   - `<arquivo_principal>: <descricao objetiva>`
 
+## 19/06/2026 - Eventos: multiplos comprovantes em custos
+
+- O cadastro de custo do evento passa a aceitar selecao de varios comprovantes no mesmo envio.
+- O primeiro comprovante continua no campo legado do custo e os anexos adicionais ficam vinculados em uma tabela propria.
+- A listagem de custos do evento mostra todos os comprovantes anexados com links numerados.
+- Ao excluir um custo, todos os arquivos de comprovante vinculados tambem sao removidos do storage.
+
 ## 22/05/2026 - Eventos: inscricao dentro do fluxo Vender
 
 - O fluxo Vender passa a mostrar Inscricao do evento junto aos itens de venda e abre o formulario em modo de atendimento, sem finalizar por Pix publico.
