@@ -10,8 +10,10 @@ from .models import (
     WhatsAppQueue,
     WhatsAppTemplate,
     EventoPresenca,
+    Evento,
     EventoCusto,
     EventoCustoComprovante,
+    EventoDescontoCodigo,
     AuditLog,
     MensalidadeAventureiro,
     PagamentoMensalidade,
@@ -19,6 +21,7 @@ from .models import (
     ExtratoTransacao,
     AventureiroCashbackLancamento,
     LojaPedido,
+    EventoInscricao,
 )
 
 
@@ -103,6 +106,28 @@ class EventoPresencaAdmin(admin.ModelAdmin):
     list_filter = ('presente', 'evento')
 
 
+@admin.register(Evento)
+class EventoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'event_date', 'event_time', 'evento_ativo', 'created_at')
+    search_fields = ('name', 'event_type', 'event_location', 'event_description')
+    list_filter = ('event_date', 'event_time', 'pagina_ativa')
+    readonly_fields = ('created_at', 'updated_at')
+
+    def evento_ativo(self, obj):
+        return getattr(obj, 'pagina_ativa', None)
+
+    evento_ativo.short_description = 'pagina ativa'
+
+
+@admin.register(EventoDescontoCodigo)
+class EventoDescontoCodigoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'evento', 'codigo', 'percentual_desconto', 'usado', 'usado_at')
+    search_fields = ('codigo', 'evento__name')
+    list_filter = ('evento', 'usado')
+    autocomplete_fields = ('evento', 'usado_por_inscricao', 'created_by')
+    readonly_fields = ('created_at', 'updated_at')
+
+
 class EventoCustoComprovanteInline(admin.TabularInline):
     model = EventoCustoComprovante
     extra = 0
@@ -180,7 +205,9 @@ class PagamentoMensalidadeAdmin(admin.ModelAdmin):
     list_display = (
         'id',
         'responsavel',
+        'mensalidades_count',
         'valor_total',
+        'cashback_desconto_valor',
         'status',
         'paid_at',
         'mp_payment_id',
@@ -195,7 +222,12 @@ class PagamentoMensalidadeAdmin(admin.ModelAdmin):
     list_filter = ('status', 'paid_at', 'created_at')
     filter_horizontal = ('mensalidades',)
     autocomplete_fields = ('responsavel', 'created_by')
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'mensalidades_count')
+
+    def mensalidades_count(self, obj):
+        return obj.mensalidades.count()
+
+    mensalidades_count.short_description = 'mensalidades'
 
     def _reabrir_mensalidades(self, pagamento):
         pagamento.mensalidades.filter(
@@ -238,6 +270,34 @@ class ExtratoTransacaoAdmin(admin.ModelAdmin):
     list_filter = ('status', 'origem', 'data_movimento')
     date_hierarchy = 'data_movimento'
     ordering = ('-data_movimento', '-id')
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(EventoInscricao)
+class EventoInscricaoAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'evento',
+        'codigo_inscricao',
+        'responsavel',
+        'valor_inscricao',
+        'valor_estornado',
+        'confirmada',
+        'cancelada',
+        'cashback_creditado',
+        'created_at',
+    )
+    search_fields = (
+        'evento__name',
+        'codigo_inscricao',
+        'responsavel__user__username',
+        'responsavel__responsavel_nome',
+        'responsavel__mae_nome',
+        'responsavel__pai_nome',
+        'dados',
+    )
+    list_filter = ('evento', 'confirmada', 'cancelada', 'cashback_creditado', 'created_at')
+    autocomplete_fields = ('evento', 'user', 'responsavel', 'indicador_aventureiro', 'desconto_codigo', 'cancelada_by')
     readonly_fields = ('created_at', 'updated_at')
 
 
