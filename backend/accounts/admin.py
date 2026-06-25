@@ -16,6 +16,7 @@ from .models import (
     MensalidadeAventureiro,
     PagamentoMensalidade,
     FinanceiroComprovante,
+    ExtratoTransacao,
     AventureiroCashbackLancamento,
     LojaPedido,
 )
@@ -217,6 +218,26 @@ class FinanceiroComprovanteAdmin(admin.ModelAdmin):
     search_fields = ('nome', 'created_by__username')
     list_filter = ('destino', 'created_at')
     autocomplete_fields = ('created_by',)
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(ExtratoTransacao)
+class ExtratoTransacaoAdmin(admin.ModelAdmin):
+    list_display = (
+        'data_movimento',
+        'descricao',
+        'external_id',
+        'valor_bruto',
+        'valor_liquido',
+        'saldo_pos',
+        'origem',
+        'status',
+    )
+    list_editable = ('valor_liquido', 'status', 'origem')
+    search_fields = ('descricao', 'external_id', 'observacao', 'raw_text')
+    list_filter = ('status', 'origem', 'data_movimento')
+    date_hierarchy = 'data_movimento'
+    ordering = ('-data_movimento', '-id')
     readonly_fields = ('created_at', 'updated_at')
 
 

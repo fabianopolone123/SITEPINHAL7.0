@@ -836,6 +836,61 @@ class FinanceiroComprovante(models.Model):
         return self.nome
 
 
+class ExtratoTransacao(models.Model):
+    ORIGEM_PIX = 'pix'
+    ORIGEM_TED = 'ted'
+    ORIGEM_TAXA = 'taxa'
+    ORIGEM_ESTORNO = 'estorno'
+    ORIGEM_TRANSFERENCIA = 'transferencia'
+    ORIGEM_OUTROS = 'outros'
+
+    ORIGEM_CHOICES = (
+        (ORIGEM_PIX, 'Pix'),
+        (ORIGEM_TED, 'TED/Transferencia'),
+        (ORIGEM_TAXA, 'Taxa'),
+        (ORIGEM_ESTORNO, 'Estorno'),
+        (ORIGEM_TRANSFERENCIA, 'Transferencia interna'),
+        (ORIGEM_OUTROS, 'Outros'),
+    )
+
+    STATUS_PENDENTE = 'pendente'
+    STATUS_CONFERIDO = 'conferido'
+    STATUS_AJUSTAR = 'ajustar_financeiro'
+    STATUS_IGNORAR = 'ignorar'
+
+    STATUS_CHOICES = (
+        (STATUS_PENDENTE, 'Pendente'),
+        (STATUS_CONFERIDO, 'Conferido'),
+        (STATUS_AJUSTAR, 'Ajustar financeiro'),
+        (STATUS_IGNORAR, 'Ignorar'),
+    )
+
+    data_movimento = models.DateField('data do movimento', db_index=True)
+    descricao = models.CharField('descricao', max_length=255)
+    external_id = models.CharField('id da operacao', max_length=128, blank=True, db_index=True)
+    valor_bruto = models.DecimalField('valor bruto', max_digits=10, decimal_places=2)
+    valor_liquido = models.DecimalField('valor liquido', max_digits=10, decimal_places=2, null=True, blank=True)
+    saldo_pos = models.DecimalField('saldo pos movimento', max_digits=10, decimal_places=2, null=True, blank=True)
+    origem = models.CharField('origem', max_length=32, choices=ORIGEM_CHOICES, default=ORIGEM_OUTROS)
+    status = models.CharField('status', max_length=32, choices=STATUS_CHOICES, default=STATUS_PENDENTE, db_index=True)
+    observacao = models.TextField('observacao', blank=True)
+    raw_text = models.TextField('texto bruto do extrato', blank=True)
+    created_at = models.DateTimeField('criado em', auto_now_add=True)
+    updated_at = models.DateTimeField('atualizado em', auto_now=True)
+
+    class Meta:
+        ordering = ('-data_movimento', '-id')
+        verbose_name = 'transacao do extrato'
+        verbose_name_plural = 'transacoes do extrato'
+        indexes = [
+            models.Index(fields=['data_movimento', 'status']),
+            models.Index(fields=['external_id']),
+        ]
+
+    def __str__(self):
+        return f'{self.data_movimento:%d/%m/%Y} - {self.descricao} - {self.valor_bruto}'
+
+
 class EventoPreset(models.Model):
     preset_name = models.CharField('nome da pré-configuração', max_length=160)
     event_name = models.CharField('nome padrão do evento', max_length=255, blank=True)
