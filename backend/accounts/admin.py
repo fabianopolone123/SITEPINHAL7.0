@@ -191,6 +191,7 @@ class MensalidadeAventureiroAdmin(admin.ModelAdmin):
         'aventureiro__responsavel__user__username',
     )
     list_filter = ('status', 'tipo', 'ano_referencia', 'mes_referencia')
+    list_editable = ('valor', 'status', 'tipo')
     autocomplete_fields = ('aventureiro',)
     readonly_fields = ('created_at', 'updated_at')
 
@@ -220,6 +221,7 @@ class PagamentoMensalidadeAdmin(admin.ModelAdmin):
         'mp_external_reference',
     )
     list_filter = ('status', 'paid_at', 'created_at')
+    list_editable = ('valor_total', 'status')
     filter_horizontal = ('mensalidades',)
     autocomplete_fields = ('responsavel', 'created_by')
     readonly_fields = ('created_at', 'updated_at', 'mensalidades_count')
@@ -249,6 +251,7 @@ class FinanceiroComprovanteAdmin(admin.ModelAdmin):
     list_display = ('id', 'nome', 'valor', 'destino', 'created_by', 'created_at')
     search_fields = ('nome', 'created_by__username')
     list_filter = ('destino', 'created_at')
+    list_editable = ('valor', 'destino')
     autocomplete_fields = ('created_by',)
     readonly_fields = ('created_at', 'updated_at')
 
@@ -297,6 +300,7 @@ class EventoInscricaoAdmin(admin.ModelAdmin):
         'dados',
     )
     list_filter = ('evento', 'confirmada', 'cancelada', 'cashback_creditado', 'created_at')
+    list_editable = ('valor_inscricao', 'valor_estornado', 'confirmada', 'cancelada', 'cashback_creditado')
     autocomplete_fields = ('evento', 'user', 'responsavel', 'indicador_aventureiro', 'desconto_codigo', 'cancelada_by')
     readonly_fields = ('created_at', 'updated_at')
 
@@ -319,6 +323,7 @@ class AventureiroCashbackLancamentoAdmin(admin.ModelAdmin):
         'descricao',
     )
     list_filter = ('tipo', 'created_at')
+    list_editable = ('valor', 'tipo')
     autocomplete_fields = ('aventureiro', 'loja_pedido', 'created_by')
     raw_id_fields = ('evento_inscricao',)
     readonly_fields = ('created_at', 'updated_at')
@@ -333,6 +338,7 @@ class LojaPedidoAdmin(admin.ModelAdmin):
         'evento_inscricao',
         'valor_total',
         'status',
+        'entregue',
         'paid_at',
         'created_at',
     )
@@ -345,6 +351,7 @@ class LojaPedidoAdmin(admin.ModelAdmin):
         'mp_external_reference',
     )
     list_filter = ('status', 'paid_at', 'created_at', 'evento')
+    list_editable = ('valor_total', 'status', 'entregue')
     autocomplete_fields = ('responsavel', 'cashback_aventureiro', 'created_by')
     raw_id_fields = ('evento', 'evento_inscricao')
     readonly_fields = ('created_at', 'updated_at')
