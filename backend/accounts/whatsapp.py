@@ -173,8 +173,13 @@ def normalize_phone_number(raw_phone):
     if len(local) > 11:
         local = local[-11:]
     if len(local) == 10:
-        # Numero antigo sem nono digito (DDD + 8): normaliza para padrao atual.
-        local = f'{local[:2]}9{local[2:]}'
+        # DDD + 8 digitos: so e celular antigo sem o nono digito se o primeiro
+        # digito do numero (apos o DDD) for 6-9. Primeiro digito 2-5 e telefone
+        # fixo, que nao tem WhatsApp - nao deve virar um celular inventado.
+        if local[2] in '6789':
+            local = f'{local[:2]}9{local[2:]}'
+        else:
+            return ''
     if len(local) not in (10, 11):
         return ''
     return f'55{local}'
