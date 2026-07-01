@@ -11071,6 +11071,40 @@ class WhatsAppView(LoginRequiredMixin, View):
             defaults={'message_text': request.POST.get('template_indicacao_codigo', '').strip()},
         )
 
+        if request.POST.get('send_test_manual') == '1':
+            manual_phone = normalize_phone_number(request.POST.get('manual_test_phone', '').strip())
+            manual_message = request.POST.get('manual_test_message', '').strip()
+            if not manual_phone:
+                messages.error(request, 'Numero invalido para o teste manual. Use DDD + numero (ex: 5511999999999).')
+            elif not manual_message:
+                messages.error(request, 'Digite uma mensagem para o teste manual.')
+            else:
+                queue_item = WhatsAppQueue.objects.create(
+                    user=request.user,
+                    phone_number=manual_phone,
+                    notification_type=WhatsAppQueue.TYPE_TESTE,
+                    message_text=manual_message,
+                    status=WhatsAppQueue.STATUS_PENDING,
+                )
+                success, provider_id, error_message = send_wapi_text(manual_phone, manual_message)
+                queue_item.attempts = 1
+                if success:
+                    queue_item.status = WhatsAppQueue.STATUS_SENT
+                    queue_item.provider_message_id = provider_id
+                    queue_item.sent_at = timezone.now()
+                    queue_item.last_error = ''
+                    messages.success(request, f'Teste manual enviado para {manual_phone}.')
+                else:
+                    queue_item.status = WhatsAppQueue.STATUS_FAILED
+                    queue_item.last_error = error_message
+                    messages.error(request, f'Falha no teste manual para {manual_phone}: {error_message}')
+                queue_item.save(
+                    update_fields=['status', 'attempts', 'provider_message_id', 'sent_at', 'last_error']
+                )
+            context = self._context(request)
+            context.update(_sidebar_context(request))
+            return render(request, self.template_name, context)
+
         if request.POST.get('send_indicacao') == '1':
             send_all = bool(request.POST.get('send_indicacao_all'))
             selected_ids = []

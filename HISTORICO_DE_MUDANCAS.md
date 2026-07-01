@@ -9,6 +9,11 @@ Arquivo oficial de registro das entregas concluidas.
 - Padrao de commit adotado no projeto:
   - `<arquivo_principal>: <descricao objetiva>`
 
+## 01/07/2026 - WhatsApp: teste manual com numero e mensagem livres
+
+- Adicionado card "Teste manual (numero avulso)" no painel WhatsApp, com campo de numero e campo de mensagem livres.
+- Botao "Enviar teste manual" dispara o envio direto via W-API para qualquer numero digitado, sem precisar cadastrar o contato antes, registrando o resultado (sucesso/falha) na fila `WhatsAppQueue` como tipo `teste`.
+
 ## 01/07/2026 - WhatsApp: corrige normalizacao de telefone fixo virando celular invalido
 
 - `normalize_phone_number` (whatsapp.py) tratava qualquer numero de 10 digitos (DDD + 8 digitos) como celular antigo sem o nono digito, inserindo um `9` mesmo quando o numero era um telefone fixo (ex: `_telefone` de responsavel/mae/pai).

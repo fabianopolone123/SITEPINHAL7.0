@@ -50,6 +50,22 @@
       </label>
     </section>
 
+    <section class="painel-card">
+      <h3>Teste manual (numero avulso)</h3>
+      <p class="panel-note">Envie uma mensagem de teste para qualquer numero, sem precisar cadastrar um contato antes.</p>
+      <label>
+        Numero (com DDD, ex: 5511999999999)
+        <input type="text" name="manual_test_phone" form="whatsapp-form" placeholder="5511999999999" autocomplete="off" />
+      </label>
+      <label>
+        Mensagem
+        <textarea name="manual_test_message" form="whatsapp-form" rows="4" placeholder="Digite a mensagem de teste"></textarea>
+      </label>
+      <div class="action-row">
+        <button type="submit" class="secondary" name="send_test_manual" value="1" form="whatsapp-form">Enviar teste manual</button>
+      </div>
+    </section>
+
     <section class="painel-card message-template-wrap">
       <h3>Mensagens padrão</h3>
       <p class="panel-note">Esses textos valem para todos os contatos.</p>
